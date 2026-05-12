@@ -1,0 +1,13 @@
+{
+  "name": "@legal-ai/auth",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "dependencies": {
+    "next-auth": "^4.24.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

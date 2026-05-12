@@ -1,0 +1,16 @@
+{
+  "name": "@legal-ai/ai",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "dependencies": {
+    "langchain": "latest",
+    "@langchain/community": "latest",
+    "@langchain/google-genai": "latest",
+    "@langchain/langgraph": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
