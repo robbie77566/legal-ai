@@ -29,8 +29,8 @@ It leverages the **Model Context Protocol (MCP)**, a **Legal Knowledge Graph**, 
 *   **Document Parsing:** [Docling](https://ds4sd.github.io/docling/) or [Marker] for high-fidelity extraction of structured document data.
 
 ### AI Reasoning Layer
-*   **Primary LLM:** Gemini 1.5 Pro (via Google AI Studio/Vertex AI).
-*   **Local LLM:** **Ollama** (Llama 3) for preprocessing, summarization, and **Institutional Record** entity resolution.
+*   **Primary LLM:** Ollama (Llama 3) running locally for privacy and cost-optimization.
+*   **Secondary/Failover LLM:** Gemini 1.5 Pro (via Google AI Studio/Vertex AI) for complex analysis and fallback.
 *   **Orchestration:** [LangGraph.js](https://langchain-ai.github.io/langgraphjs/) for the **"Escalation Ladder"** stateful, cyclical, and multi-agent workflows.
 *   **MCP Client:** Custom implementation using the `@modelcontextprotocol/sdk`.
 *   **MCP Ecosystem Expansion:** 
@@ -69,8 +69,8 @@ graph TD
         
         Router{Model Router}
         StateMachine --> Router
-        Router -->|High Reasoning| Gemini[Gemini 1.5 Pro]
-        Router -->|Prep/Failover| Ollama[Ollama Local]
+        Router -->|Privacy/Local/Default| Ollama[Ollama Local]
+        Router -->|High Reasoning/Failover| Gemini[Gemini 1.5 Pro]
         
         MCP_Client -->|Request| MCP_Servers{MCP Servers}
         MCP_Servers -->|TX Statutes| S1[mcp-tx-statutes]

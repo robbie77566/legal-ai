@@ -1,10 +1,11 @@
 import { StateGraph, END } from '@langchain/langgraph'
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
-import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages'
-import { prisma } from '@hg/database'
+import { BaseMessage, SystemMessage } from '@langchain/core/messages'
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { findPrecedent, isGoodLaw } from '../mcp/servers/mcp-tx-case-law';
+import { formatCitation } from '../mcp/servers/mcp-bluebook-sanitizer';
+import { AgentPersonas } from './personas';
 
-// Define the state interface
-interface AgentState {
+export interface AgentState {
   messages: BaseMessage[]
   next?: string
   findings?: any[]
@@ -12,33 +13,54 @@ interface AgentState {
 }
 
 export class LangGraphOrchestrator {
-  private model: ChatGoogleGenerativeAI
+  private llm: ChatGoogleGenerativeAI;
 
   constructor() {
-    this.model = new ChatGoogleGenerativeAI({
-      modelName: 'gemini-1.5-pro',
-      maxOutputTokens: 2048,
-    })
+    this.llm = new ChatGoogleGenerativeAI({
+      modelName: "gemini-1.5-pro",
+      temperature: 0,
+    });
   }
 
-  private async supervisorNode(state: AgentState) {
-    // Supervisor logic to route between Research, Audit, and Synthesis
-    return { next: 'researcher' }
+  private async iacAuditorNode(state: AgentState) {
+    console.log("[LangGraph] IAC Auditor Node active");
+    const tools = [findPrecedent, isGoodLaw];
+    const modelWithTools = this.llm.bindTools(tools);
+    
+    const messages = [
+      new SystemMessage(AgentPersonas.iac_specialist.systemPrompt),
+      ...state.messages
+    ];
+    
+    const response = await modelWithTools.invoke(messages);
+    return { messages: [response], next: 'bradyAuditor' };
   }
 
-  private async researcherNode(state: AgentState) {
-    // Queries pgvector and Neo4j
-    return { messages: [new AIMessage('Research findings...')], next: 'auditor' }
+  private async bradyAuditorNode(state: AgentState) {
+    console.log("[LangGraph] Brady Auditor Node active");
+    // Brady Auditor primarily diffs text (Transcript vs Pre-Trial Disclosure).
+    // In a full implementation, it would use an MCP tool to fetch the disclosure log.
+    const messages = [
+      new SystemMessage(AgentPersonas.brady_auditor.systemPrompt),
+      ...state.messages
+    ];
+    
+    const response = await this.llm.invoke(messages);
+    return { messages: [response], next: 'writFormatter' };
   }
 
-  private async auditorNode(state: AgentState) {
-    // Calls MCP tools
-    return { messages: [new AIMessage('Audit complete.')], next: 'synthesizer' }
-  }
-
-  private async synthesizerNode(state: AgentState) {
-    // Drafts the response
-    return { messages: [new AIMessage('Final synthesis.')], next: END }
+  private async writFormatterNode(state: AgentState) {
+    console.log("[LangGraph] Writ Formatter Node active");
+    const tools = [formatCitation];
+    const modelWithTools = this.llm.bindTools(tools);
+    
+    const messages = [
+      new SystemMessage(AgentPersonas.writ_formatter.systemPrompt),
+      ...state.messages
+    ];
+    
+    const response = await modelWithTools.invoke(messages);
+    return { messages: [response], next: END };
   }
 
   public createGraph() {
@@ -63,16 +85,14 @@ export class LangGraphOrchestrator {
       },
     })
 
-    workflow.addNode('supervisor', this.supervisorNode.bind(this))
-    workflow.addNode('researcher', this.researcherNode.bind(this))
-    workflow.addNode('auditor', this.auditorNode.bind(this))
-    workflow.addNode('synthesizer', this.synthesizerNode.bind(this))
+    workflow.addNode('iacAuditor', this.iacAuditorNode.bind(this))
+    workflow.addNode('bradyAuditor', this.bradyAuditorNode.bind(this))
+    workflow.addNode('writFormatter', this.writFormatterNode.bind(this))
 
-    workflow.setEntryPoint('supervisor')
-    workflow.addConditionalEdges('supervisor', (state) => state.next || END)
-    workflow.addEdge('researcher', 'supervisor')
-    workflow.addEdge('auditor', 'supervisor')
-    workflow.addEdge('synthesizer', END)
+    workflow.setEntryPoint('iacAuditor')
+    workflow.addEdge('iacAuditor', 'bradyAuditor')
+    workflow.addEdge('bradyAuditor', 'writFormatter')
+    workflow.addEdge('writFormatter', END)
 
     return workflow
   }

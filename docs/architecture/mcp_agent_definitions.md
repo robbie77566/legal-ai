@@ -31,6 +31,22 @@ These servers provide the "Ground Truth" tools that AI agents use to validate le
     *   `calculate_writ_deadline(judgment_date, appeal_date)`: Computes the precise filing window for Art. 11.07 vs. Federal 2254.
     *   `verify_exhaustion(claims, court_history)`: Checks if every claim has been presented to the CCA.
 
+### 1.5. `mcp-clio-sync`
+*   **Role:** Practice management integration.
+*   **Tools:**
+    *   `sync_client_metadata(client_id)`: Pulls case facts and deadlines from Clio.
+    *   `update_docket_status(case_id, status)`: Pushes updates from HabeasGraph back to Clio.
+
+### 1.6. `mcp-axon-transcriber`
+*   **Role:** Multimedia discovery ingestion (Deferred to Phase 5).
+*   **Tools:**
+    *   `transcribe_audio(s3_url)`: Uses local Whisper models to generate timestamped text chunks from massive video/audio files.
+
+### 1.7. `mcp-bluebook-sanitizer`
+*   **Role:** Final output formatting compliance.
+*   **Tools:**
+    *   `format_citation(raw_text)`: Strict rules-based formatter to ensure citations conform to *The Bluebook* and TRAP standards.
+
 ---
 
 ## 2. Specialized Task Agents (Orchestrators)

@@ -1,60 +1,37 @@
 import { PrismaClient } from '@prisma/client'
-import neo4j from 'neo4j-driver'
 
-export * from '@prisma/client'
-
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
-const globalForNeo4j = globalThis as unknown as { neo4jDriver: any }
-
-const basePrisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  })
-
-const neo4jDriver = globalForNeo4j.neo4jDriver || neo4j.driver(
-  process.env.NEO4J_URL || 'bolt://localhost:7687',
-  neo4j.auth.basic(
-    process.env.NEO4J_USER || 'neo4j',
-    process.env.NEO4J_PASSWORD || 'password'
-  )
-)
-
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = basePrisma
-  globalForNeo4j.neo4jDriver = neo4jDriver
+const prismaClientSingleton = () => {
+  return new PrismaClient()
 }
 
-export { neo4jDriver }
+declare global {
+  var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>
+}
+
+const prisma = globalThis.prismaGlobal ?? prismaClientSingleton()
+
+export default prisma
+
+if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma
 
 /**
- * Tenant-aware Prisma client that enforces Row-Level Security (RLS)
+ * Executes a Prisma query within an interactive transaction that has the 
+ * PostgreSQL session variable `app.current_tenant_id` securely set.
+ * This is required to bypass Row-Level Security (RLS) and access data.
+ * 
+ * @param tenantId The ID of the current tenant session
+ * @param fn The transaction callback containing the queries
  */
-export const getTenantPrisma = (tenantId: string) => {
-  return basePrisma.$extends({
-    query: {
-      $allModels: {
-        async $allOperations({ args, query }) {
-          // Set the session variable for RLS
-          await basePrisma.$executeRawUnsafe(`SET app.current_tenant_id = '${tenantId}'`)
-          return query(args)
-        },
-      },
-    },
-    model: {
-      documentChunk: {
-        async search(queryEmbedding: number[], limit = 5) {
-          const vectorString = `[${queryEmbedding.join(',')}]`
-          return await basePrisma.$queryRawUnsafe<any[]>(
-            `SELECT id, content, metadata, 1 - (embedding <=> '${vectorString}'::vector) as similarity
-             FROM "DocumentChunk"
-             ORDER BY embedding <=> '${vectorString}'::vector
-             LIMIT ${limit}`
-          )
-        }
-      }
-    }
-  })
-}
-
-export const prisma = basePrisma
+export const withTenant = async <T>(
+  tenantId: string,
+  fn: (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => Promise<T>
+) => {
+  return prisma.$transaction(async (tx) => {
+    // Inject the tenant ID into the Postgres session for this specific transaction block
+    // We use SET LOCAL so the setting is restricted to this transaction only
+    await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${tenantId}';`);
+    
+    // Execute the user queries
+    return fn(tx);
+  });
+};

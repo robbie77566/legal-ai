@@ -13,5 +13,15 @@
     "turbo": "^2.0.0",
     "prettier": "^3.0.0"
   },
-  "packageManager": "pnpm@11.1.0"
+  "packageManager": "pnpm@11.1.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "fastify-socket.io",
+      "msgpackr-extract",
+      "prisma"
+    ]
+  }
 }

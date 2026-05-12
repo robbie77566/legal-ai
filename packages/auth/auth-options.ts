@@ -1,37 +1,23 @@
-import { NextAuthOptions } from 'next-auth'
-import { prisma } from '@hg/database'
+import type { NextAuthConfig } from "next-auth"
+import { PrismaAdapter } from "@auth/prisma-adapter"
+import prisma from "@hg/database"
 
-export const authOptions: NextAuthOptions = {
+export const authOptions: NextAuthConfig = {
+  adapter: PrismaAdapter(prisma),
   providers: [
-    // Add providers here (e.g., Google, GitHub, Credentials)
+    // Configure specific providers (e.g., Azure AD for law firms)
   ],
   callbacks: {
-    async session({ session, token }) {
-      if (token && session.user) {
-        // @ts-ignore
-        session.user.id = token.sub
+    session: async ({ session, user }) => {
+      if (session?.user) {
+        session.user.id = user.id;
         
-        // Fetch tenantId for the user
-        const user = await prisma.user.findUnique({
-          where: { id: token.sub },
-          select: { tenantId: true },
-        })
-        
-        if (user) {
-          // @ts-ignore
-          session.user.tenantId = user.tenantId
-        }
+        // Expose tenantId to the session object so the frontend can securely
+        // pass it to API endpoints requiring RLS bypass.
+        // The user model in Prisma contains the tenantId relation.
+        (session.user as any).tenantId = (user as any).tenantId;
       }
-      return session
+      return session;
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id
-      }
-      return token
-    },
-  },
-  session: {
-    strategy: 'jwt',
   },
 }

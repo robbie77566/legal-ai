@@ -68,7 +68,7 @@
 - [x] Implement `pnpm run db:seed:prod` to initialize the "System Tenant" and "Master Admin" user via ENV variables.
 - [x] Create a `.env.example` with all required keys.
 - **Documentation:** `docs/development/setup.md` - A 5-minute guide to a running local environment.
-- **Test Case:** `docker-compose up -d` results in 3 healthy containers; API can connect to all three.
+- **Test Case:** `docker compose up -d` results in 3 healthy containers; API can connect to all three.
 
 ---
 

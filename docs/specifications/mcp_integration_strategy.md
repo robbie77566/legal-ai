@@ -33,7 +33,7 @@ The **Model Context Protocol (MCP)** will be the backbone of the "Legal Intellig
 
 ## Integration Architecture
 
-1.  **Orchestrator:** The main LLM (Gemini 1.5 Pro) acts as the primary "thinker."
+1.  **Orchestrator:** The local LLM (Ollama / Llama 3) acts as the primary "thinker."
 2.  **MCP Client:** The Node.js/TypeScript backend implements the MCP Client.
 3.  **Discovery:** When the Orchestrator identifies a legal concept (e.g., "The sentence seems too high"), it calls an MCP tool (e.g., `mcp-tx-statutes.search_statutes`) to gather ground-truth facts.
 4.  **Synthesis:** The Orchestrator combines the transcript data with the MCP-provided legal facts to generate the final analysis.

@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: legal_ai
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -21,9 +21,10 @@ services:
     image: neo4j:latest
     environment:
       NEO4J_AUTH: neo4j/password
+      NEO4J_PLUGINS: '["apoc"]'
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "7475:7474"
+      - "7688:7687"
     volumes:
       - neo4j_data:/data
 

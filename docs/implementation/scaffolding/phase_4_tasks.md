@@ -11,21 +11,21 @@
 
 ### Task 4.2: Brady Auditor & Appellate Auditor
 - [x] Implement the node for comparing pre-trial discovery logs against trial testimony.
-- [ ] **Expansion:** Implement the **Appellate Auditor** node for 30-day "Four Corners" record audits (Legal Sufficiency & Jury Charge).
+- [x] **Expansion:** Implement the **Appellate Auditor** node for 30-day "Four Corners" record audits (Legal Sufficiency & Jury Charge).
 - [x] Develop the "Materiality" assessment logic.
 - [x] Integrate Neo4j to trace evidence impacts.
 - **Documentation:** `docs/legal/appellate_audit_strategy.md` mapping the record-review workflow.
 
 ### Task 4.3: Junk Science & Sentence Credit Auditors
 - [x] Implement the node for forensic methodology auditing.
-- [ ] **Expansion:** Implement the **Time-Served Auditor** node for Art. 42.03/44.29 auditing and Parole eligibility projections.
+- [x] **Expansion:** Implement the **Time-Served Auditor** node for Art. 42.03/44.29 auditing and Parole eligibility projections.
 - [x] Integrate the `mcp-forensic-science-registry`.
-- [ ] **Expansion:** Integrate `mcp-tdcj-policy-expert`.
+- [x] **Expansion:** Integrate `mcp-tdcj-policy-expert`.
 - **Documentation:** `docs/legal/sentence_audit_logic.md` detailing credit calculation rules.
 
 ### Task 4.4: Clemency Synthesis & Sanitization
 - [x] Implement the structured drafting node using the **CREAC** methodology.
-- [ ] **Expansion:** Implement the **Clemency Strategist** node for BPP application synthesis and achievement mapping.
+- [x] **Expansion:** Implement the **Clemency Strategist** node for BPP application synthesis and achievement mapping.
 - [x] **Precision Enhancement:** Implement the **Bluebook Sanitizer** node.
 - **Documentation:** `docs/output/creac_drafting_guide.md` providing templates for AI-generated legal arguments.
 - **Test Case:** Generate an argument for an IAC claim; verify it contains all five CREAC components and correct transcript citations.

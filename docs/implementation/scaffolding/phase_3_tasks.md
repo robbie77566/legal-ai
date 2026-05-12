@@ -30,8 +30,8 @@
 ### Task 3.4: Statute, Case Law & Appellate Servers
 - [x] Develop `mcp-tx-statutes-pro` (Node.js) with tools for point-in-time statute retrieval.
 - [x] Develop `mcp-tx-case-law` (Python/FastAPI) with tools for CCA-specific precedent search.
-- [ ] **Expansion:** Develop `mcp-tx-appellate-rules` for TRAP deadlines and formatting.
-- [ ] **Expansion:** Develop `mcp-tx-jury-charges` for preservation auditing.
+- [x] **Expansion:** Develop `mcp-tx-appellate-rules` for TRAP deadlines and formatting.
+- [x] **Expansion:** Develop `mcp-tx-jury-charges` for preservation auditing.
 - [x] Implement secure authentication for the MCP servers to prevent unauthorized access.
 - [x] **Documentation:** `docs/mcp/tx_legal_tools.md` detailing the input/output schemas for every provided tool.
 - [x] **Test Case:** Query `mcp-tx-statutes-pro` for a penal code section active in 1995; verify the returned text matches the historical version.
@@ -67,9 +67,8 @@
 
 ### Task 3.8: Tripartite Retrieval & Failover Logic
 - [x] Implement the master `RetrievalChain` (Vector, Graph, MCP).
-- [x] **Model Enhancement:** Implement **Failover Policy** in the `ModelRouter`. If Gemini is unreachable, automatically route high-priority reasoning to a local Llama 3 70B instance.
-- [x] **Documentation:** `docs/ai/hybrid_reasoning_strategy.md` explaining the failover logic and data source weights.
-- [x] **Test Case:** Simulate a Gemini API failure; verify the agent successfully completes a basic research task using the local failover model.
+- [x] **Model Enhancement:** Implement **Failover Policy** in the `ModelRouter`. Ollama is the default; if it is unreachable, automatically route reasoning to Gemini 1.5 Pro.
+- [x] **Test Case:** Simulate an Ollama failure; verify the agent successfully completes a basic research task using the Gemini failover model.
 
 ---
 

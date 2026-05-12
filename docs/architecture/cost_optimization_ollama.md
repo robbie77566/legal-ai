@@ -4,14 +4,14 @@ To minimize operational costs while maintaining high reasoning quality for legal
 
 ## 1. Model Roles & Delegation
 
-| Task Category | Primary Model (Gemini 1.5 Pro) | Secondary Model (Ollama / Llama 3) | Rationale |
+| Task Category | Primary Model (Ollama / Llama 3) | Secondary Model (Gemini 1.5 Pro) | Rationale |
 | :--- | :--- | :--- | :--- |
-| **Final Legal Analysis** | **Primary** | - | Requires the highest reasoning capability and large context window for Article 11.07 writs. |
-| **Document Pre-processing** | - | **Primary** | Tasks like cleaning OCR text, identifying document types, and extracting basic metadata can be done locally to save tokens. |
-| **Initial IAC/Brady Flagging** | - | **Primary** | Ollama can perform a 'first pass' to find potential keywords or inconsistencies, which are then passed to Gemini for final validation. |
-| **Zero-Retention Processing** | - | **Primary** | For the highest privacy tier, processing data locally via Ollama ensures that sensitive document text never leaves the local environment. |
-| **Drafting Standard Forms** | - | **Primary** | Generating boilerplate legal forms or initial 'Statement of Facts' based on extracted data. |
-| **Summarization** | **Secondary** | **Primary** | Summarizing long trial days or witness testimonies to fit within smaller context windows for intermediate steps. |
+| **Final Legal Analysis** | **Primary** | **Secondary** | Local processing is preferred for privacy and cost; Gemini used only for complex Article 11.07 reasoning. |
+| **Document Pre-processing** | **Primary** | - | Tasks like cleaning OCR text and extracting basic metadata are done locally. |
+| **Initial IAC/Brady Flagging** | **Primary** | - | Ollama performs the 'first pass' to find potential keywords or inconsistencies. |
+| **Zero-Retention Processing** | **Primary** | - | Ensures sensitive document text never leaves the local environment. |
+| **Drafting Standard Forms** | **Primary** | - | Generating boilerplate legal forms or initial 'Statement of Facts'. |
+| **Summarization** | **Primary** | **Secondary** | Summarizing long trial days locally to fit within smaller context windows. |
 
 ---
 
@@ -22,8 +22,8 @@ The **BullMQ Worker** and **Smart Chat Orchestrator** will now include a `ModelR
 ```mermaid
 graph TD
     Task[New Analysis Task] --> Router{Model Router}
-    Router -->|High Reasoning / Final Writ| Gemini[Gemini 1.5 Pro (Cloud)]
-    Router -->|Preprocessing / Privacy / Bulk| Ollama[Ollama (Local/Edge)]
+    Router -->|Preprocessing / Privacy / Default| Ollama[Ollama (Local/Edge)]
+    Router -->|High Reasoning / Complex Failover| Gemini[Gemini 1.5 Pro (Cloud)]
     
     Ollama -->|Refined Context| Gemini
     Gemini -->|Final Report| User

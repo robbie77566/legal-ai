@@ -11,7 +11,7 @@ HabeasGraph is a comprehensive **Incarceration Reduction Engine** specifically e
 - **Backend:** Fastify (Node.js LTS), BullMQ (Redis) for background jobs.
 - **Communication:** **WebSockets (Fastify-Socket.io)** for persistent, stateful AI chat updates.
 - **Storage:** S3-compatible storage with **Pre-signed URL** upload flow for large transcript handling.
-- **Authentication:** NextAuth.js (Auth.js) with strict Multi-Tenant Row-Level Security (RLS).
+- **Authentication:** NextAuth.js (Auth.js) with strict Multi-Tenant Row-Level Security (RLS), including a secure **OAuth2 Credential Vault** for third-party integrations.
 - **Database:** 
   - **PostgreSQL:** Relational data & **Trigger-Protected** Immutable Audit Logs.
   - **pgvector:** Semantic/Hierarchical chunk storage.
@@ -19,10 +19,11 @@ HabeasGraph is a comprehensive **Incarceration Reduction Engine** specifically e
 
 ### AI Reasoning Layer
 - **Orchestration:** LangGraph.js (Stateful, cyclical workflows).
-- **Primary LLM:** Gemini 1.5 Pro.
-- **Local LLM:** Ollama / Llama 3 (Preprocessing, Entity Resolution, **Failover reasoning**).
+- **Primary LLM:** Ollama / Llama 3 (Local, Privacy-first, Cost-optimized).
+- **Secondary LLM:** Gemini 1.5 Pro (Complex reasoning & high-context failover).
 - **Sanitization:** Dedicated **Bluebook Sanitizer** node for citation precision.
 - **Protocol:** Model Context Protocol (MCP) for grounded legal tool access.
+- **Multimedia Engine (Phase 5):** Local Whisper models and FFmpeg transcoding queues for Axon bodycam ingestion.
 
 ---
 
@@ -61,6 +62,11 @@ HabeasGraph is a comprehensive **Incarceration Reduction Engine** specifically e
 - **The Writ Formatter:** 
   - Implement **CREAC** structured drafting logic.
   - **Export Service:** Develop the DOCX generator with automated Table of Authorities and Table of Contents.
+
+### Phase 5: Early Pipeline Expansion (Weeks 11-14)
+- **Multimedia Ingestion:** Implement FFmpeg processing queues and local Whisper inference for `mcp-axon-transcriber`.
+- **Ecosystem Integrations:** Deploy OAuth listeners and webhooks for `mcp-clio-sync` and PACER/RECAP docket monitoring.
+- *Strategic Note:* This phase is intentionally deferred to ensure the core post-conviction graph architecture (Phases 1-4) is robust before expanding into pre-trial feature sets.
 
 ---
 
