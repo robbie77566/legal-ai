@@ -1,7 +1,7 @@
-# Tanteo Enterprise: Full Implementation Plan
+# HabeasGraph: Full Implementation Plan
 
 ## 1. Executive Overview
-Tanteo Enterprise is a high-fidelity Legal AI platform specifically engineered for **Texas Post-Conviction Relief (PCR)** and **Article 11.07 Habeas Corpus** writs. The platform utilizes a "Tripartite Data Strategy" (Relational, Vector, Graph) and stateful multi-agent orchestration to provide grounded, defensible legal analysis.
+HabeasGraph is a comprehensive **Incarceration Reduction Engine** specifically engineered for **Texas Post-Conviction Relief (PCR)**. It transforms raw legal records into structured intelligence to support the entire lifecycle of release advocacy, including **Direct Appeals**, **Article 11.07 Habeas Corpus writs**, **Clemency applications**, and **Administrative Sentence Audits**.
 
 ## 2. Definitive Tech Stack
 
@@ -52,11 +52,12 @@ Tanteo Enterprise is a high-fidelity Legal AI platform specifically engineered f
   - Integrate `mcp-forensic-science-registry` for junk science validation.
 - **UI Integration:** Build the "Side-by-Side" workspace with deep-linking from chat to the transcript viewer.
 
-### Phase 4: Texas Use Cases & Final Synthesis (Weeks 8-10)
+### Phase 4: Incarceration Reduction & Final Synthesis (Weeks 8-10)
 - **Specialized Personas:**
-  - **IAC Specialist:** Strickland prong analysis logic.
-  - **Brady Auditor:** Discovery-to-testimony gap detection.
-  - **11.073 Reviewer:** Forensic methodology audit.
+  - **IAC & Brady Specialists:** Writ-phase gap detection.
+  - **Appellate Auditor:** 30-day "Four Corners" record audit.
+  - **Clemency Strategist:** BPP application synthesis & achievement mapping.
+  - **Time-Served Auditor:** Art. 42.03/44.29 credit auditing.
 - **The Writ Formatter:** 
   - Implement **CREAC** structured drafting logic.
   - **Export Service:** Develop the DOCX generator with automated Table of Authorities and Table of Contents.

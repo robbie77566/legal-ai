@@ -1,7 +1,9 @@
-# Legal AI Platform: Website Architecture
+# HabeasGraph: Website Architecture
 
 ## 1. Executive Summary
-The Legal AI platform is a specialized tool for Texas post-conviction relief and habeas corpus analysis. It leverages the **Model Context Protocol (MCP)**, a **Legal Knowledge Graph**, and **Stateful Multi-Agent Orchestration** to provide grounded, expert-level legal analysis based on Texas statutes, case law, and forensic science standards.
+HabeasGraph is a comprehensive **Incarceration Reduction Engine** specifically engineered for Texas criminal law. It transforms raw legal records into structured intelligence to support the entire lifecycle of post-conviction advocacy, including **Direct Appeals**, **Article 11.07 Habeas Corpus writs**, **Clemency applications**, and **Administrative Sentence Audits**.
+
+It leverages the **Model Context Protocol (MCP)**, a **Legal Knowledge Graph**, and **Stateful Multi-Agent Orchestration** to identify every viable path to release or sentence reduction.
 
 ## 2. Tech Stack
 
@@ -28,9 +30,14 @@ The Legal AI platform is a specialized tool for Texas post-conviction relief and
 
 ### AI Reasoning Layer
 *   **Primary LLM:** Gemini 1.5 Pro (via Google AI Studio/Vertex AI).
-*   **Local LLM:** **Ollama** (Llama 3) for preprocessing, summarization, and **Entity Resolution**.
-*   **Orchestration:** [LangGraph.js](https://langchain-ai.github.io/langgraphjs/) for stateful, cyclical, and multi-agent workflows.
+*   **Local LLM:** **Ollama** (Llama 3) for preprocessing, summarization, and **Institutional Record** entity resolution.
+*   **Orchestration:** [LangGraph.js](https://langchain-ai.github.io/langgraphjs/) for the **"Escalation Ladder"** stateful, cyclical, and multi-agent workflows.
 *   **MCP Client:** Custom implementation using the `@modelcontextprotocol/sdk`.
+*   **MCP Ecosystem Expansion:** 
+    *   `mcp-tx-statutes-pro` (Substantive Law)
+    *   `mcp-tx-appellate-rules` (Direct Appeal Deadlines/TRAP)
+    *   `mcp-tx-jury-charges` (Preservation Audit)
+    *   `mcp-tdcj-policy-expert` (Sentence Credits & Clemency)
 
 ### Infrastructure & DevOps
 *   **Containerization:** Docker & Docker Compose for local development and deployment parity.
@@ -45,7 +52,7 @@ The Legal AI platform is a specialized tool for Texas post-conviction relief and
 graph TD
     User((Legal Professional)) -->|HTTPS/WSS| Frontend[Next.js Frontend]
     Frontend -->|Auth| IAM[NextAuth.js]
-    Frontend -->|Interrogation| SmartChat[Smart Chat Orchestrator]
+    Frontend -->|Escalation Ladder| SmartChat[Smart Chat Orchestrator]
     SmartChat -->|API Calls| API[Fastify API Gateway]
     
     API -->|RLS Queries| DB[(PostgreSQL)]
@@ -63,13 +70,14 @@ graph TD
         Router{Model Router}
         StateMachine --> Router
         Router -->|High Reasoning| Gemini[Gemini 1.5 Pro]
-        Router -->|Entity Resolution/Prep| Ollama[Ollama Local]
+        Router -->|Prep/Failover| Ollama[Ollama Local]
         
         MCP_Client -->|Request| MCP_Servers{MCP Servers}
         MCP_Servers -->|TX Statutes| S1[mcp-tx-statutes]
-        MCP_Servers -->|TX Case Law| S2[mcp-tx-case-law]
-        MCP_Servers -->|Forensics| S3[mcp-forensic-science]
-        MCP_Servers --> S1 & S2 & S3 --> MCP_Client
+        MCP_Servers -->|Appellate| S2[mcp-tx-appellate-rules]
+        MCP_Servers -->|TDCJ/Parole| S3[mcp-tdcj-policy]
+        MCP_Servers -->|Jury Charge| S4[mcp-tx-jury-charges]
+        MCP_Servers --> S1 & S2 & S3 & S4 --> MCP_Client
     end
 ```
 

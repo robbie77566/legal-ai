@@ -1,5 +1,5 @@
 {
-  "name": "@legal-ai/ui",
+  "name": "@hg/ui",
   "version": "0.0.0",
   "private": true,
   "main": "./index.tsx",

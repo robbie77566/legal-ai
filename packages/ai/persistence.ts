@@ -1,5 +1,5 @@
 import { Checkpoint, BaseCheckpointSaver, CheckpointMetadata } from '@langchain/langgraph'
-import { prisma } from '@legal-ai/database'
+import { prisma } from '@hg/database'
 
 export class PostgresCheckpointSaver extends BaseCheckpointSaver {
   async getTuple(config: any) {

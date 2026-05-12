@@ -9,28 +9,24 @@
 - **Documentation:** `docs/legal/iac_analysis_logic.md` detailing how the agent distinguishes between strategy and oversight.
 - **Test Case:** Input a transcript segment where a hearsay objection was missed; verify the agent flags it as "Potential Deficiency" and cites the relevant Rule of Evidence.
 
-### Task 4.2: Brady Auditor (Discovery Gap Detection)
+### Task 4.2: Brady Auditor & Appellate Auditor
 - [x] Implement the node for comparing pre-trial discovery logs against trial testimony.
-- [x] Develop the "Materiality" assessment logic (identifying evidence that "undermines confidence in the outcome").
-- [x] Integrate Neo4j to trace if undisclosed evidence impacts multiple counts or witnesses.
-- **Documentation:** `docs/legal/brady_audit_process.md` mapping the cross-reference logic between discovery and transcripts.
-- **Test Case:** Provide a discovery log missing "Witness X statement"; verify the agent flags Witness X's trial testimony as a "Brady Flag."
+- [ ] **Expansion:** Implement the **Appellate Auditor** node for 30-day "Four Corners" record audits (Legal Sufficiency & Jury Charge).
+- [x] Develop the "Materiality" assessment logic.
+- [x] Integrate Neo4j to trace evidence impacts.
+- **Documentation:** `docs/legal/appellate_audit_strategy.md` mapping the record-review workflow.
 
-### Task 4.3: Junk Science Reviewer (Art. 11.073)
+### Task 4.3: Junk Science & Sentence Credit Auditors
 - [x] Implement the node for forensic methodology auditing.
-- [x] Integrate the `mcp-forensic-science-registry` to identify outdated or discredited methods.
-- [x] Implement logic to detect "Overstated Conclusions" in expert testimony (e.g., "100% certainty").
-- **Documentation:** `docs/legal/junk_science_standard.md` detailing the threshold for Art. 11.073 eligibility.
-- **Test Case:** Analyze testimony involving "bite mark comparison"; verify the agent identifies it as "Discredited" and cites current scientific standards.
+- [ ] **Expansion:** Implement the **Time-Served Auditor** node for Art. 42.03/44.29 auditing and Parole eligibility projections.
+- [x] Integrate the `mcp-forensic-science-registry`.
+- [ ] **Expansion:** Integrate `mcp-tdcj-policy-expert`.
+- **Documentation:** `docs/legal/sentence_audit_logic.md` detailing credit calculation rules.
 
----
-
-## 2. The Writ Formatter & CREAC Drafting
-
-### Task 4.4: CREAC Synthesis & Sanitization
+### Task 4.4: Clemency Synthesis & Sanitization
 - [x] Implement the structured drafting node using the **CREAC** methodology.
-- [x] **Precision Enhancement:** Implement the **Bluebook Sanitizer** node. This node validates and corrects AI-generated citations against the `mcp-tx-case-law` data using specialized regex/MCP tools.
-- [x] Create the **"Human-in-the-Loop" Review UI**.
+- [ ] **Expansion:** Implement the **Clemency Strategist** node for BPP application synthesis and achievement mapping.
+- [x] **Precision Enhancement:** Implement the **Bluebook Sanitizer** node.
 - **Documentation:** `docs/output/creac_drafting_guide.md` providing templates for AI-generated legal arguments.
 - **Test Case:** Generate an argument for an IAC claim; verify it contains all five CREAC components and correct transcript citations.
 

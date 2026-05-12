@@ -1,4 +1,4 @@
-# Best Practices for Legal AI Platforms
+# Best Practices for HabeasGraph
 
 ## 1. Data Security & Sovereignty
 *   **Encryption at Rest & Transit:** Use AES-256 for storage and TLS 1.3 for data in motion.

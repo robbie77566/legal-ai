@@ -1,5 +1,5 @@
 {
-  "name": "@legal-ai/database",
+  "name": "@hg/database",
   "version": "0.0.0",
   "private": true,
   "main": "./index.ts",

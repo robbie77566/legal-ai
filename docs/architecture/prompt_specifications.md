@@ -1,6 +1,6 @@
-# Legal AI Platform: Prompt Engineering & Persona Specification
+# HabeasGraph: Prompt Engineering & Persona Specification
 
-This document defines the specialized AI personas and prompting strategies for the Texas Legal AI platform. These prompts are designed to be used by the **Smart Chat Orchestrator** to trigger specific analysis routines.
+This document defines the specialized AI personas and prompting strategies for the HabeasGraph platform. These prompts are designed to be used by the **Smart Chat Orchestrator** to trigger specific analysis routines.
 
 ---
 

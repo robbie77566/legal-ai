@@ -1,5 +1,5 @@
 import { NextAuthOptions } from 'next-auth'
-import { prisma } from '@legal-ai/database'
+import { prisma } from '@hg/database'
 
 export const authOptions: NextAuthOptions = {
   providers: [

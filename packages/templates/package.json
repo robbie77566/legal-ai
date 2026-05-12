@@ -1,5 +1,5 @@
 {
-  "name": "@legal-ai/templates",
+  "name": "@hg/templates",
   "version": "0.0.0",
   "private": true,
   "main": "./index.ts",

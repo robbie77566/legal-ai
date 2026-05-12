@@ -1,4 +1,4 @@
-import { getTenantPrisma } from '@legal-ai/database'
+import { getTenantPrisma } from '@hg/database'
 
 export enum LogAction {
   AI_TOOL_CALL = 'AI_TOOL_CALL',

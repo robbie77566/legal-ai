@@ -1,7 +1,7 @@
-# Market Research: Legal AI for Post-Conviction & Habeas Corpus
+# Market Research: HabeasGraph
 
 ## Overview
-The legal AI market has shifted from general research tools to specialized "vertical" agents. For the **Texas Legal AI** project, the most relevant competitors and inspirations are tools that focus on transcript interrogation, citation integrity, and procedural automation.
+The legal AI market has shifted from general research tools to specialized "vertical" agents. For the **HabeasGraph** project, the most relevant competitors and inspirations are tools that focus on transcript interrogation, citation integrity, and procedural automation.
 
 ## Key Competitors & Inspiration
 

@@ -1,7 +1,8 @@
-# Tanteo Enterprise: Visual Identity & Design System
+# HabeasGraph: Visual Identity & Design System
 
 ## 1. Design Philosophy: "Industrial Authority"
-The visual identity of Tanteo Enterprise is built on the intersection of **High-Stakes Law** and **Industrial-Grade Technology**. It prioritizes precision, scannability, and "deep work" focus over traditional consumer-grade aesthetics.
+The visual identity of HabeasGraph is built on the intersection of **High-Stakes Law** and **Industrial-Grade Technology**.
+ It prioritizes precision, scannability, and "deep work" focus over traditional consumer-grade aesthetics.
 
 *   **Precision:** Every element is aligned to a strict 4px grid.
 *   **Authority:** Uses a "Noir" aesthetic—deep navies and charcoals—to convey security and serious intent.
@@ -88,8 +89,8 @@ Relationships (Witnesses, Evidence) are rendered using a **Custom Force-Directed
 
 ### 6.1. Component Overrides
 *   **Button:** Radius 4px (Sharp), Border 1px.
-*   **Card:** Background `tanteo-surface`, Border `tanteo-border`.
-*   **Input:** Focus ring `tanteo-gold`.
+*   **Card:** Background `hg-surface`, Border `hg-border`.
+*   **Input:** Focus ring `hg-gold`.
 
 ### 6.2. Tailwind Config
 ```javascript
@@ -97,7 +98,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        tanteo: {
+        hg: {
           navy: '#0B0E14',
           surface: '#161B22',
           gold: '#D4AF37',

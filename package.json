@@ -1,12 +1,12 @@
 {
-  "name": "legal-ai",
+  "name": "habeasgraph",
   "private": true,
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
-    "db:seed:prod": "pnpm --filter @legal-ai/database db:seed",
+    "db:seed:prod": "pnpm --filter @hg/database db:seed",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {

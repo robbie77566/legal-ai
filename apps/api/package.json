@@ -12,9 +12,9 @@
     "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@fastify/cors": "^8.3.0",
     "@google/generative-ai": "^0.24.1",
-    "@legal-ai/ai": "workspace:*",
-    "@legal-ai/auth": "workspace:*",
-    "@legal-ai/database": "workspace:*",
+    "@hg/ai": "workspace:*",
+    "@hg/auth": "workspace:*",
+    "@hg/database": "workspace:*",
     "axios": "^1.16.0",
     "bullmq": "^5.0.0",
     "docx": "^9.6.1",
@@ -25,7 +25,7 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "@legal-ai/tsconfig": "workspace:*",
+    "@hg/tsconfig": "workspace:*",
     "tsup": "^8.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"

@@ -1,4 +1,4 @@
-# MCP Agent & Server Ecosystem: Texas Legal AI
+# MCP Agent & Server Ecosystem: HabeasGraph
 
 This document defines the specialized **Model Context Protocol (MCP)** ecosystem required to support Texas post-conviction relief (PCR) and Article 11.07 habeas corpus workflows.
 
@@ -63,15 +63,29 @@ These are high-level AI agents that use the tools above to perform complex legal
 *   **Output:** An Art. 11.073 eligibility report.
 
 ### 2.4. The Writ Formatter (The Synthesizer)
-*   **Objective:** Generate the final Article 11.07 application and court-ready briefs.
-*   **Workflow:**
-    1.  Collects verified claims from the IAC, Brady, and Junk Science agents.
-    2.  Uses `mcp-tx-statutes-pro` to pull the exact language of the violated rights.
-    3.  **Argument Construction:** Structures all legal arguments using the strict **CREAC** methodology (Conclusion, Rule, Explanation, Application, Conclusion).
-    4.  Formats the output into the official Texas CCA Article 11.07 form layout.
-*   **Output:** 
-    *   An interactive draft for the "Review & Refinement" UI.
+...
     *   A final, court-ready **DOCX export** that automatically generates the required **Table of Authorities** and **Table of Contents** based on cited `mcp-tx-case-law` tools.
+
+### 2.5. The Appellate Auditor (The "Four Corners" Specialist)
+*   **Objective:** Identify reversible legal errors within the trial record within the 30-day window.
+*   **Workflow:**
+    1.  **Preservation Audit:** Uses `mcp-tx-jury-charges` to check for instructional errors.
+    2.  **Sufficiency Check:** Uses `mcp-tx-statutes-pro` to validate if every element of the crime was proven.
+*   **Output:** An Appellate Brief outline with record citations.
+
+### 2.6. The Clemency Strategist
+*   **Objective:** Build persuasive application packets for the Texas Board of Pardons and Paroles.
+*   **Workflow:**
+    1.  **Narrative Synthesis:** Processes interview transcripts into a "Subject's Version."
+    2.  **Achievement Mapping:** Links `InstitutionalRecord` Achievement nodes to commutation grounds.
+*   **Output:** A complete BPP Clemency Application draft.
+
+### 2.7. The Time-Served Auditor
+*   **Objective:** Ensure all time-served credits are applied under Art. 42.03 and 44.29.
+*   **Workflow:**
+    1.  **Back-Time Calculation:** Compares arrest dates with judgment dates.
+    2.  **Diligent Participation Audit:** Scans state jail work logs for the 20% reduction trigger.
+*   **Output:** A structured "Time Credit Audit" report for TDCJ or court submission.
 
 ---
 

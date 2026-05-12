@@ -1,5 +1,5 @@
 import { Worker, Job } from 'bullmq'
-import { prisma, neo4jDriver } from '@legal-ai/database'
+import { prisma, neo4jDriver } from '@hg/database'
 import Redis from 'ioredis'
 import { ChunkingService } from './chunking.service'
 import { EmbeddingService } from './embedding.service'

@@ -1,6 +1,6 @@
 # Developer Experience (DX) & RAG-Driven Development
 
-To ensure the complexity of the Legal AI platform (MCP Agents, Neo4j, Next.js Monorepo) remains manageable, we will employ a **Codebase RAG** workflow (e.g., via Cursor, GitHub Copilot, or Continue.dev).
+To ensure the complexity of the HabeasGraph platform (MCP Agents, Neo4j, Next.js Monorepo) remains manageable, we will employ a **Codebase RAG** workflow (e.g., via Cursor, GitHub Copilot, or Continue.dev).
 
 ## 1. The "Architecture-Aware" Workflow
 By indexing the `docs/` folder, the RAG system provides three critical benefits during development:

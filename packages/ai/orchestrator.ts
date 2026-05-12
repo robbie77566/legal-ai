@@ -1,7 +1,7 @@
 import { StateGraph, END } from '@langchain/langgraph'
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages'
-import { prisma } from '@legal-ai/database'
+import { prisma } from '@hg/database'
 
 // Define the state interface
 interface AgentState {

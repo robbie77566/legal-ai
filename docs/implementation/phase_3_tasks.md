@@ -27,9 +27,11 @@
 
 ## 2. Specialized MCP Server Ecosystem
 
-### Task 3.4: Statute & Case Law Servers
+### Task 3.4: Statute, Case Law & Appellate Servers
 - [x] Develop `mcp-tx-statutes-pro` (Node.js) with tools for point-in-time statute retrieval.
 - [x] Develop `mcp-tx-case-law` (Python/FastAPI) with tools for CCA-specific precedent search.
+- [ ] **Expansion:** Develop `mcp-tx-appellate-rules` for TRAP deadlines and formatting.
+- [ ] **Expansion:** Develop `mcp-tx-jury-charges` for preservation auditing.
 - [x] Implement secure authentication for the MCP servers to prevent unauthorized access.
 - [x] **Documentation:** `docs/mcp/tx_legal_tools.md` detailing the input/output schemas for every provided tool.
 - [x] **Test Case:** Query `mcp-tx-statutes-pro` for a penal code section active in 1995; verify the returned text matches the historical version.
