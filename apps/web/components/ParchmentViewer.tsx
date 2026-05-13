@@ -15,23 +15,28 @@ export function ParchmentViewer({ onMouseUp, documents = [] }: ParchmentViewerPr
       <h2 className="text-xl font-bold mb-4 text-[#0B0E14]">Case Documents</h2>
       <div className="space-y-4 leading-relaxed">
         {documents.length > 0 ? (
-          <ul className="list-disc pl-5">
+          <div className="space-y-8">
             {documents.map((doc, i) => (
-              <li key={i} className="mb-2">
-                <strong>{doc.filename}</strong>
-                <span className="ml-2 text-xs text-gray-500 italic px-2 bg-gray-200 rounded-full">Processing AI Extraction...</span>
-              </li>
+              <div key={i} className="mb-2">
+                <h3 className="text-lg font-bold border-b border-[#D4AF37]/30 pb-2 mb-4">{doc.filename}</h3>
+                
+                {doc.chunks && doc.chunks.length > 0 ? (
+                  <div className="space-y-4">
+                    {doc.chunks.map((chunk: any) => (
+                      <p key={chunk.id} className="text-[#586E75] leading-loose text-justify">
+                        {chunk.content}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="ml-2 text-xs text-gray-500 italic px-2 bg-gray-200 rounded-full">Processing AI Extraction...</span>
+                )}
+              </div>
             ))}
-          </ul>
+          </div>
         ) : (
           <p className="italic">No documents have been attached to this case yet.</p>
         )}
-        
-        <div className="mt-12 p-4 bg-gray-200/50 rounded-lg border border-gray-300">
-          <p className="text-sm italic text-gray-500 font-sans text-center">
-            ✨ Once processing is complete, the raw text will be available here. Highlight any text to trigger automated AI drafting actions.
-          </p>
-        </div>
       </div>
     </div>
   );

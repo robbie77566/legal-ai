@@ -1,8 +1,9 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   UploadCloud,
   FileText,
@@ -13,9 +14,9 @@ import {
   FolderOpen,
   X,
 } from "lucide-react";
-import { ViabilityScorecard } from "@/components/ViabilityScorecard";
 
 export default function BentoDashboard() {
+  const { data: session } = useSession();
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasProcessed, setHasProcessed] = useState(false);
@@ -25,6 +26,7 @@ export default function BentoDashboard() {
 
   // New Modal State
   const [showModal, setShowModal] = useState(false);
+  const [isAnalyzingMetadata, setIsAnalyzingMetadata] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [caseMeta, setCaseMeta] = useState({
     name: "",
@@ -32,49 +34,83 @@ export default function BentoDashboard() {
     jurisdiction: "",
   });
   const [caseId, setCaseId] = useState("CASE-999");
+  const [recentCases, setRecentCases] = useState<any[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Mock Viability Indicators representing the LangGraph Agent's preliminary triage
-  const viabilityScores = [
-    {
-      type: "Strickland (IAC)",
-      status: "High Probability",
-      color: "text-[#3FB950]",
-      icon: <CheckCircle className="w-5 h-5" />,
-      desc: "Failure to object to hearsay on Line 12.",
-    },
-    {
-      type: "Brady Violation",
-      status: "Moderate",
-      color: "text-[#D29922]",
-      icon: <AlertTriangle className="w-5 h-5" />,
-      desc: "Discrepancy in Detective Smith timeline.",
-    },
-    {
-      type: "Actual Innocence",
-      status: "Low",
-      color: "text-[#F85149]",
-      icon: <ShieldAlert className="w-5 h-5" />,
-      desc: "No DNA or newly discovered evidence.",
-    },
-  ];
-
   const router = useRouter();
+
+  // Fetch recent cases
+  useEffect(() => {
+    if (typeof window !== "undefined" && session?.user) {
+      const fetchCases = async () => {
+        try {
+          const tenantId = (session?.user as any)?.tenantId || "";
+          const userId = session?.user?.id || "";
+          if (!tenantId) return;
+
+          const res = await fetch("http://localhost:3001/cases", {
+            headers: {
+              "x-tenant-id": tenantId,
+              "x-user-id": userId
+            }
+          });
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setRecentCases(data.slice(0, 3)); // Top 3 most recent
+          }
+        } catch (e) {
+          console.error("Failed to fetch cases", e);
+        }
+      };
+      fetchCases();
+    }
+  }, [session]);
+
+  const extractMetadata = async (fileList: File[]) => {
+    if (fileList.length === 0) return;
+    setIsAnalyzingMetadata(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", fileList[0]);
+
+      const res = await fetch("http://localhost:3001/cases/preview-metadata", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCaseMeta((prev) => ({
+          name: data.name || prev.name,
+          defendant: data.defendant || prev.defendant,
+          jurisdiction: data.jurisdiction || prev.jurisdiction,
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to extract metadata", e);
+    } finally {
+      setIsAnalyzingMetadata(false);
+    }
+  };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFiles(Array.from(e.dataTransfer.files));
+      const selectedFiles = Array.from(e.dataTransfer.files);
+      setFiles(selectedFiles);
       setShowModal(true);
+      extractMetadata(selectedFiles);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFiles(Array.from(e.target.files));
+      const selectedFiles = Array.from(e.target.files);
+      setFiles(selectedFiles);
       setShowModal(true);
+      extractMetadata(selectedFiles);
     }
   };
 
@@ -86,10 +122,17 @@ export default function BentoDashboard() {
     setProcessingLogs([]);
 
     try {
+      const tenantId = (session?.user as any)?.tenantId || "";
+      const userId = session?.user?.id || "";
+
       // 1. Create Case in PostgreSQL
       const caseRes = await fetch("http://localhost:3001/cases", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-tenant-id": tenantId,
+          "x-user-id": userId
+        },
         body: JSON.stringify({
           title: caseMeta.name,
           defendant: caseMeta.defendant,
@@ -162,6 +205,8 @@ export default function BentoDashboard() {
           eventSource.close();
           setIsProcessing(false);
           setHasProcessed(true);
+          // Automatically transition to the Workspace
+          router.push(`/workspace/${generatedCaseId}`);
         }
       };
 
@@ -170,6 +215,7 @@ export default function BentoDashboard() {
         eventSource.close();
         setIsProcessing(false);
         setHasProcessed(true); // Failsafe
+        router.push(`/workspace/${generatedCaseId}`);
       };
     } catch (err) {
       console.error(err);
@@ -186,13 +232,22 @@ export default function BentoDashboard() {
 
   return (
     <div className="min-h-screen bg-[#161B22] text-white p-8 font-sans relative">
-      <header className="mb-8 border-b border-[#D4AF37]/20 pb-4">
-        <h1 className="text-2xl font-semibold text-[#D4AF37]">
-          HabeasGraph Litigation Triage
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Manage intake and allocate investigative resources.
-        </p>
+      <header className="mb-8 border-b border-[#D4AF37]/20 pb-4 flex justify-between items-end">
+        <div>
+          <h1 className="text-2xl font-semibold text-[#D4AF37]">
+            HabeasGraph Litigation Triage
+          </h1>
+          <p className="text-gray-400 text-sm mt-1">
+            Manage intake and allocate investigative resources.
+          </p>
+        </div>
+        
+        {session?.user && (session.user as any).role === "ADMIN" && (
+          <Link href="/dashboard/permissions" className="text-sm text-gray-400 hover:text-[#D4AF37] flex items-center transition-colors">
+            <ShieldAlert className="w-4 h-4 mr-2" />
+            Manage Permissions
+          </Link>
+        )}
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -355,68 +410,54 @@ export default function BentoDashboard() {
             </div>
           </motion.div>
         )}
-
-        {/* Viability Scorecard */}
-        {hasProcessed && <ViabilityScorecard scores={viabilityScores} />}
       </div>
 
       {/* Recent Cases Section */}
       {!hasProcessed && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <FolderOpen className="w-5 h-5 mr-2 text-gray-400" />
-            Recent Case Workspaces
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              {
-                id: "CASE-998",
-                title: "State v. Johnson",
-                status: "High Viability",
-                date: "Oct 24, 2023",
-              },
-              {
-                id: "CASE-997",
-                title: "Doe v. Smith",
-                status: "Moderate Viability",
-                date: "Oct 20, 2023",
-              },
-              {
-                id: "CASE-996",
-                title: "In re: Thompson Estate",
-                status: "Low Viability",
-                date: "Oct 15, 2023",
-              },
-            ].map((c) => (
-              <Link href={`/workspace/${c.id}`} key={c.id}>
-                <div className="bg-[#0B0E14] border border-gray-800 hover:border-[#D4AF37]/50 rounded-xl p-5 cursor-pointer transition-all group">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs font-mono text-gray-500">
-                      {c.id}
-                    </span>
-                    <span className="text-xs text-gray-500">{c.date}</span>
-                  </div>
-                  <h4 className="font-medium text-white mb-1 group-hover:text-[#D4AF37] transition-colors">
-                    {c.title}
-                  </h4>
-                  <div className="flex justify-between items-center mt-4">
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        c.status.includes("High")
-                          ? "bg-[#3FB950]/10 text-[#3FB950]"
-                          : c.status.includes("Moderate")
-                            ? "bg-[#D29922]/10 text-[#D29922]"
-                            : "bg-[#F85149]/10 text-[#F85149]"
-                      }`}
-                    >
-                      {c.status}
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-[#D4AF37]" />
-                  </div>
-                </div>
-              </Link>
-            ))}
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-white flex items-center">
+              <FolderOpen className="w-5 h-5 mr-2 text-gray-400" />
+              Recent Case Workspaces
+            </h2>
+            <Link href="/dashboard/cases" className="text-[#D4AF37] hover:text-[#F2D675] text-sm font-medium transition-colors flex items-center">
+              View All Workspaces <ChevronRight className="w-4 h-4 ml-1" />
+            </Link>
           </div>
+          
+          {recentCases.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recentCases.map((c) => (
+                <Link href={`/workspace/${c.id}`} key={c.id}>
+                  <div className="bg-[#0B0E14] border border-gray-800 hover:border-[#D4AF37]/50 rounded-xl p-5 cursor-pointer transition-all group">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-xs font-mono text-gray-500 truncate w-32">
+                        {c.id}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {new Date(c.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <h4 className="font-medium text-white mb-1 group-hover:text-[#D4AF37] transition-colors truncate">
+                      {c.title}
+                    </h4>
+                    <div className="flex justify-between items-center mt-4">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full bg-[#3FB950]/10 text-[#3FB950]`}
+                      >
+                        Active
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-[#D4AF37]" />
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-[#0B0E14] border border-gray-800 rounded-xl p-8 text-center text-gray-500">
+              No recent cases found. Create your first case above!
+            </div>
+          )}
         </div>
       )}
 
@@ -433,8 +474,17 @@ export default function BentoDashboard() {
               initial={{ y: 20, scale: 0.95 }}
               animate={{ y: 0, scale: 1 }}
               exit={{ y: 20, scale: 0.95 }}
-              className="bg-[#0B0E14] border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden"
+              className="bg-[#0B0E14] border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden relative"
             >
+              {isAnalyzingMetadata && (
+                <div className="absolute inset-0 bg-[#0B0E14]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
+                  <div className="w-8 h-8 border-4 border-t-[#D4AF37] border-gray-600 rounded-full animate-spin mb-3"></div>
+                  <p className="text-[#D4AF37] font-medium text-sm animate-pulse">
+                    ✨ AI is analyzing document for case details...
+                  </p>
+                </div>
+              )}
+              
               <div className="flex justify-between items-center p-6 border-b border-gray-800">
                 <h2 className="text-xl font-semibold text-[#D4AF37]">
                   Setup New Case
@@ -448,7 +498,7 @@ export default function BentoDashboard() {
                 </button>
               </div>
 
-              <form onSubmit={submitCase} className="p-6">
+              <form onSubmit={submitCase} className="p-6 relative">
                 <div className="space-y-4 mb-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-1">

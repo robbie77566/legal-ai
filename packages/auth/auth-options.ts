@@ -1,21 +1,47 @@
-import type { NextAuthConfig } from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
+import type { NextAuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import prisma from "@hg/database"
 
-export const authOptions: NextAuthConfig = {
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+  session: { strategy: "jwt" },
   providers: [
-    // Configure specific providers (e.g., Azure AD for law firms)
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email) return null;
+        
+        // Mock authorization: find user by email
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email }
+        });
+        
+        if (user) {
+          return { id: user.id, email: user.email, name: user.name, tenantId: user.tenantId, role: user.role };
+        }
+        return null;
+      }
+    })
   ],
   callbacks: {
-    session: async ({ session, user }) => {
-      if (session?.user) {
-        session.user.id = user.id;
-        
-        // Expose tenantId to the session object so the frontend can securely
-        // pass it to API endpoints requiring RLS bypass.
-        // The user model in Prisma contains the tenantId relation.
-        (session.user as any).tenantId = (user as any).tenantId;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.tenantId = (user as any).tenantId;
+        token.role = (user as any).role;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+        (session.user as any).tenantId = token.tenantId as string;
+        (session.user as any).role = token.role as string;
       }
       return session;
     },

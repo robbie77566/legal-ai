@@ -9,12 +9,20 @@ datasource db {
   extensions = [vector]
 }
 
+enum Role {
+  ADMIN
+  ATTORNEY
+  INVESTIGATOR
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
+  role      Role     @default(ATTORNEY)
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  caseAccess CaseAccess[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -30,11 +38,24 @@ model Case {
   id        String   @id @default(cuid())
   title     String
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
   documents Document[]
   auditLogs AuditLog[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  accessList CaseAccess[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model CaseAccess {
+  id     String @id @default(cuid())
+  caseId String
+  userId String
+  role   Role   @default(ADMIN)
+
+  case Case @relation(fields: [caseId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([caseId, userId])
 }
 
 model Document {

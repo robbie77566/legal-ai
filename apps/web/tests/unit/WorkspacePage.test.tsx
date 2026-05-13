@@ -41,6 +41,7 @@ describe('WorkspacePage', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -70,6 +71,12 @@ describe('WorkspacePage', () => {
     const sendBtn = screen.getByText('Send');
 
     fireEvent.change(input, { target: { value: 'Hello AI' } });
+    
+    // Wait for React to update the state so handleSend doesn't read a stale empty string
+    await waitFor(() => {
+      expect(input).toHaveValue('Hello AI');
+    });
+
     fireEvent.click(sendBtn);
 
     expect(screen.getByText('user: Hello AI')).toBeInTheDocument();
@@ -80,8 +87,8 @@ describe('WorkspacePage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/agent: I have sanitized the citation/)).toBeInTheDocument();
-    }, { timeout: 2500 });
-  }, 10000);
+    }, { timeout: 3000 });
+  });
 
   it('shows floating menu on text selection and handles action', async () => {
     render(<WorkspacePage params={{ caseId: 'CASE-123' }} />);

@@ -22,6 +22,20 @@ describe('BentoDashboard', () => {
         ok: true
       })
     ) as any;
+
+    class MockEventSource {
+      onmessage: any;
+      onerror: any;
+      constructor() {
+        setTimeout(() => {
+          if (this.onmessage) {
+            this.onmessage({ data: JSON.stringify({ message: 'done', status: 'complete' }) });
+          }
+        }, 100);
+      }
+      close() {}
+    }
+    (global as any).EventSource = MockEventSource;
   });
 
   afterEach(() => {

@@ -25,7 +25,7 @@ export default function WorkspacePage({ params }: { params: { caseId: string } }
   const [caseData, setCaseData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchCaseData = () => {
     fetch(`http://localhost:3001/cases/${params.caseId}`)
       .then(res => res.json())
       .then(data => {
@@ -36,6 +36,27 @@ export default function WorkspacePage({ params }: { params: { caseId: string } }
         console.error("Failed to fetch case data:", err);
         setIsLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchCaseData();
+
+    const eventSource = new EventSource(`http://localhost:3001/cases/${params.caseId}/progress`);
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        // If the backend signals that processing is complete, refetch the case data 
+        // so the ParchmentViewer displays the extracted chunks instead of the loading state.
+        if (data.status === 'complete') {
+          fetchCaseData();
+        }
+      } catch (err) {
+        console.error("Error parsing SSE message:", err);
+      }
+    };
+
+    return () => eventSource.close();
   }, [params.caseId]);
 
   const handleSend = () => {
