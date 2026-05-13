@@ -1,6 +1,8 @@
 "use client";
 import { useState, useRef, useEffect } from 'react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
+import { ParchmentViewer } from '@/components/ParchmentViewer';
+import { ChatBubble } from '@/components/ChatBubble';
 
 /**
  * WorkspacePage Component (The "Parchment Drafting" Workflow)
@@ -20,6 +22,21 @@ export default function WorkspacePage({ params }: { params: { caseId: string } }
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState<{role: string, text: string}[]>([]);
   const [floatingMenu, setFloatingMenu] = useState<{x: number, y: number, text: string} | null>(null);
+  const [caseData, setCaseData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`http://localhost:3001/cases/${params.caseId}`)
+      .then(res => res.json())
+      .then(data => {
+        setCaseData(data);
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch case data:", err);
+        setIsLoading(false);
+      });
+  }, [params.caseId]);
 
   const handleSend = () => {
     if (!chatInput) return;
@@ -85,32 +102,25 @@ export default function WorkspacePage({ params }: { params: { caseId: string } }
 
       <header className="h-12 border-b border-[#D4AF37]/20 flex items-center px-4 shrink-0">
         <h1 className="text-[#D4AF37] font-semibold tracking-wide">HabeasGraph Workspace</h1>
-        <span className="ml-4 text-xs text-gray-400">Case ID: {params.caseId}</span>
+        <span className="ml-4 text-xs text-gray-400">
+          Case ID: {params.caseId} {caseData?.title ? `| ${caseData.title}` : ''}
+        </span>
       </header>
       
       <main className="flex-1 overflow-hidden">
         <PanelGroup orientation="horizontal">
           {/* Left Pane: Parchment Mode Transcript */}
           <Panel defaultSize={50} minSize={30}>
-            <div 
-              className="h-full bg-[#FDF6E3] text-[#586E75] p-8 overflow-y-auto font-serif selection:bg-[#D4AF37]/30"
-              onMouseUp={handleMouseUp}
-            >
-              <h2 className="text-xl font-bold mb-4 text-[#0B0E14]">Trial Transcript (Volume 2)</h2>
-              <div className="space-y-4 leading-relaxed">
-                <p><strong>[Line 10] MR. PROSECUTOR:</strong> Detective Smith, what did you find at the scene?</p>
-                <p><strong>[Line 11] DETECTIVE SMITH:</strong> We found the defendant's jacket.</p>
-                <p className="bg-[#D4AF37]/20 border-l-4 border-[#D4AF37] pl-2 py-1">
-                  <strong>[Line 12] DEFENSE COUNSEL:</strong> Objection, hearsay.
-                </p>
-                <p><strong>[Line 13] THE COURT:</strong> Overruled.</p>
-                <div className="mt-12 p-4 bg-gray-200/50 rounded-lg border border-gray-300">
-                  <p className="text-sm italic text-gray-500 font-sans text-center">
-                    ✨ Highlight any text in this transcript to trigger automated AI drafting actions.
-                  </p>
-                </div>
+            {isLoading ? (
+              <div className="h-full bg-[#FDF6E3] flex items-center justify-center text-[#586E75]">
+                Loading Case Data...
               </div>
-            </div>
+            ) : (
+              <ParchmentViewer 
+                documents={caseData?.documents || []} 
+                onMouseUp={handleMouseUp} 
+              />
+            )}
           </Panel>
 
           <PanelResizeHandle className="w-1 bg-[#161B22] hover:bg-[#D4AF37]/50 transition-colors" />
@@ -120,13 +130,7 @@ export default function WorkspacePage({ params }: { params: { caseId: string } }
             <div className="h-full bg-[#0B0E14] flex flex-col p-4 border-l border-[#D4AF37]/20">
               <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
                 {messages.map((msg, idx) => (
-                  <div key={idx} className={`p-3 rounded-lg ${
-                    msg.role === 'user' ? 'bg-[#161B22] ml-12 border border-[#D4AF37]/20' : 
-                    msg.role === 'status' ? 'bg-transparent text-[#D4AF37] italic text-xs animate-pulse' :
-                    'bg-[#D4AF37]/10 mr-12 border-l-2 border-[#D4AF37]'
-                  }`}>
-                    <span className="text-sm font-mono whitespace-pre-wrap">{msg.text}</span>
-                  </div>
+                  <ChatBubble key={idx} msg={msg} />
                 ))}
               </div>
               <div className="flex gap-2">

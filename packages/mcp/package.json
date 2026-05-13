@@ -5,7 +5,10 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "latest"
+    "@modelcontextprotocol/sdk": "latest",
+    "@lancedb/lancedb": "latest",
+    "@langchain/google-genai": "latest",
+    "@langchain/ollama": "latest"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

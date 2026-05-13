@@ -6,12 +6,16 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
+    "test:coverage": "vitest run --coverage",
     "db:seed:prod": "pnpm --filter @hg/database db:seed",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "rag:index": "npx tsx packages/ai/scripts/index-codebase.ts"
   },
   "devDependencies": {
     "turbo": "^2.0.0",
-    "prettier": "^3.0.0"
+    "prettier": "^3.0.0",
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
   },
   "packageManager": "pnpm@11.1.0",
   "pnpm": {

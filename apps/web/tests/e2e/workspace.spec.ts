@@ -8,7 +8,7 @@ test.describe('Parchment Workspace Workflow', () => {
 
   test('should load the side-by-side workspace panels', async ({ page }) => {
     // Wait for the workspace header
-    await expect(page.getByText('HabeasGraph Workspace')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'HabeasGraph Workspace' })).toBeVisible();
     await expect(page.getByText('Case ID: CASE-999')).toBeVisible();
 
     // Ensure both panels (Parchment and Chat) are loaded

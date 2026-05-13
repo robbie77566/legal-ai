@@ -2,11 +2,24 @@ import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { getSession } from '../services/neo4j';
 
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
+// BullMQ requires maxRetriesPerRequest: null
+const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  maxRetriesPerRequest: null
+});
 
 export const entityWorker = new Worker('graph', async (job: Job) => {
-  const { documentId, chunks } = job.data;
+  const { documentId, chunks, caseId } = job.data;
   const session = getSession();
+  
+  const publishLog = async (message: string, status?: string) => {
+    if (caseId) {
+      await connection.publish(`case-progress:${caseId}`, JSON.stringify({ message, source: 'entity', status }));
+    }
+  };
+
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  await publishLog('Analyzing chunks with LangGraph (Llama 3)...');
   
   try {
     for (const chunk of chunks) {
@@ -37,6 +50,9 @@ export const entityWorker = new Worker('graph', async (job: Job) => {
   } finally {
     await session.close();
   }
+
+  await delay(2000);
+  await publishLog('Entity extraction complete. Triage pipeline finished.', 'complete');
 
   return { success: true };
 }, { connection });

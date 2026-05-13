@@ -8,6 +8,8 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { connect } from '@lancedb/lancedb'
+import { OllamaEmbeddings } from '@langchain/ollama'
 
 const execAsync = promisify(exec)
 
@@ -50,14 +52,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: 'validate_architecture',
-        description: 'Validates code implementation against the architecture documents.',
+        name: 'search_semantic_codebase',
+        description: 'Performs a semantic search across the entire codebase to find relevant code snippets or documentation based on natural language queries. Uses the RAG Vector DB.',
         inputSchema: {
           type: 'object',
           properties: {
-            component: { type: 'string', description: 'The component or topic to validate (e.g., Database, State Management).' },
+            query: { type: 'string', description: 'The natural language query (e.g., "How does the ingestion worker handle embeddings?").' },
+            limit: { type: 'number', description: 'Number of results to return. Defaults to 5.' },
           },
-          required: ['component'],
+          required: ['query'],
         },
       }
     ],
@@ -92,18 +95,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         isError: true,
       }
     }
-  } else if (request.params.name === 'validate_architecture') {
-    const { component } = request.params.arguments as any
+  } else if (request.params.name === 'search_semantic_codebase') {
+    const { query, limit = 5 } = request.params.arguments as any
     try {
-      const archDoc = await fs.readFile(path.resolve(process.cwd(), 'docs/architecture/website_architecture.md'), 'utf-8')
-      // For a real RAG implementation, this would query a vector DB.
-      // Here we simulate by just returning the relevant document piece or full document snippet for the LLM to process.
+      const LANCEDB_URI = path.join(process.cwd(), '.lancedb')
+      const db = await connect(LANCEDB_URI)
+      const tableNames = await db.tableNames()
+      
+      if (!tableNames.includes('codebase')) {
+        return {
+          content: [{ type: 'text', text: 'Error: Codebase index not found. Please run `pnpm run rag:index` first.' }],
+          isError: true,
+        }
+      }
+
+      const table = await db.openTable('codebase')
+      
+      const embeddings = new OllamaEmbeddings({
+        model: 'nomic-embed-text',
+        baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
+      })
+      const queryVector = await embeddings.embedQuery(query)
+
+      const results = await table
+        .search(queryVector)
+        .limit(limit)
+        .execute()
+
+      const formattedResults = results.map((r: any) => `### File: ${r.filePath}\n\n${r.text}`).join('\n\n---\n\n')
+
       return {
-        content: [{ type: 'text', text: `Reviewing component '${component}'. Architectural guidelines state:\n\n${archDoc.substring(0, 1500)}...` }],
+        content: [{ type: 'text', text: `Semantic Search Results for: "${query}"\n\n${formattedResults}` }],
       }
     } catch (e: any) {
       return {
-        content: [{ type: 'text', text: `Architecture validation error: ${e.message}` }],
+        content: [{ type: 'text', text: `Semantic search error: ${e.message}` }],
         isError: true,
       }
     }

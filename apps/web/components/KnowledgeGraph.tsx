@@ -48,7 +48,7 @@ export default function KnowledgeGraph({ data }: { data: any }) {
   };
 
   return (
-    <div className="w-full h-full bg-[#0B0E14] overflow-hidden rounded-xl border border-gray-800">
+    <div data-testid="knowledge-graph-container" className="w-full h-full bg-[#0B0E14] overflow-hidden rounded-xl border border-gray-800">
       <ForceGraph2D
         ref={fgRef}
         graphData={data}

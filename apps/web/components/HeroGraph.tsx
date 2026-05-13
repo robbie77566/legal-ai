@@ -40,7 +40,7 @@ export default function HeroGraph() {
   }, []);
 
   useEffect(() => {
-    if (fgRef.current) {
+    if (fgRef.current && typeof fgRef.current.d3Force === 'function') {
       // Set the force-graph to slowly drift to give it a living intelligence feel
       fgRef.current.d3Force('charge').strength(-30);
       fgRef.current.d3Force('link').distance(40);
@@ -53,7 +53,7 @@ export default function HeroGraph() {
   }, []);
 
   return (
-    <div className="absolute inset-0 z-0 opacity-40 pointer-events-none overflow-hidden">
+    <div data-testid="hero-graph-container" className="absolute inset-0 z-0 opacity-40 pointer-events-none overflow-hidden">
       <ForceGraph2D
         ref={fgRef}
         graphData={graphData}

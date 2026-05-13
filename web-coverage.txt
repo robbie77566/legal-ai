@@ -1,0 +1,177 @@
+
+ RUN  v1.6.1 /home/tanteo/src/legal-ai
+      Coverage enabled with v8
+
+ ✓ |web| tests/unit/ChatBubble.test.tsx  (3 tests) 42ms
+ ✓ |web| tests/unit/ParchmentViewer.test.tsx  (1 test) 51ms
+ ✓ |web| tests/unit/ViabilityScorecard.test.tsx  (1 test) 81ms
+ ✓ |web| tests/unit/KnowledgeGraph.test.tsx  (1 test) 33ms
+
+ Test Files  4 passed (4)
+      Tests  6 passed (6)
+   Start at  18:26:25
+   Duration  2.15s (transform 94ms, setup 608ms, collect 303ms, tests 207ms, environment 3.64s, prepare 498ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |    0.61 |     9.16 |    4.27 |    0.61 |                   
+ legal-ai          |       0 |        0 |       0 |       0 |                   
+  ....workspace.ts |       0 |        0 |       0 |       0 | 1-8               
+ ...i/apps/api/src |       0 |        0 |       0 |       0 |                   
+  dev-cli.ts       |       0 |        0 |       0 |       0 | 1-56              
+  index.ts         |       0 |        0 |       0 |       0 | 1-22              
+ ...api/src/routes |       0 |        0 |       0 |       0 |                   
+  chat.ts          |       0 |        0 |       0 |       0 | 1-25              
+  export.ts        |       0 |        0 |       0 |       0 | 1-30              
+  upload.ts        |       0 |        0 |       0 |       0 | 1-65              
+  webhooks.ts      |       0 |        0 |       0 |       0 | 1-22              
+ ...i/src/services |       0 |        0 |       0 |       0 |                   
+  audit.service.ts |       0 |        0 |       0 |       0 | 1-29              
+  ...ng.service.ts |       0 |        0 |       0 |       0 | 1-34              
+  ...sor.worker.ts |       0 |        0 |       0 |       0 | 1-68              
+  ...ng.service.ts |       0 |        0 |       0 |       0 | 1-11              
+  ...on.service.ts |       0 |        0 |       0 |       0 | 1-27              
+  ...rt.service.ts |       0 |        0 |       0 |       0 | 1-32              
+  export.ts        |       0 |        0 |       0 |       0 | 1-55              
+  neo4j.ts         |       0 |        0 |       0 |       0 | 1-15              
+  queue.ts         |       0 |        0 |       0 |       0 | 1-27              
+  ...ge.service.ts |       0 |        0 |       0 |       0 | 1-18              
+ ...pi/src/workers |       0 |        0 |       0 |       0 |                   
+  entity.worker.ts |       0 |        0 |       0 |       0 | 1-42              
+  ...ion.worker.ts |       0 |        0 |       0 |       0 | 1-48              
+  media.worker.ts  |       0 |        0 |       0 |       0 | 1-42              
+ legal-ai/apps/web |       0 |        0 |       0 |       0 |                   
+  ...ght.config.ts |       0 |        0 |       0 |       0 | 1-54              
+  ...css.config.js |       0 |        0 |       0 |       0 | 1-6               
+  ...ind.config.js |       0 |        0 |       0 |       0 | 1-11              
+ ...b/.next/server |       0 |        0 |       0 |       0 |                   
+  ...d-manifest.js |       0 |        0 |       0 |       0 | 1                 
+  ...e-manifest.js |       0 |        0 |       0 |       0 | 1                 
+  ...t-manifest.js |       0 |        0 |       0 |       0 | 1                 
+  ...e-manifest.js |       0 |        0 |       0 |       0 | 1                 
+  ...ck-runtime.js |       0 |        0 |       0 |       0 | 1-215             
+ ...ext/server/app |       0 |        0 |       0 |       0 |                   
+  page.js          |       0 |        0 |       0 |       0 | 1-249             
+  ...e-manifest.js |       0 |        0 |       0 |       0 | 1                 
+ .../app/dashboard |       0 |        0 |       0 |       0 |                   
+  page.js          |       0 |        0 |       0 |       0 | 1-238             
+  ...e-manifest.js |       0 |        0 |       0 |       0 | 1                 
+ ...pp/favicon.ico |       0 |        0 |       0 |       0 |                   
+  route.js         |       0 |        0 |       0 |       0 | 1-56              
+ ...space/[caseId] |       0 |        0 |       0 |       0 |                   
+  page.js          |       0 |        0 |       0 |       0 | 1-238             
+  ...e-manifest.js |       0 |        0 |       0 |       0 | 1                 
+ .../vendor-chunks |       0 |        0 |       0 |       0 |                   
+  ...pers@0.5.2.js |       0 |        0 |       0 |       0 | 1-75              
+  ...act@18.3.1.js |       0 |        0 |       0 |       0 | 1-545             
+  ...act@18.3.1.js |       0 |        0 |       0 |       0 | 1-125             
+  ...om@12.38.0.js |       0 |        0 |       0 |       0 | 1-1805            
+  ...ls@12.36.0.js |       0 |        0 |       0 |       0 | 1-275             
+  ...act@18.3.1.js |       0 |        0 |       0 |       0 | 1-2275            
+  ...act@18.3.1.js |       0 |        0 |       0 |       0 | 1-25              
+ .../static/chunks |       0 |        0 |       0 |       0 |                   
+  ..._re-3f7ff5.js |       0 |        0 |       0 |       0 | 1-2032            
+  ...-internals.js |       0 |        0 |       0 |       0 | 1-116             
+  main-app.js      |       0 |        0 |       0 |       0 | 1-1875            
+  polyfills.js     |       0 |        0 |       0 |       0 | 1                 
+  webpack.js       |       0 |        0 |       0 |       0 | 1-1411            
+ ...tic/chunks/app |       0 |        0 |       0 |       0 |                   
+  layout.js        |       0 |        0 |       0 |       0 | 1-39              
+  page.js          |       0 |        0 |       0 |       0 | 1-3295            
+ .../app/dashboard |       0 |        0 |       0 |       0 |                   
+  page.js          |       0 |        0 |       0 |       0 | 1-3251            
+ ...space/[caseId] |       0 |        0 |       0 |       0 |                   
+  page.js          |       0 |        0 |       0 |       0 | 1-149             
+ ...hunks/fallback |       0 |        0 |       0 |       0 |                   
+  amp.js           |       0 |        0 |       0 |       0 | 1-841             
+  main.js          |       0 |        0 |       0 |       0 | 1-1285            
+  react-refresh.js |       0 |        0 |       0 |       0 | 1-62              
+  webpack.js       |       0 |        0 |       0 |       0 | 1-1219            
+ ...fallback/pages |       0 |        0 |       0 |       0 |                   
+  _app.js          |       0 |        0 |       0 |       0 | 1-28              
+  _error.js        |       0 |        0 |       0 |       0 | 1-28              
+ ...ic/development |       0 |        0 |       0 |       0 |                   
+  ...ldManifest.js |       0 |        0 |       0 |       0 | 1                 
+  _ssgManifest.js  |       0 |        0 |       0 |       0 | 1                 
+ ...static/webpack |       0 |        0 |       0 |       0 |                   
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-27              
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-18              
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-18              
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-18              
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-18              
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-18              
+ ...ic/webpack/app |       0 |        0 |       0 |       0 |                   
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-22              
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-22              
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-22              
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-22              
+ .../app/dashboard |       0 |        0 |       0 |       0 |                   
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-22              
+  ...hot-update.js |       0 |        0 |       0 |       0 | 1-22              
+ ...next/types/app |       0 |        0 |       0 |       0 |                   
+  layout.ts        |       0 |        0 |       0 |       0 | 1-79              
+  page.ts          |       0 |        0 |       0 |       0 | 1-79              
+ .../app/dashboard |       0 |        0 |       0 |       0 |                   
+  page.ts          |       0 |        0 |       0 |       0 | 1-79              
+ ...space/[caseId] |       0 |        0 |       0 |       0 |                   
+  page.ts          |       0 |        0 |       0 |       0 | 1-79              
+ ...i/apps/web/app |       0 |        0 |       0 |       0 |                   
+  layout.tsx       |       0 |        0 |       0 |       0 | 1-13              
+  page.tsx         |       0 |        0 |       0 |       0 | 1-174             
+ .../clio/callback |       0 |        0 |       0 |       0 |                   
+  route.ts         |       0 |        0 |       0 |       0 | 1-19              
+ .../app/dashboard |       0 |        0 |       0 |       0 |                   
+  page.tsx         |       0 |        0 |       0 |       0 | 1-105             
+ ...space/[caseId] |       0 |        0 |       0 |       0 |                   
+  page.tsx         |       0 |        0 |       0 |       0 | 1-129             
+ ...[caseId]/graph |       0 |        0 |       0 |       0 |                   
+  page.tsx         |       0 |        0 |       0 |       0 | 1-52              
+ ...web/components |    62.6 |     90.9 |   55.55 |    62.6 |                   
+  ChatBubble.tsx   |     100 |      100 |     100 |     100 |                   
+  HeroGraph.tsx    |       0 |        0 |       0 |       0 | 1-71              
+  ...edgeGraph.tsx |   76.92 |      100 |      40 |   76.92 | 28,33-41,44-48    
+  ...entViewer.tsx |     100 |      100 |     100 |     100 |                   
+  ...Scorecard.tsx |     100 |      100 |     100 |     100 |                   
+ ...web/tests/unit |     100 |      100 |     100 |     100 |                   
+  setup.ts         |     100 |      100 |     100 |     100 |                   
+ ...ai/packages/ai |       0 |        0 |       0 |       0 |                   
+  index.ts         |       0 |        0 |       0 |       0 | 1-3               
+  orchestrator.ts  |       0 |        0 |       0 |       0 | 1-99              
+  persistence.ts   |       0 |        0 |       0 |       0 | 1-45              
+  personas.ts      |       0 |        0 |       0 |       0 | 1-68              
+  router.ts        |       0 |        0 |       0 |       0 | 1-26              
+  sanitizer.ts     |       0 |        0 |       0 |       0 | 1-16              
+ ...ges/ai/scripts |       0 |        0 |       0 |       0 |                   
+  ...x-codebase.ts |       0 |        0 |       0 |       0 | 1-116             
+ .../packages/auth |       0 |        0 |       0 |       0 |                   
+  auth-options.ts  |       0 |        0 |       0 |       0 | 1-23              
+  index.ts         |       0 |        0 |       0 |       0 | 1                 
+ ...kages/database |       0 |        0 |       0 |       0 |                   
+  index.ts         |       0 |        0 |       0 |       0 | 1-37              
+ ...atabase/prisma |       0 |        0 |       0 |       0 |                   
+  seed.ts          |       0 |        0 |       0 |       0 | 1-42              
+ .../eslint-config |       0 |        0 |       0 |       0 |                   
+  index.js         |       0 |        0 |       0 |       0 | 1-11              
+ ...i/packages/mcp |       0 |        0 |       0 |       0 |                   
+  client.ts        |       0 |        0 |       0 |       0 | 1                 
+  index.ts         |       0 |        0 |       0 |       0 | 1                 
+ ...es/mcp/servers |       0 |        0 |       0 |       0 |                   
+  dev-tools.ts     |       0 |        0 |       0 |       0 | 1-146             
+  ...ranscriber.ts |       0 |        0 |       0 |       0 | 1-18              
+  ...-sanitizer.ts |       0 |        0 |       0 |       0 | 1-24              
+  mcp-clio-sync.ts |       0 |        0 |       0 |       0 | 1-25              
+  ...x-case-law.ts |       0 |        0 |       0 |       0 | 1-36              
+  ...atutes-pro.ts |       0 |        0 |       0 |       0 | 1-37              
+  ...icy-expert.ts |       0 |        0 |       0 |       0 | 1-80              
+  ...late-rules.ts |       0 |        0 |       0 |       0 | 1-81              
+  ...ry-charges.ts |       0 |        0 |       0 |       0 | 1-81              
+  tx-statutes.ts   |       0 |        0 |       0 |       0 | 1-60              
+ ...ages/templates |       0 |        0 |       0 |       0 |                   
+  index.ts         |       0 |        0 |       0 |       0 | 1-3               
+ ...ai/packages/ui |       0 |        0 |       0 |       0 |                   
+  index.tsx        |       0 |        0 |       0 |       0 | 1                 
+ .../ui/components |       0 |        0 |       0 |       0 |                   
+  index.tsx        |       0 |        0 |       0 |       0 | 1-3               
+-------------------|---------|----------|---------|---------|-------------------

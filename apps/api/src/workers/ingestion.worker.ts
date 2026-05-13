@@ -3,7 +3,10 @@ import IORedis from 'ioredis';
 import prisma from '@hg/database';
 import { enqueueGraphEntityExtraction } from '../services/queue';
 
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
+// BullMQ requires maxRetriesPerRequest: null
+const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  maxRetriesPerRequest: null
+});
 
 // Simulates an Ollama local embedding (e.g., nomic-embed-text)
 const generateMockEmbedding = () => {
@@ -11,9 +14,18 @@ const generateMockEmbedding = () => {
 };
 
 export const ingestionWorker = new Worker('ingestion', async (job: Job) => {
-  const { documentId, s3Key } = job.data;
+  const { documentId, s3Key, caseId } = job.data;
   
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  const publishLog = async (message: string) => {
+    if (caseId) {
+      await connection.publish(`case-progress:${caseId}`, JSON.stringify({ message, source: 'ingestion' }));
+    }
+  };
+
   console.log(`[Ingestion] Processing document ${documentId} from ${s3Key}`);
+  await publishLog(`Processing uploaded file: ${s3Key.split('-').pop()}`);
   
   // 1. Mock Docling PDF parsing & hierarchical chunking
   // In reality, this would shell out to a Docling python worker or API
@@ -23,6 +35,8 @@ export const ingestionWorker = new Worker('ingestion', async (job: Job) => {
   ];
 
   // 2. Generate Embeddings & Insert into pgvector
+  await delay(1500);
+  await publishLog('Chunking document and generating pgvector embeddings...');
   for (const chunk of chunks) {
     const embedding = generateMockEmbedding();
     
@@ -42,7 +56,9 @@ export const ingestionWorker = new Worker('ingestion', async (job: Job) => {
 
   // 3. Trigger Neo4j Graph Extraction
   console.log(`[Ingestion] Enqueuing Graph Extraction for ${documentId}`);
-  await enqueueGraphEntityExtraction(documentId, chunks);
+  await delay(1500);
+  await publishLog('Vector embeddings saved. Handing off to LLM entity extractor...');
+  await enqueueGraphEntityExtraction(documentId, chunks, caseId);
   
   return { processed: chunks.length };
 }, { connection });

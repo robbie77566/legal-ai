@@ -2,7 +2,10 @@ import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import prisma from '@hg/database';
 
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
+// BullMQ requires maxRetriesPerRequest: null
+const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  maxRetriesPerRequest: null
+});
 
 // Simulates an Ollama local embedding (e.g., nomic-embed-text)
 const generateMockEmbedding = () => {
