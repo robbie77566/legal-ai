@@ -14,11 +14,13 @@ This plan turns the approved system design into a sequenced, estimated build wit
 
 ## 2. Delivery approach and assumptions
 
-- **Team:** 2 senior full-stack engineers + 1 product owner/founder; retained TX post-conviction counsel for the launch-gate review (~$2–5k budgeted); 1 trained QA reviewer onboarded during M5.
-- **Cadence:** two-week sprints; trunk-based development on `main` with short-lived feature branches; CI (already landed) grows the gates in §7 per milestone.
-- **Environments:** local Docker Compose (Postgres+pgvector, Redis; Neo4j moves to an optional profile — §5); a single staging environment with Stripe test mode and a seeded reference-case fixture; production stood up in M6.
-- **Definition of done (every story):** code + tests (integration tests hit real Postgres/Redis — the current mock-everything pattern is retired), audit events written where the spec requires, analytics events per the `snl.*` taxonomy, doc-diff landed in the owning spec, a11y/reading-level lint green on Daybreak surfaces.
-- **Estimate discipline:** figures below are engineering-weeks (ew) of focused work, ranges honest. Total ≈ 36–42 ew → **14–16 calendar weeks with two engineers and the parallelization noted in §4** → launch-ready around **mid-December 2026**, with the attorney review and eval gate as the long poles to start early.
+- **Team:** 2 senior full-stack engineers + 1 product owner/founder; **a frontend contractor for the ~6 ew Daybreak track** (the two-track schedule in §4 does not close without one — see the capacity risk in §6); retained TX post-conviction counsel for the launch-gate review (~$2–5k budgeted); 1 trained QA reviewer onboarded during M5.
+- **Cadence:** two-week sprints; trunk-based development on `main` with short-lived feature branches; **branch protection + required review + CODEOWNERS on `main` from M0** (direct pushes end); CI (already landed) grows the gates in §7 per milestone.
+- **Environments:** local Docker Compose (Postgres+pgvector, Redis; Neo4j moves to an optional profile — §5); staging with Stripe test mode + **test clocks** and a seeded reference-case fixture; **production exists (dark) from M2** — deploys are rolling with health checks and worker drain, migrations follow the expand/contract convention (backward-compatible one release, SRE-5).
+- **Walking skeleton (integration de-risker):** by the end of S3, a $0 test-mode purchase flows a 10-page fixture through one real Tier-2 screen, a stub QA approve, and a rendered PDF, **deployed on staging end-to-end** — exercising every risky seam (webhook → case creation → events/SSE → batch polling → render) months before the milestones formally meet. This is an M2 exit criterion.
+- **Definition of done (every story):** code + tests (integration tests hit real Postgres/Redis via testcontainers — the current mock-everything pattern is retired), audit events written where the spec requires, analytics events per the `snl.*` taxonomy, doc-diff landed in the owning spec, a11y/reading-level lint green on Daybreak surfaces.
+- **Estimate discipline:** figures below are engineering-weeks (ew) of focused work, ranges honest. Total ≈ 36–42 ew **plus a 15% buffer** → **15–17 calendar weeks with two engineers + the Daybreak contractor** → launch-ready around **late December 2026**, with the attorney review and eval gate as the long poles to start early. A mid-point re-estimate checkpoint lands at S4.
+- **Pre-agreed scope-shed order** (cut in this order if S6 slips; the QA gate and disclosure archive are never on this list): share-link access log → re-run diff (US-6 ships "re-run", diff view follows) → Ops canned responses (OPS-6) → E8 stall-nudge emails → weekly-report automation (PMX-1 runs manually first).
 
 ## 3. Milestones
 
@@ -33,17 +35,23 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 - CORS pinned; Redis-backed rate limiting on auth/eligibility/presign/webhooks; Bull Board behind ADMIN.
 - Audit service rewritten against real exports and wired into permissions/case mutations (first real `AuditLog` rows).
 - Env cleanup (`GEMINI_API_KEY` unification); execute the "delete now" register entries; remove `socket.io` deps.
+- **Observability baseline moves here, not M6:** Sentry (web/API/workers), structured logging, and basic OTel tracing land in M0 (~a day of setup) — M2–M5 are never built blind. M6 keeps dashboards, alert routing, and runbooks.
+- **CI hardening:** secret scanning (gitleaks), dependency audit + Renovate/Dependabot, CODEOWNERS + branch protection on `main`.
+- **Backups & DR (first pass):** Postgres automated backups with PITR, S3 versioning + lifecycle rules, and stated RPO/RTO targets. Design note carried forward: versioning/backups must honor the OPS-4 hard-delete guarantee — deletions propagate to backups/versions within a stated window, and the privacy policy says so.
 - ENG-10: move remaining `Test Case Files/` content to the encrypted eval bucket, land the manifest, decide the history rewrite (recommended: `git filter-repo` now, while clone count is low).
 
-**AC:** an unauthenticated request to any tenant route is a 401; a forged-tenant JWT cannot read or **insert** cross-tenant rows (proven by integration test); repo contains no mocked route reachable in production; CI green.
+**AC:** an unauthenticated request to any tenant route is a 401; a forged-tenant JWT cannot read or **insert** cross-tenant rows (proven by integration test); repo contains no mocked route reachable in production; errors from any service appear in Sentry; CI green including secret/dependency scans.
 
 ### M1 — Case spine (3 ew)
 
 - `packages/case-lifecycle`: state enum, transition map, customer-visible mapping, event-type constants (§4).
 - Schema migration set 1: `CaseStatus`/lane/vehicle/holds on Case, `CaseEvent` (append-only trigger), `EligibilityDraft`, checklist + upload-session tables (§5).
 - Event append + projection helper (status column updated transactionally); SSE projector publishing the customer mapping; SSE route auth + case-access check (§9).
+- **Transactional outbox for event publishing:** `CaseEvent` append and the Redis publish are a classic dual-write — a crash between DB commit and publish would silently desync the tracker. Events are published from an outbox tail (or re-published from the DB on gap detection), never fire-and-forget alongside the commit.
+- **Job robustness conventions (set here, followed everywhere):** idempotent handlers keyed by event/job id; dead-letter queues with an Ops-visible surface; per-queue concurrency limits sized to provider quotas; graceful drain on deploy.
+- **Minimal `packages/config` flags land here** (moved up from M6): server-side flags gate risky merges throughout the build; the audited admin UI (PMX-2) still arrives in M6.
 
-**AC:** illegal transitions throw; tracker stage for any case is derivable from events alone; SSE stream requires auth and never crosses cases; `docs.stalled_7d` derives from the stream.
+**AC:** illegal transitions throw; tracker stage for any case is derivable from events alone; killing the process between commit and publish loses no tracker update (outbox proven by test); a poisoned job lands in the DLQ, not a retry loop; SSE stream requires auth and never crosses cases; `docs.stalled_7d` derives from the stream.
 
 ### M2 — Commerce & identity (4 ew)
 
@@ -51,8 +59,10 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 - `/buy` flow API: disclosure-ack capture (archived per case — E-6), account+tenant creation, Stripe Checkout session; `payment.succeeded` webhook with `PaymentEvent` idempotency ledger; hourly reconciliation job (§7).
 - `packages/email` (Resend + React Email): receipts, stage transitions, bounce/complaint webhooks → Ops queue. Password reset flow shipped (pulled into v1.0 per ENG-7).
 - Eligibility draft endpoints (anon token, 30-day TTL, promote-and-delete).
+- **Stripe completeness:** integration tests use Stripe test clocks; `charge.dispute.created` webhooks trigger the E-6 evidence flow (not just an archive that Ops remembers to export); Radar defaults reviewed. **PO flag: Texas taxes data-processing services (80% of the charge) — whether the $299 review is taxable needs an accountant's answer before launch; Stripe Tax is the cheap insurance.** Tracked as an M7 gate item.
+- **Walking skeleton is this milestone's exit criterion** (§2): test-mode purchase → fixture doc → one real screen → stub QA → rendered PDF, on staging.
 
-**AC:** a purchase in Stripe test mode yields exactly one Case with disclosures archived, receipt sent, and events written — including when the webhook is dropped (reconciliation heals it); a CLIENT token cannot reach any staff surface; reset flow works end-to-end.
+**AC:** a purchase in Stripe test mode yields exactly one Case with disclosures archived, receipt sent, and events written — including when the webhook is dropped (reconciliation heals it); a dispute webhook produces the evidence packet trigger; a CLIENT token cannot reach any staff surface; reset flow works end-to-end; the walking skeleton runs on staging.
 
 ### M3 — Intake pipeline (5–6 ew)
 
@@ -67,13 +77,16 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 
 - Chunk-freeze per `AnalysisRun` (immutable, hashed, page-provenanced) (§6.1).
 - `ModelRouter` tiers wired to real providers; batch submit + delayed-job polling + stage-budget watchdog with standard-API fallback (`BatchJob`, ENG-6); prompt-cache prefix stability verified via `usage.cache_read_input_tokens`.
-- Screen set per lane (FR-1..5, FR-5a, FR-11); subsequent-writ §4-exception tagging; deadline engine on the shared calendar (FR-5 rules are launch-gate-reviewed by counsel).
+- Screen set per lane (FR-1..5, FR-5a, FR-11); subsequent-writ §4-exception tagging; deadline engine on the shared calendar.
+- **Deadline engine gets its own verification artifact** (FR-5 is "launch-blocking precision," not an ordinary task): a **counsel-signed table of dated test vectors** — finality incl. the 90-day cert window, pre-filing elapsed time, tolling start/stop, the untolled post-CCA-denial gap, laches scenarios — run as golden tests in CI, with the rule set versioned. That table *is* the gate-2 review input for this component; counsel reviews behavior, not prose.
+- **Model-output engineering discipline:** every screen's output is zod-validated structured data with bounded retries on invalid responses; prompts are versioned with a cheap golden-fixture regression suite in CI (a ~20-page fixture per screen — the full eval corpus is too heavy for CI); every `AnalysisRun` records model/prompt/router-config versions so a QA'd report is **reproducible**.
+- **Provider data controls:** an explicit task to enable zero-data-retention / no-training options with Anthropic and Google and verify them — "never used to train AI" (NFR-3) is currently a marketing promise with no engineering task behind it.
 - Tier-3 synthesis + Gemini adjudication; `Finding`/`FindingCitation` writes per ENG-2; grounding hard filter with excerpt-hash re-verification (FR-6/7).
 - LangGraph rebuild: supervisor graph, real ToolNode loop, checkpointer registered; invoked only from the analysis worker.
 - Cost telemetry: `CostRecord` on every model/OCR call incl. batch metadata; COGS query + $54 alert (NFR-4).
 - Eval harness integration: replayable per-screen outputs; both reference cases runnable from the bucket manifest.
 
-**AC:** full pipeline run on the Gary reference case completes within stage budgets on batch pricing; every rendered finding's citations re-verify; adjudication disagreements carry the QA flag; per-case COGS is a single query returning a number within budget.
+**AC:** full pipeline run on the Gary reference case completes within stage budgets on batch pricing; every rendered finding's citations re-verify; adjudication disagreements carry the QA flag; the deadline-engine vector table passes in CI and carries counsel sign-off; an invalid model response never crashes a run or produces an unvalidated finding; per-case COGS is a single query returning a number within budget.
 
 ### M5 — QA console & report (5 ew)
 
@@ -87,7 +100,7 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 ### M6 — Ops console, observability, analytics (5 ew)
 
 - `/ops` per OPS-1..7: case queue with stall/deadline flags, audited Stripe-linked refunds computed from the page authority, disclosure-archive export, retention/deletion workflow (hard-delete incl. S3 + entity rows + report artifacts), delay-ours with honest tracker copy, reviewer management on existing RBAC.
-- Sentry + OTel across web/API/workers; pipeline-health board; SRE-2 alert routing; SRE-4 runbooks written (stall, provider outage/batch fallback, S3, webhook loss, low-OCR cohort).
+- Observability build-out on the M0 baseline: dashboards, pipeline-health board, SRE-2 alert routing; SRE-4 runbooks written (stall, provider outage/batch fallback, S3, webhook loss, low-OCR cohort).
 - Self-hosted PostHog + `snl.*` events wired everywhere; server-side mirrors for money/pipeline facts; `packages/config` flags with audited admin UI (PMX-2); weekly funnel report automated (PMX-1).
 
 **AC:** every promise in the customer specs (refund, deletion, delay honesty, SLA authority) is executable from `/ops` with an audit row — zero manual SQL paths remain; a simulated provider outage produces the truthful tracker state, never fake progress.
@@ -97,13 +110,15 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 - End-to-end dry runs on both reference cases: purchase → upload → report → refund path (gate 4).
 - Eval green per NFR-1 on both cases (gate 1); attorney review package delivered (templates, copy, T&C, US-0 routing, deadline rules, §4 handling, R-6 structure — gate 2); E&O bound (gate 3).
 - Load check at NFR-5 (10 cases/day); a11y (WCAG 2.1 AA) + reading-level CI on all Daybreak routes; pentest of the tenant boundary (SRE-6).
-- Open product decisions closed (owner: PO): SLA `N`, plea-lane pricing, payment plans, R-6 referral structure, brand/R-5.
+- **Backup restore drill:** restore staging from production backups against the stated RPO/RTO; verify the deletion-propagation window (M0 backup design) holds.
+- **Game day:** simulate a provider outage + Stripe webhook loss on staging and run the SRE-4 runbooks as written — runbooks that have never been executed are fiction.
+- Open product/compliance decisions closed (owner: PO): SLA `N`, plea-lane pricing, payment plans, R-6 referral structure, brand/R-5, **Texas sales-tax treatment of the $299 review** (M2 flag), TDPSA items (privacy policy, subprocessor list, cookie/consent counsel confirmation per ENG-11), accessibility statement.
 
-**AC:** all five PRD §7 launch gates checked; go/no-go review documented.
+**AC:** all five PRD §7 launch gates checked; restore drill and game day completed with findings closed; go/no-go review documented.
 
 ### Daybreak UX build (runs M2→M5 as a parallel track)
 
-The UI is spec-complete (`mvp_ui_design_spec.md`, `landing_page_spec.md`); this plan deliberately sequences its build **after the contracts it consumes exist**: landing + S0 wizard on M1's draft API; buy flow on M2; checklist/upload/echo-back/meter on M3; tracker on M1's SSE mapping; interstitial/report/next-steps on M5's report data. Token package (`db-*`/`hg-*`), externalized copy canon, and a11y CI (UXG-1..5) land with the first Daybreak screen. UX estimate: ~6 ew inside the M2–M5 window (it is the second engineer's parallel lane at several points).
+The UI is spec-complete (`mvp_ui_design_spec.md`, `landing_page_spec.md`); this plan deliberately sequences its build **after the contracts it consumes exist**: landing + S0 wizard on M1's draft API; buy flow on M2; checklist/upload/echo-back/meter on M3; tracker on M1's SSE mapping; interstitial/report/next-steps on M5's report data. Token package (`db-*`/`hg-*`), externalized copy canon, and a11y CI (UXG-1..5) land with the first Daybreak screen. UX estimate: ~6 ew inside the M2–M5 window, **staffed by the frontend contractor (§2)** — as originally drafted this lane collided with Track B's ownership of M4, which was the schedule's hidden third engineer.
 
 ## 4. Sequencing at a glance
 
@@ -170,6 +185,9 @@ Decisions reflect the post-MVP roadmap: **v1.1** Spanish/AV/records-concierge/at
 | Prompt-cache misses silently triple Tier-2 cost | Med / Med | Cache-hit telemetry is an SRE-2 alert from day one; prefix byte-stability is a unit test |
 | Counsel review forces copy/flow rework late | Med / Med | Deadline-engine rules, US-0 routing, and disclosure copy sent at S5, not S8 |
 | Two-engineer team: M4 complexity concentrates in one head | High / Med | Design doc §6 is the shared contract; pipeline PRs reviewed cross-track; eval harness is the objective referee |
+| Daybreak UX lane competes with M4 for the same engineer | High / Med | Frontend contractor staffs the Daybreak track (§2); if unstaffed, the launch date moves — the plan does not absorb it silently |
+| Restore/deletion promises untested until an incident | Med / High | M0 backup design with deletion-propagation window; M7 restore drill + game day are launch AC, not aspirations |
+| Tax treatment of the $299 charge unknown (TX taxes data-processing services) | Med / Med | Accountant's determination before launch (M7 gate item); Stripe Tax if taxable |
 | Chargeback wave from unmet expectations | Low / High | W-2 disclosure archive + OPS-3 export ship **with** commerce (M2), not later; 5% reserve budgeted |
 | History still contains real case records | Certain / Med | M0 filter-repo decision — do it before more clones exist |
 
@@ -183,6 +201,8 @@ Decisions reflect the post-MVP roadmap: **v1.1** Spanish/AV/records-concierge/at
 | 4. QA console + trained reviewer + E2E dry run | M5 + M7 |
 | 4a. Ops console, Sentry/OTel, rate limiting live | M0 (limits) + M6 |
 | 5. Billing spec implemented (Checkout, cap, overage, refunds) | M2 + M3 + M6 |
+
+Story-level traceability: US-0/US-1 → M2 · US-2 → M3 · US-3 → M1+M3 (tracker/SSE + clock) · US-4 → M4+M5 · US-5/US-6 → M5 · US-7 → M3+M6 (halt + refund console) · US-8 → M5 · US-9 → M6 · FR-1..5a/FR-11 → M4 · FR-6/7/8/9/10 → M4+M5. Sprint reviews check stories against this map, not against milestone titles.
 
 ## 8. Governance
 
