@@ -2,6 +2,8 @@
 
 This document provides a comprehensive market analysis of the legal AI sector, comparing major incumbent platforms against **HabeasGraph** (the `legal-ai` project), an engine specifically engineered for the Texas Post-Conviction Advocacy lifecycle.
 
+> **Investment decision:** the funding case built on this analysis — options, unit economics, 3-year model, risks, and stage gates — is `business_case.md`. The deeper competitive evidence base is `snotnoselegal_market_study_mvp_gtm.pdf`.
+
 ## Market Sizing: TAM, SAM, and SOM
 
 To understand HabeasGraph's positioning, we must break down the market from the macro global legal tech level down to the state-specific criminal appellate level.

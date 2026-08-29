@@ -2,6 +2,8 @@
 
 This document provides a SWOT (Strengths, Weaknesses, Opportunities, Threats) analysis of **HabeasGraph**, comparing its strategic positioning against generalized legal AI incumbents (Harvey AI, CoCounsel, Clearbrief, Everlaw). It specifically highlights how HabeasGraph is architected to solve the distinct pain points caused by these competitors.
 
+> **Investment decision:** the funding case built on this analysis — options, unit economics, 3-year model, risks, and stage gates — is `business_case.md`. The deeper competitive evidence base is `snotnoselegal_market_study_mvp_gtm.pdf`.
+
 ---
 
 ## HabeasGraph (legal-ai) Internal SWOT
