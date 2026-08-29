@@ -45,3 +45,6 @@ coverage
 # Temp
 tmp
 temp
+
+# Real case records — eval corpus lives in private object storage (see docs/specifications/mvp_v1_engineering_notes.md ENG-10)
+Test Case Files/

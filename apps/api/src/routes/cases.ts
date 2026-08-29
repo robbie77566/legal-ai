@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
-import IORedis from 'ioredis';
 import { z } from 'zod';
-import prisma from '@hg/database';
+import prisma, { withTenant } from '@hg/database';
+import { createConnection } from '../lib/redis';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import pdfParse from 'pdf-parse';
 import AdmZip from 'adm-zip';
@@ -82,32 +82,30 @@ export default async function casesRoutes(fastify: FastifyInstance) {
 
   fastify.post('/', async (request, reply) => {
     const { title } = CreateCaseSchema.parse(request.body);
-    const providedTenantId = request.headers['x-tenant-id'] as string;
+    const tenantId = request.headers['x-tenant-id'] as string;
     const providedUserId = request.headers['x-user-id'] as string;
-    
-    // Fallback to system tenant if none provided
-    let tenantId = providedTenantId;
+
     if (!tenantId) {
-      const tenant = await prisma.tenant.findFirst();
-      if (!tenant) throw new Error("No tenant found in the database. Please run seed script.");
-      tenantId = tenant.id;
+      return reply.status(400).send({ error: 'x-tenant-id header is required' });
     }
 
-    const newCase = await prisma.case.create({
-      data: {
-        title,
-        tenantId,
-        ...(providedUserId ? {
-          accessList: {
-            create: {
-              userId: providedUserId,
-              role: 'ADMIN'
+    const newCase = await withTenant(tenantId, (tx) =>
+      tx.case.create({
+        data: {
+          title,
+          tenantId,
+          ...(providedUserId ? {
+            accessList: {
+              create: {
+                userId: providedUserId,
+                role: 'ADMIN'
+              }
             }
-          }
-        } : {})
-      }
-    });
-    
+          } : {})
+        }
+      })
+    );
+
     return { success: true, caseId: newCase.id };
   });
 
@@ -119,49 +117,57 @@ export default async function casesRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'x-tenant-id header is required' });
     }
 
-    const cases = await prisma.case.findMany({
-      where: {
-        tenantId,
-        ...(userId ? {
-          accessList: {
-            some: {
-              userId
+    const cases = await withTenant(tenantId, (tx) =>
+      tx.case.findMany({
+        where: {
+          tenantId,
+          ...(userId ? {
+            accessList: {
+              some: { userId }
             }
+          } : {})
+        },
+        orderBy: { updatedAt: 'desc' },
+        include: userId ? {
+          accessList: {
+            where: { userId },
+            select: { role: true }
           }
-        } : {})
-      },
-      orderBy: {
-        updatedAt: 'desc'
-      },
-      include: {
-        accessList: {
-          where: { userId },
-          select: { role: true }
-        }
-      }
-    });
+        } : {}
+      })
+    );
 
     return cases;
   });
 
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const caseData = await prisma.case.findUnique({
-      where: { id },
-      include: {
-        documents: {
-          include: {
-            chunks: true
+    const tenantId = request.headers['x-tenant-id'] as string;
+    const userId = request.headers['x-user-id'] as string;
+
+    if (!tenantId) return reply.status(400).send({ error: 'x-tenant-id header is required' });
+    if (!userId) return reply.status(401).send({ error: 'Unauthorized' });
+
+    return withTenant(tenantId, async (tx) => {
+      const access = await tx.caseAccess.findUnique({
+        where: { caseId_userId: { caseId: id, userId } }
+      });
+
+      if (!access) return reply.status(403).send({ error: 'Forbidden' });
+
+      const caseData = await tx.case.findUnique({
+        where: { id },
+        include: {
+          documents: {
+            include: { chunks: true }
           }
         }
-      }
+      });
+
+      if (!caseData) return reply.status(404).send({ error: 'Case not found' });
+
+      return caseData;
     });
-
-    if (!caseData) {
-      return reply.status(404).send({ error: 'Case not found' });
-    }
-
-    return caseData;
   });
 
   fastify.patch('/:id', async (request, reply) => {
@@ -190,34 +196,32 @@ export default async function casesRoutes(fastify: FastifyInstance) {
 
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const tenantId = request.headers['x-tenant-id'] as string;
     const userId = request.headers['x-user-id'] as string;
 
+    if (!tenantId) return reply.status(400).send({ error: 'x-tenant-id header is required' });
     if (!userId) return reply.status(401).send({ error: 'Unauthorized' });
 
-    // Ensure the user has ADMIN rights for this case
-    const access = await prisma.caseAccess.findUnique({
-      where: { caseId_userId: { caseId: id, userId } }
+    return withTenant(tenantId, async (tx) => {
+      const access = await tx.caseAccess.findUnique({
+        where: { caseId_userId: { caseId: id, userId } }
+      });
+
+      if (!access || access.role !== 'ADMIN') {
+        return reply.status(403).send({ error: 'Forbidden: Requires ADMIN access' });
+      }
+
+      const docs = await tx.document.findMany({ where: { caseId: id } });
+      const docIds = docs.map(d => d.id);
+
+      await tx.documentChunk.deleteMany({ where: { documentId: { in: docIds } } });
+      await tx.document.deleteMany({ where: { caseId: id } });
+      await tx.auditLog.deleteMany({ where: { caseId: id } });
+      await tx.caseAccess.deleteMany({ where: { caseId: id } });
+      await tx.case.delete({ where: { id } });
+
+      return { success: true };
     });
-
-    if (!access || access.role !== 'ADMIN') {
-      return reply.status(403).send({ error: 'Forbidden: Requires ADMIN access' });
-    }
-
-    // Prisma doesn't always handle deeply nested cascade deletes well if not configured on the schema
-    // So we manually clean up dependencies to be safe
-    const docs = await prisma.document.findMany({ where: { caseId: id }});
-    const docIds = docs.map(d => d.id);
-    
-    await prisma.documentChunk.deleteMany({ where: { documentId: { in: docIds } } });
-    await prisma.document.deleteMany({ where: { caseId: id } });
-    await prisma.auditLog.deleteMany({ where: { caseId: id } });
-    await prisma.caseAccess.deleteMany({ where: { caseId: id } });
-    
-    await prisma.case.delete({
-      where: { id }
-    });
-
-    return { success: true };
   });
 
   fastify.get('/:id/progress', async (request, reply) => {
@@ -228,7 +232,7 @@ export default async function casesRoutes(fastify: FastifyInstance) {
     reply.raw.setHeader('Connection', 'keep-alive');
     reply.raw.flushHeaders();
 
-    const subscriber = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379');
+    const subscriber = createConnection();
     const channel = `case-progress:${id}`;
     
     await subscriber.subscribe(channel);

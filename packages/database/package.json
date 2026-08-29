@@ -14,9 +14,11 @@
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
+    "bcryptjs": "^2.4.3",
     "neo4j-driver": "^6.0.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "prisma": "^5.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"

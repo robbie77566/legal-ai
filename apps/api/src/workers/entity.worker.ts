@@ -1,11 +1,8 @@
 import { Worker, Job } from 'bullmq';
-import IORedis from 'ioredis';
 import { getSession } from '../services/neo4j';
+import { createConnection } from '../lib/redis';
 
-// BullMQ requires maxRetriesPerRequest: null
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null
-});
+const connection = createConnection();
 
 export const entityWorker = new Worker('graph', async (job: Job) => {
   const { documentId, chunks, caseId } = job.data;

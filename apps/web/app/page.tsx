@@ -27,7 +27,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="text-[#D4AF37] font-serif font-bold text-xl tracking-wider">HabeasGraph</div>
           <div className="flex gap-4">
-            <Link href="/dashboard">
+            <Link href="/auth/signin">
               <button className="text-sm font-medium text-gray-300 hover:text-white transition-colors">Sign In</button>
             </Link>
           </div>
@@ -54,8 +54,8 @@ export default function LandingPage() {
               Transform massive trial records into structured legal intelligence. Automate discovery, sanitize citations, and instantly draft CREAC arguments with our secure, zero-retention AI platform.
             </p>
             
-            <Link href="/dashboard">
-              <motion.button 
+            <Link href="/auth/signin">
+              <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 animate={{ 

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 
 const prismaClientSingleton = () => {
   return new PrismaClient()
@@ -14,22 +14,15 @@ export default prisma
 
 if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma
 
-/**
- * Executes a Prisma query within an interactive transaction that has the 
- * PostgreSQL session variable `app.current_tenant_id` securely set.
- * This is required to bypass Row-Level Security (RLS) and access data.
- * 
- * @param tenantId The ID of the current tenant session
- * @param fn The transaction callback containing the queries
- */
+/** Executes a Prisma callback inside a transaction that activates PostgreSQL RLS for the given tenant. */
 export const withTenant = async <T>(
   tenantId: string,
-  fn: (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => Promise<T>
+  fn: (tx: Prisma.TransactionClient) => Promise<T>
 ) => {
   return prisma.$transaction(async (tx) => {
     // Inject the tenant ID into the Postgres session for this specific transaction block
     // We use SET LOCAL so the setting is restricted to this transaction only
-    await tx.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = '${tenantId}';`);
+    await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
     
     // Execute the user queries
     return fn(tx);

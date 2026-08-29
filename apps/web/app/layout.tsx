@@ -1,5 +1,5 @@
 import './globals.css';
-
+import { Toaster } from 'sonner';
 import { Providers } from './providers';
 
 export default function RootLayout({
@@ -11,6 +11,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <Providers>{children}</Providers>
+        <Toaster position="bottom-right" theme="dark" richColors />
       </body>
     </html>
   )

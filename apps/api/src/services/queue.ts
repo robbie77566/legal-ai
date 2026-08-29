@@ -1,15 +1,20 @@
 import { Queue } from 'bullmq';
-import IORedis from 'ioredis';
 import dotenv from 'dotenv';
+import { createConnection } from '../lib/redis';
 dotenv.config();
 
-// BullMQ requires maxRetriesPerRequest: null
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null
-});
+const connection = createConnection();
 
 // Queue for Docling text chunking and pgvector insertion
-export const ingestionQueue = new Queue('ingestion', { connection });
+export const ingestionQueue = new Queue('ingestion', {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 },
+    removeOnComplete: 100,
+    removeOnFail: 200
+  }
+});
 
 // Queue for Neo4j entity extraction via LLM
 export const graphQueue = new Queue('graph', { connection });

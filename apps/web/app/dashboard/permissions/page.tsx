@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldAlert, ShieldCheck, X, UserPlus, Edit, Trash2 } from "lucide-react";
@@ -22,36 +22,33 @@ export default function PermissionsPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const fetchUsers = useCallback(async () => {
+    const tenantId = (session?.user as any)?.tenantId;
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch("http://localhost:3001/permissions/users", {
+        headers: { "x-tenant-id": tenantId }
+      });
+      const data = await res.json();
+      setUsers(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [session]);
+
   useEffect(() => {
     if (status === "loading") return;
-
     if (!session?.user) {
       setLoading(false);
       return;
     }
-
-    const fetchUsers = async () => {
-      try {
-        const tenantId = (session?.user as any)?.tenantId;
-        if (!tenantId) {
-          setLoading(false);
-          return;
-        }
-
-        const res = await fetch("http://localhost:3001/permissions/users", {
-          headers: { "x-tenant-id": tenantId }
-        });
-        const data = await res.json();
-        setUsers(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUsers();
-  }, [session, status]);
+  }, [session, status, fetchUsers]);
 
   const getHeaders = () => {
     const user = session?.user as any;

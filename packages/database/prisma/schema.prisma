@@ -13,18 +13,27 @@ enum Role {
   ADMIN
   ATTORNEY
   INVESTIGATOR
+  VIEWER
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  role      Role     @default(ATTORNEY)
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  caseAccess CaseAccess[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String      @id @default(cuid())
+  email               String      @unique
+  name                String?
+  passwordHash        String?
+  role                Role        @default(ATTORNEY)
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id])
+  caseAccess          CaseAccess[]
+
+  passwordChangedAt   DateTime?
+  inviteToken         String?
+  inviteExpires       DateTime?
+  resetToken          String?
+  resetExpires        DateTime?
+
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 }
 
 model Tenant {
@@ -72,7 +81,7 @@ model DocumentChunk {
   documentId String
   document   Document @relation(fields: [documentId], references: [id])
   content    String
-  embedding  Unsupported("vector(1536)")?
+  embedding  Unsupported("vector(768)")?
   metadata   Json
 }
 

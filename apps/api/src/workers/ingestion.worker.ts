@@ -1,17 +1,10 @@
 import { Worker, Job } from 'bullmq';
-import IORedis from 'ioredis';
 import prisma from '@hg/database';
 import { enqueueGraphEntityExtraction } from '../services/queue';
+import { EmbeddingService } from '../services/embedding.service';
+import { createConnection } from '../lib/redis';
 
-// BullMQ requires maxRetriesPerRequest: null
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null
-});
-
-// Simulates an Ollama local embedding (e.g., nomic-embed-text)
-const generateMockEmbedding = () => {
-  return Array.from({ length: 1536 }, () => Math.random());
-};
+const connection = createConnection();
 
 export const ingestionWorker = new Worker('ingestion', async (job: Job) => {
   const { documentId, s3Key, caseId } = job.data;
@@ -35,23 +28,28 @@ export const ingestionWorker = new Worker('ingestion', async (job: Job) => {
   ];
 
   // 2. Generate Embeddings & Insert into pgvector
-  await delay(1500);
   await publishLog('Chunking document and generating pgvector embeddings...');
   for (const chunk of chunks) {
-    const embedding = generateMockEmbedding();
-    
-    // We must use $executeRawUnsafe because Prisma doesn't natively support vector insertion
-    // The cast `$3::vector` is crucial for pgvector
-    await prisma.$executeRawUnsafe(`
+    let embedding: number[];
+    try {
+      embedding = await EmbeddingService.embed(chunk.text);
+    } catch (err) {
+      await publishLog(`Embedding failed for chunk ${chunk.id} — will retry`);
+      throw err; // propagate so BullMQ retries the job
+    }
+
+    // $executeRaw with tagged template is parameterized and safe against injection.
+    // The ::vector cast is required for pgvector; Prisma doesn't natively support the vector type.
+    await prisma.$executeRaw`
       INSERT INTO "DocumentChunk" (id, "documentId", content, metadata, embedding)
       VALUES (
         gen_random_uuid()::text,
-        $1,
-        $2,
+        ${documentId},
+        ${chunk.text},
         '{}'::jsonb,
-        $3::vector
+        ${`[${embedding.join(',')}]`}::vector
       )
-    `, documentId, chunk.text, `[${embedding.join(',')}]`);
+    `;
   }
 
   // 3. Trigger Neo4j Graph Extraction

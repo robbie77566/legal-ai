@@ -3,7 +3,6 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
 import prisma from '@hg/database';
-import { enqueueDocument } from '../services/queue';
 import crypto from 'crypto';
 
 const s3Config: any = {
@@ -71,11 +70,13 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
       }
     });
     
-    // Enqueue the heavy Docling/pgvector extraction pipeline
+    // Lazy import: queue.ts creates IORedis connections at module level; importing it
+    // here instead of at the top of the file prevents Redis connection attempts at startup.
     try {
+      const { enqueueDocument } = await import('../services/queue');
       await enqueueDocument(document.id, s3Key, caseId);
     } catch (e) {
-      console.warn("Failed to enqueue document, redis may be down:", e);
+      console.warn('[Queue] Failed to enqueue document — Redis may be unavailable:', e);
     }
     
     return { success: true, documentId: document.id };

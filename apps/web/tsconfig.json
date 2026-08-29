@@ -29,7 +29,8 @@
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    "../../packages/auth/types/next-auth.d.ts"
   ],
   "exclude": [
     "node_modules"

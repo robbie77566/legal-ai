@@ -15,36 +15,22 @@ vi.mock('ioredis', () => {
   };
 });
 
-vi.mock('@hg/database', () => {
-  return {
-    default: {
-      tenant: {
-        findFirst: vi.fn()
-      },
-      case: {
-        create: vi.fn(),
-        findMany: vi.fn(),
-        findUnique: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn()
-      },
-      caseAccess: {
-        findUnique: vi.fn(),
-        deleteMany: vi.fn()
-      },
-      document: {
-        findMany: vi.fn(),
-        deleteMany: vi.fn()
-      },
-      documentChunk: {
-        deleteMany: vi.fn()
-      },
-      auditLog: {
-        deleteMany: vi.fn()
-      }
-    }
+const { mockPrisma } = vi.hoisted(() => {
+  const mockPrisma = {
+    tenant: { findFirst: vi.fn() },
+    case: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    caseAccess: { findUnique: vi.fn(), deleteMany: vi.fn() },
+    document: { findMany: vi.fn(), deleteMany: vi.fn() },
+    documentChunk: { deleteMany: vi.fn() },
+    auditLog: { deleteMany: vi.fn() }
   };
+  return { mockPrisma };
 });
+
+vi.mock('@hg/database', () => ({
+  default: mockPrisma,
+  withTenant: vi.fn(async (_tenantId: string, fn: any) => fn(mockPrisma))
+}));
 
 describe('Cases API Routes', () => {
   beforeEach(() => {
@@ -111,10 +97,7 @@ describe('Cases API Routes', () => {
       });
     });
 
-    it('should fallback to system tenant if no tenant header is provided', async () => {
-      (prisma.tenant.findFirst as any).mockResolvedValue({ id: 'sys_tenant' });
-      (prisma.case.create as any).mockResolvedValue({ id: 'case_456', title: 'Fallback Case', tenantId: 'sys_tenant' });
-
+    it('should return 400 if x-tenant-id header is missing', async () => {
       const response = await fastify.inject({
         method: 'POST',
         url: '/cases',
@@ -126,20 +109,8 @@ describe('Cases API Routes', () => {
         }
       });
 
-      expect(response.statusCode).toBe(200);
-      expect(prisma.tenant.findFirst).toHaveBeenCalled();
-      expect(prisma.case.create).toHaveBeenCalledWith({
-        data: {
-          title: 'Fallback Case',
-          tenantId: 'sys_tenant',
-          accessList: {
-            create: {
-              userId: 'user_1',
-              role: 'ADMIN'
-            }
-          }
-        }
-      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({ error: 'x-tenant-id header is required' });
     });
   });
 
@@ -226,10 +197,19 @@ describe('Cases API Routes', () => {
   });
 
   describe('DELETE /cases/:id', () => {
-    it('should return 401 if user id is missing', async () => {
+    it('should return 400 if x-tenant-id is missing', async () => {
       const response = await fastify.inject({
         method: 'DELETE',
         url: '/cases/123'
+      });
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('should return 401 if user id is missing', async () => {
+      const response = await fastify.inject({
+        method: 'DELETE',
+        url: '/cases/123',
+        headers: { 'x-tenant-id': 'tenant_1' }
       });
       expect(response.statusCode).toBe(401);
     });
@@ -240,20 +220,20 @@ describe('Cases API Routes', () => {
       const response = await fastify.inject({
         method: 'DELETE',
         url: '/cases/123',
-        headers: { 'x-user-id': 'user_1' }
+        headers: { 'x-tenant-id': 'tenant_1', 'x-user-id': 'user_1' }
       });
 
       expect(response.statusCode).toBe(403);
     });
 
-    it('should safely cascade delete if user is ADMIN', async () => {
+    it('should atomically cascade delete inside a transaction if user is ADMIN', async () => {
       (prisma.caseAccess.findUnique as any).mockResolvedValue({ role: 'ADMIN' });
       (prisma.document.findMany as any).mockResolvedValue([{ id: 'doc_1' }]);
 
       const response = await fastify.inject({
         method: 'DELETE',
         url: '/cases/123',
-        headers: { 'x-user-id': 'user_1' }
+        headers: { 'x-tenant-id': 'tenant_1', 'x-user-id': 'user_1' }
       });
 
       expect(response.statusCode).toBe(200);

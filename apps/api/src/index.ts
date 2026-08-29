@@ -8,18 +8,9 @@ import cors from '@fastify/cors'
 import uploadRoutes from './routes/upload'
 import casesRoutes from './routes/cases'
 import permissionsRoutes from './routes/permissions'
-
-// Import workers to ensure they start processing queues
-import './workers/ingestion.worker';
-import './workers/entity.worker';
-import './workers/media.worker';
-
-import { createBullBoard } from '@bull-board/api';
-import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
-import { FastifyAdapter } from '@bull-board/fastify';
-import { ingestionQueue, graphQueue, mediaQueue } from './services/queue';
-
 import fastifyMultipart from '@fastify/multipart';
+import IORedis from 'ioredis';
+import { REDIS_URL } from './lib/redis';
 
 export const fastify = Fastify({
   logger: true
@@ -31,7 +22,7 @@ fastify.register(cors, {
 
 fastify.register(fastifyMultipart, {
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
+    fileSize: 500 * 1024 * 1024 // 500MB — accommodates ZIP archives containing PDFs and transcripts
   }
 })
 
@@ -39,23 +30,63 @@ fastify.register(uploadRoutes, { prefix: '/upload' })
 fastify.register(casesRoutes, { prefix: '/cases' })
 fastify.register(permissionsRoutes, { prefix: '/permissions' })
 
-const serverAdapter = new FastifyAdapter();
-createBullBoard({
-  queues: [
-    new BullMQAdapter(ingestionQueue),
-    new BullMQAdapter(graphQueue),
-    new BullMQAdapter(mediaQueue)
-  ],
-  serverAdapter,
-});
-serverAdapter.setBasePath('/admin/queues');
-fastify.register(serverAdapter.registerPlugin(), { prefix: '/admin/queues', basePath: '/admin/queues' });
-
 fastify.get('/', async (request, reply) => {
   return { hello: 'world' }
 })
 
+async function probeRedis(): Promise<boolean> {
+  const probe = new IORedis(REDIS_URL, {
+    lazyConnect: true,
+    connectTimeout: 2000,
+    maxRetriesPerRequest: null,
+    retryStrategy: () => null // one attempt only — no reconnect loop
+  });
+  probe.on('error', () => {}); // suppress events; we only care about the connect() outcome
+  try {
+    await probe.connect();
+    await probe.quit();
+    return true;
+  } catch {
+    probe.disconnect(false);
+    return false;
+  }
+}
+
 const start = async () => {
+  const redisAvailable = await probeRedis();
+
+  if (redisAvailable) {
+    // Start queue workers (they connect to Redis on import)
+    await Promise.all([
+      import('./workers/ingestion.worker'),
+      import('./workers/entity.worker'),
+      import('./workers/media.worker'),
+    ]);
+
+    // Register Bull Board (requires active queue connections)
+    const { createBullBoard } = await import('@bull-board/api');
+    const { BullMQAdapter } = await import('@bull-board/api/bullMQAdapter');
+    const { FastifyAdapter } = await import('@bull-board/fastify');
+    const { ingestionQueue, graphQueue, mediaQueue } = await import('./services/queue');
+
+    const serverAdapter = new FastifyAdapter();
+    createBullBoard({
+      queues: [
+        new BullMQAdapter(ingestionQueue),
+        new BullMQAdapter(graphQueue),
+        new BullMQAdapter(mediaQueue)
+      ],
+      serverAdapter,
+    });
+    serverAdapter.setBasePath('/admin/queues');
+    fastify.register(serverAdapter.registerPlugin(), { prefix: '/admin/queues', basePath: '/admin/queues' });
+  } else {
+    console.warn(
+      `[Redis] Not reachable at ${REDIS_URL} — queue workers and /admin/queues disabled.\n` +
+      `  Start services: docker compose up redis -d`
+    );
+  }
+
   try {
     await fastify.listen({ port: 3001, host: '0.0.0.0' })
   } catch (err) {

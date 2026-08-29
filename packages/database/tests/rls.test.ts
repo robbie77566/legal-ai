@@ -3,12 +3,13 @@ import prisma, { withTenant } from '../index';
 
 describe('Row-Level Security (RLS) Tenant Isolation', () => {
   it('should successfully execute a query when injected with a valid Tenant ID', async () => {
-    // Mock the transaction and executeRawUnsafe methods
-    const executeMock = vi.fn().mockResolvedValue(true);
+    const executeRawMock = vi.fn().mockResolvedValue(1);
     const findMock = vi.fn().mockResolvedValue([{ id: 'case_1', tenantId: 'tenant_A' }]);
 
+    // $executeRaw is called as a tagged template literal, so it receives a TemplateStringsArray
+    // as its first argument followed by interpolated values.
     const mockTx = {
-      $executeRawUnsafe: executeMock,
+      $executeRaw: executeRawMock,
       case: {
         findMany: findMock
       }
@@ -22,7 +23,11 @@ describe('Row-Level Security (RLS) Tenant Isolation', () => {
       return tx.case.findMany();
     });
 
-    expect(executeMock).toHaveBeenCalledWith(`SET LOCAL app.current_tenant_id = 'tenant_A';`);
+    // Tagged template call: first arg is the TemplateStringsArray, second is the interpolated tenantId
+    expect(executeRawMock).toHaveBeenCalledOnce();
+    const [templateStrings, tenantId] = executeRawMock.mock.calls[0];
+    expect(Array.isArray(templateStrings) || templateStrings.raw).toBeTruthy();
+    expect(tenantId).toBe('tenant_A');
     expect(findMock).toHaveBeenCalled();
     expect(cases.length).toBe(1);
 
