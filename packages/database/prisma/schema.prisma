@@ -120,6 +120,36 @@ model Report {
   @@index([caseId])
 }
 
+// US-5 consent-based referral: opt-in only, default off, revocable; nothing
+// is shared without an explicit grant. Events mirror grants/revocations.
+model ConsentGrant {
+  id             String    @id @default(cuid())
+  caseId         String
+  tenantId       String
+  userId         String
+  recipientClass String // clinic | attorney
+  grantedAt      DateTime  @default(now())
+  revokedAt      DateTime?
+
+  @@index([caseId])
+}
+
+// ENG-8 share-with-a-lawyer link: hashed token, expiring, revocable,
+// access-logged ("your lawyer opened it").
+model ShareLink {
+  id         String    @id @default(cuid())
+  caseId     String
+  tenantId   String
+  reportId   String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  accessLog  Json      @default("[]")
+  createdAt  DateTime  @default(now())
+
+  @@index([caseId])
+}
+
 // W-2 disclosure acknowledgment archive (E-6 chargeback defense, OPS-3).
 // Retained 24 months, SURVIVES case deletion (retention matrix §11a.2) —
 // plain references, no FKs. Contains the disclosure-set version + timestamp

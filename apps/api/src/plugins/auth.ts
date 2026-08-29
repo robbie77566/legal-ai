@@ -19,7 +19,7 @@ const PUBLIC_PATHS = new Set(['/', '/health', '/buy/account'])
 
 // Prefix-public: anonymous S0 drafts (token-addressed) and Stripe webhooks
 // (signature-verified in-route).
-const PUBLIC_PREFIXES = ['/eligibility/draft', '/webhooks/stripe']
+const PUBLIC_PREFIXES = ['/eligibility/draft', '/webhooks/stripe', '/shared/']
 
 const SESSION_COOKIES = [
   '__Secure-next-auth.session-token',
