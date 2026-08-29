@@ -28,3 +28,14 @@ The legal AI market has shifted from general research tools to specialized "vert
 ## Market Gaps
 *   **State-Specific Depth:** Most tools are "Federal-First." There is a gap for a tool that "lives and breathes" the **Texas Court of Criminal Appeals (CCA)** rules and local county practices (e.g., Harris vs. Dallas County procedural quirks).
 *   **MCP Integration:** No current tool leverages the **Model Context Protocol** to allow users to plug in their own specialized legal "knowledge servers."
+
+---
+
+## Update (Aug 2026): Deep competitive study
+
+A full study of the five dominant platforms serving Texas post-conviction practice — **Westlaw Precision + CoCounsel, Lexis+ AI/Protégé, vLex Fastcase/Vincent, Everlaw (+ Everlaw for Good), and Casefleet** — including feature matrices, personas, JTBD, pain points, verified/reported pricing, and licensing models lives at `docs/business_case/snotnoselegal_market_study_mvp_gtm.pdf` (.docx alongside). Key conclusions that supersede the notes above where they conflict:
+
+*   **The competitive floor in Texas is free.** vLex Fastcase is free to every State Bar of Texas member (statewide bar site license); Everlaw for Good gives innocence projects and CJA panel attorneys ediscovery at $0. Positioning must never sound like "research" or "document review."
+*   **The white space is the habeas spine:** 11.07/AEDPA deadline & tolling computation, exhaustion tracking, IAC affidavit workflow, intake triage/viability scoring, 11.073 junk-science screening, clemency packets, a knowledge-graph record view, on-prem deployment, and any consumer/family-facing product — absent from all five platforms.
+*   **Four personas, one contested:** only the appellate attorney is (partially) served by incumbents; the mitigation specialist, clinic director, and the inmate's family are unserved. The family is the MVP v1.0 wedge — see `mvp_v1_prd.md` and `product_roadmap.md`.
+*   **Price anchors:** Casefleet $30–$140/seat/mo (published) below; quote-only enterprise ($639+/seat/mo verified for Westlaw+CoCounsel) above; the ~$3,000 attorney document-review fee is the consumer anchor.

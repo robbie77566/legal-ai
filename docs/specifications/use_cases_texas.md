@@ -22,6 +22,11 @@ This platform is specifically tuned for the **Texas Court of Criminal Appeals (C
 *   **AI Role:** Use an MCP tool to verify the specific version of the Texas Penal Code active on the date of the offense. Verify that the prior convictions used for enhancement meet the "Finality" requirements of Texas law.
 *   **Output:** A sentencing audit report.
 
+## Use Case 0 (MVP v1.0): Family Case Review
+*   **The Problem:** Families must decide whether post-conviction relief is worth pursuing with no information — an attorney charges ~$3,000 merely to review the court documents, and pro se filing risks burning the one shot allowed by the subsequent-writ bar.
+*   **AI Role:** Run the five viability screens below (Use Cases 1–4 plus preserved-error scanning) over the uploaded record via the three-tier model routing, grounded to page/line citations, cross-model adjudicated, and human-QA-gated before release.
+*   **Output:** A two-part report — plain-English findings for the family; an attorney-ready packet with full citations. Information, never legal advice; strong-signal results route to counsel or (with consent) a clinic. Full requirements: `mvp_v1_prd.md`.
+
 ## Use Case 5: Clemency & Commutation Petitions
 *   **The Problem:** Drafting persuasive petitions for the Texas Board of Pardons and Paroles.
 *   **AI Role:** Extract "Mitigation Factors" from the record—evidence of childhood trauma, mental health diagnoses, or institutional adjustment—that may have been overlooked during the sentencing phase.

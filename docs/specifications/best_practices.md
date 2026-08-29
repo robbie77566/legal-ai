@@ -8,7 +8,7 @@
 ## 2. Accuracy & Hallucination Mitigation
 *   **Grounded Citations:** Every claim made by the AI **must** be accompanied by a link to the source document (Page/Line) or a verified statute/case.
 *   **Human-in-the-loop (HITL):** The AI should "propose" findings rather than "declaring" them. Use UI components that allow lawyers to verify, edit, or reject AI suggestions.
-*   **Model Routing:** Use high-reasoning models (like Gemini 1.5 Pro or Claude 3.5 Sonnet) for the final analysis, rather than faster/cheaper models that are more prone to "creative" lawyering.
+*   **Model Routing:** Cheap models transform (OCR cleanup, chunking, entity candidates); only high-reasoning frontier models (e.g., Claude Opus 5 / Sonnet 5, current Gemini Pro) filter — i.e., decide what counts as a finding. Never place a small model where its misses are unrecoverable. See `docs/architecture/cost_optimization_ollama.md` for the three-tier routing and `docs/architecture/model_evaluation.md` for how model choices are validated (recall-first, ground-truth anchored).
 
 ## 3. UI/UX for Legal Professionals
 *   **The "Side-by-Side" Paradigm:** Do not hide the source text. Keep the transcript visible next to the analysis.

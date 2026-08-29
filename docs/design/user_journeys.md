@@ -30,6 +30,15 @@ HabeasGraph is designed for the high-stakes, data-dense environment of Texas Pos
     *   Inability to quickly triage which cases have actual, legally cognizable paths to release under Texas law.
 *   **JTBD:** *"When we ingest a new batch of 50 inmate requests and raw dockets, I want a high-level summary of legal viability, so I can allocate my limited attorney and investigator hours to the cases with the highest probability of success."*
 
+### Persona 4: The Inmate's Family Member (MVP v1.0 primary persona)
+*   **Role:** The actual payer in retained post-conviction work. Not a lawyer; making a high-stakes cost-versus-probable-outcome decision under emotional stress; may not be a native English reader.
+*   **Pain Points:**
+    *   ~$3,000 buys only an attorney's *review* of the court documents — a go/no-go signal with no transparency; full representation runs $15k–$50k+.
+    *   The alternative is pro se filing from a TDCJ unit, where a weak application burns the effective one shot allowed by Texas's subsequent-writ bar.
+    *   No product on the market will even sell to them: every incumbent licenses to legal professionals.
+*   **JTBD:** *"When my son's direct appeal is denied, I want to know whether a writ has any realistic chance before I spend $3,000 just for a lawyer to read the file, so I don't drain the family's savings on false hope."*
+*   **Strategic Note:** This persona is the MVP v1.0 wedge (see `docs/specifications/mvp_v1_prd.md`) and the intake funnel for Persona 3: a consented high-viability review arrives at a clinic as a pre-triaged packet instead of a handwritten letter.
+
 ---
 
 ## 2. Core UX Workflows
@@ -66,3 +75,12 @@ The following workflows illustrate how these personas interact with the HabeasGr
 1.  **Configuration:** The Director navigates to the "Integrations" panel and clicks "Connect Clio" (or MyCase).
 2.  **OAuth Flow:** The user is securely redirected to authorize HabeasGraph to read/write case data.
 3.  **Data Population:** The `mcp-clio-sync` agent silently runs in the background, populating the Bento Dashboard with upcoming AEDPA deadlines and pulling in raw client metadata, eliminating dual data-entry for the entire team.
+
+### Workflow E: Family Case Review (MVP v1.0)
+**Primary User:** The Inmate's Family Member
+1.  **Purchase:** The user pays a flat $299 via Stripe Checkout. Price, the 5,000-page cap, the refund policy, and the "information, not legal advice" statement are shown *before* payment. Account creation is email/password only — no tenant setup, no roles.
+2.  **Guided Upload:** A plain-English wizard explains what to upload (judgment & sentence, clerk's record, reporter's record volumes, motions) with examples. PDFs/scans accepted; audio/video rejected with a friendly note about the future add-on. A running page counter shows usage against the cap.
+3.  **Waiting:** A status page tracks Received → Reading the record → Analyzing → Quality review → Ready, with an email at each transition. No chat, no graph, no workspace — the multi-agent pipeline and knowledge graph run entirely behind the curtain.
+4.  **Internal QA Gate:** Before release, a trained reviewer approves the report in the internal console (the side-by-side workspace, repurposed for staff). Nothing reaches the customer unreviewed.
+5.  **The Report:** A two-part PDF. Part A speaks to the family at an 8th-grade reading level: what we reviewed, what we found, what it means, what to do next (always "consult counsel," never "file this"). Part B is the attorney-ready packet: every finding with volume/page/line citations and source excerpts.
+6.  **Consented Referral:** If the review shows strong signals, the user may opt in to share the packet with an innocence clinic or take a vetted-attorney list. Default is private; nothing is shared without the explicit opt-in.

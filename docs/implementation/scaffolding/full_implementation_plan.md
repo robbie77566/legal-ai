@@ -29,6 +29,8 @@ HabeasGraph is a comprehensive **Incarceration Reduction Engine** specifically e
 
 ## 3. Implementation Roadmap
 
+> **Note (Aug 2026):** The phases below are the historical *engineering build* record. Release/market sequencing is now governed by `docs/specifications/product_roadmap.md` (family-tier MVP v1.0 first, per `docs/specifications/mvp_v1_prd.md`), which retargets these built capabilities: Phases 3–4 power the v1.0 internal analysis pipeline and QA console; the customer-facing workspace, integrations, and Phase-5 multimedia surface in v1.1–v3.
+
 ### Phase 1: Foundation & Security (Weeks 1-2)
 - **Monorepo Setup:** Scaffolding `apps/web`, `apps/api`, and `packages/*` as defined in the scaffolding plan.
 - **IAM Layer:** Implement NextAuth.js with tenant-aware Prisma middleware to enforce PostgreSQL RLS.
