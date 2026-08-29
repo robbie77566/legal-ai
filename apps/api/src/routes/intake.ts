@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent } from '@hg/database';
 import { checklistTemplate, customerView, type CaseHold } from '@hg/case-lifecycle';
+import { verifyFindings } from '../services/analysis.service';
 
 /**
  * S2 intake: interview → personalized checklist → the explicit, celebrated
@@ -141,7 +142,66 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       });
 
       const updated = await tx.case.findUniqueOrThrow({ where: { id } });
+
+      // Kick the analysis pipeline (idempotent job id); Redis-down is
+      // tolerated — reconciliation of stuck DOCS_COMPLETE cases is an Ops
+      // queue view, never a customer-facing failure.
+      try {
+        const { enqueueAnalysis } = await import('../services/queue');
+        await enqueueAnalysis(id, tenantId);
+      } catch (e) {
+        request.log.error({ err: e }, 'analysis enqueue failed — case parked at DOCS_COMPLETE');
+      }
+
       return { status: updated.status, slaStartedAt: updated.slaStartedAt };
+    });
+  });
+
+  // The customer report (US-4), readable once QA has approved. FR-7 runs at
+  // EVERY render: citations re-verify against live chunks; a mismatch drops
+  // the finding from view and reports the drop.
+  fastify.get('/:id/report', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { tenantId, userId } = request.auth;
+
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      if (kase.status !== 'READY' && kase.status !== 'DELIVERED') {
+        return reply.status(404).send({ error: 'No report is ready yet' });
+      }
+
+      const report = await tx.report.findFirst({
+        where: { caseId: id },
+        orderBy: { versionNo: 'desc' },
+      });
+      if (!report) return reply.status(404).send({ error: 'No report is ready yet' });
+
+      const snapshot = report.findingsSnapshot as {
+        findings: {
+          id: string;
+          category: string;
+          severity: string;
+          partAText: string;
+          partBText: string;
+          citations: { volume: string | null; page: number | null; excerpt: string }[];
+        }[];
+      };
+
+      const { verified, failed } = await verifyFindings(
+        tx,
+        snapshot.findings.map((f) => f.id)
+      );
+      const visible = snapshot.findings.filter((f) => verified.includes(f.id));
+
+      return {
+        templateVersion: report.templateVersion,
+        renderedAt: report.renderedAt,
+        subsequentWritMode: kase.subsequentWrit,
+        strongSignals: visible.filter((f) => f.severity === 'dispositive'),
+        possibleIssues: visible.filter((f) => f.severity !== 'dispositive'),
+        droppedByReverification: failed.length,
+      };
     });
   });
 }

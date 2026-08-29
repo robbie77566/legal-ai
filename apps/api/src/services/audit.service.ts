@@ -5,6 +5,8 @@ export enum LogAction {
   DOCUMENT_UPLOAD = 'DOCUMENT_UPLOAD',
   CASE_ACCESS = 'CASE_ACCESS',
   WRIT_EXPORT = 'WRIT_EXPORT',
+  QA_EDIT = 'QA_EDIT',
+  QA_DECISION = 'QA_DECISION',
 }
 
 export class AuditService {

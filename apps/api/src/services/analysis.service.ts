@@ -1,0 +1,239 @@
+import crypto from 'crypto';
+import { z } from 'zod';
+import { withTenant, appendCaseEvent } from '@hg/database';
+
+/**
+ * The analysis orchestrator (system design §6, ENG-2). Drives the case
+ * machine DOCS_COMPLETE → DIGITIZING → ANALYZING → ADJUDICATING → QA_REVIEW
+ * through appendCaseEvent (every step is an event; the tracker follows via
+ * the outbox).
+ *
+ * Contracts enforced HERE, not in prompts:
+ *  - Model output is zod-validated structured data with one bounded retry —
+ *    an invalid response never crashes a run or produces an unvalidated
+ *    finding (M4 discipline).
+ *  - FR-6 grounding is a HARD FILTER: a finding whose quote does not appear
+ *    verbatim in its cited chunk is dropped, counted, and never persisted.
+ *  - Citations store chunkId + sha256(chunk.content) — the FR-7
+ *    re-verification anchors checked again at QA approval and at every
+ *    customer render.
+ *  - Cross-model adjudication is `not_run` while a single engine is
+ *    configured (the Gemini/Claude adjudicator is the M4 remainder);
+ *    QA reviews every finding regardless.
+ */
+
+export interface AnalysisModel {
+  name: string;
+  invoke(system: string, user: string): Promise<string>;
+}
+
+const FindingOutput = z.object({
+  category: z.enum([
+    'preserved_error',
+    'iac',
+    'brady',
+    'junk_science',
+    'sentencing',
+    'deadline',
+    'appeal_restoration',
+  ]),
+  severity: z.enum(['dispositive', 'supportive', 'background']),
+  confidence: z.number().min(0).max(1),
+  chunkIndex: z.number().int().nonnegative(),
+  quote: z.string().min(8),
+  partA: z.string().min(1).max(2000),
+  partB: z.string().min(1).max(4000),
+});
+const FindingsResponse = z.object({ findings: z.array(FindingOutput).max(50) });
+
+interface Screen {
+  id: 'iac' | 'brady' | 'junk_science' | 'sentencing' | 'plea_lane';
+  system: string;
+}
+
+// Condensed from prompt_specifications.md; the full five-screen prompt set
+// with statute/registry MCP tools is the M4 remainder.
+const SCREENS: Record<Screen['id'], string> = {
+  iac: 'You are a senior Texas appellate attorney screening a trial record for ineffective-assistance-of-counsel indicators under Strickland (deficiency AND prejudice). Flag un-objected prejudicial events and failures to investigate.',
+  brady:
+    'You are a forensic discovery auditor screening for Brady indicators: evidence referenced in testimony that appears absent from disclosure references, and impeachment material.',
+  junk_science:
+    'You are a forensic-science consultant screening expert testimony for methods now discredited or materially refined (Art. 11.073): bite marks, hair comparison, arson indicators, dog-scent lineups, overstated identification claims.',
+  sentencing:
+    'You are auditing the judgment and sentence for illegal-sentence indicators: punishment outside the statutory range, enhancement defects, time-credit errors, cumulation-order and deadly-weapon-finding issues.',
+  plea_lane:
+    'You are screening plea papers for involuntary-plea indicators: missing admonishments, judgment terms that do not match the plea agreement, absent judicial confession, and affirmative misadvice (immigration/Padilla, parole eligibility).',
+};
+
+const SCREENS_BY_LANE: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
+  TRIAL: ['iac', 'brady', 'junk_science', 'sentencing'],
+  PLEA: ['plea_lane', 'sentencing'],
+};
+
+const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":...,"severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
+
+const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
+
+async function invokeValidated(model: AnalysisModel, system: string, user: string) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const raw = await model.invoke(system, user);
+    try {
+      const jsonText = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
+      return FindingsResponse.parse(JSON.parse(jsonText));
+    } catch {
+      if (attempt === 1) return { findings: [] }; // bounded: give QA an empty screen, never a crash
+    }
+  }
+  return { findings: [] };
+}
+
+export interface AnalysisSummary {
+  runId: string;
+  screensRun: number;
+  findingsPersisted: number;
+  droppedUngrounded: number;
+}
+
+export async function runAnalysis(
+  caseId: string,
+  tenantId: string,
+  model: AnalysisModel
+): Promise<AnalysisSummary> {
+  return withTenant(tenantId, async (tx) => {
+    const kase = await tx.case.findUniqueOrThrow({ where: { id: caseId } });
+    if (kase.status !== 'DOCS_COMPLETE') {
+      throw new Error(`runAnalysis requires DOCS_COMPLETE, case is ${kase.status}`);
+    }
+
+    // Freeze the chunk set for this run (immutable; hashes are the anchors).
+    const documents = await tx.document.findMany({
+      where: { caseId },
+      include: { chunks: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const chunks = documents.flatMap((d) =>
+      d.chunks.map((c) => ({ ...c, documentId: d.id }))
+    );
+    if (chunks.length === 0) throw new Error('No digitized text to analyze');
+
+    const runNo = (await tx.analysisRun.count({ where: { caseId } })) + 1;
+    const run = await tx.analysisRun.create({
+      data: { caseId, tenantId, runNo, modelConfig: { model: model.name, screens: 'v1' } },
+    });
+
+    await appendCaseEvent(tx, {
+      caseId, tenantId, type: 'stage.entered', payload: { status: 'DIGITIZING' },
+      actor: 'pipeline', transition: 'DIGITIZING',
+    });
+    await appendCaseEvent(tx, {
+      caseId, tenantId, type: 'stage.entered', payload: { status: 'ANALYZING' },
+      actor: 'pipeline', transition: 'ANALYZING',
+    });
+
+    const record = chunks
+      .map((c, i) => `[Excerpt ${i}] ${c.content}`)
+      .join('\n\n');
+
+    const lane = (kase.lane ?? 'TRIAL') as 'TRIAL' | 'PLEA';
+    let persisted = 0;
+    let dropped = 0;
+
+    for (const screenId of SCREENS_BY_LANE[lane]) {
+      const res = await invokeValidated(
+        model,
+        `${SCREENS[screenId]}\n${OUTPUT_INSTRUCTIONS}`,
+        record
+      );
+
+      for (const f of res.findings) {
+        const chunk = chunks[f.chunkIndex];
+        // FR-6: grounding is a hard filter, not a preference.
+        if (!chunk || !chunk.content.includes(f.quote)) {
+          dropped++;
+          continue;
+        }
+        const meta = (chunk.metadata ?? {}) as { volume?: string; page?: number; line?: number };
+        await tx.finding.create({
+          data: {
+            runId: run.id,
+            caseId,
+            tenantId,
+            stableKey: sha256(`${f.category}:${chunk.id}:${f.quote}`).slice(0, 32),
+            category: f.category,
+            severity: f.severity,
+            confidence: f.confidence,
+            adjudication: 'not_run',
+            partAText: f.partA,
+            partBText: f.partB,
+            citations: {
+              create: {
+                documentId: chunk.documentId,
+                volume: meta.volume ?? null,
+                page: meta.page ?? null,
+                line: meta.line ?? null,
+                chunkId: chunk.id,
+                excerptHash: sha256(chunk.content),
+                excerpt: f.quote,
+              },
+            },
+          },
+        });
+        persisted++;
+      }
+
+      await appendCaseEvent(tx, {
+        caseId, tenantId, type: 'screen.completed',
+        payload: {
+          screen: screenId === 'plea_lane' ? 'plea_lane' : screenId,
+          findingCount: res.findings.length,
+          pagesAnalyzed: chunks.length,
+        },
+        actor: 'pipeline',
+      });
+    }
+
+    await appendCaseEvent(tx, {
+      caseId, tenantId, type: 'stage.entered', payload: { status: 'ADJUDICATING' },
+      actor: 'pipeline', transition: 'ADJUDICATING',
+    });
+    await appendCaseEvent(tx, {
+      caseId, tenantId, type: 'adjudication.completed',
+      payload: { agreements: 0, disagreements: 0 }, // single-engine: not_run
+      actor: 'pipeline',
+    });
+    await appendCaseEvent(tx, {
+      caseId, tenantId, type: 'stage.entered', payload: { status: 'QA_REVIEW' },
+      actor: 'pipeline', transition: 'QA_REVIEW',
+    });
+
+    await tx.analysisRun.update({ where: { id: run.id }, data: { completedAt: new Date() } });
+
+    return { runId: run.id, screensRun: SCREENS_BY_LANE[lane].length, findingsPersisted: persisted, droppedUngrounded: dropped };
+  });
+}
+
+/**
+ * FR-7 re-verification: every citation re-fetches its chunk and compares
+ * hashes; a mismatch drops the finding and reports it. Used at QA approval
+ * and at every customer render — a report can never show text QA didn't see.
+ */
+export async function verifyFindings(
+  tx: Parameters<Parameters<typeof withTenant>[1]>[0],
+  findingIds: string[]
+): Promise<{ verified: string[]; failed: string[] }> {
+  const verified: string[] = [];
+  const failed: string[] = [];
+  for (const id of findingIds) {
+    const citations = await tx.findingCitation.findMany({ where: { findingId: id } });
+    let ok = citations.length > 0;
+    for (const c of citations) {
+      const chunk = await tx.documentChunk.findUnique({ where: { id: c.chunkId } });
+      if (!chunk || sha256(chunk.content) !== c.excerptHash || !chunk.content.includes(c.excerpt)) {
+        ok = false;
+        break;
+      }
+    }
+    (ok ? verified : failed).push(id);
+  }
+  return { verified, failed };
+}

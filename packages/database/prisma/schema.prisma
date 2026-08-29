@@ -56,6 +56,70 @@ model PaymentEvent {
   processedAt   DateTime @default(now())
 }
 
+// ── Analysis pipeline (ENG-2, system design §6) ──────────────────────────────
+
+model AnalysisRun {
+  id          String    @id @default(cuid())
+  caseId      String
+  tenantId    String
+  runNo       Int       @default(1)
+  modelConfig Json // model/prompt/router versions — a QA'd report is reproducible
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([caseId])
+}
+
+// ENG-2 findings schema — the pipeline↔QA↔report contract.
+model Finding {
+  id           String  @id @default(cuid())
+  runId        String
+  caseId       String
+  tenantId     String
+  stableKey    String // hash(category + primary citation) — US-6 re-run diff
+  category     String // preserved_error | iac | brady | junk_science | sentencing | deadline | appeal_restoration | new_evidence_flag
+  severity     String // dispositive | supportive | background
+  confidence   Float
+  adjudication String  @default("not_run") // agree | disagree | not_run
+  s4Tags       String[] @default([])
+  partAText    String
+  partBText    String
+  provenance   String  @default("ai") // ai | ai_human_edited
+  citations    FindingCitation[]
+
+  @@index([caseId, runId])
+}
+
+model FindingCitation {
+  id          String  @id @default(cuid())
+  findingId   String
+  finding     Finding @relation(fields: [findingId], references: [id])
+  documentId  String
+  volume      String?
+  page        Int?
+  line        Int?
+  chunkId     String // + excerptHash: the FR-7 re-verification anchors
+  excerptHash String
+  excerpt     String
+
+  @@index([findingId])
+}
+
+// ENG-8: QA approval snapshots the exact findings READY will render.
+model Report {
+  id               String   @id @default(cuid())
+  caseId           String
+  tenantId         String
+  runId            String
+  versionNo        Int      @default(1)
+  templateVersion  String
+  findingsSnapshot Json
+  approvedBy       String
+  renderedAt       DateTime @default(now())
+
+  @@index([caseId])
+}
+
 // W-2 disclosure acknowledgment archive (E-6 chargeback defense, OPS-3).
 // Retained 24 months, SURVIVES case deletion (retention matrix §11a.2) —
 // plain references, no FKs. Contains the disclosure-set version + timestamp

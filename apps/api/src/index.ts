@@ -10,6 +10,7 @@ import uploadRoutes from './routes/upload'
 import casesRoutes from './routes/cases'
 import permissionsRoutes from './routes/permissions'
 import intakeRoutes from './routes/intake'
+import qaRoutes from './routes/qa'
 import eligibilityRoutes, { deleteExpiredEligibilityDrafts } from './routes/eligibility'
 import checkoutRoutes from './routes/checkout'
 import stripeWebhookRoutes from './routes/stripe-webhooks'
@@ -83,6 +84,7 @@ fastify.register(fastifyMultipart, {
 fastify.register(uploadRoutes, { prefix: '/upload' })
 fastify.register(casesRoutes, { prefix: '/cases' })
 fastify.register(intakeRoutes, { prefix: '/cases' })
+fastify.register(qaRoutes, { prefix: '/qa' })
 fastify.register(permissionsRoutes, { prefix: '/permissions' })
 fastify.register(eligibilityRoutes, { prefix: '/eligibility' })
 fastify.register(checkoutRoutes) // /buy/account + /checkout/session
@@ -118,6 +120,7 @@ const start = async () => {
     await Promise.all([
       import('./workers/ingestion.worker'),
       import('./workers/entity.worker'),
+      import('./workers/analysis.worker'),
     ]);
 
     // Transactional-outbox publisher (M1): tails unpublished CaseEvents and
@@ -136,13 +139,14 @@ const start = async () => {
     const { createBullBoard } = await import('@bull-board/api');
     const { BullMQAdapter } = await import('@bull-board/api/bullMQAdapter');
     const { FastifyAdapter } = await import('@bull-board/fastify');
-    const { ingestionQueue, graphQueue } = await import('./services/queue');
+    const { ingestionQueue, graphQueue, analysisQueue } = await import('./services/queue');
 
     const serverAdapter = new FastifyAdapter();
     createBullBoard({
       queues: [
         new BullMQAdapter(ingestionQueue),
-        new BullMQAdapter(graphQueue)
+        new BullMQAdapter(graphQueue),
+        new BullMQAdapter(analysisQueue)
       ],
       serverAdapter,
     });
