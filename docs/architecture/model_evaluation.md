@@ -17,7 +17,7 @@ For each case, a human reviewer (attorney or trained reviewer) produces a **find
 - the supporting record cites (volume, page, line),
 - a severity judgment (dispositive / supportive / background).
 
-The ledger is the fixed answer key. It lives outside the pipeline (not derived from any model output) and is versioned alongside this doc.
+The ledger is the fixed answer key. It lives outside the pipeline (not derived from any model output) and is versioned alongside this doc. **Ledgers are reviewed and signed off by a Texas post-conviction practitioner** — a ledger built by a non-specialist reviewer encodes the wrong answer key.
 
 ## 3. Metrics — recall first
 
@@ -30,8 +30,9 @@ Therefore rank models by:
 
 1. **Recall on the findings ledger** (primary; report per-category — a model strong on IAC but blind to Brady is not "close").
 2. **Citation fidelity** — of the findings a model reports, what fraction cite real, correct volume/page locations. A right conclusion with a fabricated cite fails.
-3. Precision (secondary — it sets QA workload, not product correctness).
-4. Cost and latency per case (from the pipeline's own usage accounting).
+3. **Legal sufficiency** — a reported finding must articulate the elements its claim type requires (an IAC finding states both *Strickland* prongs' factual basis, not just "counsel didn't object"; a Brady finding identifies suppression *and* materiality; a deadline finding shows its finality computation). Scored by the practitioner reviewer; a legally incomplete finding counts as half-credit at best.
+4. Precision (secondary — it sets QA workload, not product correctness).
+5. Cost and latency per case (from the pipeline's own usage accounting).
 
 ## 4. Protocol
 

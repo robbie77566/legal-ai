@@ -32,11 +32,20 @@ graph LR
 Format per stage: what the customer does / what they see (frontstage) / what happens behind the line of visibility (backstage) / which JTBD-pain it serves / pattern source / PRD hook.
 
 ### S0 — Free eligibility screen (before any payment) — *new requirement, see §6*
-- **Customer:** answers ~6 questions, under 2 minutes, no account: Texas conviction? felony? trial or plea? direct appeal filed/decided? roughly when? anyone currently represented?
-- **Frontstage:** one question per screen, checkbox-driven, reassurance microcopy (TurboTax pattern). Ends in one of three outcomes: *Good fit* → continue; *Not a fit* (e.g., case still on direct appeal, out-of-state) → plain explanation + pointed resources (TCDLA referral, TIFA); *Fit, but records likely missing* → records-guidance page first (see S2).
-- **Backstage:** outcome logged (anonymous) for funnel analytics; no case created.
-- **JTBD/pain:** prevents selling a $299 product to a family it cannot help — the single most important trust decision in the flow; also the conversion front door (Atticus's 2-minute triage; Flightright's instant eligibility check).
-- **PRD:** new US-0 (added, §6).
+- **Customer:** answers ~8 questions, under 2 minutes, no account. The screen is doing real legal triage — **vehicle routing**, not just qualification: Texas conviction? felony or misdemeanor? death penalty? currently incarcerated / on parole / on probation / sentence discharged? trial or plea? direct appeal filed — decided or still pending? has anyone filed a writ on this conviction before? is there evidence that was never presented?
+- **Frontstage:** one question per screen, checkbox-driven, reassurance microcopy (TurboTax pattern). Routing outcomes (PRD US-0):
+  - *Good fit, trial lane* → purchase (full screens).
+  - *Good fit, plea lane* → purchase with honest what-a-plea-record-can-show messaging (reduced screens, PRD FR-5a).
+  - *Capital case* → **hard exclusion** with appointed-counsel/OCFW resources — never a sale.
+  - *Probation (11.072)* → proceed with the 11.072-path framing (different court posture; report language adapts).
+  - *Appeal still pending* → "conviction isn't final; a writ filed now gets dismissed" — email capture, invite back at mandate.
+  - *"There was no appeal"* → ask why before routing: **if the lawyer never filed a requested appeal or never explained the right to keep appealing, that itself is one of the most winnable writ claims** (out-of-time appeal/PDR, PRD FR-11) — this answer converts to a purchase path, never a dead end.
+  - *Sentence discharged* → honest not-a-fit + expunction/nondisclosure resources where relevant.
+  - *Prior writ exists* → **subsequent-writ mode** with a plain warning about the §4 bar before payment (PRD FR-9).
+  - *Not a fit* (out-of-state, federal, misdemeanor edge cases) → plain explanation + pointed resources (TCDLA, TIFA); never a dead end.
+- **Backstage:** outcome + lane logged (anonymous) for funnel analytics; no case created.
+- **JTBD/pain:** prevents selling a $299 product to a family it cannot help — the single most important trust decision in the flow — and prevents the worse failure: selling the *right* product against the *wrong* vehicle (11.07 vs. 11.071/11.072/11.09 is exactly the distinction a family cannot make alone).
+- **PRD:** US-0 (expanded).
 
 ### S1 — Purchase
 - **Customer:** creates email/password account, pays $299 via Stripe Checkout.
@@ -48,7 +57,7 @@ Format per stage: what the customer does / what they see (frontstage) / what hap
 
 ### S2 — Case interview → personalized document checklist
 - **Customer:** answers a short guided interview about the case (county, year, court, jury/bench, appeal history, current facility).
-- **Frontstage:** the interview *generates a personal checklist* — not a generic upload zone: judgment & sentence; indictment; clerk's record; reporter's record volumes ("your trial lasted about 4 days — expect 4–8 volumes"); appellate opinion if appealed. Each checklist item carries a **"Don't have this? Here's how to get it"** expander: district clerk contact info by county, re:SearchTX for 2016+ e-filings, expected cost ($1/page certified at many clerks), and the crucial reassurance that *the trial transcript usually already exists if there was a direct appeal*. Save-and-resume by default — records arrive over weeks.
+- **Frontstage:** the interview *generates a personal checklist* — not a generic upload zone. Trial lane: judgment & sentence; indictment; clerk's record; reporter's record volumes ("your trial lasted about 4 days — expect 4–8 volumes"); appellate opinion if appealed. Plea lane: plea papers, written admonishments, judicial confession, plea-bargain agreement, judgment. **Subsequent-writ mode adds:** the prior writ application, the State's answer, and the trial court's findings of fact — without these the §4 analysis is guesswork. Each checklist item carries a **"Don't have this? Here's how to get it"** expander: district clerk contact info by county, re:SearchTX for 2016+ e-filings, expected cost ($1/page certified at many clerks), and the crucial reassurance that *the trial transcript usually already exists if there was a direct appeal*. Save-and-resume by default — records arrive over weeks.
 - **Backstage:** checklist template selected from interview answers; case metadata seeds the pipeline (county → local practice notes, year → statute-at-date for FR-5).
 - **JTBD/pain:** "I don't know what documents I need or how to get them" — the pain no incumbent even acknowledges, because their users are lawyers.
 - **Pattern:** TurboTax life-event checklist; Boundless expert-built checklist; Cleveland Clinic "we collect your records" (the full concierge is a v1.1 candidate, §6 — v1.0 ships the guidance, not the service).
@@ -56,7 +65,7 @@ Format per stage: what the customer does / what they see (frontstage) / what hap
 
 ### S3 — Guided upload & verification
 - **Customer:** uploads PDFs or phone photos per checklist item; confirms what the system read.
-- **Frontstage:** per-item upload embedded in the checklist (SimpleCitizen pattern — upload where it's relevant, not a bulk dropzone); phone-capture coaching ("flat surface, good light" — TurboTax W-2 pattern); after processing each item, an **echo-back card**: "This looks like *Reporter's Record Vol. 3, pages 1–214, State v. ___*. Right?" Confirm/correct. Running page meter against the 5,000-page cap with the $49 overage offered in-flow. A/V files rejected with the friendly v1.1 note. When the checklist is green: **"Your records are complete — your review clock starts now"** (explicit event, celebrated).
+- **Frontstage:** per-item upload embedded in the checklist (SimpleCitizen pattern — upload where it's relevant, not a bulk dropzone), **plus the "shoebox" path**: a standing "Not sure what a paper is? Upload it anyway — we'll figure out what it is" card, because the real-world starting point is a box of mixed papers and forcing classification before upload is itself a pain point (classification is what the pipeline already does; the echo-back assigns the result to the checklist); phone-capture coaching ("flat surface, good light" — TurboTax W-2 pattern); after processing each item, an **echo-back card**: "This looks like *Reporter's Record Vol. 3, pages 1–214, State v. ___*. Right?" Confirm/correct. Running page meter against the 5,000-page cap with the $49 overage offered in-flow. A/V files rejected with the friendly v1.1 note. When the checklist is green: **"Your records are complete — your review clock starts now"** (explicit event, celebrated).
 - **Backstage:** presigned-S3 upload; OCR with per-page confidence stored (NFR-6); document classification (Tier-1 routing); low-confidence pages flagged early — *before* full analysis spend (US-7 halt).
 - **JTBD/pain:** "my scans are messy and I'm not sure I did it right" — the echo-back is the trust move; early OCR gating protects both refund economics and the family's time.
 - **Pattern:** TurboTax OCR echo-back; second-opinion records-complete clock.
@@ -79,7 +88,7 @@ Format per stage: what the customer does / what they see (frontstage) / what hap
 
 ### S6 — Gated, education-framed delivery
 - **Customer:** notified "your report is ready" → passes through a short interstitial before opening.
-- **Frontstage:** the interstitial (23andMe sensitive-report pattern): what the report can and cannot tell them, that it may not contain hoped-for news, view-now-or-later choice. Then the two-part PDF (US-4): Part A plain-English (Strong signals / Possible issues / Nothing found), Part B attorney-ready packet. **Every "nothing found" or bad-news page pairs the news with a next step** — never a dead end (23andMe's embedded genetic-counselor referral is the model): consult-counsel guidance, the State Bar lawyer referral service, TIFA peer support, clemency/parole information where relief grounds are thin.
+- **Frontstage:** the interstitial (23andMe sensitive-report pattern): what the report can and cannot tell them, that it may not contain hoped-for news, view-now-or-later choice. Then the two-part PDF (US-4): Part A plain-English (Strong signals / Possible issues / Nothing found), Part B attorney-ready packet. **Every "nothing found" or bad-news page pairs the news with a next step** — never a dead end (23andMe's embedded genetic-counselor referral is the model): consult-counsel guidance, the State Bar lawyer referral service, TIFA peer support, clemency/parole information where relief grounds are thin. **Legally sequenced next steps:** time-credit findings state the TDCJ administrative-dispute prerequisite (Gov't Code §501.0081) before any writ; old convictions carry the laches-urgency note (*"there is no filing deadline for a state writ, but courts can refuse stale claims — sooner genuinely matters"*); Part B opens with the complete-inventory framing (a first writ must raise every claim — PRD FR-8); the US-0 new-evidence flag renders as its own section for counsel (FR-10).
 - **Backstage:** report generator enforces the grounded-citation hard filter (FR-6/7); delivery recorded; retention clock starts.
 - **JTBD/pain:** "don't drain the family's savings on false hope" cuts both ways — an honest *no* delivered with dignity and a next step is the product keeping its promise.
 - **PRD:** US-4; R-1–R-3.
@@ -111,6 +120,7 @@ Format per stage: what the customer does / what they see (frontstage) / what hap
 - **Analysis surfaces urgency (E-4):** deadline screen (FR-5) detects a near-term AEDPA/11.07 posture issue → QA reviewer fast-tracks the case; report leads with the deadline framed as dates + "show this page to a lawyer promptly" (never "file now" — R-3).
 - **QA rejection (E-5):** reviewer rejects → engineering triage → customer tracker stays in "Quality review" with an honest delay note if SLA is at risk.
 - **Chargeback/dispute (E-6):** all disclosures from S1 (price, cap, clock, non-advice) are archived per case for dispute evidence; 5% reserve per unit economics.
+- **Subsequent-writ posture (E-7):** prior writ detected at S0 (or discovered in the record at S4 — the family may not know one was filed pro se years ago) → pipeline switches to subsequent-writ mode mid-flight: findings tagged against the §4 exceptions (new unavailable basis, 11.073 new science, actual-innocence gateway), report leads with the severity of the bar, counsel routing is the emphatic next step. If discovered mid-flight, the customer is told before delivery, not surprised in the report.
 
 ## 6. Requirement deltas surfaced by this design (fed back to PRD/roadmap)
 
@@ -122,3 +132,10 @@ Format per stage: what the customer does / what they see (frontstage) / what hap
 6. **Copy standards:** named-role QA copy (never vague "human reviewed"); "one price, no per-page fees" framing; bad news always paired with a next step.
 7. **Partnership candidate:** TIFA (Texas Inmate Families Association) as trusted-channel and content-tone model — GTM Phase-1 channel list.
 8. **Payment-plan consideration** (2×/3× split via Stripe) — open question; "Who Pays?" income data argues for it; fraud/chargeback exposure argues caution. Decide before launch.
+
+### Expert-review deltas (criminal-law audit, Aug 2026)
+9. **S0 is vehicle routing, not just qualification:** 11.07 vs. 11.071 (capital — hard exclusion) vs. 11.072 (probation) vs. 11.09 (misdemeanor); custody status; appeal pendency; prior-writ history; new-evidence flag. (PRD US-0 expanded.)
+10. **Two lanes:** trial-record full screens vs. plea-lane reduced screens — ~95% of felony convictions are pleas and the original screens were trial-centric. (PRD §2 scope note, FR-5a.)
+11. **Deadline-engine legal precision** is launch-gated: finality incl. 90-day cert window, the untolled gap after CCA denial, pre-filing elapsed time, laches (*Ex parte Perez*). (PRD FR-5.)
+12. **§4 subsequent-writ handling** end-to-end: S0 detection, S2 prior-writ records, E-7 mid-flight discovery, FR-9 exception tagging, complete-inventory framing (FR-8).
+13. **Referral-list compliance:** Tex. Occ. Code ch. 952 (lawyer referral services require State Bar certification) — S7's attorney list restructured per PRD R-6 until counsel signs off.
