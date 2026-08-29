@@ -11,6 +11,7 @@ import casesRoutes from './routes/cases'
 import permissionsRoutes from './routes/permissions'
 import intakeRoutes from './routes/intake'
 import qaRoutes from './routes/qa'
+import opsRoutes from './routes/ops'
 import eligibilityRoutes, { deleteExpiredEligibilityDrafts } from './routes/eligibility'
 import checkoutRoutes from './routes/checkout'
 import stripeWebhookRoutes from './routes/stripe-webhooks'
@@ -85,6 +86,7 @@ fastify.register(uploadRoutes, { prefix: '/upload' })
 fastify.register(casesRoutes, { prefix: '/cases' })
 fastify.register(intakeRoutes, { prefix: '/cases' })
 fastify.register(qaRoutes, { prefix: '/qa' })
+fastify.register(opsRoutes, { prefix: '/ops' })
 fastify.register(permissionsRoutes, { prefix: '/permissions' })
 fastify.register(eligibilityRoutes, { prefix: '/eligibility' })
 fastify.register(checkoutRoutes) // /buy/account + /checkout/session

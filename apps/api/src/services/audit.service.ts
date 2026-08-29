@@ -24,6 +24,7 @@ export class AuditService {
       tx.auditLog.create({
         data: {
           caseId: params.caseId,
+          tenantId: params.tenantId,
           action: params.action,
           userId: params.userId,
           details: params.details,

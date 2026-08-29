@@ -311,15 +311,19 @@ model DocumentChunk {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  // Plain reference, deliberately NOT a foreign key: audit rows are append-only
+  // Plain references, deliberately NOT foreign keys: audit rows are append-only
   // and survive case deletion (retention matrix, mvp_v1_system_design.md §11a.2).
+  // tenantId is denormalized so the RLS policy holds AFTER the Case is gone —
+  // a post-deletion audit write must still be scoped and possible.
   caseId    String
+  tenantId  String?
   action    String
   details   Json
   userId    String
   createdAt DateTime @default(now())
 
   @@index([caseId])
+  @@index([tenantId])
 }
 
 model GraphState {

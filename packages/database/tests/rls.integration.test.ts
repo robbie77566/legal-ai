@@ -120,7 +120,7 @@ describe('RLS isolation (app role, live Postgres)', () => {
   it('AuditLog is append-only even for the owner connection', async () => {
     const row = await asTenant(tenantA, (tx) =>
       tx.auditLog.create({
-        data: { caseId: caseA, action: 'CASE_ACCESS', userId: 'rls-test', details: {} }
+        data: { caseId: caseA, tenantId: tenantA, action: 'CASE_ACCESS', userId: 'rls-test', details: {} }
       })
     )
     await expect(
