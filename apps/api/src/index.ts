@@ -111,6 +111,18 @@ const start = async () => {
       import('./workers/entity.worker'),
     ]);
 
+    // Transactional-outbox publisher (M1): tails unpublished CaseEvents and
+    // publishes the customer-visible view to case-progress:{caseId}. The
+    // legacy workers still publish their own ad-hoc messages; those move to
+    // appendCaseEvent when M3/M4 replace them.
+    const { startCaseEventOutbox } = await import('@hg/database');
+    const { createConnection } = await import('./lib/redis');
+    const stopOutbox = startCaseEventOutbox(createConnection(), {
+      onError: (e) => fastify.log.error({ err: e }, 'case-event outbox publish failed'),
+    });
+    process.on('SIGTERM', stopOutbox);
+    process.on('SIGINT', stopOutbox);
+
     // Register Bull Board (requires active queue connections)
     const { createBullBoard } = await import('@bull-board/api');
     const { BullMQAdapter } = await import('@bull-board/api/bullMQAdapter');

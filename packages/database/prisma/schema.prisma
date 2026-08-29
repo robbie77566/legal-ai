@@ -43,6 +43,26 @@ model Tenant {
   cases Case[]
 }
 
+enum CaseStatus {
+  DRAFT
+  AWAITING_DOCS
+  DOCS_COMPLETE
+  DIGITIZING
+  ANALYZING
+  ADJUDICATING
+  QA_REVIEW
+  QA_REJECTED
+  READY
+  DELIVERED
+  REFUNDED
+  DELETED
+}
+
+enum Lane {
+  TRIAL
+  PLEA
+}
+
 model Case {
   id        String   @id @default(cuid())
   title     String
@@ -50,8 +70,90 @@ model Case {
   tenant    Tenant       @relation(fields: [tenantId], references: [id])
   documents Document[]
   accessList CaseAccess[]
+  checklist  ChecklistItem[]
+
+  // ENG-1 projection of the CaseEvent stream — updated ONLY by
+  // appendCaseEvent in the same transaction as the event append.
+  status         CaseStatus @default(DRAFT)
+  lane           Lane?
+  vehicle        String?    // 11.07 | 11.071 | 11.072 | 11.09 (S0 routing)
+  subsequentWrit Boolean    @default(false) // E-7 hold flag
+  ocrHalt        Boolean    @default(false) // E-1 hold flag
+  delayOurs      Boolean    @default(false) // OPS-7 hold flag
+  county         String?
+  convictionYear Int?
+  slaStartedAt   DateTime?  // stamped once by docs.complete (US-3)
+  expectedReadyAt DateTime?
+
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+
+  @@index([tenantId, status])
+}
+
+// Append-only event stream (ENG-1 / system design §4). Like AuditLog:
+// caseId is a plain reference, NOT a foreign key — the PII-minimal event
+// skeleton survives case deletion (retention matrix §11a.2). publishedAt is
+// the transactional-outbox marker: null = not yet published to Redis.
+model CaseEvent {
+  id          BigInt   @id @default(autoincrement())
+  caseId      String
+  tenantId    String   // denormalized so RLS + projections survive Case deletion
+  type        String
+  version     Int      @default(1)
+  payload     Json
+  actor       String   // userId | "system" | worker name — never free text
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([caseId, id])
+  @@index([publishedAt])
+}
+
+// Anonymous S0 eligibility drafts (ENG-7): opaque token key, 30-day TTL then
+// hard delete, promoted-then-deleted on purchase. Pre-tenant: no RLS.
+model EligibilityDraft {
+  token     String   @id
+  answers   Json
+  outcome   String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+enum ChecklistItemState {
+  NEEDED
+  UPLOADED
+  CONFIRMED
+  PROBLEM
+}
+
+model ChecklistItem {
+  id       String             @id @default(cuid())
+  caseId   String
+  case     Case               @relation(fields: [caseId], references: [id])
+  kind     String             // judgment | indictment | clerks_record | rr_volume | ...
+  label    String
+  state    ChecklistItemState @default(NEEDED)
+  howToKey String?            // copy-canon key for the "don't have this?" expander
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([caseId])
+}
+
+// Multipart/resumable upload sessions (ENG-4).
+model UploadSession {
+  id        String   @id @default(cuid())
+  caseId    String
+  s3Key     String
+  parts     Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+  @@index([expiresAt])
 }
 
 model CaseAccess {
