@@ -2,7 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 
 export const searchPenalCode = tool(
-  async ({ query }) => {
+  async ({ query }: { query: string }) => {
     console.log(`[MCP] Searching TX Penal Code for: ${query}`);
     return JSON.stringify([
       { section: "19.02", title: "Murder", text: "A person commits an offense if he intentionally or knowingly causes the death of an individual..." }
@@ -18,7 +18,7 @@ export const searchPenalCode = tool(
 );
 
 export const getStatuteByDate = tool(
-  async ({ section, effectiveDate }) => {
+  async ({ section, effectiveDate }: { section: string; effectiveDate: string }) => {
     console.log(`[MCP] Getting TX Statute ${section} effective ${effectiveDate}`);
     return JSON.stringify({
       section,

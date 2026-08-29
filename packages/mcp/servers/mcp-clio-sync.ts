@@ -2,7 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 
 export const syncClioMatter = tool(
-  async ({ clientId, matterId }) => {
+  async ({ clientId, matterId }: { clientId: string; matterId: string }) => {
     console.log(`[MCP] Syncing Clio Matter ${matterId} for Client ${clientId}`);
     // Formats Cypher queries for Neo4j based on Clio API payload
     const cypher = `

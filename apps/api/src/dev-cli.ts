@@ -40,7 +40,8 @@ async function runDevCli() {
         // We'll invoke the graph with a thread_id for persistence if we added the checkpointer.
         const result = await compiledGraph.invoke(initialState, { configurable: { thread_id: "dev-cli-session" } })
         
-        const lastMessage = result.messages[result.messages.length - 1]
+        const messages = (result as { messages: Array<{ content: unknown }> }).messages
+        const lastMessage = messages[messages.length - 1]
         console.log(`\n${persona.name}: ${lastMessage.content}\n`)
       } catch (error) {
         console.error('Error during execution:', error)

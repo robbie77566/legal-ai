@@ -5,12 +5,19 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "latest",
     "@lancedb/lancedb": "latest",
+    "@langchain/core": "^1.2.9",
     "@langchain/google-genai": "latest",
-    "@langchain/ollama": "latest"
+    "@langchain/ollama": "latest",
+    "@modelcontextprotocol/sdk": "latest",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@hg/tsconfig": "workspace:*",
+    "@types/node": "^20.19.40",
     "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
   }
 }

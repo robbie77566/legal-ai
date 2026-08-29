@@ -1,4 +1,4 @@
-import { StateGraph, END } from '@langchain/langgraph'
+import { StateGraph, START, END } from '@langchain/langgraph'
 import { BaseMessage, SystemMessage } from '@langchain/core/messages'
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { findPrecedent, isGoodLaw } from '../mcp/servers/mcp-tx-case-law';
@@ -17,7 +17,7 @@ export class LangGraphOrchestrator {
 
   constructor() {
     this.llm = new ChatGoogleGenerativeAI({
-      modelName: "gemini-1.5-pro",
+      model: "gemini-1.5-pro",
       temperature: 0,
     });
   }
@@ -85,15 +85,15 @@ export class LangGraphOrchestrator {
       },
     })
 
-    workflow.addNode('iacAuditor', this.iacAuditorNode.bind(this))
-    workflow.addNode('bradyAuditor', this.bradyAuditorNode.bind(this))
-    workflow.addNode('writFormatter', this.writFormatterNode.bind(this))
-
-    workflow.setEntryPoint('iacAuditor')
-    workflow.addEdge('iacAuditor', 'bradyAuditor')
-    workflow.addEdge('bradyAuditor', 'writFormatter')
-    workflow.addEdge('writFormatter', END)
-
+    // Chained so the builder's node-name generic accumulates the literal types
+    // (separate statements leave it at "__start__" and every edge fails to type).
     return workflow
+      .addNode('iacAuditor', this.iacAuditorNode.bind(this))
+      .addNode('bradyAuditor', this.bradyAuditorNode.bind(this))
+      .addNode('writFormatter', this.writFormatterNode.bind(this))
+      .addEdge(START, 'iacAuditor')
+      .addEdge('iacAuditor', 'bradyAuditor')
+      .addEdge('bradyAuditor', 'writFormatter')
+      .addEdge('writFormatter', END)
   }
 }

@@ -3,7 +3,17 @@ import { z } from 'zod';
 import prisma, { withTenant } from '@hg/database';
 import { createConnection } from '../lib/redis';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import pdfParse from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
+
+// pdf-parse v2 replaced the v1 call-style default export with a class API.
+const pdfParse = async (buffer: Buffer): Promise<{ text: string }> => {
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  try {
+    return await parser.getText();
+  } finally {
+    await parser.destroy();
+  }
+};
 import AdmZip from 'adm-zip';
 
 const CreateCaseSchema = z.object({

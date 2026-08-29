@@ -73,6 +73,9 @@ jobs:
           pnpm --filter @hg/database db:generate
           pnpm --filter @hg/database db:push
 
+      - name: Typecheck (strict)
+        run: pnpm typecheck
+
       - name: Unit & integration tests
         run: pnpm test --reporter=verbose
 

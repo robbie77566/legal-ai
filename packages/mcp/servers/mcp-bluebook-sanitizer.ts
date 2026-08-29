@@ -2,7 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 
 export const formatCitation = tool(
-  async ({ rawText }) => {
+  async ({ rawText }: { rawText: string }) => {
     console.log(`[MCP] Sanitizing citation: ${rawText}`);
     // Regex replacements to enforce The Bluebook standards for Texas
     const sanitized = rawText

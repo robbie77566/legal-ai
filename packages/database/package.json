@@ -7,7 +7,8 @@
   "scripts": {
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "typecheck": "tsc --noEmit"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -18,7 +19,9 @@
     "neo4j-driver": "^6.0.1"
   },
   "devDependencies": {
+    "@hg/tsconfig": "workspace:*",
     "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.19.40",
     "prisma": "^5.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"

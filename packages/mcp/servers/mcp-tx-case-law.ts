@@ -2,7 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 
 export const findPrecedent = tool(
-  async ({ legalIssue }) => {
+  async ({ legalIssue }: { legalIssue: string }) => {
     console.log(`[MCP] Finding precedent for: ${legalIssue}`);
     return JSON.stringify([
       { case: "Ex parte Smith", citation: "123 S.W.3d 456 (Tex. Crim. App. 2004)", holding: "IAC requires showing prejudice..." }
@@ -18,7 +18,7 @@ export const findPrecedent = tool(
 );
 
 export const isGoodLaw = tool(
-  async ({ citation }) => {
+  async ({ citation }: { citation: string }) => {
     console.log(`[MCP] Shepardizing: ${citation}`);
     return JSON.stringify({
       citation,

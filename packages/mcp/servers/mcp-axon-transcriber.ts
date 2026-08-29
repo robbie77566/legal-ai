@@ -2,7 +2,7 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 
 export const searchBodycamAudio = tool(
-  async ({ query }) => {
+  async ({ query }: { query: string }) => {
     console.log(`[MCP] Searching bodycam transcripts for: ${query}`);
     return JSON.stringify([
       { timestamp: "00:15:32", text: "OFFICER: Put your hands up.", confidence: 0.98 }

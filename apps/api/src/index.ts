@@ -79,7 +79,7 @@ const start = async () => {
       serverAdapter,
     });
     serverAdapter.setBasePath('/admin/queues');
-    fastify.register(serverAdapter.registerPlugin(), { prefix: '/admin/queues', basePath: '/admin/queues' });
+    fastify.register(serverAdapter.registerPlugin(), { prefix: '/admin/queues' });
   } else {
     console.warn(
       `[Redis] Not reachable at ${REDIS_URL} — queue workers and /admin/queues disabled.\n` +

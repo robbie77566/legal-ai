@@ -1,0 +1,11 @@
+{
+  "extends": "@hg/tsconfig/base.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src", "tests"]
+}

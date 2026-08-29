@@ -79,6 +79,8 @@ graph TD
 
 ## 3. Surfaces, services, and packages
 
+**Language standard (set Aug 2026):** the application language is **TypeScript in strict mode, everywhere** — web, API, workers, and every package extend the shared `@hg/tsconfig` strict base, and `pnpm typecheck` (`tsc --noEmit` per workspace) is a CI gate. No new JavaScript application code; `.js` is tolerated only in tool configs. Runtime is Node LTS. Python appears only in offline tooling (doc/PDF generation, eval scripts), never in the application.
+
 ### 3.1 apps/web (Next.js App Router)
 
 ```

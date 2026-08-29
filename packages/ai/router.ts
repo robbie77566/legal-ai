@@ -1,5 +1,6 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
-import { ChatOllama } from '@langchain/community/chat_models/ollama'
+import { ChatOllama } from '@langchain/ollama'
+import type { BaseMessage } from '@langchain/core/messages'
 
 export class ModelRouter {
   private primary: ChatOllama
@@ -11,11 +12,11 @@ export class ModelRouter {
       model: 'llama3:70b',
     })
     this.secondary = new ChatGoogleGenerativeAI({
-      modelName: 'gemini-1.5-pro',
+      model: 'gemini-1.5-pro',
     })
   }
 
-  async predict(messages: any[]) {
+  async predict(messages: BaseMessage[]) {
     try {
       return await this.primary.invoke(messages)
     } catch (error) {

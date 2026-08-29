@@ -120,7 +120,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const results = await table
         .search(queryVector)
         .limit(limit)
-        .execute()
+        .toArray()
 
       const formattedResults = results.map((r: any) => `### File: ${r.filePath}\n\n${r.text}`).join('\n\n---\n\n')
 

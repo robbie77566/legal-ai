@@ -9,7 +9,8 @@
     "test:coverage": "vitest run --coverage",
     "db:seed:prod": "pnpm --filter @hg/database db:seed",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "rag:index": "npx tsx packages/ai/scripts/index-codebase.ts"
+    "rag:index": "npx tsx packages/ai/scripts/index-codebase.ts",
+    "typecheck": "turbo typecheck"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

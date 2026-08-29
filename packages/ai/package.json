@@ -5,17 +5,26 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "dependencies": {
-    "langchain": "latest",
+    "@hg/database": "workspace:*",
+    "@lancedb/lancedb": "latest",
     "@langchain/community": "latest",
+    "@langchain/core": "^1.2.9",
     "@langchain/google-genai": "latest",
     "@langchain/langgraph": "latest",
-    "@lancedb/lancedb": "latest",
-    "@langchain/textsplitters": "latest",
+    "@langchain/langgraph-checkpoint": "^1.1.5",
     "@langchain/ollama": "latest",
+    "@langchain/textsplitters": "latest",
+    "dotenv": "^16.4.5",
     "glob": "^10.0.0",
-    "dotenv": "^16.4.5"
+    "langchain": "latest",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@hg/tsconfig": "workspace:*",
+    "@types/node": "^20.19.40",
     "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
   }
 }
