@@ -1,0 +1,513 @@
+{
+  "bucket": "snl-eval-corpus-327600375718",
+  "region": "us-east-2",
+  "generatedAt": "2026-08-29T21:00:24.002Z",
+  "totalBytes": 2352815665,
+  "files": [
+    {
+      "key": "corpus/Brian Spinks/Brazoria-78734-RR-Vol001.pdf",
+      "bytes": 42904,
+      "sha256": "0aa55f9dbc620aa59ebb40f343dd008813286d2e38a3ff8ffc648ca60960e655"
+    },
+    {
+      "key": "corpus/Brian Spinks/Brazoria-78734-RR-Vol002.pdf",
+      "bytes": 358071,
+      "sha256": "cfb155c8a0e4fcd695b1c2e1da63716e61228b3dd69f4a97272a6ae4f69533f8"
+    },
+    {
+      "key": "corpus/Brian Spinks/Brazoria-78734-RR-Vol003.pdf",
+      "bytes": 84967,
+      "sha256": "7547d8299b21904e848e98c869d2bd9d797f673eb29e67a39e3155078027e3f7"
+    },
+    {
+      "key": "corpus/Brian Spinks/Brazoria-78734-RR-Vol004.pdf",
+      "bytes": 549704,
+      "sha256": "5436e4b261203ae45272d5fb9ef7f0a8e7a19d87b6128fe1a68ca94be7af9416"
+    },
+    {
+      "key": "corpus/Brian Spinks/Brazoria-78734-RR-Vol005.pdf",
+      "bytes": 407893,
+      "sha256": "8eec169326cb034ca4a1c1505858dfde3f129a6ca32725b46beb3fba9717d091"
+    },
+    {
+      "key": "corpus/Brian Spinks/Brazoria-78734-RR-Vol006.pdf",
+      "bytes": 216835,
+      "sha256": "a63b29e855b97b647a74cb540e75fd4aca12a4300626440d5c0c5b8890f6e870"
+    },
+    {
+      "key": "corpus/Brian Spinks/Brazoria-78734-RR-Vol007.pdf",
+      "bytes": 144612,
+      "sha256": "0eb7539d56b3d5a41b3bd358bc11ab21fbf8732a7031bc80a3bdd1b10a969ef0"
+    },
+    {
+      "key": "corpus/Brian Spinks/Brazoria-78734-RR-Vol008.pdf",
+      "bytes": 14781820,
+      "sha256": "754be026cef8852b61e7b61733b45ccae6144ce619570705d38d0471ca424d02"
+    },
+    {
+      "key": "corpus/Brian Spinks/Brian Interview/056474_160410_060730_10R1.mpg",
+      "bytes": 1990572032,
+      "sha256": "0ae9057a6a37457bfdc363fe84b213a42900626cf28e5a1a7e943f9ae6c3369b"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/1_1.jpg",
+      "bytes": 3057,
+      "sha256": "ffece46c4e97e502e50aa1972279619fa9daf5e39a846a62dddd22efec68437f"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/10.69.178.16-571282ebcbe927.64559926.cdr",
+      "bytes": 1818,
+      "sha256": "7b50acdf88322b8508fcbed6571bb120c1ca4df0a8c0b4ee649a63bcf6b70ec9"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/10.69.178.16-571282ebcbe927.64559926.ogg",
+      "bytes": 3488799,
+      "sha256": "467d5dbdc3d86b61214eb45359586ac56a6b7e82e3bb823134db5ee3846f362d"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/10.69.178.16-571282ebcbe927.64559926.wav",
+      "bytes": 14081018,
+      "sha256": "5e4b28de88aeeb6f376e9287278e653142ae5b38707e444ab3ff4a770165d468"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/10.69.178.16-5713eb90e80cf0.47900504.cdr",
+      "bytes": 1817,
+      "sha256": "c092e3edef5ddae9c303be2c7a45880654132b7bf1a680d3316024171c429bf7"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/10.69.178.16-5713eb90e80cf0.47900504.ogg",
+      "bytes": 3540602,
+      "sha256": "3fa1cc36e5b9181752a55f5b06636092ec7591a6fd2fa3ac94046eb94e7d206d"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/10.69.178.16-5713eb90e80cf0.47900504.wav",
+      "bytes": 14290458,
+      "sha256": "e5c6711159e418b594f6d6eed89c58c46b1516243e5214518e495b97b8f1c84a"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/2_1.jpg",
+      "bytes": 7586,
+      "sha256": "79fb0826996d310e79771c6fbb2a26690d8ffd6cb31102d03268f58605fc4d62"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/3_1.jpg",
+      "bytes": 316,
+      "sha256": "5197cba2659b94cd2b5732a7534d4589d8f2c8b5ba6fd4cf5184417c2908dc10"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/AC_QuickTime.js",
+      "bytes": 12350,
+      "sha256": "0e4da9c18803f14cb06e434e1ec8052aefd38ba9ff2c48b418ba7da62aeffc9f"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/audio_blink.gif",
+      "bytes": 1025,
+      "sha256": "c441b1bc1698a94c3138da98ca3ec2ede6ea3a2020e97d27a85869688e2c8fd2"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/audio_off.gif",
+      "bytes": 291,
+      "sha256": "dc9c28ca324645eb19da542944484b9fe886eb5a25974acfc4333b11ed48c14c"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/audio_on.gif",
+      "bytes": 302,
+      "sha256": "9033e835e6df405aaa5868e9bed66997c4323ef68d0f7e596b6d9237029c5b15"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/audio.gif",
+      "bytes": 1239,
+      "sha256": "c33411a1044da33d45aec60f4284af3e69c8328a821630afe06b431dd212f024"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/autorun.inf",
+      "bytes": 149,
+      "sha256": "c1e0bf8663ef5d7021ba1c70560e821da90d94bc82d44669dbe6e6cc517fb671"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/back.gif",
+      "bytes": 145,
+      "sha256": "0b0152cfbfca466ab83368c0d375ee0246984029fc7f80292a753a1a2740eace"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/backstop.gif",
+      "bytes": 165,
+      "sha256": "eb83cc9eabcaf916244a66420768e1d09cd8283f66318e99b66d472a35fe882b"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/cdr.css",
+      "bytes": 6863,
+      "sha256": "b66847423bc6b2dfca5b559beeccbedfe599f8afeeec9810b5f92964f90b8cc9"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/cdr.js",
+      "bytes": 17991,
+      "sha256": "deb1b46d2501a38291b29402187dcdade9d1184ebbb6d41e2596e829f0ea1f5a"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/cdrbg.jpg",
+      "bytes": 88553,
+      "sha256": "af1f2a4d1699f73e1aaf40057ad69166a908324ce23da32966c96e8aa8a1666a"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/cdrlist.html",
+      "bytes": 151,
+      "sha256": "0241961ebc5a0e484732d5aa840b86c47fa3594b4eee321baeafeb430d907994"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/close.gif",
+      "bytes": 125,
+      "sha256": "25c9bfce7532324ec638d8669a4f0b5436e179f796c03a0b6508e2a46cbe1a48"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/dhtmlwindow.css",
+      "bytes": 1017,
+      "sha256": "1bbd141a7e2023e3ed71f1d7895be1b6c6e813572652d706cab1d8e140f70407"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/dhtmlwindow.js",
+      "bytes": 15664,
+      "sha256": "016aa8e8fc6695389a365f02e48e8e393a55df5061f0fed8eaa25c40d6b91797"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/Disclaimer.html",
+      "bytes": 6320,
+      "sha256": "7c2d9b21939758af7702bf638fde021ebf385dcb263f077f6f976ce90bfd3742"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/faster.gif",
+      "bytes": 166,
+      "sha256": "dc7e792fe90d0770ab8839467bc9b01a405c3c3123edf4350c29b44fe4eca76c"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/forward.gif",
+      "bytes": 145,
+      "sha256": "3bfc5e983f73a15d80d860a737f54cedb2b8202b02e95dae9a0f57fa328fb2b8"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/forwardstop.gif",
+      "bytes": 166,
+      "sha256": "7c82d2689765395b535af68a2cbc9a24570525ce0d723d7dc4c43a3d3d2bfc1d"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/index.html",
+      "bytes": 12182,
+      "sha256": "10e19d52eb37b3a7e22338b8b319337a71af8619277d747f6cca0b38e046758a"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-bg_flat_0_aaaaaa_40x100.png",
+      "bytes": 180,
+      "sha256": "9a8492a580bf85d3e98ae8861fbd45567e5a1f83eeafcf9574da0399d5f602ab"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-bg_flat_75_ffffff_40x100.png",
+      "bytes": 178,
+      "sha256": "39ab7ccd9f4e82579da78a9241265df288d8eb65dbbd7cf48aed2d0129887df5"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-bg_glass_55_fbf9ee_1x400.png",
+      "bytes": 120,
+      "sha256": "691597e8a40a891ea94d3589976ecfc33e6145c49422443b00ac2b5a0022964c"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-bg_glass_65_ffffff_1x400.png",
+      "bytes": 105,
+      "sha256": "f0e6cd91b837d5c5644d026e5ffeccd907953317cd5c0f689901733afda260b2"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-bg_glass_75_dadada_1x400.png",
+      "bytes": 111,
+      "sha256": "c108f5cbf2dd9ec07a26530695ddd95e1664597ce6c056ae44c162cc2e28cec4"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-bg_glass_75_e6e6e6_1x400.png",
+      "bytes": 110,
+      "sha256": "ddf5dd4e0ef2b185e8bb0af7b6e90ebe74a84384cb4700658e76e754c8bfe550"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-bg_glass_95_fef1ec_1x400.png",
+      "bytes": 119,
+      "sha256": "f6f1c1bedf1a0f37cfef81d12f5f012869d1ee7c984775a569827a1784d34f5c"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-bg_highlight-soft_75_cccccc_1x100.png",
+      "bytes": 101,
+      "sha256": "54270656df079c4da5182629a080fc633b6f84b87985eb016d25a560e2c38d4a"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-icons_222222_256x240.png",
+      "bytes": 4369,
+      "sha256": "57adb0d65f4e91dacfee975d9574422bee7486c8a182d60133728c672f2cdbbc"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-icons_2e83ff_256x240.png",
+      "bytes": 4369,
+      "sha256": "20f8c6667afc48aa433ee9eb6d8a0584bdbd6b4a4a9091ff1e6b3adb31e63bd9"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-icons_454545_256x240.png",
+      "bytes": 4369,
+      "sha256": "07460e843c3e59aaadbb34231e699e856a2980753c7a47b66447da5d9f93fb7f"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-icons_888888_256x240.png",
+      "bytes": 4369,
+      "sha256": "ea2e29625de3463465e93b002b065f5833e05b97f7a052b1c141e754d62e1a8b"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/images/ui-icons_cd0a0a_256x240.png",
+      "bytes": 4369,
+      "sha256": "1e32c6dbf5d3fd342f27a78aa881550d6412aa207f48468724a6a15402b6041b"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.accordion.css",
+      "bytes": 1066,
+      "sha256": "5701f5c635fedf96286a8b9b9d3035b9ca966e2bed8b10c247eee69455216d5b"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.all.css",
+      "bytes": 297,
+      "sha256": "1e38749037769225db06474a506e9c03bdbc973fdd772bd48d68765860947881"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.autocomplete.css",
+      "bytes": 1108,
+      "sha256": "e46e549b7b6a3acd00733fb40ed06e08a7cfb8a6dc72665dfea6ebffc123bf6b"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.base.css",
+      "bytes": 427,
+      "sha256": "47b6be117e57c2becc867dd137f7444a8924a70c1ce3c4ec732d79c0223a7ac7"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.button.css",
+      "bytes": 2530,
+      "sha256": "c0d9d31cf29fbb494bacc1c25b0807f4fa3b42f0fbc7e392e960ccb3d80f6106"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.core.css",
+      "bytes": 1459,
+      "sha256": "53c281f35ba8d4de968472b9d228962affc9309cdc5b191c5891d9ef77f7cb3c"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.datepicker.css",
+      "bytes": 4061,
+      "sha256": "f47f0ac05ae6a86c0c59adc7f412446792944192773fa86a3015e1f1db96975d"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.dialog.css",
+      "bytes": 1425,
+      "sha256": "4c80493b703b68ad4ad9e876d4d0598654cede953a6af7db5823df8a612f2175"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.progressbar.css",
+      "bytes": 357,
+      "sha256": "fead7b21db166948480f869b402f7b8662341de17e8c08159ac4ee6af37858ea"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.resizable.css",
+      "bytes": 1172,
+      "sha256": "cf14205dc752dd048f9512327f4b6b8ebc36100b18e7479d5c130138222c65f0"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.selectable.css",
+      "bytes": 323,
+      "sha256": "6268596952cba11ffa86c4395c9b7fb7e7aa35bf29e9cae58fd101734bdc91ff"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.slider.css",
+      "bytes": 1140,
+      "sha256": "c8379a9a75dc2595278c9dfa79a30a2c6ce42f5dc2c3cf9143b3efe260bb5ab9"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.tabs.css",
+      "bytes": 1383,
+      "sha256": "932f779291df7756d98c049bcae601b7acdac3a1e0f772ae9bf4c1896e08e0df"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/css/jquery.ui.theme.css",
+      "bytes": 18120,
+      "sha256": "a76be583e853b67851a26b0c05713358f824b24b5ccf292380939878e4dc1f26"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/external/jquery.bgiframe-2.1.2.js",
+      "bytes": 1724,
+      "sha256": "fa63ef6fdc322163f19aeab318a2c3e21fd3d939e626b099680e03684bcf5229"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/jquery-1.7.2.js",
+      "bytes": 252881,
+      "sha256": "1717ea1fde8ceb7584341a24efc85c853083c660a1185968fbf94520f7193de2"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/ui/jquery.ui.core.js",
+      "bytes": 8455,
+      "sha256": "1cf9ce69ddf14ed3f879e945e01da1639e9c0c57997eee48d319cb80eeb99ff3"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/ui/jquery.ui.dialog.js",
+      "bytes": 21846,
+      "sha256": "2788d413cea625bcec099344b9e9c70447f33d09da7fea5dd09691e1000179e0"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/ui/jquery.ui.draggable.js",
+      "bytes": 31120,
+      "sha256": "f0999d1f209afd80ef09e79f87eaad25d9b2d440cc1ec3b4d38b639e9abf2087"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/ui/jquery.ui.mouse.js",
+      "bytes": 4437,
+      "sha256": "064b04e7493cc4ce2f15631976dffd56b7faa7cdccb61f8d120079d0c45bf8e7"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/ui/jquery.ui.position.js",
+      "bytes": 8895,
+      "sha256": "d408d280f5434ce8fbde8d63a8440e81a0dce26c822eb4f720aaebd51a3bad05"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/ui/jquery.ui.resizable.js",
+      "bytes": 26536,
+      "sha256": "f40288b52660c0a2c2f9733a8aec1aeb898d31303561ddf37caf083341029cd1"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/jquery/ui/jquery.ui.widget.js",
+      "bytes": 7003,
+      "sha256": "9b9430a52833f5bc2d4e57dfcfc2adf53e6cfba585ae35d955fe83bffd3f3b39"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/max.gif",
+      "bytes": 124,
+      "sha256": "fa1ef7e6324fcd948fc1b4247150676c7c26c59004c232747080ce1b90042df6"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/min.gif",
+      "bytes": 872,
+      "sha256": "867261542ed8a4735d166dd1fdea87661171c0664460e437e64540cd3ae222c3"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/next.png",
+      "bytes": 621,
+      "sha256": "759b9c0ad46c82d1ebbed6f1390a6c23a1c4d51249944ddff40ff74006b7d76a"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/pause.gif",
+      "bytes": 154,
+      "sha256": "7685c341df30dbcb3e2c1eaac636d091bbbf1c8b3693e20121d5627423f4b48a"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/pause.png",
+      "bytes": 491,
+      "sha256": "d72c8416229f307d99aad4462742321387abff29d514e4c1e41e54067c33405d"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/pcmdata.min.js",
+      "bytes": 3503,
+      "sha256": "6477f6d8b2d3b1770db84f4e126dbdada65a39284c5fe13208283fd6309558c9"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/play.png",
+      "bytes": 561,
+      "sha256": "650874fa4ad2220c7d76bbc169f9770c2672adfb290c548bb695ee61ec61d3ae"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/playerax.cab",
+      "bytes": 4889276,
+      "sha256": "f55c938215f7ec8f879c456f930c5bf51cd08a6f1d7162604b71d6974412e814"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/prev.png",
+      "bytes": 646,
+      "sha256": "7bebb7e710fb7d8327cfc91570aa9206051b76f93c3bb89254b6d37acbe3e4e0"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/resize.gif",
+      "bytes": 859,
+      "sha256": "a528e5181660b4d8880c2fb8d44c3f9cba2c4ab82b28adf3779e0368cfa138c6"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/restore.gif",
+      "bytes": 125,
+      "sha256": "3424309b0486db317dcacefb57f10de3d8f4abb84c85ae6b2d4c97d25dbbefdd"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/slower.gif",
+      "bytes": 167,
+      "sha256": "8d87d5ac7b757f3b675fb2d91b25cff9e05834d92dad92584e8de29943284381"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/stop.gif",
+      "bytes": 108,
+      "sha256": "e24d81d37e1054929df4e6c75443a0c53b381d32e2b7cd99ef8dd15c2daa3554"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/stop.png",
+      "bytes": 475,
+      "sha256": "13c1f52d300a44c94a78f0c575a4de97a49be3795241eb37cfb021343d931f77"
+    },
+    {
+      "key": "corpus/Brian Spinks/Jail Calls 78734-CR/D:/videoplay.jpg",
+      "bytes": 918,
+      "sha256": "86e7d234243baf5d088f0e556c98af5b7119df1b5721181859ae4ed8eebf0b31"
+    },
+    {
+      "key": "corpus/Brian Spinks/Photos/D:/1604-0183-mct-2084-ID.JPG",
+      "bytes": 4288818,
+      "sha256": "545843b764ea95040b8abf40744feb7e34044e585e648a29ac32301ababc46e2"
+    },
+    {
+      "key": "corpus/Brian Spinks/Photos/D:/1604-0183-mct-2091-ID.JPG",
+      "bytes": 4163366,
+      "sha256": "74ae1b8cfc5a7e24bb8c637a3dc00aace0b2f9be6850382d15f116e2bf4e1787"
+    },
+    {
+      "key": "corpus/Brian Spinks/Photos/phots2/1604-0183-mct-1031-ID.JPG",
+      "bytes": 6417295,
+      "sha256": "cc6fd640d0e7e84e83f748b423da148b325477a0e0b9c1c4435764ccdbef202c"
+    },
+    {
+      "key": "corpus/Brian Spinks/Photos/phots2/1604-0183-mct-2080-ID.JPG",
+      "bytes": 4313191,
+      "sha256": "d2f2f0a64c7237e2c721843f8f9c6925702279a42fbc3b16015555437e684cef"
+    },
+    {
+      "key": "corpus/Brian Spinks/Photos/phots2/1604-0183-mct-2091-ID.JPG",
+      "bytes": 4163366,
+      "sha256": "74ae1b8cfc5a7e24bb8c637a3dc00aace0b2f9be6850382d15f116e2bf4e1787"
+    },
+    {
+      "key": "corpus/Brian Spinks/Photos/phots2/Demi John Fire Dept -SB-5014.JPG",
+      "bytes": 1242489,
+      "sha256": "c2d77de32f68e7d4cea6179be62b5a600246c8a05b2a24a3dbb29e620b98bddc"
+    },
+    {
+      "key": "corpus/Gary/Gary.zip",
+      "bytes": 139929982,
+      "sha256": "e7948680f3bf8abfea571bfb4d7d8f10e6bf253c2a2617c36fc7da0ccd29ece3"
+    },
+    {
+      "key": "corpus/Gary/SANJAC-13893-RR-VOL1 (2).pdf",
+      "bytes": 1491813,
+      "sha256": "3b4c1bac60557362066705b1b3b767188e13debf3cff1216e36a7d31d7f2578e"
+    },
+    {
+      "key": "corpus/Gary/SANJAC-13893-RR-VOL2 1 (1).pdf",
+      "bytes": 17114395,
+      "sha256": "d824118392cabe0f9cf4f66a39f909e81446b488f3a7ce4299ad3674e82b1581"
+    },
+    {
+      "key": "corpus/Gary/SANJAC-13893-RR-VOL3 1 (2).pdf",
+      "bytes": 61072659,
+      "sha256": "c5819353bd4f6d80c550813b34ad193e6ea8f3bb710100a5fe69d8b6de6a8789"
+    },
+    {
+      "key": "corpus/Gary/SANJAC-13893-RR-VOL4 1 (1).pdf",
+      "bytes": 36093707,
+      "sha256": "5149a229c1fe4aae0ec57b9ea527647243a6f4942a1a9f298c620d088a6439f1"
+    },
+    {
+      "key": "corpus/Gary/SANJAC-13893-RR-VOL5 2 (4).pdf",
+      "bytes": 24465732,
+      "sha256": "303cb9815d09bc8d59f385b71f46d5425acaf59be9e96047618367d4fbf8a7ee"
+    }
+  ]
+}

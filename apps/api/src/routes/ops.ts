@@ -176,6 +176,7 @@ export default async function opsRoutes(fastify: FastifyInstance) {
         reports: (await tx.report.deleteMany({ where: { caseId: id } })).count,
         runs: (await tx.analysisRun.deleteMany({ where: { caseId: id } })).count,
         chunks: (await tx.documentChunk.deleteMany({ where: { documentId: { in: docIds } } })).count,
+        pages: (await tx.documentPage.deleteMany({ where: { documentId: { in: docIds } } })).count,
         documents: (await tx.document.deleteMany({ where: { caseId: id } })).count,
         checklist: (await tx.checklistItem.deleteMany({ where: { caseId: id } })).count,
         uploadSessions: (await tx.uploadSession.deleteMany({ where: { caseId: id } })).count,
@@ -185,10 +186,16 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       return counts;
     });
 
-    // S3 object removal is best-effort here; the ≤35-day backup expiry bounds
-    // full propagation (§11a.2) and a failed S3 pass is an Ops follow-up.
-    // (Wired when the bucket exists — logged loudly until then.)
-    request.log.warn({ caseId: id }, 'OPS-4: S3 object deletion pending bucket configuration');
+    // S3: every object AND version under cases/{id}/ (bucket is versioned);
+    // failure is loud — a missed S3 pass is an Ops follow-up, and the ≤35-day
+    // version expiry bounds full propagation either way (§11a.2).
+    let s3ObjectsRemoved = 0;
+    try {
+      const { deleteCasePrefix } = await import('../services/storage.service');
+      s3ObjectsRemoved = await deleteCasePrefix(id);
+    } catch (e) {
+      request.log.error({ err: e, caseId: id }, 'OPS-4: S3 deletion failed — follow up required');
+    }
 
     // The completion certificate — written AFTER the Case row is gone, into
     // the surviving stream (CaseEvent has no FK by design).
@@ -200,11 +207,11 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     });
     await AuditService.log({
       tenantId, caseId: id, action: LogAction.CASE_ACCESS,
-      userId: request.auth.userId, details: { op: 'scoped_deletion', deleted },
+      userId: request.auth.userId, details: { op: 'scoped_deletion', deleted, s3ObjectsRemoved },
     });
 
     return {
-      deleted,
+      deleted: { ...deleted, s3ObjectsRemoved },
       retainedByDesign: ['payment ledger (7y)', 'disclosure-ack archive (24mo)', 'event/audit skeleton (24mo)'],
     };
   });

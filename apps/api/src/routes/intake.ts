@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { withTenant, appendCaseEvent } from '@hg/database';
 import { checklistTemplate, customerView, expectedReadyDate, type CaseHold } from '@hg/case-lifecycle';
 import { verifyFindings } from '../services/analysis.service';
+import { pageMeter } from '../services/digitize.service';
 
 /**
  * S2 intake: interview → personalized checklist → the explicit, celebrated
@@ -131,13 +132,18 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ error: 'Upload at least one document first' });
       }
 
-      // billablePages stays 0 until the M3 page ledger lands — the meter and
-      // billing read DocumentPage, never this event.
+      // Real counts from the DocumentPage authority (ENG-3).
+      const billablePages = await tx.documentPage.count({
+        where: { document: { caseId: id } , billable: true },
+      });
+      const duplicatesIgnored = await tx.documentPage.count({
+        where: { document: { caseId: id }, billable: false },
+      });
       await appendCaseEvent(tx, {
         caseId: id,
         tenantId,
         type: 'docs.complete',
-        payload: { billablePages: 0, duplicatesIgnored: 0 },
+        payload: { billablePages, duplicatesIgnored },
         actor: userId,
         transition: 'DOCS_COMPLETE',
       });
@@ -164,6 +170,16 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
       return { status: updated.status, slaStartedAt: updated.slaStartedAt, expectedReadyAt: updated.expectedReadyAt };
     });
+  });
+
+  // The live page meter (ENG-3): same authority as billing, plus the
+  // shoebox-trust duplicates count (UI spec §5.5).
+  fastify.get('/:id/pages', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { tenantId, userId } = request.auth;
+    const allowed = await withTenant(tenantId, (tx) => withCase(tx, id, userId));
+    if (!allowed) return reply.status(403).send({ error: 'Forbidden' });
+    return pageMeter(id, tenantId);
   });
 
   // The customer report (US-4), readable once QA has approved. FR-7 runs at

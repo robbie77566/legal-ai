@@ -56,6 +56,27 @@ model PaymentEvent {
   processedAt   DateTime @default(now())
 }
 
+// The billable-page authority (ENG-3) + OCR record (NFR-6). One row per
+// normalized page; the meter, the overage trigger, and refund math all
+// COUNT(billable) here — one authority, no drift. Dedup semantics per
+// §11a.3: exact-hash duplicates leave billing AND analysis; near-duplicates
+// (when perceptual hashing lands) leave billing only.
+model DocumentPage {
+  id            String   @id @default(cuid())
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id])
+  pageNo        Int
+  contentHash   String
+  billable      Boolean  @default(true)
+  dedupKind     String? // exact | near
+  ocrConfidence Float?
+  ocrProvider   String? // pdf-text | textract
+  createdAt     DateTime @default(now())
+
+  @@index([documentId])
+  @@index([contentHash])
+}
+
 // ── Analysis pipeline (ENG-2, system design §6) ──────────────────────────────
 
 model AnalysisRun {
@@ -327,6 +348,7 @@ model Document {
   caseId    String
   case      Case     @relation(fields: [caseId], references: [id])
   chunks    DocumentChunk[]
+  pages     DocumentPage[]
   createdAt DateTime @default(now())
 }
 
