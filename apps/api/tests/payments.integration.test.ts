@@ -33,6 +33,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await prisma.disclosureAck.deleteMany({ where: { tenantId } });
   await prisma.payment.deleteMany({ where: { tenantId } });
   await prisma.paymentEvent.deleteMany({ where: { stripeEventId: { contains: run } } });
   await prisma.caseAccess.deleteMany({ where: { userId } });
@@ -52,6 +53,11 @@ describe('checkout fulfillment', () => {
         outcome: 'fit_trial',
         expiresAt: new Date(Date.now() + 86_400_000),
       },
+    });
+
+    // A pre-purchase disclosure ack must get bound to the case (E-6/OPS-3).
+    await prisma.disclosureAck.create({
+      data: { userId, tenantId, disclosureSetVersion: 'test.1', ip: '127.0.0.1' },
     });
 
     const res = await handleStripeEvent(sessionEvent(`evt_${run}_1`, `cs_${run}_1`, `${run}_draft`));
@@ -76,6 +82,10 @@ describe('checkout fulfillment', () => {
 
     // ENG-7: promotion copies then deletes
     expect(await prisma.eligibilityDraft.findUnique({ where: { token: `${run}_draft` } })).toBeNull();
+
+    // E-6: the ack archive is now case-bound for one-query dispute export
+    const ack = await prisma.disclosureAck.findFirstOrThrow({ where: { userId } });
+    expect(ack.caseId).toBe(c.id);
   });
 
   it('a replayed webhook event is a no-op (level-1 idempotency)', async () => {

@@ -21,6 +21,7 @@
     "@google/generative-ai": "^0.24.1",
     "@hg/ai": "workspace:*",
     "@hg/auth": "workspace:*",
+    "@hg/case-lifecycle": "workspace:*",
     "@hg/database": "workspace:*",
     "@langchain/core": "^1.2.9",
     "@sentry/node": "^10.71.0",

@@ -56,6 +56,25 @@ model PaymentEvent {
   processedAt   DateTime @default(now())
 }
 
+// W-2 disclosure acknowledgment archive (E-6 chargeback defense, OPS-3).
+// Retained 24 months, SURVIVES case deletion (retention matrix §11a.2) —
+// plain references, no FKs. Contains the disclosure-set version + timestamp
+// + IP/UA, never case content. Legitimate-interest retention basis
+// confirmed (PO, Aug 2026).
+model DisclosureAck {
+  id                   String   @id @default(cuid())
+  userId               String
+  tenantId             String
+  caseId               String? // linked at fulfillment
+  disclosureSetVersion String
+  ip                   String
+  userAgent            String?
+  ackAt                DateTime @default(now())
+
+  @@index([userId, ackAt])
+  @@index([caseId])
+}
+
 model User {
   id                  String      @id @default(cuid())
   email               String      @unique

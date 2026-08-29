@@ -134,6 +134,13 @@ export async function fulfillCheckoutSession(session: {
       });
     }
 
+    // E-6: bind this purchaser's disclosure acknowledgments to the case so
+    // the dispute packet is one query (OPS-3).
+    await tx.disclosureAck.updateMany({
+      where: { userId, tenantId, caseId: null },
+      data: { caseId: created.id },
+    });
+
     return created.id;
   });
 

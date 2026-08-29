@@ -1,7 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import prisma from '@hg/database';
+import prisma, { withTenant } from '@hg/database';
+import { DISCLOSURE_SET_VERSION } from '@hg/case-lifecycle';
 import { getStripe, PRICES_CENTS, type PurchaseKind } from '../services/payments.service';
 
 /**
@@ -57,18 +58,65 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
     return { ok: true };
   });
 
-  fastify.post('/checkout/session', async (request, reply) => {
-    const stripe = getStripe();
-    if (!stripe) {
-      return reply.status(503).send({ error: 'Payments are not configured' });
+  /**
+   * W-2: the disclosure review screen posts the explicit acknowledgment
+   * BEFORE payment. The full set version + timestamp + IP/UA is archived
+   * per §11a.2 (24 mo, survives case deletion) — the E-6 dispute packet.
+   */
+  fastify.post('/buy/disclosure-ack', async (request, reply) => {
+    const { userId, tenantId, role } = request.auth;
+    if (role !== 'CLIENT') {
+      return reply.status(403).send({ error: 'Consumer purchases only' });
     }
+    const { disclosureSetVersion } = z
+      .object({ disclosureSetVersion: z.literal(DISCLOSURE_SET_VERSION) })
+      .parse(request.body);
 
+    await withTenant(tenantId, (tx) =>
+      tx.disclosureAck.create({
+        data: {
+          userId,
+          tenantId,
+          disclosureSetVersion,
+          ip: request.ip,
+          userAgent:
+            typeof request.headers['user-agent'] === 'string'
+              ? request.headers['user-agent'].slice(0, 256)
+              : null,
+        },
+      })
+    );
+
+    return { ok: true, disclosureSetVersion };
+  });
+
+  fastify.post('/checkout/session', async (request, reply) => {
     const { userId, tenantId, role } = request.auth;
     if (role !== 'CLIENT') {
       return reply.status(403).send({ error: 'Consumer purchases only' });
     }
 
     const { kind, draftToken, caseId } = SessionSchema.parse(request.body);
+
+    // No pay button without the acknowledged disclosure set (W-2). Checked
+    // before Stripe config so the contract holds in every environment.
+    if (kind === 'review') {
+      const ack = await withTenant(tenantId, (tx) =>
+        tx.disclosureAck.findFirst({
+          where: { userId, disclosureSetVersion: DISCLOSURE_SET_VERSION },
+        })
+      );
+      if (!ack) {
+        return reply
+          .status(409)
+          .send({ error: 'Disclosures must be acknowledged before purchase' });
+      }
+    }
+
+    const stripe = getStripe();
+    if (!stripe) {
+      return reply.status(503).send({ error: 'Payments are not configured' });
+    }
     const origin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
 
     const session = await stripe.checkout.sessions.create({
