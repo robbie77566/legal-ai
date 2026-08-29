@@ -66,21 +66,19 @@ const start = async () => {
     await Promise.all([
       import('./workers/ingestion.worker'),
       import('./workers/entity.worker'),
-      import('./workers/media.worker'),
     ]);
 
     // Register Bull Board (requires active queue connections)
     const { createBullBoard } = await import('@bull-board/api');
     const { BullMQAdapter } = await import('@bull-board/api/bullMQAdapter');
     const { FastifyAdapter } = await import('@bull-board/fastify');
-    const { ingestionQueue, graphQueue, mediaQueue } = await import('./services/queue');
+    const { ingestionQueue, graphQueue } = await import('./services/queue');
 
     const serverAdapter = new FastifyAdapter();
     createBullBoard({
       queues: [
         new BullMQAdapter(ingestionQueue),
-        new BullMQAdapter(graphQueue),
-        new BullMQAdapter(mediaQueue)
+        new BullMQAdapter(graphQueue)
       ],
       serverAdapter,
     });

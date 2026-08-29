@@ -68,16 +68,21 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Push DB schema (test)
+      - name: Apply DB migrations (test)
+        # migrate deploy, NOT db push: push syncs the Prisma schema but skips
+        # the raw SQL migrations that create the RLS policies, the append-only
+        # trigger, and the hg_app role — the integration tests verify those.
         run: |
           pnpm --filter @hg/database db:generate
-          pnpm --filter @hg/database db:push
+          pnpm --filter @hg/database db:migrate:deploy
 
       - name: Typecheck (strict)
         run: pnpm typecheck
 
       - name: Unit & integration tests
-        run: pnpm test --reporter=verbose
+        # vitest workspace directly — `turbo test` matched no package scripts
+        # and silently ran nothing. Includes the live-Postgres RLS suite.
+        run: pnpm exec vitest run
 
       - name: E2E tests
         run: pnpm --filter web exec playwright test

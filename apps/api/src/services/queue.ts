@@ -19,8 +19,9 @@ export const ingestionQueue = new Queue('ingestion', {
 // Queue for Neo4j entity extraction via LLM
 export const graphQueue = new Queue('graph', { connection });
 
-// Queue for heavy multimedia processing (FFmpeg/Whisper)
-export const mediaQueue = new Queue('media', { connection });
+// The `media` queue and its worker were deleted (implementation plan §5.1):
+// never enqueued, and the worker wrote 1536-dim vectors into a 768-dim
+// column. The v1.1 A/V add-on rebuilds this on the Phase-5 design.
 
 export const enqueueDocument = async (documentId: string, s3Key: string, caseId: string) => {
   await ingestionQueue.add('document:process', { documentId, s3Key, caseId });
@@ -30,6 +31,3 @@ export const enqueueGraphEntityExtraction = async (documentId: string, chunks: {
   await graphQueue.add('entity:extract', { documentId, chunks, caseId });
 };
 
-export const enqueueMultimedia = async (documentId: string, s3Key: string, caseId: string) => {
-  await mediaQueue.add('media:process', { documentId, s3Key, caseId });
-};
