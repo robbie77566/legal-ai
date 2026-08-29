@@ -128,6 +128,10 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
             currency: 'usd',
             unit_amount: PRICES_CENTS[kind as PurchaseKind],
             product_data: {
+              // Managed Payments/Stripe Tax require a product tax code.
+              // 'General - Services' pending the accountant's TX
+              // data-processing determination (M7 gate item).
+              tax_code: process.env.STRIPE_TAX_CODE ?? 'txcd_20030000',
               name:
                 kind === 'review'
                   ? 'Family Case Review — up to 5,000 pages, all screens, human review'
@@ -140,6 +144,11 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
       ],
       success_url: `${origin}/buy/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/buy?canceled=1`,
+      // Managed Payments (Stripe as merchant of record) is default-on for new
+      // accounts but its eligible-category list excludes this product; we are
+      // the merchant of record by design — our disclosures, our dispute
+      // evidence (E-6), our Stripe Tax configuration.
+      ...({ managed_payments: { enabled: false } } as object),
       // Stripe Tax (PO decision: collect correctly from the first charge;
       // remittance/registration follow the accountant's determination) and
       // dashboard-managed payment methods (incl. Affirm/Klarna installments,

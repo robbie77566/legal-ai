@@ -3,6 +3,9 @@
  * account creation → ack → checkout gate ordering.
  */
 process.env.NEXTAUTH_SECRET = 'test-secret-at-least-32-characters!!';
+// This suite asserts the unconfigured-payments wall (503); a real key in the
+// developer's .env must not leak in (dotenv never overrides an existing var).
+process.env.STRIPE_SECRET_KEY = '';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { fastify } from '../src/index';

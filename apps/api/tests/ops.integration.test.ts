@@ -4,6 +4,8 @@
  * content GONE, ledger/acks/events SURVIVE, certificate written.
  */
 process.env.NEXTAUTH_SECRET = 'test-secret-at-least-32-characters!!';
+// Asserts the unconfigured-refund wall; a real key in .env must not leak in.
+process.env.STRIPE_SECRET_KEY = '';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { fastify } from '../src/index';
