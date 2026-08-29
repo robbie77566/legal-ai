@@ -78,9 +78,11 @@ The following workflows illustrate how these personas interact with the HabeasGr
 
 ### Workflow E: Family Case Review (MVP v1.0)
 **Primary User:** The Inmate's Family Member
+> Detailed blueprint: `../specifications/mvp_workflow_design.md` (stages S0–S7) — it governs where this summary and that doc differ.
+0.  **Free Eligibility Check (S0):** Before any payment or account, a two-minute wizard routes the case to the correct post-conviction vehicle (11.07 / 11.071 hard exclusion / 11.072 / 11.09), selects the trial or plea lane, and turns away cases the product cannot help — never as a dead end.
 1.  **Purchase:** The user pays a flat $299 via Stripe Checkout. Price, the 5,000-page cap, the refund policy, and the "information, not legal advice" statement are shown *before* payment. Account creation is email/password only — no tenant setup, no roles.
 2.  **Guided Upload:** A plain-English wizard explains what to upload (judgment & sentence, clerk's record, reporter's record volumes, motions) with examples. PDFs/scans accepted; audio/video rejected with a friendly note about the future add-on. A running page counter shows usage against the cap.
-3.  **Waiting:** A status page tracks Received → Reading the record → Analyzing → Quality review → Ready, with an email at each transition. No chat, no graph, no workspace — the multi-agent pipeline and knowledge graph run entirely behind the curtain.
+3.  **Waiting:** A status page tracks Documents received → Digitizing your records → Analyzing the record → Quality review → Ready, with an email at each transition. The turnaround clock starts at the explicit "records complete" event, not at purchase. No chat, no graph, no workspace — the multi-agent pipeline and knowledge graph run entirely behind the curtain.
 4.  **Internal QA Gate:** Before release, a trained reviewer approves the report in the internal console (the side-by-side workspace, repurposed for staff). Nothing reaches the customer unreviewed.
 5.  **The Report:** A two-part PDF. Part A speaks to the family at an 8th-grade reading level: what we reviewed, what we found, what it means, what to do next (always "consult counsel," never "file this"). Part B is the attorney-ready packet: every finding with volume/page/line citations and source excerpts.
 6.  **Consented Referral:** If the review shows strong signals, the user may opt in to share the packet with an innocence clinic or take a vetted-attorney list. Default is private; nothing is shared without the explicit opt-in.

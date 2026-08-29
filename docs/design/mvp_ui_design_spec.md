@@ -148,6 +148,9 @@ Everything disclosed above the pay button as styled content cards: price + cap, 
 - Attorney directory (structure per R-6 resolution) and State Bar LRIS link.
 - Re-run card ($99) appears only after report delivery.
 
+### 5.10 Ops console (`/ops`) — Industrial Authority, ADMIN role
+The administrator's surface (PRD US-9, `../specifications/internal_operations_spec.md`): a dense case-queue table (stage, lane, days-in-stage, QA state, deadline-urgent and stall chips), a guardrail stat row (cases in QA, stalled >7d, rolling COGS/case, refunds this week), and a pipeline-health rail (worker liveness, queue depth, OCR-confidence trend, provider errors) serving the SRE summary view. Case rows open the full event timeline with the audited actions: refund, disclosure-archive export, deletion workflow, SLA-delay marking (which flips the customer tracker to the honest "this delay is on us" state — the two surfaces are one mechanism). Bento density, semantic chips, Geist/IBM Plex per the Industrial Authority system.
+
 ### 5.9 QA console (`/qa`) — Industrial Authority, not Daybreak
 Professional deep-work surface: reuses the existing side-by-side workspace (Parchment source left, findings right), adds a queue view (high-density table, adjudication-flagged findings sorted first), per-finding verify/edit/reject controls, Part A reading-level linter warnings, and an approve action that requires every finding checked. Audit-logged per US-8. This console is the v3 attorney workspace's daily dogfood.
 
@@ -170,12 +173,12 @@ Professional deep-work surface: reuses the existing side-by-side workspace (Parc
 
 ## 7. Engineering notes
 
-- **Theming:** Daybreak tokens as CSS variables scoped to the `(daybreak)` route group layout; Tailwind `db-*` palette alongside existing `hg-*`; light default + `prefers-color-scheme` dark.
+- **Theming:** Daybreak tokens as CSS variables scoped to the `(daybreak)` route group layout; Tailwind `db-*` palette alongside existing `hg-*`; light default + `prefers-color-scheme` dark. **Governance:** both token sets live in one shared package; all Daybreak strings are externalized copy-canon files mapping to the specs; the design canvas is the screen-state source of truth and updates in the same cycle as merged UI changes (`../specifications/internal_operations_spec.md` UXG-1–3).
 - **RSC split:** wizards, upload, tracker are client islands; landing/report shells are server components; report data fetched server-side (it's post-QA static per version).
 - **State:** wizard state in RHF; case/upload state via TanStack Query with mutation retry queue; Zustand only for the upload queue UI.
 - **Progress:** SSE (existing `sse_streaming.md` infra) for tracker sub-events; email via Resend on stage transitions.
 - **i18n:** `next-intl`, all Daybreak strings keyed at v1.0, `es` locale stubbed (NFR-2).
-- **Analytics:** stage-level funnel events (S0 outcome, checkout, records-complete, report-opened, referral-consent) — the §9 PRD metrics depend on them; no third-party trackers on report pages.
+- **Analytics:** the complete event taxonomy is the `snl.*` contract in `../specifications/analytics_experimentation_plan.md` §2 — implement those names exactly; no third-party ad pixels anywhere, no session replay on report or upload surfaces (records and findings are on screen). Experiment flags are server-driven and cookie-sticky (no client flicker); the S6 interstitial and disclosure surfaces are experiment red lines per that plan's §4.3.
 - **Accessibility gates in CI:** axe-core on every Daybreak route; contrast checked at token level; reading-level lint (Flesch-Kincaid) on Part A template strings.
 
 ## 8. The other personas (so Daybreak doesn't paint us into a corner)

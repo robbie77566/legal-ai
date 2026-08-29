@@ -81,6 +81,9 @@ Competitive frame: this persona is unserved by all five researched platforms; th
 **US-7 — Refund.** As a purchaser whose record was unreadable, I get a partial or full refund without a fight.
 - AC: if OCR confidence falls below the readability threshold on > X% of pages, the pipeline halts *before* full analysis spend, support is notified, and the customer is offered re-upload or refund; refund issuable from the ops console; 5% revenue reserve budgeted.
 
+**Internal — US-9 — Ops console.** As an administrator, I can run the service — refunds, deletion requests, dispute evidence, stuck cases, SLA-delay handling — from one audited console, never via manual database operations.
+- AC: per `internal_operations_spec.md` OPS-1..7 — case queue with stall/deadline flags, Stripe-linked audited refunds, one-click disclosure-archive export (chargeback defense), retention/deletion workflow (12-month auto + verified request, hard-delete incl. S3/vectors/graph), reviewer management via existing RBAC, support context per case, and the SLA-clock authority: internal delays extend the customer's date visibly and honestly ("this delay is on us"), never silently.
+
 **Internal — US-8 — QA console.** As a QA reviewer, I can review, annotate, correct, or reject every report before release.
 - AC: internal queue (reuses ADMIN/ATTORNEY roles); reviewer sees Part A/Part B side by side with click-through to source pages (reuses the existing side-by-side workspace internally); reviewer must affirmatively approve; edits are audit-logged (existing append-only AuditLog); rejection routes to an engineering triage queue. Target ~30 min/case (COGS line).
 
@@ -112,6 +115,9 @@ Cross-cutting: FR-6 — every finding must resolve to at least one verifiable ci
 - **NFR-3 Security/privacy:** existing RLS tenancy, encryption at rest/in transit, append-only audit; consumer data never used for model training; retention = 12 months then deletion (stated at purchase); records deleted on verified request.
 - **NFR-4 Cost telemetry:** per-case token/OCR/storage cost recorded at case close; alert when rolling COGS exceeds budget ($54).
 - **NFR-5 Capacity:** pipeline throughput sized for 10 cases/day at launch hardware; queue depth visible in ops.
+- **NFR-7 Billing integrity:** "billable page" is a defined, deduplicated unit counted by one authority that feeds both the live page meter and billing; duplicate uploads never count twice; partial overage blocks resolve in the customer's favor (`mvp_v1_engineering_notes.md` ENG-3).
+- **NFR-8 Upload safety:** HEIC accepted and converted (iPhone default), multipart/resumable uploads for large volumes, malware scanning between upload and ingestion, tenant-scoped SSE (ENG-4).
+- **NFR-9 State integrity:** case lifecycle is a single event-sourced state machine (ENG-1); tracker, Ops queue, and analytics derive from the same events; findings carry the stable schema with citation re-verification anchors (ENG-2); delivered reports snapshot findings + template version (ENG-8).
 - **NFR-6 OCR robustness:** aged-scan handling is a first-class requirement (competitors demonstrably fail here — Casefleet's highlighting degrades on old scans); OCR confidence is stored per page and drives the US-7 halt.
 
 ## 7. Launch gates (all must pass)
@@ -120,6 +126,7 @@ Cross-cutting: FR-6 — every finding must resolve to at least one verifiable ci
 2. Attorney review (retained TX post-conviction counsel) of: report templates, all customer-facing copy, T&C, refund policy, UPL posture, **US-0 vehicle-routing logic (11.07/11.071/11.072/11.09), the deadline-engine rules (finality, tolling gaps, laches), §4 subsequent-writ handling, and R-6 referral structure** (~$2–5k one-time, budgeted).
 3. E&O insurance bound.
 4. QA console operational with at least one trained reviewer; end-to-end dry run on both reference cases through purchase → report → refund path.
+4a. Ops console (US-9) covering refunds, disclosure archive, and deletion; observability (Sentry/OTel) and rate limiting on auth + upload endpoints live — the previously deferred monitoring gaps close before launch (`internal_operations_spec.md` SRE-3/SRE-6).
 5. Billing spec items in §4 implemented (this PRD **supersedes the deferred PM billing spec** referenced in `user_authentication_experience.md` §"out of scope" for the consumer tier only).
 
 ## 8. UPL & ethics requirements (product-shaping, not boilerplate)
@@ -133,6 +140,8 @@ Cross-cutting: FR-6 — every finding must resolve to at least one verifiable ci
 - **R-7 (confidentiality on sharing):** the consent/referral flow (US-5) states that sharing Part B with a clinic or attorney does **not** create an attorney-client relationship or privilege by itself; report footer repeats it. Prevents the family treating the referral as representation.
 
 ## 9. Success metrics
+
+> Instrumentation (event taxonomy), the A/B testing program with red lines, and the PM/UX reporting cadence live in `analytics_experimentation_plan.md` — it is the contract for how these metrics are measured and reported. North star: **completed reviews that reach a lawyer** (Part B downloaded, consent granted, or directory clicked), not delivered PDFs.
 
 | Metric | Target (first 90 days) |
 |---|---|
@@ -152,3 +161,4 @@ Cross-cutting: FR-6 — every finding must resolve to at least one verifiable ci
 4. Brand decision (R-5) — resolve before public site copy is written.
 5. Payment plans (2×/3× split via Stripe): "Who Pays?" income data argues for it; chargeback exposure argues caution. Decide before launch (workflow doc §6.8).
 6. Plea-lane pricing: same $299 with honest expectation-setting, or a lower price for the reduced screen set? (Scope note, §2.)
+7. ~~Consumer role~~ — **decided per engineering review: add a `CLIENT` role** to the Role enum (alongside the pending VIEWER fix) rather than granting purchasers ADMIN/ATTORNEY (ENG-7); auth spec to absorb. **Password reset moves into v1.0 launch scope** — the returning-after-weeks family is the primary account-recovery case.

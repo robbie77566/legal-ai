@@ -82,7 +82,9 @@ enum Role {
   ADMIN
   ATTORNEY
   INVESTIGATOR
-  VIEWER          // ADD — read-only role for external reviewers
+  VIEWER          // ADD — read-only role for external reviewers (implemented)
+  CLIENT          // ADD (Aug 2026, MVP v1.0) — consumer purchaser in a
+                  // single-member tenant; see §12 and mvp_v1_engineering_notes ENG-7
 }
 
 model User {
@@ -731,3 +733,42 @@ EMAIL_FROM="HabeasGraph <noreply@yourdomain.com>"
 3. **Dashboard layout** — There is currently no `apps/web/app/dashboard/layout.tsx`. The header with `UserMenu` must be added. Confirm with design whether the header is shared with the `/workspace` route or is separate.
 
 4. **Token URL shape** — The plan uses `?token=<raw>&id=<userId>` for reset links. An alternative is to encode both in a signed JWT (one URL param). Either is acceptable; the signed-JWT approach avoids the need for `userId` in the URL entirely but requires `jose` on the API side too.
+
+---
+
+## 12. Consumer-tier addendum (MVP v1.0, Aug 2026)
+
+The MVP v1.0 consumer product (`mvp_v1_prd.md`, `mvp_v1_engineering_notes.md` ENG-7, system design `../architecture/mvp_v1_system_design.md` §10) changes several assumptions in this document. This section is authoritative where it conflicts with §§1–11.
+
+### 12.1 CLIENT role
+The purchaser is a new `CLIENT` role in a **single-member tenant** — never ADMIN (tenant settings/user management misfit) or ATTORNEY (professional surfaces). CLIENT can: manage their own account, access their own cases' Daybreak surfaces (`/case/**`), download their reports, and grant/revoke referral consent. CLIENT can never reach `/dashboard`, `/workspace`, `/qa`, `/ops`, or any permissions surface — enforced in middleware **and** per-route in the API.
+
+### 12.2 Self-registration exception
+"No self-registration" (§1) now applies to **staff/professional tenants only**. The consumer purchase flow (`landing_page_spec.md` §3, W-3) creates the account itself: at `/buy`, after the disclosure-acknowledgment step, an email + password form creates `User(role: CLIENT)` + its single-member `Tenant` in one transaction, then hands off to Stripe Checkout. The Case is created by the `payment.succeeded` webhook (idempotent; reconciliation-healed). Email verification is **non-blocking** (link sent; purchase proceeds). Invite-only onboarding is unchanged for every other role.
+
+### 12.3 Password reset is v1.0 launch scope
+Phase 2's forgot/reset flow (§6) moves into the v1.0 launch gate: the consumer returning after weeks of records-gathering is the primary account-recovery case (PRD §10.7). The reset flow, `packages/email`, and the Resend integration ship with the consumer launch — not "after Phase 1 settles."
+
+### 12.4 Middleware matcher & theming
+The matcher grows beyond §4.5:
+
+```typescript
+export const config = {
+  matcher: [
+    '/dashboard/:path*', '/workspace/:path*',   // staff (ADMIN/ATTORNEY/INVESTIGATOR/VIEWER)
+    '/qa/:path*',                               // ATTORNEY/ADMIN
+    '/ops/:path*',                              // ADMIN
+    '/case/:path*',                             // CLIENT (own tenant) or staff
+    '/buy/:path*',                              // partially public: account step onward
+  ],
+};
+```
+
+`/`, `/check`, `/help`, and `/auth/**` stay public. The middleware also **role-gates** (the current `authorized: ({token}) => !!token` is authentication only): a token's `role` must match the prefix matrix above, with the API re-enforcing the same matrix as the real gate. Consumer-facing auth screens (`/auth/**` reached from Daybreak) render in the Daybreak theme, not the Industrial Authority card in §5.1 — one set of routes, theme selected by referring surface.
+
+### 12.5 Anonymous S0 drafts & sessions
+- S0 eligibility answers are stored server-side keyed by an opaque random token (cookie), **30-day TTL then hard delete**, never used for marketing; promotion to a case copies then deletes the draft (ENG-7).
+- Consumer session default: the records-gathering journey spans weeks — "remember me" defaults **on** (checked) for CLIENT sign-ins; staff default stays unchecked.
+
+### 12.6 API authentication (supersedes header-trust)
+The Fastify API currently trusts `x-tenant-id`/`x-user-id` headers with no verification — this is a launch-blocking defect. The API adopts a preHandler that verifies the NextAuth JWT (shared `NEXTAUTH_SECRET`) and derives `userId`/`tenantId`/`role` exclusively from it; the headers are removed everywhere. Redis-backed rate limiting (replacing §6's in-memory Phase-1 limiter) covers auth, eligibility, presign, and webhook endpoints before launch (`internal_operations_spec.md` SRE-6). Details: system design §10.

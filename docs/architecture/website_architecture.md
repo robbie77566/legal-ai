@@ -1,9 +1,13 @@
-# HabeasGraph: Website Architecture
+# HabeasGraph: Website Architecture (Platform Reference)
+
+> **Status note (Aug 2026).** This doc is the long-range *platform* reference (the professional-tier v3 vision). For everything MVP v1.0 builds or touches, **`mvp_v1_system_design.md` is canonical and supersedes this doc** — including API authentication, the case state machine, payments, the consumer surface, and model routing. Known deltas: the AI layer below predates the three-tier routing revision (`cost_optimization_ollama.md` — Ollama is deferred at launch, Claude/Gemini via batch + caching replace the Ollama-primary split); real-time transport is **SSE, not WebSockets** (`sse_streaming.md`); Neo4j is deferred out of v1.0 (system design §12.1); and the consumer product (Daybreak surface, Stripe, QA/Ops consoles) does not appear in the diagram below.
 
 ## 1. Executive Summary
 HabeasGraph is a comprehensive **Incarceration Reduction Engine** specifically engineered for Texas criminal law. It transforms raw legal records into structured intelligence to support the entire lifecycle of post-conviction advocacy, including **Direct Appeals**, **Article 11.07 Habeas Corpus writs**, **Clemency applications**, and **Administrative Sentence Audits**.
 
 It leverages the **Model Context Protocol (MCP)**, a **Legal Knowledge Graph**, and **Stateful Multi-Agent Orchestration** to identify every viable path to release or sentence reduction.
+
+The platform ships to market in two surfaces (see `../specifications/product_roadmap.md`): the **Daybreak consumer surface** (MVP v1.0 "Family Case Review" — $299 flat-fee record review for families, spec'd in `../specifications/mvp_v1_prd.md`) and the **Industrial Authority professional surface** (internal QA/Ops consoles at v1.0; customer-facing workspace at v3). The sections below describe the professional-platform architecture.
 
 ## 2. Tech Stack
 
@@ -29,8 +33,7 @@ It leverages the **Model Context Protocol (MCP)**, a **Legal Knowledge Graph**, 
 *   **Document Parsing:** [Docling](https://ds4sd.github.io/docling/) or [Marker] for high-fidelity extraction of structured document data.
 
 ### AI Reasoning Layer
-*   **Primary LLM:** Ollama (Llama 3) running locally for privacy and cost-optimization.
-*   **Secondary/Failover LLM:** Gemini 1.5 Pro (via Google AI Studio/Vertex AI) for complex analysis and fallback.
+*   **Model routing (revised Aug 2026):** three-tier transform→screen→synthesize routing per `cost_optimization_ollama.md` — Claude Haiku 4.5/Gemini Flash (Tier 1, batch), Claude Sonnet 5/Gemini Pro (Tier 2, batch + prompt caching), Claude Opus 5 synthesis with Gemini cross-model adjudication (Tier 3). **Ollama remains in the architecture but is deferred at launch** (config-off in `ModelRouter`); it returns for the self-hosted Sovereign tier or at ≳150 cases/mo.
 *   **Orchestration:** [LangGraph.js](https://langchain-ai.github.io/langgraphjs/) for the **"Escalation Ladder"** stateful, cyclical, and multi-agent workflows.
 *   **MCP Client:** Custom implementation using the `@modelcontextprotocol/sdk`.
 *   **MCP Ecosystem Expansion:** 

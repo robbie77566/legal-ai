@@ -9,6 +9,8 @@ Manual runs of the two reference case files through Gemini and Claude produced *
 | **Gary** (`Test Case Files/Gary`) | 5 reporter's-record volumes (SANJAC-13893), ~268MB | Document-only case — exercises the core MVP path |
 | **Brian Spinks** (`Test Case Files/Brian Spinks`) | 8 RR volumes (Brazoria-78734) + jail-call audio, interview video, photos, ~2GB | Documents evaluated now; A/V is out of MVP scope (confirms the launch-model deferral) and joins the eval when transcription ships |
 
+> **Storage rule (ENG-10):** these are real records about real people and must not live in the git repo. The corpus moves to encrypted private object storage; the repo keeps only a checksum/provenance manifest, `Test Case Files/` is gitignored, and the harness reads from the configured bucket. Ledgers reference manifest entries, not working-tree paths.
+
 ## 2. Ground truth
 
 For each case, a human reviewer (attorney or trained reviewer) produces a **findings ledger**: every genuine issue in the record, each with

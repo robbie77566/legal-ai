@@ -66,7 +66,7 @@ Format per stage: what the customer does / what they see (frontstage) / what hap
 ### S3 — Guided upload & verification
 - **Customer:** uploads PDFs or phone photos per checklist item; confirms what the system read.
 - **Frontstage:** per-item upload embedded in the checklist (SimpleCitizen pattern — upload where it's relevant, not a bulk dropzone), **plus the "shoebox" path**: a standing "Not sure what a paper is? Upload it anyway — we'll figure out what it is" card, because the real-world starting point is a box of mixed papers and forcing classification before upload is itself a pain point (classification is what the pipeline already does; the echo-back assigns the result to the checklist); phone-capture coaching ("flat surface, good light" — TurboTax W-2 pattern); after processing each item, an **echo-back card**: "This looks like *Reporter's Record Vol. 3, pages 1–214, State v. ___*. Right?" Confirm/correct. Running page meter against the 5,000-page cap with the $49 overage offered in-flow. A/V files rejected with the friendly v1.1 note. When the checklist is green: **"Your records are complete — your review clock starts now"** (explicit event, celebrated).
-- **Backstage:** presigned-S3 upload; OCR with per-page confidence stored (NFR-6); document classification (Tier-1 routing); low-confidence pages flagged early — *before* full analysis spend (US-7 halt).
+- **Backstage:** presigned-S3 upload (multipart/resumable for large volumes; HEIC converted; malware-scanned before ingestion — ENG-4); per-page dedup so duplicate and shoebox re-uploads never count against the cap, with a "duplicates ignored: N" trust note on the meter (ENG-3); OCR with per-page confidence stored (NFR-6); document classification (Tier-1 routing); low-confidence pages flagged early — *before* full analysis spend (US-7 halt).
 - **JTBD/pain:** "my scans are messy and I'm not sure I did it right" — the echo-back is the trust move; early OCR gating protects both refund economics and the family's time.
 - **Pattern:** TurboTax OCR echo-back; second-opinion records-complete clock.
 - **PRD:** US-2, US-7; NFR-6.
@@ -111,6 +111,9 @@ Format per stage: what the customer does / what they see (frontstage) / what hap
 | S5 | Sees named QA stage | Role-specific copy | QA console, approve/reject, audit log | RBAC, AuditLog |
 | S6 | Opens report via interstitial | Gated delivery, Part A/B, next-step pairing | Citation hard filter, retention clock | PDF service |
 | S7 | Consents / downloads / re-runs | Consent screen, attorney list, re-run CTA | Referral packet, diff re-run | Clinic/attorney network |
+
+### Measuring the workflow
+Every stage boundary above is an instrumented event (`analytics_experimentation_plan.md` §2). Two stage-specific measurements matter most: **S2→S3 stalls** (families gather records over weeks — `docs.stalled_7d` triggers the E8 nudge experiment, and per-item how-to expansion rates show which documents block people) and **S6 non-opens** (`report.later_chosen` without return in 7 days is a wellbeing and product signal, handled with a gentle single reminder, never a drip campaign).
 
 ## 5. Edge and failure workflows
 

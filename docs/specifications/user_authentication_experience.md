@@ -31,15 +31,17 @@ This specification defines the required authentication and account management UX
 
 ## 3. User Roles & Context
 
-The platform has three system-level roles. The sign-in and account experience must reflect each role's responsibilities:
+The platform has five system-level roles. The sign-in and account experience must reflect each role's responsibilities:
 
 | Role | Primary Users | Typical Actions |
 |------|--------------|-----------------|
-| **ADMIN** | Firm managing partner, IT lead | Manages users, billing, tenant settings |
-| **ATTORNEY** | Defense attorney, post-conviction specialist | Creates and reviews cases, uploads documents |
+| **ADMIN** | Firm managing partner, IT lead, platform ops | Manages users, billing, tenant settings; operates the Ops console |
+| **ATTORNEY** | Defense attorney, post-conviction specialist, QA reviewer | Creates and reviews cases, uploads documents; works the QA console |
 | **INVESTIGATOR** | Legal investigator, paralegal | Views and annotates case materials; cannot create cases |
+| **VIEWER** | External reviewers (court-appointed monitors, oversight) | Read-only access to assigned cases *(added to the schema — the Role Alignment gap below is resolved)* |
+| **CLIENT** | MVP v1.0 consumer purchaser (family member) | Own single-member tenant only: purchase, upload, track, download report, manage consent. Never reaches staff surfaces. *(Added Aug 2026 — see `auth_engineering_design.md` §12 and `mvp_v1_engineering_notes.md` ENG-7.)* |
 
-> **Note:** The permissions API accepts a fourth role value `VIEWER`. This must be added to the Prisma schema before the sign-in spec can be considered fully implemented. See [Gap: Role Alignment](#gap-role-alignment).
+> **Consumer-tier note (Aug 2026):** MVP v1.0 introduces self-registration **for CLIENT only**, created during the purchase flow (`landing_page_spec.md` §3) — the invite-only rule below is unchanged for all staff roles. The password reset flow (§6.3) is pulled forward into v1.0 launch scope: a family returning after weeks of records-gathering is the primary recovery case.
 
 ---
 
@@ -323,5 +325,5 @@ MFA is not in the current dependency set. Engineering must add `otpauth` or a si
 
 - **SSO / SAML** (e.g., Okta, Azure AD) — documented separately in the Enterprise Authentication roadmap
 - **Clio OAuth integration** — stub exists; specification TBD once Clio API agreement is in place
-- **Billing & subscription management** — separate PM-owned spec
+- **Billing & subscription management** — separate PM-owned spec. *For the consumer tier only, this deferral is superseded by `mvp_v1_prd.md` §7.5 (Stripe Checkout one-time purchase, spec'd in `landing_page_spec.md` §3 and `mvp_v1_engineering_notes.md` ENG-5); professional-tier subscription billing remains out of scope until v3.*
 - **Audit log UI** — covered in the Compliance & Audit specification

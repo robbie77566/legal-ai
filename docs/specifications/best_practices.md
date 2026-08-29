@@ -2,7 +2,7 @@
 
 ## 1. Data Security & Sovereignty
 *   **Encryption at Rest & Transit:** Use AES-256 for storage and TLS 1.3 for data in motion.
-*   **Zero-Retention Processing:** Offer an "Incognito Analysis" mode where document text is never saved to a database, only processed in-memory for the session.
+*   **Zero-Retention Processing:** Offer an "Incognito Analysis" mode where document text is never saved to a database, only processed in-memory for the session. *(Professional-tier feature only — the consumer product requires stored chunks for QA citation re-verification and operates the 12-month retention/deletion policy instead: `mvp_v1_prd.md` NFR-3.)*
 *   **SOC2/HIPAA Alignment:** Even if not certified yet, follow the architectural patterns (audit logs, IAM roles, data isolation).
 
 ## 2. Accuracy & Hallucination Mitigation
