@@ -327,7 +327,7 @@ The customer promise "kept 12 months, deleted sooner on request" applies to **C1
 |---|---|---|
 | C1 case content + C2 identity | 12 mo after delivery, or verified request | The promise |
 | S0 eligibility drafts | 30 days hard | ENG-7 |
-| Disclosure-ack archive (disclosures shown + timestamp + IP; **no case content**) | 24 mo | Dispute/chargeback defense (E-6) outlives the case |
+| Disclosure-ack archive (disclosures shown + timestamp + IP; **no case content**) | 24 mo | Dispute/chargeback defense (E-6) outlives the case. **Legitimate-interest retention basis confirmed (product owner, Aug 2026)** — surviving a deletion request is settled, not open |
 | Payment ledger (amounts, Stripe ids; name pseudonymized on deletion) | 7 years | Tax/accounting |
 | `CaseEvent` + `AuditLog` skeleton (C3, PII-minimal) | 24 mo, then aggregate | Ops/security/dispute record; deletion writes the deletion-certificate event here |
 | Analytics events (C5) | 14 mo, then aggregates only | Funnel baselines |
