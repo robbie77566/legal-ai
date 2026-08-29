@@ -60,6 +60,8 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 
 ### M2 — Commerce & identity (4 ew)
 
+> **Progress (Aug 2026):** core landed. `CLIENT` role + Payment ledger (no-FK, RLS'd, 7y class) + `PaymentEvent` idempotency ledger in schema; `/buy/account` as the sole self-registration surface (CLIENT + single-member tenant, one transaction, enumeration-safe); CLIENT-only `/checkout/session` (env-priced, 503 unconfigured); signature-verified Stripe webhook with **two-level idempotency** (event-id ledger + unique session id) whose fulfillment creates Case + access + lifecycle events (`→ AWAITING_DOCS`) + subsequent-writ hold and promotes-then-deletes the S0 draft in one `withTenant` transaction; hourly reconciliation interval; dispute webhook logged pending the M6 E-6 console. Eligibility-draft endpoints closed out M1's remainder. 6 live-Postgres tests cover replay/re-drive/refund/safety paths. **Remaining for M2:** `packages/email` (receipts, transitions, password reset — Resend key needed), disclosure-ack capture + archive, web `/buy` flow + middleware role matrix (Daybreak track), Stripe test clocks in CI, walking-skeleton exit criterion.
+
 - `CLIENT` role migration + middleware role matrix + API enforcement (§10.2; auth design §12).
 - `/buy` flow API: disclosure-ack capture (archived per case — E-6), account+tenant creation, Stripe Checkout session; `payment.succeeded` webhook with `PaymentEvent` idempotency ledger; hourly reconciliation job (§7).
 - `packages/email` (Resend + React Email): receipts, stage transitions, bounce/complaint webhooks → Ops queue. Password reset flow shipped (pulled into v1.0 per ENG-7).
