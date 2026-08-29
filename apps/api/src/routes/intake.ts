@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent } from '@hg/database';
-import { checklistTemplate, customerView, type CaseHold } from '@hg/case-lifecycle';
+import { checklistTemplate, customerView, expectedReadyDate, type CaseHold } from '@hg/case-lifecycle';
 import { verifyFindings } from '../services/analysis.service';
 
 /**
@@ -106,6 +106,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         customer: customerView(kase.status as Parameters<typeof customerView>[0], holds),
         lane: kase.lane,
         slaStartedAt: kase.slaStartedAt,
+        expectedReadyAt: kase.expectedReadyAt,
         items,
         documents,
       };
@@ -141,6 +142,14 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         transition: 'DOCS_COMPLETE',
       });
 
+      // The 10-business-day promise (PO decision; ENG-9 shared calendar).
+      const afterStamp = await tx.case.findUniqueOrThrow({ where: { id } });
+      const readyBy = expectedReadyDate(afterStamp.slaStartedAt ?? new Date());
+      await tx.case.update({
+        where: { id },
+        data: { expectedReadyAt: new Date(`${readyBy}T00:00:00Z`) },
+      });
+
       const updated = await tx.case.findUniqueOrThrow({ where: { id } });
 
       // Kick the analysis pipeline (idempotent job id); Redis-down is
@@ -153,7 +162,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         request.log.error({ err: e }, 'analysis enqueue failed — case parked at DOCS_COMPLETE');
       }
 
-      return { status: updated.status, slaStartedAt: updated.slaStartedAt };
+      return { status: updated.status, slaStartedAt: updated.slaStartedAt, expectedReadyAt: updated.expectedReadyAt };
     });
   });
 

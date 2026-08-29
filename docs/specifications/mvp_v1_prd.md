@@ -136,7 +136,7 @@ Cross-cutting: FR-6 — every finding must resolve to at least one verifiable ci
 - **R-3:** All high-viability outcomes route toward counsel (referral flow, US-5). The product never links to, or instructs on, pro se filing — encouraging a weak pro se writ that burns the subsequent-writ bar is the worst harm this product could cause.
 - **R-4:** Optional attorney-signed review add-on (~$499, licensed TX attorney paid per review) is designed post-v1.0 but the report schema must carry a signature block from day one.
 - **R-5 (brand gate):** consumer-facing tone must pass the "grieving family test" — a named GTM risk. Marketing irreverence, if kept, stays off the purchase/report surfaces.
-- **R-6 (referral compliance):** a "vetted-attorney referral list" likely constitutes a **lawyer referral service under Tex. Occ. Code ch. 952**, which requires State Bar certification — an uncertified for-profit referral service is itself unlawful. v1.0 options (counsel to confirm at launch gate 2): (a) route to the State Bar's certified Lawyer Referral & Information Service, (b) publish a neutral directory (no matching, no per-referral consideration), or (c) pursue certification. No referral fees from attorneys in any form until this is resolved.
+- **R-6 (referral compliance) — launch structure locked (PO, Aug 2026): option (a), State Bar LRIS only** (implemented; counsel confirms at gate 2). Background: a "vetted-attorney referral list" likely constitutes a **lawyer referral service under Tex. Occ. Code ch. 952**, which requires State Bar certification — an uncertified for-profit referral service is itself unlawful. v1.0 options (counsel to confirm at launch gate 2): (a) route to the State Bar's certified Lawyer Referral & Information Service, (b) publish a neutral directory (no matching, no per-referral consideration), or (c) pursue certification. No referral fees from attorneys in any form until this is resolved.
 - **R-7 (confidentiality on sharing):** the consent/referral flow (US-5) states that sharing Part B with a clinic or attorney does **not** create an attorney-client relationship or privilege by itself; report footer repeats it. Prevents the family treating the referral as representation.
 
 ## 9. Success metrics
@@ -155,10 +155,10 @@ Cross-cutting: FR-6 — every finding must resolve to at least one verifiable ci
 
 ## 10. Open questions
 
-1. Report SLA: what N (business days) do we commit to at launch, given the human QA queue? (Ops decision; clock-start framing resolved — begins at "records complete," per `mvp_workflow_design.md`.)
+1. ~~Report SLA~~ — **resolved (PO, Aug 2026): N = 10 business days** from records-complete (matches the medical second-opinion norm; covers batch worst-case + the QA queue). Implemented via the shared ENG-9 calendar (`@hg/case-lifecycle/calendar`).
 2. ~~Phone captures vs. clerk PDFs~~ — **resolved: accept phone photos** with capture coaching, echo-back verification, and OCR-confidence gating (category leaders coach rather than reject; see workflow doc §6.5).
 3. Referral recipients at launch: which clinics have agreed to receive packets? (GTM Phase-2 dependency; US-5 can ship with the attorney list only. TIFA partnership candidate per workflow doc §6.7.)
-4. Brand decision (R-5) — resolve before public site copy is written.
-5. Payment plans (2×/3× split via Stripe): "Who Pays?" income data argues for it; chargeback exposure argues caution. Decide before launch (workflow doc §6.8).
-6. Plea-lane pricing: same $299 with honest expectation-setting, or a lower price for the reduced screen set? (Scope note, §2.)
+4. ~~Brand decision (R-5)~~ — **resolved (PO, Aug 2026): neutral sub-brand.** Product surfaces present **"Family Case Review"**; snotnoselegal.com remains the marketing brand and the footer legal identity ("Family Case Review is a service of Snot Nose Legal").
+5. ~~Payment plans~~ — **resolved (PO, Aug 2026): Stripe-native installments only** (Affirm/Klarna via dashboard-managed Checkout payment methods; Stripe carries the credit risk, never a custom ledger — W-6). R-5 tone check on the BNPL presentation at counsel review.
+6. ~~Plea-lane pricing~~ — **resolved (PO, Aug 2026): $299 uniform** with the honest plea-lane expectation-setting copy; revisit only if 90-day S0 outcome-mix data shows plea conversion lagging.
 7. ~~Consumer role~~ — **decided per engineering review: add a `CLIENT` role** to the Role enum (alongside the pending VIEWER fix) rather than granting purchasers ADMIN/ATTORNEY (ENG-7); auth spec to absorb. **Password reset moves into v1.0 launch scope** — the returning-after-weeks family is the primary account-recovery case.

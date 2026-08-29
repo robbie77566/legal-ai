@@ -101,10 +101,13 @@ export default function CaseDocuments() {
     }
   }
 
+  const [readyBy, setReadyBy] = useState('')
   const markComplete = async () => {
     setError('')
     const res = await apiFetch(`/cases/${caseId}/records-complete`, { method: 'POST' })
     if (res.ok) {
+      const body = await res.json()
+      if (body.expectedReadyAt) setReadyBy(String(body.expectedReadyAt).slice(0, 10))
       setCelebrate(true)
     } else {
       const body = await res.json().catch(() => ({}))
@@ -120,8 +123,7 @@ export default function CaseDocuments() {
             Your documents are complete. Your review has started.
           </h1>
           <p className="mt-4 text-db-muted">
-            The clock starts now — we&rsquo;ll email you at every step, and you can watch progress
-            any time.
+            The clock starts now{readyBy ? ` — expect your report by ${readyBy}` : ''}. We&rsquo;ll email you at every step, and you can watch progress any time.
           </p>
           <Link
             href={`/case/${caseId}/status`}

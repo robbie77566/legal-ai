@@ -12,7 +12,7 @@ const sans = Public_Sans({ subsets: ['latin'], variable: '--font-db-sans' })
 const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-db-mono' })
 
 export const metadata: Metadata = {
-  title: 'Snot Nose Legal — Family Case Review',
+  title: 'Family Case Review',
   description:
     'Find out what is really in the Texas court record — before you spend thousands. $299, one price, reviewed by a trained legal reviewer. Information, not legal advice.',
 }

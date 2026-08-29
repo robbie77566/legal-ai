@@ -126,7 +126,7 @@ export default function BuyPage() {
     <main className="mx-auto max-w-xl px-5 py-8">
       <nav className="mb-8">
         <Link href="/" className="font-db-serif font-bold text-db-accent">
-          Snot Nose Legal
+          Family Case Review
         </Link>
       </nav>
 

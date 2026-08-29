@@ -48,7 +48,7 @@ export default function DaybreakLanding() {
     <main className="mx-auto max-w-2xl px-5 pb-16">
       {/* Nav: brand + single CTA, no menu */}
       <nav className="flex items-center justify-between py-5">
-        <span className="font-db-serif text-lg font-bold text-db-accent">Snot Nose Legal</span>
+        <span className="font-db-serif text-lg font-bold text-db-accent">Family Case Review</span>
         <Link
           href="/check"
           className="rounded-full bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface"
@@ -104,8 +104,7 @@ export default function DaybreakLanding() {
           ))}
         </ol>
         <p className="mt-4 text-sm text-db-muted">
-          Most reviews are ready within a set number of business days of your documents being
-          complete — we state the current commitment before you pay.
+          Most reviews are ready within 10 business days of your documents being complete.
         </p>
       </section>
 
@@ -204,7 +203,7 @@ export default function DaybreakLanding() {
       {/* Footer disclosures (landing spec §5) */}
       <footer className="border-t border-db-line pt-6 text-sm text-db-muted">
         <p>
-          Snot Nose Legal is not a law firm and does not provide legal advice. Reports are
+          Family Case Review is a service of Snot Nose Legal. Snot Nose Legal is not a law firm and does not provide legal advice. Reports are
           information about court records, prepared with AI assistance and reviewed by trained
           staff, for use in consultation with a licensed attorney.
         </p>

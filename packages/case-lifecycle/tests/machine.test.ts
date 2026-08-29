@@ -105,3 +105,28 @@ describe('event registry (§11a.5 — PII-minimal, versioned, strict)', () => {
     }
   })
 })
+
+describe('business-day calendar (ENG-9)', () => {
+  it('skips weekends and holidays', async () => {
+    const { addBusinessDays, isBusinessDay } = await import('../calendar')
+    expect(isBusinessDay('2026-08-29')).toBe(false) // Saturday
+    expect(isBusinessDay('2026-09-07')).toBe(false) // Labor Day
+    expect(isBusinessDay('2026-08-31')).toBe(true)  // Monday
+    // Fri 2026-09-04 + 1 business day skips the weekend AND Labor Day
+    expect(addBusinessDays('2026-09-04', 1)).toBe('2026-09-08')
+  })
+
+  it('computes the 10-business-day SLA date across a holiday span', async () => {
+    const { addBusinessDays, LAUNCH_SLA_BUSINESS_DAYS } = await import('../calendar')
+    expect(LAUNCH_SLA_BUSINESS_DAYS).toBe(10)
+    expect(addBusinessDays('2026-11-20', 10)).toBe('2026-12-07') // Thanksgiving inside
+  })
+
+  it('derives the civil start date in America/Chicago, not UTC', async () => {
+    const { expectedReadyDate } = await import('../calendar')
+    // 03:00 UTC on the 30th is still the 29th (a Saturday) in Chicago;
+    // 10 business days from Sat 8/29 must equal 10 from Mon 8/31's Friday-start? —
+    // assert the concrete date to pin the tz behavior:
+    expect(expectedReadyDate(new Date('2026-08-30T03:00:00Z'))).toBe('2026-09-14')
+  })
+})

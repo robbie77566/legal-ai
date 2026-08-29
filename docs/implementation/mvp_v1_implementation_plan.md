@@ -129,7 +129,7 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 - Load check at NFR-5 (10 cases/day); a11y (WCAG 2.1 AA) + reading-level CI on all Daybreak routes; pentest of the tenant boundary (SRE-6).
 - **Backup restore drill:** restore staging from production backups against the stated RPO/RTO; verify the deletion-propagation window (M0 backup design) holds.
 - **Game day:** simulate a provider outage + Stripe webhook loss on staging and run the SRE-4 runbooks as written — runbooks that have never been executed are fiction.
-- Open product/compliance decisions closed (owner: PO): SLA `N`, plea-lane pricing, payment plans, R-6 referral structure, brand/R-5, **Texas sales-tax treatment of the $299 review** (M2 flag), TDPSA items (privacy policy **stating the §11a.2 retention matrix — what deletion removes and what survives, and the ≤35-day backup propagation bound**, subprocessor list, cookie/consent counsel confirmation per ENG-11), accessibility statement.
+- Open product/compliance decisions **closed (PO, Aug 2026)**: SLA **10 business days** · plea lane **$299 uniform** · payment plans **Stripe-native installments only** · R-6 **LRIS-only** · brand **"Family Case Review" sub-brand** · OCR stack **AWS S3 + Textract** · Stripe Tax **enabled at checkout** (flag) — remaining for M7: **Texas sales-tax treatment of the $299 review** (M2 flag), TDPSA items (privacy policy **stating the §11a.2 retention matrix — what deletion removes and what survives, and the ≤35-day backup propagation bound**, subprocessor list, cookie/consent counsel confirmation per ENG-11), accessibility statement.
 
 **AC:** all five PRD §7 launch gates checked; restore drill and game day completed with findings closed; go/no-go review documented.
 

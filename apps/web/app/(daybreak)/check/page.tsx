@@ -244,7 +244,7 @@ export default function EligibilityCheck() {
     <main className="mx-auto max-w-xl px-5 py-8">
       <nav className="mb-8 flex items-center justify-between">
         <Link href="/" className="font-db-serif font-bold text-db-accent">
-          Snot Nose Legal
+          Family Case Review
         </Link>
         {history.length > 0 && !result && (
           <button onClick={back} className="text-sm text-db-muted underline">

@@ -140,6 +140,11 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
       ],
       success_url: `${origin}/buy/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/buy?canceled=1`,
+      // Stripe Tax (PO decision: collect correctly from the first charge;
+      // remittance/registration follow the accountant's determination) and
+      // dashboard-managed payment methods (incl. Affirm/Klarna installments,
+      // W-6: Stripe-native only, never a custom ledger).
+      ...(process.env.STRIPE_AUTOMATIC_TAX === '1' ? { automatic_tax: { enabled: true } } : {}),
       metadata: {
         userId,
         tenantId,
