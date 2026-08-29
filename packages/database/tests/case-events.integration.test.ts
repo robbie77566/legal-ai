@@ -154,22 +154,32 @@ describe('appendCaseEvent (projection in the same transaction)', () => {
 })
 
 describe('transactional outbox', () => {
+  // Other test projects append events concurrently, so every assertion here
+  // is scoped to THIS case's channel — never to global batch counts.
+  const drain = async (published: { channel: string; message: string }[]) => {
+    const fake = {
+      publish: async (channel: string, message: string) => published.push({ channel, message }),
+    }
+    for (let i = 0; i < 20; i++) {
+      if ((await publishCaseEventOutbox(fake)) === 0) break
+    }
+  }
+
   it('publishes unpublished events with the customer-visible mapping, then stamps them', async () => {
     const published: { channel: string; message: string }[] = []
-    const fake = { publish: async (channel: string, message: string) => published.push({ channel, message }) }
-
-    const first = await publishCaseEventOutbox(fake)
-    expect(first).toBeGreaterThanOrEqual(4) // the events appended above
+    await drain(published)
 
     const mine = published.filter((p) => p.channel === `case-progress:${caseId}`)
-    expect(mine.length).toBe(first)
+    expect(mine.length).toBeGreaterThanOrEqual(4) // the events appended above
 
     const docsComplete = mine.map((m) => JSON.parse(m.message)).find((m) => m.type === 'docs.complete')
     expect(docsComplete.customer.stage).toBe('docs_received')
     expect(docsComplete.payload).toEqual({ billablePages: 42, duplicatesIgnored: 3 })
 
-    // second run: nothing left to publish
-    expect(await publishCaseEventOutbox(fake)).toBe(0)
+    // drained: nothing left on this case's stream
+    const again: { channel: string; message: string }[] = []
+    await drain(again)
+    expect(again.filter((p) => p.channel === `case-progress:${caseId}`)).toHaveLength(0)
   })
 
   it('a publisher failure leaves events unstamped for retry (at-least-once)', async () => {
@@ -186,7 +196,12 @@ describe('transactional outbox', () => {
     const failing = { publish: async () => { throw new Error('redis down') } }
     await expect(publishCaseEventOutbox(failing)).rejects.toThrow('redis down')
 
-    const ok = { publish: async () => 1 }
-    expect(await publishCaseEventOutbox(ok)).toBe(1)
+    // Still unstamped: the retry drain must deliver our event.
+    const published: { channel: string; message: string }[] = []
+    await drain(published)
+    const mine = published
+      .filter((p) => p.channel === `case-progress:${caseId}`)
+      .map((m) => JSON.parse(m.message))
+    expect(mine.some((m) => m.type === 'hold.set' && m.payload.hold === 'DELAY_OURS')).toBe(true)
   })
 })

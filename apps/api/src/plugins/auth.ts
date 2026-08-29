@@ -15,7 +15,11 @@ declare module 'fastify' {
  *
  * Public paths are an explicit allowlist, not a pattern.
  */
-const PUBLIC_PATHS = new Set(['/', '/health'])
+const PUBLIC_PATHS = new Set(['/', '/health', '/buy/account'])
+
+// Prefix-public: anonymous S0 drafts (token-addressed) and Stripe webhooks
+// (signature-verified in-route).
+const PUBLIC_PREFIXES = ['/eligibility/draft', '/webhooks/stripe']
 
 const SESSION_COOKIES = [
   '__Secure-next-auth.session-token',
@@ -53,6 +57,7 @@ export function registerAuth(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const path = request.url.split('?')[0]
       if (PUBLIC_PATHS.has(path)) return
+      if (PUBLIC_PREFIXES.some((p) => path.startsWith(p))) return
 
       const token = extractToken(request)
       const identity = token ? await decodeSessionToken(token) : null

@@ -14,6 +14,46 @@ enum Role {
   ATTORNEY
   INVESTIGATOR
   VIEWER
+  CLIENT // consumer purchaser in a single-member tenant (ENG-7, auth design §12)
+}
+
+enum PaymentKind {
+  REVIEW
+  OVERAGE
+  RERUN
+  REFUND
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  REFUNDED
+  FAILED
+}
+
+// Financial ledger (ENG-5). Retained 7 years — survives case deletion
+// (retention matrix §11a.2); caseId/userId are plain references, no FK.
+model Payment {
+  id          String        @id @default(cuid())
+  stripeId    String        @unique // checkout session or refund id
+  caseId      String?
+  userId      String
+  tenantId    String
+  kind        PaymentKind
+  status      PaymentStatus @default(PENDING)
+  amountCents Int
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([caseId])
+  @@index([tenantId])
+}
+
+// Stripe webhook idempotency ledger (ENG-5): one row per processed event id.
+model PaymentEvent {
+  stripeEventId String   @id
+  type          String
+  processedAt   DateTime @default(now())
 }
 
 model User {

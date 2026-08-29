@@ -9,6 +9,10 @@ import * as Sentry from '@sentry/node'
 import uploadRoutes from './routes/upload'
 import casesRoutes from './routes/cases'
 import permissionsRoutes from './routes/permissions'
+import eligibilityRoutes, { deleteExpiredEligibilityDrafts } from './routes/eligibility'
+import checkoutRoutes from './routes/checkout'
+import stripeWebhookRoutes from './routes/stripe-webhooks'
+import { reconcilePayments, getStripe } from './services/payments.service'
 import fastifyMultipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import IORedis from 'ioredis';
@@ -78,6 +82,9 @@ fastify.register(fastifyMultipart, {
 fastify.register(uploadRoutes, { prefix: '/upload' })
 fastify.register(casesRoutes, { prefix: '/cases' })
 fastify.register(permissionsRoutes, { prefix: '/permissions' })
+fastify.register(eligibilityRoutes, { prefix: '/eligibility' })
+fastify.register(checkoutRoutes) // /buy/account + /checkout/session
+fastify.register(stripeWebhookRoutes, { prefix: '/webhooks' })
 
 fastify.get('/', async (request, reply) => {
   return { hello: 'world' }
@@ -144,6 +151,27 @@ const start = async () => {
       `[Redis] Not reachable at ${REDIS_URL} — queue workers and /admin/queues disabled.\n` +
       `  Start services: docker compose up redis -d`
     );
+  }
+
+  // Housekeeping: S0 draft TTL enforcement (ENG-7) and hourly Stripe
+  // reconciliation (ENG-5 — the automated half of the webhook-loss runbook).
+  void deleteExpiredEligibilityDrafts().catch((e) =>
+    fastify.log.error({ err: e }, 'draft TTL sweep failed')
+  );
+  setInterval(() => {
+    void deleteExpiredEligibilityDrafts().catch((e) =>
+      fastify.log.error({ err: e }, 'draft TTL sweep failed')
+    );
+  }, 6 * 60 * 60 * 1000).unref();
+
+  if (getStripe()) {
+    setInterval(() => {
+      void reconcilePayments()
+        .then((r) => {
+          if (r.healed > 0) fastify.log.warn(r, 'reconciliation healed missed webhooks');
+        })
+        .catch((e) => fastify.log.error({ err: e }, 'payment reconciliation failed'));
+    }, 60 * 60 * 1000).unref();
   }
 
   try {
