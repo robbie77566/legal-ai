@@ -13,6 +13,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { PrismaClient, Prisma } from '@prisma/client'
+import { withTenant, appPrisma } from '../index'
 
 const ADMIN_URL =
   process.env.DATABASE_URL ??
@@ -130,5 +131,26 @@ describe('RLS isolation (app role, live Postgres)', () => {
   it('CANARY: the superuser/owner connection bypasses RLS — which is why the app must connect as hg_app', async () => {
     const cases = await admin.case.findMany({ where: { title: { contains: run } } })
     expect(cases.length).toBe(2)
+  })
+})
+
+describe('the exported withTenant (connection-role split)', () => {
+  afterAll(async () => {
+    await appPrisma.$disconnect()
+  })
+
+  it('runs on the hg_app role and is tenant-isolated', async () => {
+    const cases = await withTenant(tenantA, (tx) =>
+      tx.case.findMany({ where: { title: { contains: run } } })
+    )
+    expect(cases.map((c) => c.id)).toEqual([caseA])
+  })
+
+  it('enforces WITH CHECK on writes', async () => {
+    await expect(
+      withTenant(tenantA, (tx) =>
+        tx.case.create({ data: { title: `${run}_forged2`, tenantId: tenantB } })
+      )
+    ).rejects.toThrow(/row-level security/i)
   })
 })

@@ -45,7 +45,11 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
     );
   };
 
-  fastify.post('/url', async (request, reply) => {
+  // Tighter limit on presign than the global default (SRE-6): presigned URLs
+  // are the write path into S3.
+  const presignLimit = { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } };
+
+  fastify.post('/url', presignLimit, async (request, reply) => {
     const { filename, caseId } = URLRequestSchema.parse(request.body);
 
     if (!(await assertCaseAccess(request, caseId))) {
