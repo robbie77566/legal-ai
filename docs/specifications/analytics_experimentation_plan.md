@@ -35,6 +35,13 @@ Namespace `snl.` · every event carries: anonymous visitor id (first-party cooki
 
 Server-side mirror events for money and pipeline facts (payments, QA, COGS per case) — the client is untrusted for anything reported to finance.
 
+**Data-governance rules (data review, Aug 2026 — `../architecture/mvp_v1_system_design.md` §11a):**
+- **No free-text properties, ever.** Event payloads are IDs, enums, counts, durations. Case content and customer-entered text are structurally excluded from the taxonomy.
+- **IP addresses truncated** before storage; Global Privacy Control honored.
+- **Identity stitching is one-way:** anonymous visitor id links to userId at purchase for post-purchase funnel continuity; pre-purchase S0 answer events are never retroactively re-identified.
+- **Retention:** raw events 14 months, then aggregates only.
+- **Schema registry:** the taxonomy above lives as versioned JSON Schemas validated in CI; evolution is additive-only — an event's meaning is never changed, only new versions added. (This is the enforcement mechanism behind "event schema changes require a PR touching this file.")
+
 ## 3. Metrics model (what PM/UX actually watch)
 
 **North star: completed reviews that reach a lawyer** — proxied by `report.partB_downloaded ∪ next.consent_granted ∪ next.directory_click` per paid case. The product's promise is a *usable* decision, not a delivered PDF.

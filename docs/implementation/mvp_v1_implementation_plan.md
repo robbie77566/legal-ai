@@ -35,16 +35,16 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 - CORS pinned; Redis-backed rate limiting on auth/eligibility/presign/webhooks; Bull Board behind ADMIN.
 - Audit service rewritten against real exports and wired into permissions/case mutations (first real `AuditLog` rows).
 - Env cleanup (`GEMINI_API_KEY` unification); execute the "delete now" register entries; remove `socket.io` deps.
-- **Observability baseline moves here, not M6:** Sentry (web/API/workers), structured logging, and basic OTel tracing land in M0 (~a day of setup) — M2–M5 are never built blind. M6 keeps dashboards, alert routing, and runbooks.
+- **Observability baseline moves here, not M6:** Sentry (web/API/workers) **with a beforeSend scrub enforcing zero case-content/PII in error payloads** (data class C1/C2 — design §11a.1), structured logging under the same rule, and basic OTel tracing land in M0 (~a day of setup) — M2–M5 are never built blind. M6 keeps dashboards, alert routing, and runbooks.
 - **CI hardening:** secret scanning (gitleaks), dependency audit + Renovate/Dependabot, CODEOWNERS + branch protection on `main`.
-- **Backups & DR (first pass):** Postgres automated backups with PITR, S3 versioning + lifecycle rules, and stated RPO/RTO targets. Design note carried forward: versioning/backups must honor the OPS-4 hard-delete guarantee — deletions propagate to backups/versions within a stated window, and the privacy policy says so.
+- **Backups & DR (first pass):** Postgres automated backups with PITR, S3 versioning + lifecycle rules (SSE-KMS per env, TLS-only bucket policies), and stated RPO/RTO targets. Backups expire ≤35 days so OPS-4 deletions propagate fully within that window — the bound named in the privacy policy (design §11a.2).
 - ENG-10: move remaining `Test Case Files/` content to the encrypted eval bucket, land the manifest, decide the history rewrite (recommended: `git filter-repo` now, while clone count is low).
 
 **AC:** an unauthenticated request to any tenant route is a 401; a forged-tenant JWT cannot read or **insert** cross-tenant rows (proven by integration test); repo contains no mocked route reachable in production; errors from any service appear in Sentry; CI green including secret/dependency scans.
 
 ### M1 — Case spine (3 ew)
 
-- `packages/case-lifecycle`: state enum, transition map, customer-visible mapping, event-type constants (§4).
+- `packages/case-lifecycle`: state enum, transition map, customer-visible mapping, event-type constants (§4) — **event payloads defined as versioned JSON Schemas, validated in CI, PII-minimal by construction** (IDs/enums/counts only — never document text; ENG-12, design §11a.5).
 - Schema migration set 1: `CaseStatus`/lane/vehicle/holds on Case, `CaseEvent` (append-only trigger), `EligibilityDraft`, checklist + upload-session tables (§5).
 - Event append + projection helper (status column updated transactionally); SSE projector publishing the customer mapping; SSE route auth + case-access check (§9).
 - **Transactional outbox for event publishing:** `CaseEvent` append and the Redis publish are a classic dual-write — a crash between DB commit and publish would silently desync the tracker. Events are published from an outbox tail (or re-published from the DB on gap detection), never fire-and-forget alongside the commit.
@@ -67,11 +67,11 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 ### M3 — Intake pipeline (5–6 ew)
 
 - Presign hardening (allowlist, size caps), multipart/resume sessions, HEIC conversion, ClamAV scan worker with quarantine messaging (ENG-4).
-- Page normalization + perceptual/content-hash dedup; `DocumentPage` as the billable authority; meter endpoint with `duplicatesIgnored` (ENG-3); in-flow overage Checkout.
+- Page normalization + perceptual/content-hash dedup; `DocumentPage` as the billable authority; meter endpoint with `duplicatesIgnored` (ENG-3). **Dedup semantics per the data review:** exact-hash duplicates leave billing and analysis; perceptual near-duplicates leave billing but **stay in the analysis set** — dedup must never drop potential evidence. Page-count reconciliation (uploaded = normalized = billable + excluded) runs at `DOCS_COMPLETE` and blocks the run on mismatch (§11a.3). In-flow overage Checkout.
 - OCR provider bake-off (Textract vs Document AI on the corpus's worst scans — design §12.3) then integration; per-page confidence; E-1 halt with customer options (re-upload / partial / refund).
 - Interview → checklist generation; Tier-1 classification → echo-back events; `docs.complete` written once, SLA clock stamped via the business-day calendar service (ENG-9).
 
-**AC:** a duplicate/shoebox re-upload never increments the meter; an infected file quarantines with plain-language messaging and never reaches ingestion; a low-OCR case halts **before** Tier-2 spend; records-complete fires exactly once per run.
+**AC:** a duplicate/shoebox re-upload never increments the meter; a near-duplicate page excluded from billing still appears in the analysis chunk set (proven by test); page-count reconciliation catches an injected mismatch; an infected file quarantines with plain-language messaging and never reaches ingestion; a low-OCR case halts **before** Tier-2 spend; records-complete fires exactly once per run.
 
 ### M4 — Analysis pipeline (7–8 ew) — *start immediately after M1; runs parallel to M2/M3 against fixtures*
 
@@ -99,7 +99,8 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 
 ### M6 — Ops console, observability, analytics (5 ew)
 
-- `/ops` per OPS-1..7: case queue with stall/deadline flags, audited Stripe-linked refunds computed from the page authority, disclosure-archive export, retention/deletion workflow (hard-delete incl. S3 + entity rows + report artifacts), delay-ours with honest tracker copy, reviewer management on existing RBAC.
+- `/ops` per OPS-1..7: case queue with stall/deadline flags, audited Stripe-linked refunds computed from the page authority, disclosure-archive export, **scoped** retention/deletion workflow (hard-delete of case content incl. S3 versions + entity rows + report artifacts; payment ledger / disclosure archive / pseudonymized audit-event skeleton retained per the §11a.2 matrix, with the console showing the operator exactly what is deleted vs. retained), delay-ours with honest tracker copy, reviewer management on existing RBAC.
+- **Reporting data path:** nightly ELT into a PII-stripped reporting schema (read replica at this scale); PM/UX dashboards read it, never the production OLTP; finance marts built from server-side mirrors + the payment ledger (§11a.6).
 - Observability build-out on the M0 baseline: dashboards, pipeline-health board, SRE-2 alert routing; SRE-4 runbooks written (stall, provider outage/batch fallback, S3, webhook loss, low-OCR cohort).
 - Self-hosted PostHog + `snl.*` events wired everywhere; server-side mirrors for money/pipeline facts; `packages/config` flags with audited admin UI (PMX-2); weekly funnel report automated (PMX-1).
 
@@ -112,7 +113,7 @@ Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§
 - Load check at NFR-5 (10 cases/day); a11y (WCAG 2.1 AA) + reading-level CI on all Daybreak routes; pentest of the tenant boundary (SRE-6).
 - **Backup restore drill:** restore staging from production backups against the stated RPO/RTO; verify the deletion-propagation window (M0 backup design) holds.
 - **Game day:** simulate a provider outage + Stripe webhook loss on staging and run the SRE-4 runbooks as written — runbooks that have never been executed are fiction.
-- Open product/compliance decisions closed (owner: PO): SLA `N`, plea-lane pricing, payment plans, R-6 referral structure, brand/R-5, **Texas sales-tax treatment of the $299 review** (M2 flag), TDPSA items (privacy policy, subprocessor list, cookie/consent counsel confirmation per ENG-11), accessibility statement.
+- Open product/compliance decisions closed (owner: PO): SLA `N`, plea-lane pricing, payment plans, R-6 referral structure, brand/R-5, **Texas sales-tax treatment of the $299 review** (M2 flag), TDPSA items (privacy policy **stating the §11a.2 retention matrix — what deletion removes and what survives, and the ≤35-day backup propagation bound**, subprocessor list, cookie/consent counsel confirmation per ENG-11), accessibility statement.
 
 **AC:** all five PRD §7 launch gates checked; restore drill and game day completed with findings closed; go/no-go review documented.
 

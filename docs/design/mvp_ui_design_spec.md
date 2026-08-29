@@ -122,7 +122,7 @@ Everything disclosed above the pay button as styled content cards: price + cap, 
 - Per-card upload button → file picker or camera. Phone-capture coach (one overlay: flat surface, fill the frame, good light) shown once, re-shown on low-confidence results.
 - Upload: direct presigned-S3 PUT (existing flow) with resumable/multi-file queue, per-file progress, offline-tolerant retry (TanStack Query mutation queue) — prison-family research says networks are unreliable.
 - **Echo-back card** after processing: "This looks like **Reporter's Record, Vol. 3** — 214 pages, *State v. ___*." [That's right] / [No, let me fix it]. Correction opens a simple picker of checklist types.
-- Page meter: pinned footer bar `2,140 / 5,000 pages` (IBM Plex Mono, tabular) that becomes an inline overage offer card at the cap — never a modal ambush.
+- Page meter: pinned footer bar `2,140 / 5,000 pages` (IBM Plex Mono, tabular) that becomes an inline overage offer card at the cap — never a modal ambush. The "duplicates ignored: N" note's expander states the reassurance the data rule earns: *"Duplicates don't count toward your pages — but we still read every page you send"* (ENG-3 amendment: dedup reduces billing, never analysis).
 - **"Records complete"** is a full-screen moment: gold wash, serif headline ("Your documents are complete. Your review has started."), the clock promise restated with a date.
 
 ### 5.6 S4/S5 — Tracker (`/case/[id]/status`)

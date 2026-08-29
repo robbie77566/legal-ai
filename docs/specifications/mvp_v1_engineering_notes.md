@@ -47,6 +47,7 @@ The $299/5,000-page cap prices an undefined unit. Contract:
 - **Billable page** = one normalized page image after ingestion (PDF page or one photo capture), counted post-processing, displayed live in the S3 page meter from the same counter that bills — one authority, no drift.
 - **Dedup before counting:** per-page perceptual hash + per-file content hash; re-uploads, shoebox duplicates of checklist items, and overlapping volume uploads never count twice. Overage (+$49/2,500) applies to the deduped total and **any partial block rounds *down* in the customer's favor until the block is actually entered** (crossing page 5,001 starts one block; we never charge a block for pages not received).
 - The meter shows the deduped number; a "duplicates ignored: N" note builds trust with shoebox users.
+- **Dedup scope (data-review amendment, Aug 2026):** dedup governs **billing only** unless the match is byte-exact. Exact content-hash duplicates leave both billing and analysis; perceptual near-duplicates leave billing (customer's favor) but **remain in the analysis set** — a stamped vs. clean copy of the same page can carry different evidence, and dropping it from analysis would silently destroy it. Page-count reconciliation (uploaded = normalized = billable + excluded) runs at `DOCS_COMPLETE`; mismatch blocks the run. (`mvp_v1_system_design.md` §11a.3.)
 
 ## ENG-4 · Upload hardening (missing functionality)
 
@@ -80,6 +81,7 @@ Tier-1/2 batch jobs can take up to 24h per provider terms. Stage design must be 
 ## ENG-9 · Calendars, clocks, and cost threading
 
 - One **business-day calendar service** (America/Chicago, US federal + Texas state holidays) backs both the SLA promise and the FR-5 deadline engine — two calendars would eventually disagree in public.
+- **Timestamps are UTC; legal dates are civil dates.** Deadline computation operates on America/Chicago DATE values through the calendar service; a legal date is never derived by timezone-converting a timestamp at render — the classic off-by-one that moves a deadline a day (system design §11a.4).
 - **Cost telemetry** (NFR-4) requires every model/OCR call to carry `caseId` metadata end-to-end, including inside batch submissions; per-case COGS is a query, not an estimate.
 - Email is the product's spine: SPF/DKIM/DMARC on the sending domain, and **bounce/complaint webhooks route to the Ops queue** — a bounced report-ready email is a delivery failure (state stays `READY`, not `DELIVERED`), never silence.
 
@@ -96,3 +98,12 @@ Tier-1/2 batch jobs can take up to 24h per provider terms. Stage design must be 
 - `docs.stalled_7d` fires from the event stream (ENG-1), not a cron scanning tables — analytics plan §2.
 - QA console "approve" writes the findings snapshot + template version that READY will render (ENG-8) — PRD US-8.
 - Analytics cookie (experiment assignment) is first-party, strictly necessary-adjacent; disclosed in the privacy policy; no consent banner needed for first-party-only, but counsel confirms under TDPSA — landing spec §5.
+
+## ENG-12 · Data governance contracts (added by data review, Aug 2026)
+
+Full rules in `../architecture/mvp_v1_system_design.md` §11a; the contracts engineering must hold:
+
+- **Classification:** case content (C1) never enters logs, telemetry, analytics, or events; `CaseEvent` and `AuditLog` payloads are **PII-minimal by construction** (IDs, enums, counts, hashes) — this is what makes retaining the audit/event skeleton past case deletion defensible.
+- **Deletion is scoped, not monolithic:** OPS-4 hard-deletes case content and identity, but the payment ledger (7y, tax), disclosure-ack archive (24 mo, dispute defense), and the pseudonymized event/audit skeleton (24 mo) survive by design and are named in the privacy policy. Backups expire ≤35 days, bounding deletion propagation.
+- **Schema registry:** `CaseEvent` types and the `snl.*` taxonomy are versioned JSON Schemas; CI validates payloads; evolution is additive-only; projections rebuild from the stream.
+- **Reporting path:** dashboards read a nightly PII-stripped reporting schema, never the production OLTP; finance reads server-side mirrors + the payment ledger only.

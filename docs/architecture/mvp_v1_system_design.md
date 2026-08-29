@@ -210,7 +210,8 @@ model UploadSession { id, caseId, s3Key, parts Json, expiresAt }  // multipart r
 model DocumentPage {    // the billable-page authority (ENG-3) + OCR record (NFR-6)
   id, documentId, pageNo, s3Key
   contentHash String  perceptualHash String
-  billable Boolean    // false when deduped
+  billable Boolean         // false when deduped (billing only)
+  dedupKind String?        // exact | near — near-dups stay IN the analysis set (§11a.3)
   ocrConfidence Float?  ocrText String?
   @@index([caseId? via document, perceptualHash])
 }
@@ -302,6 +303,51 @@ A Fastify `preHandler` verifies the NextAuth JWT (same `NEXTAUTH_SECRET`, using 
 - Sentry + OpenTelemetry across web/API/workers (launch gate 4a); pipeline-health board (worker liveness, queue depth, provider latency, batch status) feeds the Ops console rail (SRE-3); alert routing per SRE-2 (page vs. ticket).
 - **COGS is a query:** every model/OCR call writes `CostRecord` with `caseId` (including inside batch submissions via metadata); rolling COGS > $54 alerts (NFR-4).
 - Analytics: self-hosted PostHog; the `snl.*` taxonomy in `analytics_experimentation_plan.md` §2 is the contract; server-side mirror events for money/pipeline facts; experiment flags in `packages/config` with audit-logged admin UI; no third-party pixels, no session replay on record/report surfaces.
+
+## 11a. Data governance (classification, retention, lifecycle)
+
+Added after data-architecture review (Aug 2026). This section is the single home for data-handling rules; the PRD (NFR-3/NFR-10), ENG-12, OPS-4, and the analytics plan reference it.
+
+### 11a.1 Data classification
+
+| Class | Examples | Handling |
+|---|---|---|
+| **C1 Case content** (highest) | Uploaded records, page images, OCR text, chunks, findings, reports. Contains third-party PII (victims, witnesses, minors) the customer cannot consent for | Encrypted (S3 SSE-KMS per env; TLS-only bucket policy), tenant-scoped RLS, never in logs/telemetry/analytics, never used for training, never leaves approved processors (provider zero-retention verified) |
+| **C2 Customer identity** | Account email/name, relationship, S0 answers, consent grants | RLS-scoped; S0 drafts are C2 even pre-account (facts about a real person's conviction) |
+| **C3 Operational metadata** | `CaseEvent`, `AuditLog`, queue jobs, cost records | **PII-minimal by construction**: IDs, enums, counts, hashes only — never document text, never customer free-text. This is what makes long retention of the audit/event skeleton defensible |
+| **C4 Financial** | Payment ledger, Stripe ids, refunds, disclosure-ack archive | Retained beyond case deletion (below); card data never touches our systems (Stripe-hosted) |
+| **C5 Telemetry/analytics** | `snl.*` events, Sentry, OTel | Pseudonymous ids only; IP truncated; **Sentry/log scrubbing (beforeSend) enforces zero C1/C2 content**; no free-text properties |
+| **Eval corpus** | Reference cases (consented) | Encrypted bucket, separate from customer data; customer records enter only via explicit consent + manifest entry |
+
+### 11a.2 Retention matrix (deletion is scoped, not monolithic)
+
+The customer promise "kept 12 months, deleted sooner on request" applies to **C1/C2**. A verified deletion (OPS-4) hard-deletes C1/C2 (rows, S3 objects incl. versions, report artifacts, entity rows) and **pseudonymizes but retains**:
+
+| Data | Retention | Why it survives case deletion |
+|---|---|---|
+| C1 case content + C2 identity | 12 mo after delivery, or verified request | The promise |
+| S0 eligibility drafts | 30 days hard | ENG-7 |
+| Disclosure-ack archive (disclosures shown + timestamp + IP; **no case content**) | 24 mo | Dispute/chargeback defense (E-6) outlives the case |
+| Payment ledger (amounts, Stripe ids; name pseudonymized on deletion) | 7 years | Tax/accounting |
+| `CaseEvent` + `AuditLog` skeleton (C3, PII-minimal) | 24 mo, then aggregate | Ops/security/dispute record; deletion writes the deletion-certificate event here |
+| Analytics events (C5) | 14 mo, then aggregates only | Funnel baselines |
+| Backups | 35-day expiry → **deletion propagates fully within ≤35 days**; stated in the privacy policy | PITR |
+
+### 11a.3 Dedup semantics (data-quality guard on ENG-3)
+
+Deduplication has two different jobs and must never conflate them: **exact content-hash duplicates** (identical bytes) are excluded from both billing and analysis; **perceptual-hash near-duplicates** are excluded from billing (customer's favor) but **always included in the analysis set** — a near-duplicate may be a genuinely different page (a stamped vs. clean copy, an annotated version), and silently dropping it from analysis would be the pipeline destroying evidence. Integrity check at `DOCS_COMPLETE`: uploaded-page count = normalized-page count = billable + excluded-exact + near-dup-flagged, reconciled per case; mismatch blocks the run and pages engineering.
+
+### 11a.4 Time and date rules
+
+All timestamps stored UTC. **Legal deadline computation operates on civil dates** (America/Chicago) as DATE values through the calendar service — a legal date is never derived by timezone-converting a timestamp at render time (the classic off-by-one that moves a deadline a day). The SLA clock uses the same rule.
+
+### 11a.5 Event & schema governance
+
+`CaseEvent` types and the `snl.*` taxonomy live in a versioned schema registry (JSON Schema in `packages/case-lifecycle` / `packages/analytics`); CI validates payloads against it. Evolution is **additive-only** (new event versions, never mutated meanings); events are immutable; every projection is rebuildable from the stream. Analytics identity stitching (anonymous visitor id ↔ userId at purchase) is one-way, documented, and never applied to pre-purchase S0 answer events retroactively.
+
+### 11a.6 Reporting data path
+
+PM/UX dashboards (PMX-3) never query the production OLTP: a nightly ELT into a reporting schema (read replica at MVP scale) builds PII-stripped marts — funnel, S0 outcome mix, unit economics, guardrails. Finance numbers come from the server-side mirror events and the payment ledger, not client events.
 
 ## 12. Decisions & deviations (with rationale)
 
