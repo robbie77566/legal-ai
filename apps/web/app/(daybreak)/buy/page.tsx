@@ -1,0 +1,230 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { useSession, signIn } from 'next-auth/react'
+import { apiFetch } from '@/lib/api'
+import { DISCLOSURE_SET_VERSION } from '@hg/case-lifecycle/disclosures'
+
+/**
+ * S1 purchase flow (landing spec §3): [1] disclosure review (W-2 — a distinct
+ * step, cards not fine print) → [2] account (the only self-registration
+ * surface, CLIENT) → [3] Stripe Checkout. The recorded acknowledgment is
+ * posted after sign-in so it carries identity; the API refuses checkout
+ * without it (the enforceable invariant).
+ */
+
+const DISCLOSURES: [string, string][] = [
+  [
+    "What this is — and isn't",
+    'This is a detailed review of court records — information to help you and a lawyer decide what to do next. It is not legal advice, and we are not a law firm. No attorney-client relationship is created. We never recommend filing anything on your own; a report is something to take to a lawyer.',
+  ],
+  [
+    'No outcome promises',
+    "We can't promise relief, release, or any court outcome. We promise a careful, cited review of what's in the record.",
+  ],
+  [
+    'Price and scope',
+    "$299 covers everything up to 5,000 pages. More pages: $49 per additional 2,500 — we'll ask first, never surprise you. Audio and video aren't included yet.",
+  ],
+  [
+    'The clock',
+    "Your review timeline starts when your documents are complete — we'll tell you the moment that happens.",
+  ],
+  [
+    'Refunds',
+    "If we can't read your records, we stop before analyzing and you choose: re-upload or refund.",
+  ],
+  [
+    'Privacy and records',
+    "Your records are encrypted, seen only by our review team, never used to train AI, kept 12 months, and deleted sooner on request. You confirm you're entitled to possess the records you upload.",
+  ],
+  [
+    'Deadline reality',
+    'Legal deadlines can expire. Nothing on this page can tell you your deadline — the review estimates it, and a lawyer must confirm it.',
+  ],
+]
+
+type Step = 'disclosures' | 'account' | 'paying'
+
+export default function BuyPage() {
+  const { data: session } = useSession()
+  const [step, setStep] = useState<Step>('disclosures')
+  const [acked, setAcked] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const startCheckout = async () => {
+    // Ack is recorded with identity, then the session opens Stripe Checkout.
+    const ackRes = await apiFetch('/buy/disclosure-ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ disclosureSetVersion: DISCLOSURE_SET_VERSION }),
+    })
+    if (!ackRes.ok) throw new Error('Could not record your acknowledgment — please try again.')
+
+    const draftToken = sessionStorage.getItem('snl_draft_token') ?? undefined
+    const res = await apiFetch('/checkout/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'review', ...(draftToken ? { draftToken } : {}) }),
+    })
+    if (res.status === 503) {
+      throw new Error(
+        'Payments are not switched on in this environment yet — nothing was charged.'
+      )
+    }
+    if (!res.ok) throw new Error('Could not start checkout — please try again.')
+    const { url } = await res.json()
+    window.location.href = url
+  }
+
+  const continueFromDisclosures = () => {
+    setError('')
+    // Already signed in (returning family): skip account creation.
+    setStep(session?.user ? 'paying' : 'account')
+    if (session?.user) {
+      setBusy(true)
+      startCheckout().catch((e) => {
+        setError(e.message)
+        setBusy(false)
+        setStep('disclosures')
+      })
+    }
+  }
+
+  const submitAccount = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setBusy(true)
+    try {
+      const res = await apiFetch('/buy/account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, ...(name ? { name } : {}) }),
+      })
+      if (!res.ok) throw new Error('Could not create the account — check the password rules below.')
+
+      const signed = await signIn('credentials', { email, password, redirect: false })
+      if (signed?.error) {
+        throw new Error(
+          'An account with this email may already exist — try signing in with your usual password.'
+        )
+      }
+      setStep('paying')
+      await startCheckout()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong — please try again.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <main className="mx-auto max-w-xl px-5 py-8">
+      <nav className="mb-8">
+        <Link href="/" className="font-db-serif font-bold text-db-accent">
+          Snot Nose Legal
+        </Link>
+      </nav>
+
+      {error && (
+        <p role="alert" className="mb-4 rounded-lg border p-3 text-sm" style={{ borderColor: 'var(--db-urgent)', color: 'var(--db-urgent)' }}>
+          {error}
+        </p>
+      )}
+
+      {step === 'disclosures' && (
+        <div>
+          <h1 className="font-db-serif text-2xl font-semibold">
+            Before you pay, please read these — they matter.
+          </h1>
+          <div className="mt-6 space-y-3">
+            {DISCLOSURES.map(([title, body]) => (
+              <div key={title} className="rounded-xl border border-db-line bg-db-surface p-4">
+                <h2 className="font-semibold">{title}</h2>
+                <p className="mt-1 text-sm text-db-muted">{body}</p>
+              </div>
+            ))}
+          </div>
+          <label className="mt-6 flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={acked}
+              onChange={(e) => setAcked(e.target.checked)}
+              className="mt-1 h-5 w-5"
+            />
+            <span>I understand what this review is and isn&rsquo;t.</span>
+          </label>
+          <button
+            disabled={!acked || busy}
+            onClick={continueFromDisclosures}
+            className="mt-6 w-full rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface disabled:opacity-40"
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
+      {step === 'account' && (
+        <form onSubmit={submitAccount}>
+          <h1 className="font-db-serif text-2xl font-semibold">Create your account</h1>
+          <p className="mt-2 text-sm text-db-muted">
+            Just an email and password — you&rsquo;ll use them to send documents and read your
+            report.
+          </p>
+          <div className="mt-6 space-y-4">
+            <label className="block">
+              <span className="text-sm font-semibold">Email</span>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold">Password</span>
+              <input
+                type="password"
+                required
+                minLength={12}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3"
+              />
+              <span className="mt-1 block text-sm text-db-muted">
+                At least 12 characters, with an uppercase letter and a number or symbol.
+              </span>
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold">Your name (optional)</span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={100}
+                className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3"
+              />
+            </label>
+          </div>
+          <button
+            type="submit"
+            disabled={busy}
+            className="mt-6 w-full rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface disabled:opacity-40"
+          >
+            {busy ? 'Setting things up…' : 'Continue to payment'}
+          </button>
+        </form>
+      )}
+
+      {step === 'paying' && (
+        <p className="rounded-xl border border-db-line bg-db-surface p-6">
+          Taking you to secure payment…
+        </p>
+      )}
+    </main>
+  )
+}

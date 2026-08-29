@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hg/auth": "workspace:*",
+    "@hg/case-lifecycle": "workspace:*",
     "@hg/database": "workspace:*",
     "@hg/ui": "workspace:*",
     "@hookform/resolvers": "^5.4.0",

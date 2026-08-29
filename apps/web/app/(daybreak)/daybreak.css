@@ -1,0 +1,45 @@
+/* Daybreak tokens (mvp_ui_design_spec.md §3.1) — light-first, calm dark via
+   prefers-color-scheme. "Nothing found" is NEUTRAL, never red; red is
+   reserved exclusively for deadline urgency. */
+.daybreak {
+  --db-bg: #faf7f0;
+  --db-surface: #ffffff;
+  --db-ink: #1f2937;
+  --db-muted: #5b6472;
+  --db-line: #e5dfd2;
+  --db-accent: #8a6d1d;
+  --db-accent-soft: #f4ecd6;
+  --db-signal: #1e7a3d;
+  --db-review: #8a6206;
+  --db-none: #5b6472;
+  --db-urgent: #b3382c;
+
+  background-color: var(--db-bg);
+  color: var(--db-ink);
+  font-size: 17px; /* body 17px/1.6 — reading under stress */
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+@media (prefers-color-scheme: dark) {
+  .daybreak {
+    --db-bg: #12151c;
+    --db-surface: #1a1f29;
+    --db-ink: #e8ebf0;
+    --db-muted: #96a0ae;
+    --db-line: #2b323e;
+    --db-accent: #d4af37;
+    --db-accent-soft: #2a2410;
+    --db-signal: #3fb950;
+    --db-review: #d29922;
+    --db-none: #96a0ae;
+    --db-urgent: #f85149;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daybreak * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
