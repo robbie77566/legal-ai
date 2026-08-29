@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
-import { withTenant } from '@hg/database';
+import { withTenant, appendCaseEvent } from '@hg/database';
 import crypto from 'crypto';
 
 const s3Config: any = {
@@ -84,15 +84,23 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ error: 'Forbidden' });
     }
 
-    // Register the document in PostgreSQL (RLS-scoped)
-    const document = await withTenant(request.auth.tenantId, (tx) =>
-      tx.document.create({
+    // Register the document + its lifecycle event in one RLS-scoped tx
+    const document = await withTenant(request.auth.tenantId, async (tx) => {
+      const doc = await tx.document.create({
         data: {
           filename,
           caseId
         }
-      })
-    );
+      });
+      await appendCaseEvent(tx, {
+        caseId,
+        tenantId: request.auth.tenantId,
+        type: 'doc.uploaded',
+        payload: { documentId: doc.id },
+        actor: request.auth.userId,
+      });
+      return doc;
+    });
     
     // Lazy import: queue.ts creates IORedis connections at module level; importing it
     // here instead of at the top of the file prevents Redis connection attempts at startup.

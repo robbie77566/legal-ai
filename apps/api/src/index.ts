@@ -9,6 +9,7 @@ import * as Sentry from '@sentry/node'
 import uploadRoutes from './routes/upload'
 import casesRoutes from './routes/cases'
 import permissionsRoutes from './routes/permissions'
+import intakeRoutes from './routes/intake'
 import eligibilityRoutes, { deleteExpiredEligibilityDrafts } from './routes/eligibility'
 import checkoutRoutes from './routes/checkout'
 import stripeWebhookRoutes from './routes/stripe-webhooks'
@@ -81,6 +82,7 @@ fastify.register(fastifyMultipart, {
 
 fastify.register(uploadRoutes, { prefix: '/upload' })
 fastify.register(casesRoutes, { prefix: '/cases' })
+fastify.register(intakeRoutes, { prefix: '/cases' })
 fastify.register(permissionsRoutes, { prefix: '/permissions' })
 fastify.register(eligibilityRoutes, { prefix: '/eligibility' })
 fastify.register(checkoutRoutes) // /buy/account + /checkout/session

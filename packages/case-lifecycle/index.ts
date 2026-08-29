@@ -1,3 +1,4 @@
 export * from './machine'
 export * from './events'
 export * from './disclosures'
+export * from './checklist'
