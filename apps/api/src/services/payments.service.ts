@@ -56,6 +56,7 @@ interface CheckoutMetadata {
   tenantId: string;
   kind: PurchaseKind;
   draftToken?: string;
+  caseId?: string; // overage/rerun target
 }
 
 /** Fulfil a completed checkout session. Safe to call more than once. */
@@ -73,6 +74,46 @@ export async function fulfillCheckoutSession(session: {
   // Level-2 idempotency: this session already fulfilled?
   const existing = await prisma.payment.findUnique({ where: { stripeId: session.id } });
   if (existing) return { caseId: existing.caseId ?? undefined, skipped: 'already fulfilled' };
+
+  // Overage and re-run attach to an EXISTING case — they never create one.
+  if (kind !== 'review') {
+    if (!meta.caseId) return { skipped: 'missing caseId for non-review purchase' };
+    const target = await prisma.case.findUnique({ where: { id: meta.caseId } });
+    if (!target || target.tenantId !== tenantId) return { skipped: 'unknown case for purchase' };
+
+    await withTenant(tenantId, async (tx) => {
+      await tx.payment.create({
+        data: {
+          stripeId: session.id,
+          caseId: meta.caseId,
+          userId,
+          tenantId,
+          kind: kind.toUpperCase() as 'OVERAGE' | 'RERUN',
+          status: 'SUCCEEDED',
+          amountCents: session.amount_total ?? PRICES_CENTS[kind],
+        },
+      });
+      if (kind === 'rerun') {
+        const runNo = (await tx.analysisRun.count({ where: { caseId: meta.caseId } })) + 1;
+        await appendCaseEvent(tx, {
+          caseId: meta.caseId!,
+          tenantId,
+          type: 'rerun.purchased',
+          payload: { paymentId: session.id, runNo },
+          actor: 'system',
+        });
+      } else {
+        await appendCaseEvent(tx, {
+          caseId: meta.caseId!,
+          tenantId,
+          type: 'payment.succeeded',
+          payload: { paymentId: session.id, kind },
+          actor: 'system',
+        });
+      }
+    });
+    return { caseId: meta.caseId };
+  }
 
   const draft = meta.draftToken
     ? await prisma.eligibilityDraft.findUnique({ where: { token: meta.draftToken } })

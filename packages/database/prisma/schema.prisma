@@ -349,6 +349,14 @@ model Document {
   case      Case     @relation(fields: [caseId], references: [id])
   chunks    DocumentChunk[]
   pages     DocumentPage[]
+
+  // Echo-back (US-2/UI spec §5.5): the pipeline's classification guess and
+  // the customer's confirm/correct verdict.
+  suggestedChecklistItemId String?
+  classificationConfirmed  Boolean @default(false)
+  // ENG-4: infected uploads never reach digitization.
+  quarantined              Boolean @default(false)
+
   createdAt DateTime @default(now())
 }
 

@@ -1,6 +1,6 @@
 import { Worker, Job } from 'bullmq';
 import { createConnection } from '../lib/redis';
-import { digitizeDocument, buildDefaultExtractor } from '../services/digitize.service';
+import { digitizeDocument, buildDefaultExtractor, buildDefaultScanner } from '../services/digitize.service';
 import { getObjectBytes } from '../services/storage.service';
 
 /**
@@ -26,6 +26,7 @@ export const ingestionWorker = new Worker(
       bytes,
       s3Key,
       extractor: buildDefaultExtractor(),
+      scanner: buildDefaultScanner(),
     });
 
     // Legacy channel compatibility for the professional demo dashboard.

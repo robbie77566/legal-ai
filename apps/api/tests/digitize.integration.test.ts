@@ -50,9 +50,13 @@ beforeAll(async () => {
     },
   });
   caseId = c.id;
+  await prisma.checklistItem.create({
+    data: { caseId, kind: 'rr_volume', label: "Reporter's record volumes", howToKey: 'howto.rr_volume' },
+  });
 });
 
 afterAll(async () => {
+  await prisma.checklistItem.deleteMany({ where: { caseId } });
   await prisma.documentPage.deleteMany({ where: { document: { caseId } } });
   await prisma.documentChunk.deleteMany({ where: { document: { caseId } } });
   await prisma.document.deleteMany({ where: { caseId } });
@@ -84,6 +88,25 @@ describe('born-digital PDF digitization (pdf-parse, no network)', () => {
     expect((chunks[0].metadata as { page: number }).page).toBeGreaterThan(0);
 
     expect(await prisma.caseEvent.count({ where: { caseId, type: 'doc.ocr_done' } })).toBe(1);
+
+    // Echo-back: "REPORTER'S RECORD" text classifies to the rr_volume item
+    expect(summary.suggestedKind).toBe('rr_volume');
+    const item = await prisma.checklistItem.findFirstOrThrow({ where: { caseId, kind: 'rr_volume' } });
+    expect(item.state).toBe('UPLOADED');
+    const updatedDoc = await prisma.document.findUniqueOrThrow({ where: { id: doc.id } });
+    expect(updatedDoc.suggestedChecklistItemId).toBe(item.id);
+    expect(await prisma.caseEvent.count({ where: { caseId, type: 'doc.classified' } })).toBe(1);
+  });
+
+  it('the customer confirms the echo-back — item goes CONFIRMED, event appended', async () => {
+    const doc = await prisma.document.findFirstOrThrow({ where: { caseId, filename: 'rr-vol-3.pdf' } });
+    const res = await fastify.inject({
+      method: 'POST', url: `/cases/${caseId}/documents/${doc.id}/confirm`, headers: { cookie },
+    });
+    expect(res.statusCode).toBe(200);
+    const item = await prisma.checklistItem.findFirstOrThrow({ where: { caseId, kind: 'rr_volume' } });
+    expect(item.state).toBe('CONFIRMED');
+    expect(await prisma.caseEvent.count({ where: { caseId, type: 'doc.confirmed' } })).toBe(1);
   });
 
   it('the SAME pages uploaded again dedup exactly: zero new billable pages, zero new analysis chunks (§11a.3)', async () => {
@@ -107,6 +130,24 @@ describe('born-digital PDF digitization (pdf-parse, no network)', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ billable: 2, duplicatesIgnored: 2, cap: 5000 });
+  });
+});
+
+describe('quarantine (ENG-4)', () => {
+  it('an infected upload quarantines: no pages, no chunks, doc.quarantined event', async () => {
+    const doc = await seedDoc('virus.pdf');
+    const summary = await digitizeDocument(doc.id, {
+      bytes: Buffer.from('EICAR-ish'),
+      s3Key: `cases/${caseId}/virus.pdf`,
+      extractor: buildDefaultExtractor(),
+      scanner: { scan: async () => ({ clean: false, signature: 'Eicar-Test-Signature FOUND' }) },
+    });
+    expect(summary.quarantined).toBe(true);
+    expect(summary.pages).toBe(0);
+    const d = await prisma.document.findUniqueOrThrow({ where: { id: doc.id } });
+    expect(d.quarantined).toBe(true);
+    expect(await prisma.documentPage.count({ where: { documentId: doc.id } })).toBe(0);
+    expect(await prisma.caseEvent.count({ where: { caseId, type: 'doc.quarantined' } })).toBe(1);
   });
 });
 

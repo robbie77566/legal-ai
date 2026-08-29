@@ -129,6 +129,42 @@ describe('checkout fulfillment', () => {
     expect(p.status).toBe('REFUNDED');
   });
 
+  it('an OVERAGE purchase attaches to the existing case — never creates a new one', async () => {
+    const existing = await prisma.case.findFirstOrThrow({ where: { tenantId }, orderBy: { createdAt: 'asc' } });
+    const before = await prisma.case.count({ where: { tenantId } });
+    const res = await handleStripeEvent({
+      id: `evt_${run}_ov`, type: 'checkout.session.completed',
+      data: { object: { id: `cs_${run}_ov`, amount_total: 4900,
+        metadata: { userId, tenantId, kind: 'overage', caseId: existing.id } } },
+    });
+    expect(res.handled).toBe(true);
+    expect(await prisma.case.count({ where: { tenantId } })).toBe(before);
+    const p = await prisma.payment.findUniqueOrThrow({ where: { stripeId: `cs_${run}_ov` } });
+    expect(p.kind).toBe('OVERAGE');
+    expect(p.caseId).toBe(existing.id);
+  });
+
+  it('a RERUN purchase appends rerun.purchased with the next run number', async () => {
+    const existing = await prisma.case.findFirstOrThrow({ where: { tenantId }, orderBy: { createdAt: 'asc' } });
+    await handleStripeEvent({
+      id: `evt_${run}_rr`, type: 'checkout.session.completed',
+      data: { object: { id: `cs_${run}_rr`, amount_total: 9900,
+        metadata: { userId, tenantId, kind: 'rerun', caseId: existing.id } } },
+    });
+    const events = await prisma.caseEvent.findMany({ where: { caseId: existing.id, type: 'rerun.purchased' } });
+    expect(events).toHaveLength(1);
+    expect((events[0].payload as { runNo: number }).runNo).toBe(1);
+  });
+
+  it('a non-review purchase without a caseId is skipped safely', async () => {
+    const res = await handleStripeEvent({
+      id: `evt_${run}_ov2`, type: 'checkout.session.completed',
+      data: { object: { id: `cs_${run}_ov2`, amount_total: 4900,
+        metadata: { userId, tenantId, kind: 'overage' } } },
+    });
+    expect(res.detail).toContain('missing caseId');
+  });
+
   it('missing metadata is skipped, never a crash', async () => {
     const res = await handleStripeEvent({
       id: `evt_${run}_5`,

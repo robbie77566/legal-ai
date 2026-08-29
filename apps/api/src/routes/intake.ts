@@ -93,7 +93,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       });
       const documents = await tx.document.findMany({
         where: { caseId: id },
-        select: { id: true, filename: true, createdAt: true },
+        select: { id: true, filename: true, createdAt: true, suggestedChecklistItemId: true, classificationConfirmed: true, quarantined: true },
         orderBy: { createdAt: 'asc' },
       });
 
@@ -139,6 +139,26 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       const duplicatesIgnored = await tx.documentPage.count({
         where: { document: { caseId: id }, billable: false },
       });
+
+      // Overage gate (ENG-3): the cap is 5,000 + 2,500 per purchased overage
+      // block; a partial block is never charged for pages not received —
+      // the customer buys the next block only when the count actually
+      // crosses the line, in-flow, never a surprise.
+      const overageBlocks = await tx.payment.count({
+        where: { caseId: id, kind: 'OVERAGE', status: 'SUCCEEDED' },
+      });
+      const allowance = 5000 + overageBlocks * 2500;
+      if (billablePages > allowance) {
+        const blocksNeeded = Math.ceil((billablePages - allowance) / 2500);
+        return reply.status(402).send({
+          error: 'Page allowance exceeded',
+          billablePages,
+          allowance,
+          blocksNeeded,
+          blockPriceCents: 4900,
+        });
+      }
+
       await appendCaseEvent(tx, {
         caseId: id,
         tenantId,
@@ -169,6 +189,65 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       }
 
       return { status: updated.status, slaStartedAt: updated.slaStartedAt, expectedReadyAt: updated.expectedReadyAt };
+    });
+  });
+
+  // Echo-back verdicts (US-2): confirm locks the classification; correct
+  // reassigns and returns the wrong guess's item to NEEDED when orphaned.
+  fastify.post('/:id/documents/:docId/confirm', async (request, reply) => {
+    const { id, docId } = request.params as { id: string; docId: string };
+    const { tenantId, userId } = request.auth;
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      const doc = await tx.document.findFirst({ where: { id: docId, caseId: id } });
+      if (!doc) return reply.status(404).send({ error: 'Not found' });
+
+      await tx.document.update({ where: { id: docId }, data: { classificationConfirmed: true } });
+      if (doc.suggestedChecklistItemId) {
+        await tx.checklistItem.update({
+          where: { id: doc.suggestedChecklistItemId },
+          data: { state: 'CONFIRMED' },
+        });
+      }
+      await appendCaseEvent(tx, {
+        caseId: id, tenantId, type: 'doc.confirmed',
+        payload: { documentId: docId }, actor: userId,
+      });
+      return { ok: true };
+    });
+  });
+
+  fastify.post('/:id/documents/:docId/correct', async (request, reply) => {
+    const { id, docId } = request.params as { id: string; docId: string };
+    const { checklistItemId } = z.object({ checklistItemId: z.string().max(64) }).parse(request.body);
+    const { tenantId, userId } = request.auth;
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      const doc = await tx.document.findFirst({ where: { id: docId, caseId: id } });
+      const item = await tx.checklistItem.findFirst({ where: { id: checklistItemId, caseId: id } });
+      if (!doc || !item) return reply.status(404).send({ error: 'Not found' });
+
+      const old = doc.suggestedChecklistItemId;
+      await tx.document.update({
+        where: { id: docId },
+        data: { suggestedChecklistItemId: checklistItemId, classificationConfirmed: true },
+      });
+      await tx.checklistItem.update({ where: { id: checklistItemId }, data: { state: 'CONFIRMED' } });
+      if (old && old !== checklistItemId) {
+        const others = await tx.document.count({
+          where: { caseId: id, suggestedChecklistItemId: old, id: { not: docId } },
+        });
+        if (others === 0) {
+          await tx.checklistItem.update({ where: { id: old }, data: { state: 'NEEDED' } });
+        }
+      }
+      await appendCaseEvent(tx, {
+        caseId: id, tenantId, type: 'doc.corrected',
+        payload: { documentId: docId, checklistItemId }, actor: userId,
+      });
+      return { ok: true };
     });
   });
 

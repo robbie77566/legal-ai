@@ -116,23 +116,117 @@ export function buildDefaultExtractor(): Extractor {
   };
 }
 
+/**
+ * Echo-back classification (US-2, UI spec §5.5): a deterministic first pass
+ * over the extracted text proposes which checklist item this document is.
+ * The Tier-1 model classifier (M4 remainder) will replace the heuristics;
+ * the contract — suggestion + customer confirm/correct — stays.
+ */
+const KIND_PATTERNS: [string, RegExp][] = [
+  ['rr_volume', /REPORTER'?S\s+RECORD/i],
+  ['clerks_record', /CLERK'?S\s+RECORD/i],
+  ['indictment', /\bINDICTMENT\b|THE GRAND JUR/i],
+  ['appellate_opinion', /COURT OF APPEALS[\s\S]{0,200}?(OPINION|MEMORANDUM)/i],
+  ['prior_writ_application', /APPLICATION FOR (A )?WRIT OF HABEAS CORPUS/i],
+  ['admonishments', /ADMONISHMENT/i],
+  ['judicial_confession', /JUDICIAL CONFESSION/i],
+  ['plea_agreement', /PLEA (BARGAIN|AGREEMENT)/i],
+  ['plea_papers', /WAIVER OF JURY|PLEA OF GUILTY/i],
+  ['judgment', /JUDGMENT/i],
+];
+
+export function classifyKind(text: string): string | null {
+  const head = text.slice(0, 6000);
+  for (const [kind, re] of KIND_PATTERNS) {
+    if (re.test(head)) return kind;
+  }
+  return null;
+}
+
+/** Malware-scan seam (ENG-4): clamd INSTREAM when CLAMD_HOST is set. */
+export interface Scanner {
+  scan(bytes: Buffer): Promise<{ clean: boolean; signature?: string }>;
+}
+
+export function buildDefaultScanner(): Scanner {
+  const host = process.env.CLAMD_HOST;
+  if (!host) {
+    return {
+      async scan() {
+        // Launch gate 4a requires a real scanner in production; unscanned
+        // dev uploads are logged, never silently treated as verified.
+        console.warn('[scan] CLAMD_HOST not set — upload NOT malware-scanned');
+        return { clean: true };
+      },
+    };
+  }
+  const [h, p] = host.split(':');
+  return {
+    scan(bytes: Buffer) {
+      return new Promise((resolve, reject) => {
+        // clamd INSTREAM protocol: zINSTREAM\0 + {size:u32be, chunk}* + zero-size
+        const net = require('net') as typeof import('net');
+        const sock = net.createConnection({ host: h, port: Number(p ?? 3310) });
+        let out = '';
+        sock.on('connect', () => {
+          sock.write('zINSTREAM\0');
+          const size = Buffer.alloc(4);
+          size.writeUInt32BE(bytes.length);
+          sock.write(size);
+          sock.write(bytes);
+          sock.write(Buffer.from([0, 0, 0, 0]));
+        });
+        sock.on('data', (d) => (out += d.toString()));
+        sock.on('end', () => {
+          const clean = out.includes('OK') && !out.includes('FOUND');
+          resolve({ clean, signature: clean ? undefined : out.trim() });
+        });
+        sock.on('error', reject);
+        sock.setTimeout(30_000, () => { sock.destroy(); reject(new Error('clamd timeout')); });
+      });
+    },
+  };
+}
+
 export interface DigitizeSummary {
   pages: number;
   billable: number;
   duplicatesIgnored: number;
   lowConfidencePages: number;
   halted: boolean;
+  quarantined?: boolean;
+  suggestedKind?: string | null;
 }
 
 export async function digitizeDocument(
   documentId: string,
-  opts: { bytes: Buffer; extractor: Extractor; s3Key: string }
+  opts: { bytes: Buffer; extractor: Extractor; s3Key: string; scanner?: Scanner }
 ): Promise<DigitizeSummary> {
   const doc = await prisma.document.findUniqueOrThrow({
     where: { id: documentId },
     include: { case: { select: { id: true, tenantId: true, ocrHalt: true } } },
   });
   const { id: caseId, tenantId } = doc.case;
+
+  // ENG-4: scan before a single byte is parsed. Court-record CDs are a
+  // classic malware vector; infected files quarantine with a plain-language
+  // customer path, never reach digitization, and leave S3 immediately.
+  if (opts.scanner) {
+    const verdict = await opts.scanner.scan(opts.bytes);
+    if (!verdict.clean) {
+      await withTenant(tenantId, async (tx) => {
+        await tx.document.update({ where: { id: documentId }, data: { quarantined: true } });
+        await appendCaseEvent(tx, {
+          caseId, tenantId, type: 'doc.quarantined',
+          payload: { documentId }, actor: 'digitize',
+        });
+      });
+      const { deleteCasePrefix: _unused, s3, bucket } = await import('./storage.service');
+      const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+      await s3().send(new DeleteObjectCommand({ Bucket: bucket(), Key: opts.s3Key })).catch(() => {});
+      return { pages: 0, billable: 0, duplicatesIgnored: 0, lowConfidencePages: 0, halted: false, quarantined: true };
+    }
+  }
 
   const extracted = await opts.extractor.extract({
     bytes: opts.bytes,
@@ -202,6 +296,29 @@ export async function digitizeDocument(
       actor: 'digitize',
     });
 
+    // Echo-back: propose a checklist item and mark it UPLOADED; the customer
+    // confirms or corrects (doc.confirmed / doc.corrected).
+    const fullText = analysisPages.map((p) => p.text).join('\n');
+    const kind = classifyKind(fullText);
+    let suggestedKind: string | null = null;
+    if (kind) {
+      const item = await tx.checklistItem.findFirst({ where: { caseId, kind } });
+      if (item) {
+        suggestedKind = kind;
+        await tx.document.update({
+          where: { id: documentId },
+          data: { suggestedChecklistItemId: item.id },
+        });
+        if (item.state === 'NEEDED') {
+          await tx.checklistItem.update({ where: { id: item.id }, data: { state: 'UPLOADED' } });
+        }
+        await appendCaseEvent(tx, {
+          caseId, tenantId, type: 'doc.classified',
+          payload: { documentId, checklistItemId: item.id }, actor: 'digitize',
+        });
+      }
+    }
+
     // E-1: halt on a bad-scan cohort BEFORE any Tier-2 spend.
     let halted = false;
     const casePages = await tx.documentPage.findMany({
@@ -229,6 +346,7 @@ export async function digitizeDocument(
       duplicatesIgnored: duplicates,
       lowConfidencePages: lowConfidence,
       halted,
+      suggestedKind,
     };
   });
 }
