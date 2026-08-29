@@ -1,5 +1,7 @@
 # UX Implementation Plan & Testing Strategy
 
+> **Status (Aug 2026): historical build record** for the professional (Industrial Authority) surfaces. The MVP v1.0 consumer UX is specified in `../../design/mvp_ui_design_spec.md` and scheduled in `../mvp_v1_implementation_plan.md` (Daybreak track); several artifacts built here are repurposed or retired per that plan's §5 register (side-by-side viewer kept for the QA console; mocked chat/graph pages removed).
+
 This document outlines the detailed execution roadmap for building out the frontend user experiences for the three core personas: The Clinic Director (Bento Dashboard), the Mitigation Specialist (Knowledge Graph), and the Lead Appellate Attorney (Enhanced Side-by-Side Workspace). It also establishes the comprehensive testing and quality assurance strategy.
 
 ## Phase 1: The Bento Dashboard (Clinic Director Workflow)

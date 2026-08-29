@@ -1,5 +1,7 @@
 # HabeasGraph: Detailed Application Execution Roadmap
 
+> **Status (Aug 2026): historical build record.** Forward work is planned in `../mvp_v1_implementation_plan.md` (MVP v1.0), which also disposes of legacy code built under these phases (its §5 register). Checkboxes below reflect what was scaffolded, much of it as mocks — see the current-state audit in `../../architecture/mvp_v1_system_design.md` §1 before relying on any item as "done."
+
 This document provides the granular, task-by-task engineering blueprint for implementing the five phases defined in the `full_implementation_plan.md`. This roadmap transitions the project from architectural theory to actionable engineering sprints.
 
 ---
