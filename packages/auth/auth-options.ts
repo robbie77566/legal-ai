@@ -1,3 +1,7 @@
+// Type-only reference so the Session/User/JWT augmentation travels with this
+// module into every program that compiles it (the API's tsconfig included)
+// without emitting a runtime import bundlers would try to resolve.
+/// <reference path="./types/next-auth.d.ts" />
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"

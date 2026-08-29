@@ -11,14 +11,20 @@ import permissionsRoutes from './routes/permissions'
 import fastifyMultipart from '@fastify/multipart';
 import IORedis from 'ioredis';
 import { REDIS_URL } from './lib/redis';
+import { registerAuth } from './plugins/auth';
 
 export const fastify = Fastify({
   logger: true
 })
 
+// CORS pinned to the web origin (never `origin: true` — credentials flow here)
 fastify.register(cors, {
-  origin: true // Allow Next.js frontend to communicate in dev
+  origin: process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+  credentials: true
 })
+
+// Every route below requires a verified NextAuth session (plugins/auth.ts).
+registerAuth(fastify)
 
 fastify.register(fastifyMultipart, {
   limits: {

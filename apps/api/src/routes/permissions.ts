@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
-import prisma from '@hg/database';
+import prisma, { withTenant } from '@hg/database';
 import { z } from 'zod';
+import { AuditService, LogAction } from '../services/audit.service';
 
 const GrantAccessSchema = z.object({
   userId: z.string(),
@@ -18,17 +19,27 @@ const UpdateUserSchema = z.object({
 });
 
 export default async function permissionsRoutes(fastify: FastifyInstance) {
-  // Middleware/helper to ensure caller is ADMIN
+  // The caller's role comes from the verified token, but the DB stays
+  // authoritative: a role change takes effect on next check, not next sign-in.
   const ensureAdmin = async (userId: string, tenantId: string) => {
-    if (!userId || !tenantId) return false;
-    const caller = await prisma.user.findUnique({ where: { id: userId }});
+    const caller = await prisma.user.findUnique({ where: { id: userId } });
     return caller?.tenantId === tenantId && caller?.role === 'ADMIN';
   };
 
-  // Get all users in the system (for assigning to a case)
-  fastify.get('/users', async (request, reply) => {
-    const tenantId = request.headers['x-tenant-id'] as string;
-    if (!tenantId) return reply.status(400).send({ error: 'x-tenant-id required' });
+  // The caller must hold case-level ADMIN on the case (and the case must be in
+  // the caller's tenant) to manage its access list.
+  const ensureCaseAdmin = async (tenantId: string, callerId: string, caseId: string) => {
+    return withTenant(tenantId, async (tx) => {
+      const access = await tx.caseAccess.findUnique({
+        where: { caseId_userId: { caseId, userId: callerId } }
+      });
+      return access?.role === 'ADMIN';
+    });
+  };
+
+  // Get all users in the tenant (for assigning to a case)
+  fastify.get('/users', async (request) => {
+    const { tenantId } = request.auth;
 
     const users = await prisma.user.findMany({
       where: { tenantId },
@@ -40,16 +51,14 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
 
   // Create a new user in the tenant
   fastify.post('/users', async (request, reply) => {
-    const tenantId = request.headers['x-tenant-id'] as string;
-    const callerId = request.headers['x-user-id'] as string;
-    
+    const { tenantId, userId: callerId } = request.auth;
+
     if (!(await ensureAdmin(callerId, tenantId))) {
       return reply.status(403).send({ error: 'Requires ADMIN privileges' });
     }
 
     const { email, name, role } = CreateUserSchema.parse(request.body);
 
-    // Check if email already exists
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return reply.status(400).send({ error: 'Email already exists' });
@@ -69,23 +78,19 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
 
   // Update a user's system role
   fastify.patch('/users/:userId', async (request, reply) => {
-    const tenantId = request.headers['x-tenant-id'] as string;
-    const callerId = request.headers['x-user-id'] as string;
+    const { tenantId, userId: callerId } = request.auth;
     const { userId } = request.params as { userId: string };
-    
+
     if (!(await ensureAdmin(callerId, tenantId))) {
       return reply.status(403).send({ error: 'Requires ADMIN privileges' });
     }
 
     const { role } = UpdateUserSchema.parse(request.body);
 
-    // Ensure user belongs to this tenant
     const target = await prisma.user.findUnique({ where: { id: userId } });
     if (!target || target.tenantId !== tenantId) {
       return reply.status(404).send({ error: 'User not found in this tenant' });
     }
-
-    // Prevent removing the last admin? (Optional safety net, skipped for now)
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -97,15 +102,13 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
 
   // Delete a user from the tenant
   fastify.delete('/users/:userId', async (request, reply) => {
-    const tenantId = request.headers['x-tenant-id'] as string;
-    const callerId = request.headers['x-user-id'] as string;
+    const { tenantId, userId: callerId } = request.auth;
     const { userId } = request.params as { userId: string };
-    
+
     if (!(await ensureAdmin(callerId, tenantId))) {
       return reply.status(403).send({ error: 'Requires ADMIN privileges' });
     }
 
-    // Ensure user belongs to this tenant
     const target = await prisma.user.findUnique({ where: { id: userId } });
     if (!target || target.tenantId !== tenantId) {
       return reply.status(404).send({ error: 'User not found in this tenant' });
@@ -115,10 +118,7 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Cannot delete yourself' });
     }
 
-    // Delete associated CaseAccess records first (Cascade)
     await prisma.caseAccess.deleteMany({ where: { userId } });
-    
-    // Delete the user
     await prisma.user.delete({ where: { id: userId } });
 
     return { success: true };
@@ -126,42 +126,84 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
 
   // Get users who have access to a specific case
   fastify.get('/cases/:caseId', async (request, reply) => {
+    const { tenantId, userId: callerId } = request.auth;
     const { caseId } = request.params as { caseId: string };
-    const accessList = await prisma.caseAccess.findMany({
-      where: { caseId },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true }
+
+    return withTenant(tenantId, async (tx) => {
+      const callerAccess = await tx.caseAccess.findUnique({
+        where: { caseId_userId: { caseId, userId: callerId } }
+      });
+      if (!callerAccess) return reply.status(403).send({ error: 'Forbidden' });
+
+      return tx.caseAccess.findMany({
+        where: { caseId },
+        include: {
+          user: {
+            select: { id: true, name: true, email: true }
+          }
         }
-      }
+      });
     });
-    return accessList;
   });
 
-  // Grant access to a case
+  // Grant access to a case (case-ADMIN only; previously unauthenticated!)
   fastify.post('/cases/:caseId', async (request, reply) => {
+    const { tenantId, userId: callerId } = request.auth;
     const { caseId } = request.params as { caseId: string };
     const { userId, role } = GrantAccessSchema.parse(request.body);
 
-    const access = await prisma.caseAccess.upsert({
-      where: {
-        caseId_userId: { caseId, userId }
-      },
-      update: { role: role as any },
-      create: { caseId, userId, role: role as any }
+    if (!(await ensureCaseAdmin(tenantId, callerId, caseId))) {
+      return reply.status(403).send({ error: 'Requires case ADMIN access' });
+    }
+
+    // The grantee must belong to the same tenant — never cross-tenant grants.
+    const grantee = await prisma.user.findUnique({ where: { id: userId } });
+    if (!grantee || grantee.tenantId !== tenantId) {
+      return reply.status(404).send({ error: 'User not found in this tenant' });
+    }
+
+    const access = await withTenant(tenantId, (tx) =>
+      tx.caseAccess.upsert({
+        where: { caseId_userId: { caseId, userId } },
+        update: { role: role as any },
+        create: { caseId, userId, role: role as any }
+      })
+    );
+
+    await AuditService.log({
+      tenantId,
+      caseId,
+      action: LogAction.CASE_ACCESS,
+      userId: callerId,
+      details: { op: 'grant', targetUserId: userId, role }
     });
 
     return access;
   });
 
-  // Revoke access from a case
+  // Revoke access from a case (case-ADMIN only; previously unauthenticated!)
   fastify.delete('/cases/:caseId/:userId', async (request, reply) => {
-    const { caseId, userId } = request.params as { caseId: string, userId: string };
-    await prisma.caseAccess.delete({
-      where: {
-        caseId_userId: { caseId, userId }
-      }
+    const { tenantId, userId: callerId } = request.auth;
+    const { caseId, userId } = request.params as { caseId: string; userId: string };
+
+    if (!(await ensureCaseAdmin(tenantId, callerId, caseId))) {
+      return reply.status(403).send({ error: 'Requires case ADMIN access' });
+    }
+
+    await withTenant(tenantId, (tx) =>
+      tx.caseAccess.delete({
+        where: { caseId_userId: { caseId, userId } }
+      })
+    );
+
+    await AuditService.log({
+      tenantId,
+      caseId,
+      action: LogAction.CASE_ACCESS,
+      userId: callerId,
+      details: { op: 'revoke', targetUserId: userId }
     });
+
     return { success: true };
   });
 }

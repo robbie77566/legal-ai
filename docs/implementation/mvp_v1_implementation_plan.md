@@ -31,6 +31,8 @@ Each milestone lists scope → key tasks → acceptance criteria (AC). System-de
 
 Scope: eliminate the P0 defects (design §1) and clear the legacy underbrush (§5 register, "delete now" column).
 
+> **Progress (Aug 2026):** API JWT auth landed — global verified-session hook (`plugins/auth.ts` + `@hg/auth` session-token helpers), all `x-tenant-id`/`x-user-id` header trust removed, previously-unauthenticated upload and case-access-grant routes now enforce CaseAccess, SSE gated + heartbeat, CORS pinned with credentials, Bull Board ADMIN-gated, typed web client on `NEXT_PUBLIC_API_URL`, `withTenant` on formerly-bare queries, AuditLog FK dropped per §11a.2 (case delete no longer throws; audit wired on access grant/revoke), empty migration removed, tests rewritten against signed tokens incl. a forged-header regression test.
+
 - API JWT auth preHandler; remove all `x-tenant-id`/`x-user-id` header trust (§10.1). Typed web API client on `NEXT_PUBLIC_API_URL` (kills 14 hardcoded localhost sites).
 - RLS: add `WITH CHECK` to every policy; route all tenant queries through `withTenant`; replace the mocked `rls.test.ts` with integration tests against real Postgres; fix the empty `20260607` migration.
 - CORS pinned; Redis-backed rate limiting on auth/eligibility/presign/webhooks; Bull Board behind ADMIN.

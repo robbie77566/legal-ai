@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
-import prisma from '@hg/database';
+import { withTenant } from '@hg/database';
 import crypto from 'crypto';
 
 const s3Config: any = {
@@ -34,10 +34,24 @@ const CompleteRequestSchema = z.object({
 });
 
 export default async function uploadRoutes(fastify: FastifyInstance) {
+  // The caller must have CaseAccess to the case, inside their own tenant —
+  // presigning for an arbitrary caseId would let anyone write into any case.
+  const assertCaseAccess = async (request: { auth: { tenantId: string; userId: string } }, caseId: string) => {
+    const { tenantId, userId } = request.auth;
+    return withTenant(tenantId, (tx) =>
+      tx.caseAccess.findUnique({
+        where: { caseId_userId: { caseId, userId } }
+      })
+    );
+  };
+
   fastify.post('/url', async (request, reply) => {
-    // Note: Production implementation will enforce session RLS via NextAuth token
     const { filename, caseId } = URLRequestSchema.parse(request.body);
-    
+
+    if (!(await assertCaseAccess(request, caseId))) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
     // Generate secure randomized key to prevent collisions
     const s3Key = `cases/${caseId}/${crypto.randomUUID()}-${filename}`;
     
@@ -61,14 +75,20 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
 
   fastify.post('/complete', async (request, reply) => {
     const { caseId, filename, s3Key } = CompleteRequestSchema.parse(request.body);
-    
-    // Register the document in PostgreSQL
-    const document = await prisma.document.create({
-      data: {
-        filename,
-        caseId
-      }
-    });
+
+    if (!(await assertCaseAccess(request, caseId))) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
+    // Register the document in PostgreSQL (RLS-scoped)
+    const document = await withTenant(request.auth.tenantId, (tx) =>
+      tx.document.create({
+        data: {
+          filename,
+          caseId
+        }
+      })
+    );
     
     // Lazy import: queue.ts creates IORedis connections at module level; importing it
     // here instead of at the top of the file prevents Redis connection attempts at startup.

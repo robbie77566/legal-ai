@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { apiFetch, apiEventSource } from "@/lib/api";
 import {
   UploadCloud,
   FileText,
@@ -49,12 +50,7 @@ export default function BentoDashboard() {
           const userId = session?.user?.id || "";
           if (!tenantId) return;
 
-          const res = await fetch("http://localhost:3001/cases", {
-            headers: {
-              "x-tenant-id": tenantId,
-              "x-user-id": userId
-            }
-          });
+          const res = await apiFetch("/cases");
           const data = await res.json();
           if (Array.isArray(data)) {
             setRecentCases(data.slice(0, 3)); // Top 3 most recent
@@ -74,7 +70,7 @@ export default function BentoDashboard() {
       const formData = new FormData();
       formData.append("file", fileList[0]);
 
-      const res = await fetch("http://localhost:3001/cases/preview-metadata", {
+      const res = await apiFetch("/cases/preview-metadata", {
         method: "POST",
         body: formData,
       });
@@ -126,13 +122,9 @@ export default function BentoDashboard() {
       const userId = session?.user?.id || "";
 
       // 1. Create Case in PostgreSQL
-      const caseRes = await fetch("http://localhost:3001/cases", {
+      const caseRes = await apiFetch("/cases", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-tenant-id": tenantId,
-          "x-user-id": userId
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: caseMeta.name,
           defendant: caseMeta.defendant,
@@ -148,7 +140,7 @@ export default function BentoDashboard() {
       // 2. Upload files
       for (const file of files) {
         // Get Pre-signed URL
-        const urlRes = await fetch("http://localhost:3001/upload/url", {
+        const urlRes = await apiFetch("/upload/url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -181,7 +173,7 @@ export default function BentoDashboard() {
         }
 
         // Register complete
-        await fetch("http://localhost:3001/upload/complete", {
+        await apiFetch("/upload/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -193,9 +185,7 @@ export default function BentoDashboard() {
       }
 
       // 3. Establish SSE Connection for Real-Time Logs
-      const eventSource = new EventSource(
-        `http://localhost:3001/cases/${generatedCaseId}/progress`,
-      );
+      const eventSource = apiEventSource(`/cases/${generatedCaseId}/progress`);
 
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);

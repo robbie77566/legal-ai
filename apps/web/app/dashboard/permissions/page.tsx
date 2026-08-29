@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch, apiEventSource } from "@/lib/api";
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,9 +30,7 @@ export default function PermissionsPage() {
       return;
     }
     try {
-      const res = await fetch("http://localhost:3001/permissions/users", {
-        headers: { "x-tenant-id": tenantId }
-      });
+      const res = await apiFetch("/permissions/users");
       const data = await res.json();
       setUsers(data);
     } catch (err) {
@@ -50,14 +49,7 @@ export default function PermissionsPage() {
     fetchUsers();
   }, [session, status, fetchUsers]);
 
-  const getHeaders = () => {
-    const user = session?.user as any;
-    return {
-      "Content-Type": "application/json",
-      "x-tenant-id": user?.tenantId,
-      "x-user-id": user?.id
-    };
-  };
+  const getHeaders = () => ({ "Content-Type": "application/json" });
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +57,7 @@ export default function PermissionsPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:3001/permissions/users", {
+      const res = await apiFetch("/permissions/users", {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ email, name, role })
@@ -91,7 +83,7 @@ export default function PermissionsPage() {
     setError("");
 
     try {
-      const res = await fetch(`http://localhost:3001/permissions/users/${selectedUser.id}`, {
+      const res = await apiFetch(`/permissions/users/${selectedUser.id}`, {
         method: "PATCH",
         headers: getHeaders(),
         body: JSON.stringify({ role })
@@ -116,7 +108,7 @@ export default function PermissionsPage() {
     }
 
     try {
-      const res = await fetch(`http://localhost:3001/permissions/users/${userId}`, {
+      const res = await apiFetch(`/permissions/users/${userId}`, {
         method: "DELETE",
         headers: getHeaders()
       });

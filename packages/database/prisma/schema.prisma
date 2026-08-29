@@ -49,7 +49,6 @@ model Case {
   tenantId  String
   tenant    Tenant       @relation(fields: [tenantId], references: [id])
   documents Document[]
-  auditLogs AuditLog[]
   accessList CaseAccess[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
@@ -87,12 +86,15 @@ model DocumentChunk {
 
 model AuditLog {
   id        String   @id @default(cuid())
+  // Plain reference, deliberately NOT a foreign key: audit rows are append-only
+  // and survive case deletion (retention matrix, mvp_v1_system_design.md §11a.2).
   caseId    String
-  case      Case     @relation(fields: [caseId], references: [id])
   action    String
   details   Json
   userId    String
   createdAt DateTime @default(now())
+
+  @@index([caseId])
 }
 
 model GraphState {

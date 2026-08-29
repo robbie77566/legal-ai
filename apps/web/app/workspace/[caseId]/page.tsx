@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch, apiEventSource } from "@/lib/api";
 import { useState, useRef, useEffect } from 'react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { ParchmentViewer } from '@/components/ParchmentViewer';
@@ -26,7 +27,7 @@ export default function WorkspacePage({ params }: { params: { caseId: string } }
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchCaseData = () => {
-    fetch(`http://localhost:3001/cases/${params.caseId}`)
+    apiFetch(`/cases/${params.caseId}`)
       .then(res => res.json())
       .then(data => {
         setCaseData(data);
@@ -41,7 +42,7 @@ export default function WorkspacePage({ params }: { params: { caseId: string } }
   useEffect(() => {
     fetchCaseData();
 
-    const eventSource = new EventSource(`http://localhost:3001/cases/${params.caseId}/progress`);
+    const eventSource = apiEventSource(`/cases/${params.caseId}/progress`);
     
     eventSource.onmessage = (event) => {
       try {

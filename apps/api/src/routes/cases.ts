@@ -92,26 +92,19 @@ export default async function casesRoutes(fastify: FastifyInstance) {
 
   fastify.post('/', async (request, reply) => {
     const { title } = CreateCaseSchema.parse(request.body);
-    const tenantId = request.headers['x-tenant-id'] as string;
-    const providedUserId = request.headers['x-user-id'] as string;
-
-    if (!tenantId) {
-      return reply.status(400).send({ error: 'x-tenant-id header is required' });
-    }
+    const { tenantId, userId } = request.auth;
 
     const newCase = await withTenant(tenantId, (tx) =>
       tx.case.create({
         data: {
           title,
           tenantId,
-          ...(providedUserId ? {
-            accessList: {
-              create: {
-                userId: providedUserId,
-                role: 'ADMIN'
-              }
+          accessList: {
+            create: {
+              userId,
+              role: 'ADMIN'
             }
-          } : {})
+          }
         }
       })
     );
@@ -119,31 +112,24 @@ export default async function casesRoutes(fastify: FastifyInstance) {
     return { success: true, caseId: newCase.id };
   });
 
-  fastify.get('/', async (request, reply) => {
-    const tenantId = request.headers['x-tenant-id'] as string;
-    const userId = request.headers['x-user-id'] as string;
-
-    if (!tenantId) {
-      return reply.status(400).send({ error: 'x-tenant-id header is required' });
-    }
+  fastify.get('/', async (request) => {
+    const { tenantId, userId } = request.auth;
 
     const cases = await withTenant(tenantId, (tx) =>
       tx.case.findMany({
         where: {
           tenantId,
-          ...(userId ? {
-            accessList: {
-              some: { userId }
-            }
-          } : {})
+          accessList: {
+            some: { userId }
+          }
         },
         orderBy: { updatedAt: 'desc' },
-        include: userId ? {
+        include: {
           accessList: {
             where: { userId },
             select: { role: true }
           }
-        } : {}
+        }
       })
     );
 
@@ -152,11 +138,7 @@ export default async function casesRoutes(fastify: FastifyInstance) {
 
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const tenantId = request.headers['x-tenant-id'] as string;
-    const userId = request.headers['x-user-id'] as string;
-
-    if (!tenantId) return reply.status(400).send({ error: 'x-tenant-id header is required' });
-    if (!userId) return reply.status(401).send({ error: 'Unauthorized' });
+    const { tenantId, userId } = request.auth;
 
     return withTenant(tenantId, async (tx) => {
       const access = await tx.caseAccess.findUnique({
@@ -183,34 +165,28 @@ export default async function casesRoutes(fastify: FastifyInstance) {
   fastify.patch('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { title } = request.body as { title: string };
-    const userId = request.headers['x-user-id'] as string;
+    const { tenantId, userId } = request.auth;
 
-    if (!userId) return reply.status(401).send({ error: 'Unauthorized' });
+    // RLS-scoped like every other tenant query (bare prisma here bypassed RLS)
+    return withTenant(tenantId, async (tx) => {
+      const access = await tx.caseAccess.findUnique({
+        where: { caseId_userId: { caseId: id, userId } }
+      });
 
-    // Ensure the user has ADMIN rights for this case
-    const access = await prisma.caseAccess.findUnique({
-      where: { caseId_userId: { caseId: id, userId } }
+      if (!access || access.role !== 'ADMIN') {
+        return reply.status(403).send({ error: 'Forbidden: Requires ADMIN access' });
+      }
+
+      return tx.case.update({
+        where: { id },
+        data: { title }
+      });
     });
-
-    if (!access || access.role !== 'ADMIN') {
-      return reply.status(403).send({ error: 'Forbidden: Requires ADMIN access' });
-    }
-
-    const updatedCase = await prisma.case.update({
-      where: { id },
-      data: { title }
-    });
-
-    return updatedCase;
   });
 
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const tenantId = request.headers['x-tenant-id'] as string;
-    const userId = request.headers['x-user-id'] as string;
-
-    if (!tenantId) return reply.status(400).send({ error: 'x-tenant-id header is required' });
-    if (!userId) return reply.status(401).send({ error: 'Unauthorized' });
+    const { tenantId, userId } = request.auth;
 
     return withTenant(tenantId, async (tx) => {
       const access = await tx.caseAccess.findUnique({
@@ -226,7 +202,9 @@ export default async function casesRoutes(fastify: FastifyInstance) {
 
       await tx.documentChunk.deleteMany({ where: { documentId: { in: docIds } } });
       await tx.document.deleteMany({ where: { caseId: id } });
-      await tx.auditLog.deleteMany({ where: { caseId: id } });
+      // AuditLog rows are append-only by trigger and deliberately survive the
+      // case (retention matrix, system design §11a.2) — deleting them here
+      // used to throw. The full scoped-deletion workflow is OPS-4 (M6).
       await tx.caseAccess.deleteMany({ where: { caseId: id } });
       await tx.case.delete({ where: { id } });
 
@@ -236,7 +214,17 @@ export default async function casesRoutes(fastify: FastifyInstance) {
 
   fastify.get('/:id/progress', async (request, reply) => {
     const { id } = request.params as { id: string };
-    
+    const { tenantId, userId } = request.auth;
+
+    // Tenant + case-access check BEFORE the stream opens (ENG-4): progress
+    // events must never leak across cases or tenants.
+    const access = await withTenant(tenantId, (tx) =>
+      tx.caseAccess.findUnique({
+        where: { caseId_userId: { caseId: id, userId } }
+      })
+    );
+    if (!access) return reply.status(403).send({ error: 'Forbidden' });
+
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache');
     reply.raw.setHeader('Connection', 'keep-alive');
@@ -244,17 +232,21 @@ export default async function casesRoutes(fastify: FastifyInstance) {
 
     const subscriber = createConnection();
     const channel = `case-progress:${id}`;
-    
+
     await subscriber.subscribe(channel);
-    
+
     subscriber.on('message', (ch, message) => {
       if (ch === channel) {
         reply.raw.write(`data: ${message}\n\n`);
       }
     });
 
+    // Heartbeat comment defeats idle-proxy timeouts (sse_streaming.md)
+    const heartbeat = setInterval(() => reply.raw.write(': ping\n\n'), 25_000);
+
     // Cleanup on disconnect
     request.raw.on('close', () => {
+      clearInterval(heartbeat);
       subscriber.unsubscribe(channel);
       subscriber.quit();
     });

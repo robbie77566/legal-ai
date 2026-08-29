@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch, apiEventSource } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -30,12 +31,7 @@ export default function AllCasesPage() {
           return;
         }
 
-        const res = await fetch("http://localhost:3001/cases", {
-          headers: {
-            "x-tenant-id": tenantId,
-            "x-user-id": userId
-          }
-        });
+        const res = await apiFetch("/cases");
         const data = await res.json();
         if (Array.isArray(data)) {
           setCases(data);
@@ -59,10 +55,7 @@ export default function AllCasesPage() {
     try {
       const tenantId = (session?.user as any)?.tenantId || "";
       const userId = session?.user?.id || "";
-      await fetch(`http://localhost:3001/cases/${caseId}`, {
-        method: 'DELETE',
-        headers: { "x-tenant-id": tenantId, "x-user-id": userId }
-      });
+      await apiFetch(`/cases/${caseId}`, { method: 'DELETE' });
       setCases(cases.filter(c => c.id !== caseId));
     } catch (e) {
       console.error("Failed to delete case", e);
@@ -74,9 +67,9 @@ export default function AllCasesPage() {
     try {
       const tenantId = (session?.user as any)?.tenantId || "";
       const userId = session?.user?.id || "";
-      await fetch(`http://localhost:3001/cases/${editingCase.id}`, {
+      await apiFetch(`/cases/${editingCase.id}`, {
         method: 'PATCH',
-        headers: { "Content-Type": "application/json", "x-tenant-id": tenantId, "x-user-id": userId },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: editTitle })
       });
       setCases(cases.map(c => c.id === editingCase.id ? { ...c, title: editTitle } : c));
