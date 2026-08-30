@@ -169,6 +169,29 @@ The base case loses money for exactly one structural reason: **fixed operating c
 
 **What this does NOT change:** the volume dependency. Every lever above lowers the bar; only the channels (clinic-declined referrals at zero CAC, SEO, communities) clear it. The March checkpoint in §8 remains the decision that matters.
 
+
+## 8c. The solo-founder cash model (the operator's actual position)
+
+Sections 7–8b model *staffed* scenarios from the implementation plan's team assumptions. The operating reality is **one founder, home-based, no payroll** — which converts the model from a P&L question into a cash-flow question, and changes the answer dramatically:
+
+- **Fixed cash ≈ $1,100/month** (hosting ~$150, E&O ~$250, counsel pay-as-you-go ~$200, $500 marketing floor). No salaries, no office.
+- **Cash contribution ≈ $278/case** — QA is founder time (sweat equity, not cash), so cash COGS is ~$31 (OCR + LLM + storage + Stripe + expected refunds).
+- **Cash break-even: ~4 cases/month.**
+
+| Phase | Cash position |
+|---|---|
+| Build (Sep–Dec 2026) | −$4,850 total (hosting + $4k counsel gate + E&O binding) |
+| Jan-27 (3 cases) | −$296/mo → cumulative −$5,146 |
+| Feb-27 (6) | +$557 → −$4,589 |
+| Mar-27 (10) | +$1,629 → −$2,960 |
+| **Apr-27 (13)** | +$2,532 → **−$428 (effectively recovered)** |
+| May-27 (17) | +$4,151 → **+$3,723 cumulative positive** |
+| Aug-27 (30) | +$8,032/mo → +$23,273 cumulative |
+
+**Read:** on the base volume ramp, the entire venture recovers its cash by ~May 2027 and exits the year at an ~$8k/month cash run-rate — total capital at risk under **$6k** plus founder time.
+
+**The honest disclosures that keep this rigorous:** (1) founder time is the real investment — QA at 30 min/case plus support plus everything else caps solo throughput somewhere around 50–80 cases/month before paid help returns to the model (a good problem; it re-enters at Lever 1's lean rate, ~$25 of QA cost per case, leaving contribution strong); (2) sweat equity is deferred compensation, not free — the staffed scenarios in §7 remain the true economic cost of the business and the basis for any future hiring or investment conversation; (3) volume remains the gating variable — 4 cases/month is a low bar, but it is still a bar the channels must clear.
+
 ## 9. Risks (top 5, from SWOT + study §8.4 + risk register)
 
 | Risk | Mitigation |
