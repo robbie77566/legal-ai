@@ -141,6 +141,34 @@ This case models the conservative **$54**; the measured trend is upside.
   - **Mar 2027 (90 days post-launch):** ≥ 8–10 cases/mo and refund rate ≤ 5% → continue; materially below → the S0 outcome-mix data decides pivot (plea-lane emphasis, price, or channel) before more spend.
   - **Jun 2027:** ≥ 20% referral opt-in → begin Justice-tier seeding (the v2 gate); below → double down on B2C channels first.
 
+
+## 8b. The path to profitability (BA answer to "how do we make money on this")
+
+The base case loses money for exactly one structural reason: **fixed operating cost ($7.6k/mo) needs ~31 cases/month to cover at $245 contribution, and the ramp only reaches 30 by month 12.** Profitability is therefore engineered from three levers, in order of leverage:
+
+**Lever 1 — lean operations (the big one).** The $6k/mo operating contractor is 79% of post-launch opex, budgeted for a build that is *already done*. Founder-run operations with an on-call contractor (~$1.5k/mo) cut fixed cost to ~$3.1k/mo → **break-even falls from 31 to 13 cases/month** — inside the study's own 90-day trajectory.
+
+**Lever 2 — contribution stacking (no new customers needed).** Measured COGS (~$45, not $54) + overage/re-run attach + the v1.1 attorney-signed add-on pulled forward (10% attach × $249 margin) lifts contribution from $245 to **~$289/case** → break-even ~**11 cases/month**.
+
+**Lever 3 — Advocate-tier early access (recurring revenue, warm leads).** The QA console is already the attorney workspace dogfood, and the referral list produces warm attorney contacts from month one. An early-access Advocate seat at $99/mo needs no new engineering to pilot: **10 seats ≈ 3 cases of monthly contribution, 25 seats ≈ 9 — recurring.** This is the roadmap's Phase-3 revenue sampled early, without gating v2.
+
+**Re-modeled (lean ops + stacked contribution, same base volumes):**
+
+| Post-launch month | Cases | EBITDA | Cumulative |
+|---|---|---|---|
+| Jan-27 | 3 | −$2,338 | −$40,738 |
+| Feb-27 | 6 | −$1,527 | −$42,265 |
+| Mar-27 | 10 | −$511 | −$42,776 |
+| **Apr-27** | 13 | **+$350** | −$42,426 |
+| May-27 | 17 | +$1,903 | −$40,523 |
+| Jun-27 | 21 | +$2,799 | −$37,724 |
+| Jul-27 | 25 | +$3,695 | −$34,029 |
+| Aug-27 | 30 | +$5,212 | −$28,817 |
+
+**Monthly EBITDA turns positive in April 2027 (month 4 post-launch)**, peak cash need drops from ~$78k to **~$43k**, and the exit run-rate (~$5k/mo EBITDA and climbing, before any Advocate seats) pays back the build burn during year two. Add 25 early-access Advocate seats and break-even arrives a month earlier with ~$2.5k/mo of recurring on top.
+
+**What this does NOT change:** the volume dependency. Every lever above lowers the bar; only the channels (clinic-declined referrals at zero CAC, SEO, communities) clear it. The March checkpoint in §8 remains the decision that matters.
+
 ## 9. Risks (top 5, from SWOT + study §8.4 + risk register)
 
 | Risk | Mitigation |
