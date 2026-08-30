@@ -94,71 +94,124 @@ export interface AnalysisSummary {
   droppedUngrounded: number;
 }
 
+export interface AnalysisChunk {
+  id: string;
+  documentId: string;
+  content: string;
+  metadata: unknown;
+}
+
+/** The frozen record prompt — byte-stable across screens (cache prefix). */
+export function buildRecord(chunks: AnalysisChunk[]): string {
+  return chunks.map((c, i) => `[Excerpt ${i}] ${c.content}`).join('\n\n');
+}
+
+export interface ScreenFinding {
+  category: string;
+  severity: string;
+  confidence: number;
+  quote: string;
+  partA: string;
+  partB: string;
+  chunk: AnalysisChunk;
+}
+
+/**
+ * One screen, NO database transaction: model call → zod validation → FR-6
+ * grounding hard filter. Shared by the pipeline and the model-comparison
+ * eval path (model_evaluation.md §4.1: swaps happen at the model seam,
+ * everything else held constant).
+ */
+export async function executeScreen(
+  model: AnalysisModel,
+  screenId: keyof typeof SCREENS,
+  record: string,
+  chunks: AnalysisChunk[]
+): Promise<{ grounded: ScreenFinding[]; dropped: number }> {
+  const res = await invokeValidated(model, `${SCREENS[screenId]}\n${OUTPUT_INSTRUCTIONS}`, record);
+  const grounded: ScreenFinding[] = [];
+  let dropped = 0;
+  for (const f of res.findings) {
+    const chunk = chunks[f.chunkIndex];
+    // FR-6: grounding is a hard filter, not a preference.
+    if (!chunk || !chunk.content.includes(f.quote)) {
+      dropped++;
+      continue;
+    }
+    grounded.push({ ...f, chunk });
+  }
+  return { grounded, dropped };
+}
+
+export { SCREENS_BY_LANE };
+
+/**
+ * Transaction shape (learned the expensive way on the first live run):
+ * model calls run OUTSIDE any transaction — a Prisma interactive
+ * transaction times out in seconds while a screen takes minutes, which
+ * killed persistence after ~$2 of paid model work. Each screen commits its
+ * own short transaction, so `screen.completed` events reach the tracker as
+ * they happen and a late crash never rolls back earlier screens' work.
+ */
 export async function runAnalysis(
   caseId: string,
   tenantId: string,
   model: AnalysisModel
 ): Promise<AnalysisSummary> {
-  return withTenant(tenantId, async (tx) => {
+  // Short tx 1: validate, freeze chunks, create the run, enter the stages.
+  const { run, chunks, lane } = await withTenant(tenantId, async (tx) => {
     const kase = await tx.case.findUniqueOrThrow({ where: { id: caseId } });
-    if (kase.status !== 'DOCS_COMPLETE') {
+    // ANALYZING re-entry allows a crashed run's retry to start a fresh run.
+    if (kase.status !== 'DOCS_COMPLETE' && kase.status !== 'ANALYZING') {
       throw new Error(`runAnalysis requires DOCS_COMPLETE, case is ${kase.status}`);
     }
 
-    // Freeze the chunk set for this run (immutable; hashes are the anchors).
     const documents = await tx.document.findMany({
       where: { caseId },
       include: { chunks: true },
       orderBy: { createdAt: 'asc' },
     });
-    const chunks = documents.flatMap((d) =>
-      d.chunks.map((c) => ({ ...c, documentId: d.id }))
-    );
-    if (chunks.length === 0) throw new Error('No digitized text to analyze');
+    const frozen = documents.flatMap((d) => d.chunks.map((c) => ({ ...c, documentId: d.id })));
+    if (frozen.length === 0) throw new Error('No digitized text to analyze');
 
     const runNo = (await tx.analysisRun.count({ where: { caseId } })) + 1;
-    const run = await tx.analysisRun.create({
+    const created = await tx.analysisRun.create({
       data: { caseId, tenantId, runNo, modelConfig: { model: model.name, screens: 'v1' } },
     });
 
-    await appendCaseEvent(tx, {
-      caseId, tenantId, type: 'stage.entered', payload: { status: 'DIGITIZING' },
-      actor: 'pipeline', transition: 'DIGITIZING',
-    });
-    await appendCaseEvent(tx, {
-      caseId, tenantId, type: 'stage.entered', payload: { status: 'ANALYZING' },
-      actor: 'pipeline', transition: 'ANALYZING',
-    });
+    if (kase.status === 'DOCS_COMPLETE') {
+      await appendCaseEvent(tx, {
+        caseId, tenantId, type: 'stage.entered', payload: { status: 'DIGITIZING' },
+        actor: 'pipeline', transition: 'DIGITIZING',
+      });
+      await appendCaseEvent(tx, {
+        caseId, tenantId, type: 'stage.entered', payload: { status: 'ANALYZING' },
+        actor: 'pipeline', transition: 'ANALYZING',
+      });
+    }
 
-    const record = chunks
-      .map((c, i) => `[Excerpt ${i}] ${c.content}`)
-      .join('\n\n');
+    return { run: created, chunks: frozen, lane: (kase.lane ?? 'TRIAL') as 'TRIAL' | 'PLEA' };
+  });
 
-    const lane = (kase.lane ?? 'TRIAL') as 'TRIAL' | 'PLEA';
-    let persisted = 0;
-    let dropped = 0;
+  const record = buildRecord(chunks);
+  let persisted = 0;
+  let dropped = 0;
 
-    for (const screenId of SCREENS_BY_LANE[lane]) {
-      const res = await invokeValidated(
-        model,
-        `${SCREENS[screenId]}\n${OUTPUT_INSTRUCTIONS}`,
-        record
-      );
+  for (const screenId of SCREENS_BY_LANE[lane]) {
+    // Model call: minutes, OUTSIDE any transaction.
+    const result = await executeScreen(model, screenId, record, chunks);
+    dropped += result.dropped;
 
-      for (const f of res.findings) {
-        const chunk = chunks[f.chunkIndex];
-        // FR-6: grounding is a hard filter, not a preference.
-        if (!chunk || !chunk.content.includes(f.quote)) {
-          dropped++;
-          continue;
-        }
-        const meta = (chunk.metadata ?? {}) as { volume?: string; page?: number; line?: number };
+    // Short tx per screen: findings + the tracker's honest sub-detail.
+    await withTenant(tenantId, async (tx) => {
+      for (const f of result.grounded) {
+        const meta = (f.chunk.metadata ?? {}) as { volume?: string; page?: number; line?: number };
         await tx.finding.create({
           data: {
             runId: run.id,
             caseId,
             tenantId,
-            stableKey: sha256(`${f.category}:${chunk.id}:${f.quote}`).slice(0, 32),
+            stableKey: sha256(`${f.category}:${f.chunk.id}:${f.quote}`).slice(0, 32),
             category: f.category,
             severity: f.severity,
             confidence: f.confidence,
@@ -167,12 +220,12 @@ export async function runAnalysis(
             partBText: f.partB,
             citations: {
               create: {
-                documentId: chunk.documentId,
+                documentId: f.chunk.documentId,
                 volume: meta.volume ?? null,
                 page: meta.page ?? null,
                 line: meta.line ?? null,
-                chunkId: chunk.id,
-                excerptHash: sha256(chunk.content),
+                chunkId: f.chunk.id,
+                excerptHash: sha256(f.chunk.content),
                 excerpt: f.quote,
               },
             },
@@ -180,18 +233,20 @@ export async function runAnalysis(
         });
         persisted++;
       }
-
       await appendCaseEvent(tx, {
         caseId, tenantId, type: 'screen.completed',
         payload: {
           screen: screenId === 'plea_lane' ? 'plea_lane' : screenId,
-          findingCount: res.findings.length,
+          findingCount: result.grounded.length + result.dropped,
           pagesAnalyzed: chunks.length,
         },
         actor: 'pipeline',
       });
-    }
+    });
+  }
 
+  // Short tx 3: adjudication + hand-off to QA.
+  await withTenant(tenantId, async (tx) => {
     await appendCaseEvent(tx, {
       caseId, tenantId, type: 'stage.entered', payload: { status: 'ADJUDICATING' },
       actor: 'pipeline', transition: 'ADJUDICATING',
@@ -205,11 +260,10 @@ export async function runAnalysis(
       caseId, tenantId, type: 'stage.entered', payload: { status: 'QA_REVIEW' },
       actor: 'pipeline', transition: 'QA_REVIEW',
     });
-
     await tx.analysisRun.update({ where: { id: run.id }, data: { completedAt: new Date() } });
-
-    return { runId: run.id, screensRun: SCREENS_BY_LANE[lane].length, findingsPersisted: persisted, droppedUngrounded: dropped };
   });
+
+  return { runId: run.id, screensRun: SCREENS_BY_LANE[lane].length, findingsPersisted: persisted, droppedUngrounded: dropped };
 }
 
 /**
