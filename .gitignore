@@ -51,3 +51,4 @@ Test Case Files/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+exports/
