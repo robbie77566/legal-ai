@@ -72,6 +72,36 @@ const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"cat
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
 /**
+ * Escape raw control characters that appear INSIDE string literals — the
+ * prompt demands quotes copied character-for-character, so the model
+ * faithfully reproduces transcript line breaks inside JSON strings, which
+ * is invalid JSON (learned on Brian's line-broken reporter's record).
+ * String-aware: control characters outside strings (legal whitespace) are
+ * untouched; the unescaped value round-trips back to the real newline.
+ */
+function escapeControlCharsInStrings(jsonText: string): string {
+  let out = '';
+  let inStr = false, esc = false;
+  for (const ch of jsonText) {
+    if (inStr) {
+      if (esc) { esc = false; out += ch; continue; }
+      if (ch === '\\') { esc = true; out += ch; continue; }
+      if (ch === '"') { inStr = false; out += ch; continue; }
+      const code = ch.charCodeAt(0);
+      if (code < 0x20) {
+        out += code === 10 ? '\\n' : code === 13 ? '\\r' : code === 9 ? '\\t' : '';
+        continue;
+      }
+      out += ch;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    out += ch;
+  }
+  return out;
+}
+
+/**
  * Recover complete top-level objects from a truncated findings array —
  * a max_tokens cutoff mid-array must not void the findings that finished
  * (learned from the Fable comparison run: verbose models hit the cap).
@@ -106,7 +136,9 @@ async function invokeValidated(model: AnalysisModel, system: string, user: strin
   for (let attempt = 0; attempt < 2; attempt++) {
     const raw = await model.invoke(system, user);
     try {
-      const jsonText = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
+      const jsonText = escapeControlCharsInStrings(
+        raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
+      );
       let elements: unknown[];
       try {
         const parsed = JSON.parse(jsonText) as { findings?: unknown[] };

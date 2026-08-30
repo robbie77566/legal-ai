@@ -127,6 +127,23 @@ describe('response salvage (live-run lesson: one bad element must not void the s
     const res = await executeScreen(truncModel, 'junk_science', buildRecord(chunks), chunks);
     expect(res.grounded).toHaveLength(2);
   });
+
+  it('escapes raw control characters inside quote strings (Brian record lesson)', async () => {
+    const { executeScreen, buildRecord } = await import('../src/services/analysis.service');
+    const content = `${run} THE COURT: Overruled.\nMR. SMITH: Note our exception.`;
+    const chunks = [{ id: 'ch1', documentId: 'd1', content, metadata: {} }];
+    // The model copies the transcript line break verbatim INSIDE the JSON
+    // string — invalid JSON that must parse after the escape pass, and the
+    // restored newline must still ground against the chunk.
+    const rawWithNewline =
+      '{"findings":[{"category":"preserved_error","severity":"supportive","confidence":0.7,' +
+      '"chunkIndex":0,"quote":"THE COURT: Overruled.\nMR. SMITH: Note our exception.",' +
+      '"partA":"ok","partB":"ok"}]}';
+    const ctrlModel = { name: 'fake-ctrl', invoke: async () => rawWithNewline };
+    const res = await executeScreen(ctrlModel, 'junk_science', buildRecord(chunks), chunks);
+    expect(res.grounded).toHaveLength(1);
+    expect(res.grounded[0].quote).toContain('\nMR. SMITH');
+  });
 });
 
 describe('runAnalysis (FR-6 grounding + state machine)', () => {
