@@ -136,7 +136,7 @@ async function main() {
       console.log(`    queued ${filename} (${((obj.Size ?? 0) / 1048576).toFixed(1)} MB)`);
     }
     console.log('  → run `pnpm --filter api dev` and watch the tracker digitize.');
-    console.log('  → then “My records are complete” starts the analysis (needs GEMINI_API_KEY).');
+    console.log('  → then “My records are complete” starts the analysis (needs ANTHROPIC_API_KEY).');
   }
   console.log('────────────────────────────────────────────');
 }
