@@ -161,6 +161,18 @@ export default async function qaRoutes(fastify: FastifyInstance) {
         details: { decision: 'approved', reportId: report.id, versionNo },
       });
 
+      // Report-ready email to the case owner (ENG-9). READY -> DELIVERED
+      // stays gated on real delivery confirmation once bounce webhooks land.
+      const ownerAccess = await tx.caseAccess.findFirst({ where: { caseId: id, role: 'ADMIN' } });
+      const owner = ownerAccess
+        ? await prisma.user.findUnique({ where: { id: ownerAccess.userId } })
+        : null;
+      if (owner?.email) {
+        const origin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
+        const { sendReportReady } = await import('@hg/email');
+        void sendReportReady(owner.email, { caseUrl: `${origin}/case/${id}/report` });
+      }
+
       return { reportId: report.id, versionNo };
     });
   });

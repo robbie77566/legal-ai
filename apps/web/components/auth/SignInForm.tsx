@@ -132,6 +132,13 @@ export function SignInForm() {
         >
           {isLoading ? 'Signing in…' : 'Sign in'}
         </button>
+
+        <a
+          href="/auth/forgot-password"
+          className="block text-center text-sm text-gray-500 underline hover:text-gray-300"
+        >
+          Forgot your password?
+        </a>
       </div>
     </form>
   );

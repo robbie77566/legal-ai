@@ -24,6 +24,7 @@
     "@hg/auth": "workspace:*",
     "@hg/case-lifecycle": "workspace:*",
     "@hg/database": "workspace:*",
+    "@hg/email": "workspace:*",
     "@langchain/core": "^1.2.9",
     "@sentry/node": "^10.71.0",
     "adm-zip": "^0.5.17",

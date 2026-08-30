@@ -15,6 +15,7 @@ import opsRoutes from './routes/ops'
 import nextStepsRoutes, { sharedReportRoutes } from './routes/next-steps'
 import eligibilityRoutes, { deleteExpiredEligibilityDrafts } from './routes/eligibility'
 import checkoutRoutes from './routes/checkout'
+import authRecoveryRoutes from './routes/auth-recovery'
 import stripeWebhookRoutes from './routes/stripe-webhooks'
 import { reconcilePayments, getStripe } from './services/payments.service'
 import fastifyMultipart from '@fastify/multipart';
@@ -94,6 +95,7 @@ fastify.register(permissionsRoutes, { prefix: '/permissions' })
 fastify.register(eligibilityRoutes, { prefix: '/eligibility' })
 fastify.register(checkoutRoutes) // /buy/account + /checkout/session
 fastify.register(stripeWebhookRoutes, { prefix: '/webhooks' })
+fastify.register(authRecoveryRoutes, { prefix: '/auth' })
 
 fastify.get('/', async (request, reply) => {
   return { hello: 'world' }

@@ -188,6 +188,14 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         request.log.error({ err: e }, 'analysis enqueue failed — case parked at DOCS_COMPLETE');
       }
 
+      const owner = await tx.user.findUnique({ where: { id: userId } });
+      if (owner?.email) {
+        const { sendRecordsComplete } = await import('@hg/email');
+        void sendRecordsComplete(owner.email, {
+          expectedReadyBy: updated.expectedReadyAt?.toISOString().slice(0, 10),
+        });
+      }
+
       return { status: updated.status, slaStartedAt: updated.slaStartedAt, expectedReadyAt: updated.expectedReadyAt };
     });
   });

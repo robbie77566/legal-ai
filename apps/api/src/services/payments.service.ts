@@ -185,6 +185,13 @@ export async function fulfillCheckoutSession(session: {
     return created.id;
   });
 
+  // Receipt (ENG-9): fire-and-forget — a failed send never fails fulfillment.
+  const buyer = await prisma.user.findUnique({ where: { id: userId } });
+  if (buyer?.email) {
+    const { sendReceipt } = await import('@hg/email');
+    void sendReceipt(buyer.email, { amountCents: session.amount_total ?? PRICES_CENTS.review });
+  }
+
   // Promotion complete: the draft is copied, now deleted (ENG-7).
   if (draft) {
     await prisma.eligibilityDraft.delete({ where: { token: draft.token } }).catch(() => {});
