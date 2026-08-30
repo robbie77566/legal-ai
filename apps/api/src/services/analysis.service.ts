@@ -71,18 +71,58 @@ const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"cat
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
+/**
+ * Recover complete top-level objects from a truncated findings array —
+ * a max_tokens cutoff mid-array must not void the findings that finished
+ * (learned from the Fable comparison run: verbose models hit the cap).
+ */
+function salvageTruncatedArray(jsonText: string): unknown[] | null {
+  const start = jsonText.indexOf('[');
+  if (start < 0) return null;
+  const items: unknown[] = [];
+  let depth = 0, inStr = false, esc = false, objStart = -1;
+  for (let i = start + 1; i < jsonText.length; i++) {
+    const ch = jsonText[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{') { if (depth === 0) objStart = i; depth++; }
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0 && objStart >= 0) {
+        try { items.push(JSON.parse(jsonText.slice(objStart, i + 1))); } catch { /* skip */ }
+        objStart = -1;
+      }
+    } else if (ch === ']' && depth === 0) break;
+  }
+  return items.length ? items : null;
+}
+
 async function invokeValidated(model: AnalysisModel, system: string, user: string) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const raw = await model.invoke(system, user);
     try {
       const jsonText = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
-      const parsed = JSON.parse(jsonText) as { findings?: unknown[] };
-      if (!Array.isArray(parsed.findings)) throw new Error('no findings array');
+      let elements: unknown[];
+      try {
+        const parsed = JSON.parse(jsonText) as { findings?: unknown[] };
+        if (!Array.isArray(parsed.findings)) throw new Error('no findings array');
+        elements = parsed.findings;
+      } catch (parseErr) {
+        const recovered = salvageTruncatedArray(jsonText);
+        if (!recovered) throw parseErr;
+        console.warn(`[analysis] truncated response — recovered ${recovered.length} complete finding(s)`);
+        elements = recovered;
+      }
       // Per-finding salvage: one malformed element must never void its
       // siblings (the second lesson of the first live run).
       const findings: z.infer<typeof FindingOutput>[] = [];
       let invalid = 0;
-      for (const item of parsed.findings) {
+      for (const item of elements) {
         const check = FindingOutput.safeParse(item);
         if (check.success) findings.push(check.data);
         else invalid++;

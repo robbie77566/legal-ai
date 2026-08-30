@@ -1,0 +1,495 @@
+{
+  "caseId": "cmtfunjd10002u733xuw8r7p0",
+  "championRunId": "cmtfyttxy000qgzi8zcay7h87",
+  "championModel": "claude-opus-5",
+  "challengerModel": "claude-fable-5",
+  "champion": [
+    {
+      "category": "sentencing",
+      "severity": "dispositive",
+      "confidence": 0.72,
+      "partB": "Double-jeopardy/multiple-punishments claim preserved at Vol. 4 pp. 4–6 and re-urged at pp. 92–97; the court deferred ruling ('We can cover it later'), then denied at p. 97 on a Blockburger 'contact versus penetration' rationale. Under Patterson v. State, 152 S.W.3d 88 (Tex. Crim. App. 2004), and its progeny, indecency by contact may be subsumed as a lesser-included/incident act where the touching is part of the same continuous assaultive transaction and the State does not elect discrete acts. Here the complainant described a single uninterrupted episode in the truck cab in which the breast contact immediately preceded penetration; the State charged one date, one victim, one transaction and conceded 'we don't have multiple dates.' The error is compounded by (a) two automatic life sentences under Tex. Penal Code § 12.42(c)(2), and (b) cumulation under art. 42.08, transforming a subsumed count into a consecutive life term. Multiple-punishments double jeopardy may be raised for the first time on appeal where the violation is apparent on the face of the record (Gonzalez v. State, 8 S.W.3d 640). This is the strongest appellate issue in the record.",
+      "quotes": [
+        "THE COURT: Court will order that the\n24\nsentences run consecutively. Anything else?"
+      ]
+    },
+    {
+      "category": "iac",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "partB": "Counsel called three punishment witnesses (Araya, Rangel, Gatlin) none of whom had been advised of the client's prior conviction for burglary of a habitation with intent to commit sexual assault or his sex-offender registrant status. On cross, the State used each witness as a vehicle to publish State's Exhibits 38, 39, and 40 and to elicit that a girlfriend of six years would still permit her daughter around the defendant. Gatlin was elicited to concede guilt ('Q. He guilty? Did he do it? A. Yes. Yes.') and to volunteer 'I wonder why he didn't kill her?' Presenting unvetted character witnesses in an automatic-life enhancement posture, where the sole contested issue was fingerprint identity linking the defendant to the 1986 pen packet, was affirmatively harmful. Prejudice analysis must account for the fact that the enhancement finding — not moral character — controlled the sentence, making the character presentation not merely unhelpful but a conduit for the State's identity proof.",
+      "quotes": [
+        "Q. Where was he on June 12th, 2022?\n24\nA. I don't know.\n25\nQ. No idea. Were you dating him then?"
+      ]
+    },
+    {
+      "category": "iac",
+      "severity": "supportive",
+      "confidence": 0.62,
+      "partB": "Cross-examination of the complaining witness, the sole occurrence witness, consisted of approximately five questions on a collateral point (boyfriend's location in Pennsylvania) with no confrontation of the material inconsistencies counsel himself identified in opening and closing: the location of the assault (back seat per Perry vs. front passenger seat per trial testimony), the absence of any drugging/blackout account in the SANE history (State's Ex. 20) versus her trial claim of vision going white, and whether she used the McDonald's restroom. Counsel's stated tactical reason — avoiding the door-opening of prior consistent statements under Tome/Hammons (see Vol. 4 at 90) — must be evaluated against the fact that the CAC video and text messages were already excluded and the State had rested. Whether the wholesale abandonment of impeachment on a pure credibility case constitutes deficient performance and whether confidence in the outcome is undermined warrants record development under Strickland; the present record is silent as to counsel's reasoning beyond the bench colloquy.",
+      "quotes": [
+        "MR. DAVIS: I pass the witness, Judge.\n22\nThank you, Ms. Stutts."
+      ]
+    },
+    {
+      "category": "iac",
+      "severity": "supportive",
+      "confidence": 0.58,
+      "partB": "Venue in San Jacinto County and the inculpatory 29-minute 'gap' rested entirely on Sgt. Sheikh's lay interpretation of AT&T CDRs plotted on a free coordinate-mapping website (batchego.com), which he conceded were 'limited in reliability' and which he admitted did not match the McDonald's surveillance timestamp (9:15 p.m. video vs. 9:21–9:35 p.m. ping). Counsel elicited these concessions but retained no CSLI expert, and the trial court repeatedly sustained 'assumes facts not in evidence' objections precisely because no defense expert supported the cross. Failure to investigate and retain a readily available forensic cell-site expert on the sole evidence establishing the venue element and the temporal gap is a colorable failure-to-investigate claim; prejudice is heightened because counsel's directed-verdict motion (Vol. 4 at 91) was denied on this same evidence.",
+      "quotes": [
+        "MR. FREYER: I'm going to respectfully\n6\nobject to the attorney testifying. Assuming facts not\n7\nin evidence. He's already said he's not a qualified\n8\ncell phone expert per se. He can read a map, but this\n9\nis all assuming facts not in evidence unless they have\n10\nan expert."
+      ]
+    },
+    {
+      "category": "preserved_error",
+      "severity": "supportive",
+      "confidence": 0.6,
+      "partB": "The State's DNA case came in through an analyst who did not perform the biological screening, extraction, quantification, or amplification. The defense objected that this violated the right to confront the person who actually did the testing. The objection was overruled and the reports came in anyway.",
+      "quotes": [
+        "MR. DAVIS: Your Honor, Ms. Solis is here\n12\nrepresenting to be a witness concerning the DNA\n13\nanalysis. She's reviewed the DNA but she didn't, seems\n14\nto me - -\n15\nMR. FREYER: She did do it.\n16\nMR. DAVIS: She did the analysis - -\n17\nMR. FREYER: Mm-hmm.\n18\nMR. DAVIS: - - but she didn't do the\n19\nextraction, she didn't do any other testing other than\n20\njust the analysis itself, I guess, looking at the DNA\n21\nprofiles and comparing them. I'd object that this\n22\nwitness is the improper witness to testify as to the\n23\nDNA. I don't have a chance to cross-examine, to\n24\nconfront and cross-examine the witness who did the\n25\nextraction, did the amplification, or did any other"
+      ]
+    },
+    {
+      "category": "iac",
+      "severity": "background",
+      "confidence": 0.42,
+      "partB": "Counsel obtained a favorable ruling excluding State's Ex. 1 (uncertified birth certificate) on best-evidence grounds and secured sustained hearsay objections foreclosing Sheikh from proving the complainant's age. The State cured the following day through the mother's sponsorship, and the court admitted the same uncertified copy over renewed objection. Note for appellate purposes: the trial court's inconsistent rulings on the identical exhibit, and the fact that the age element ultimately rested on an uncertified document plus lay testimony, are preserved but likely harmless given the complainant's own testimony to her date of birth. Catalogued as background context for the element-proof sequence.",
+      "quotes": [
+        "MR. FREYER: Deals with the element of\n18\nthe offense, respectfully, Judge. And it's not being\n19\noffered for the weight and the admissibility of the fact\n20\nthat she is in fact a child."
+      ]
+    },
+    {
+      "category": "junk_science",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "partB": "The § 12.42(c)(2) automatic-life enhancement turned on identity linkage to Cause No. 431106 (1986). The State's print examiner, Goodwin, conceded he could not effect a print comparison on either pen packet (Ex. 39 or Ex. 40) due to scarring on the right thumb and microfilm degradation, and testified he relied solely on documentary identifiers (FBI number, SID, DL, SSN, cause number) appearing on Harris County jail cards (Ex. 42). Counsel developed this concession on cross but did not move for a directed finding of 'not true' on the enhancement or request a limiting instruction on the identifier-based linkage, and did not retain an independent latent print examiner. Given that the enhancement finding converted a 2–20 year range into mandatory life on both counts, the adequacy of the identity proof and counsel's response to it warrant sufficiency review and Strickland development.",
+      "quotes": [
+        "A. Well, out of all of this what I'm basically\n23\nleft with is the right thumb. So that's what I looked\n24\nat. Yes, sir, the right thumb."
+      ]
+    },
+    {
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.72,
+      "partB": "Sgt. Sheikh testified he received a July 15, 2022 call from an unidentified female (903-452-4609) asserting the complainant may be fabricating the allegation, that he returned the call, that the caller did not identify herself, and that he conducted no further investigation. This is exculpatory/impeachment material under Brady v. Maryland and Tex. Code Crim. Proc. art. 39.14(h) in a credibility-driven single-complainant sexual assault prosecution. The record does not reflect that the caller's identity, the substance of the call, any recording, or the supplement memorializing it were disclosed to the defense. Appellate/habeas counsel should determine (1) whether the State disclosed the supplement and call detail, (2) whether the caller was identified or identifiable, and (3) whether the failure to investigate a lead directly bearing on fabrication is material under Kyles v. Whitley, given the State's own trial theory that no witness could articulate a motive to lie.",
+      "quotes": [
+        "Q. All right. Now, also on July 15th you received\n8\na phone call from someone who seemed concerned, correct?\n9\nA. Correct.\n10\nQ. All right. And without getting into what was\n11\nsaid, that was an allegation, wouldn't you agree, that\n12\nDaisy could be lying about this?\n13\nA. Yes.\n14\nQ. Okay. And you had the phone number, correct?\n15\nA. Yes.\n16\nQ.\nThat phone number was (903) 452-4609, correct?\n17\nA. Yes.\n18\nQ. Did you call that number and talk to that\n19\nperson?\n20\nA. Yes."
+      ]
+    },
+    {
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.55,
+      "partB": "The prosecutor stated on the record that the Burke Center counseling records contained substantial material 'not very complimentary' of the complainant and declined to offer them for fear of optional completeness. Defense counsel elicited some content from those records through Jennifer Stutts (Excerpts 336-338), indicating partial access, but the extent and completeness of the State's disclosure of the mental-health/counseling file is not established in the record. Post-conviction counsel should confirm full production under art. 39.14 and Brady, and assess materiality of any withheld impeachment content in a case tried entirely on complainant credibility.",
+      "quotes": [
+        "MR. FREYER: And there's a risk of\n19\noffering the Burke records because there's a bunch of\n20\nstuff in here that's not very complimentary of my\n21\nvictim. You know, she obviously has lots of problems.\n22\nAnd under the Rule of Optional Completeness, if I offer\n23\npart of them, then the rest of them come in, so."
+      ]
+    },
+    {
+      "category": "preserved_error",
+      "severity": "supportive",
+      "confidence": 0.68,
+      "partB": "Trial counsel lodged a specific and repeated Confrontation Clause objection to Solis testifying to biology reports (State's Exhibits 33 and 35) authored by non-testifying analyst Patnaik, and to DNA extraction/quantification/amplification performed by an unidentified third analyst. Objection was overruled (Excerpt 114) and re-urged and again overruled as to Exhibit 35 (Excerpt 133), preserving error. This presents a preserved Crawford/Bullcoming/Williams issue: whether the underlying biology reports and raw testing data are testimonial and whether Solis was a mere conduit for a non-testifying analyst's conclusions. Given that the State's case rested heavily on the DNA statistics, harm analysis under Tex. R. App. P. 44.2(a) is favorable to appellant.",
+      "quotes": [
+        "MR. DAVIS: Your Honor, Ms. Solis is here\n12\nrepresenting to be a witness concerning the DNA\n13\nanalysis. She's reviewed the DNA but she didn't, seems\n14\nto me - -\n15\nMR. FREYER: She did do it.\n16\nMR. DAVIS: She did the analysis - -\n17\nMR. FREYER: Mm-hmm.\n18\nMR. DAVIS: - - but she didn't do the\n19\nextraction, she didn't do any other testing other than\n20\njust the analysis itself, I guess, looking at the DNA\n21\nprofiles and comparing them. I'd object that this\n22\nwitness is the improper witness to testify as to the\n23\nDNA. I don't have a chance to cross-examine, to\n24\nconfront and cross-examine the witness who did the\n25\nextraction, did the amplification, or did any other"
+      ]
+    },
+    {
+      "category": "preserved_error",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "partB": "Preserved venue/jurisdictional sufficiency challenge via motion for directed verdict, denied. The State's territorial-jurisdiction proof rested on (1) the complainant's statement that the defendant 'told' her they were in Coldspring (hearsay-adjacent, uncorroborated), (2) Sgt. Sheikh's testimony that FM 945/SH 156 was where he 'believe[d] most likely' the assault occurred, and (3) the unreliable cell-site map (Ex. 18). Preserves an Art. 13.17 / legal-sufficiency claim that dovetails with the Rule 702 challenge to the cell-site evidence.",
+      "quotes": [
+        "Your Honor, I'd ask for a directed verdict based on the\n10\nfact that I don't believe the State of Texas has proven\n11\none of the elements in the case that it happened in San\n12\nJacinto County. That I believe the witness Ms. Stutts,\n13\nDaisy Stutts testified that it happened in a sandy area,\n14\nand I think that was it."
+      ]
+    },
+    {
+      "category": "preserved_error",
+      "severity": "supportive",
+      "confidence": 0.62,
+      "partB": "Preserved objection under Tex. R. Evid. 701/702 and Kelly/Nenno to Sgt. Sheikh's historical cell-site testimony and the Batchgeo-derived map (State's Exhibit 18). Sheikh conceded on voir dire that he is not a cell-site expert and had never so testified (Excerpt 248-249), yet was permitted to opine that a 29-minute travel-time 'gap' established the defendant stopped somewhere in San Jacinto County — the sole evidentiary link on the contested venue element (see Excerpts 258-259, 434). See Wells v. State and Fifth Circuit/CCA authority requiring expert qualification for historical cell-site location analysis. The venue-element materiality of this testimony, coupled with Sheikh's admission that the cell records placed the truck in Livingston at 9:21 while surveillance showed 9:15 (Excerpt 282-283), supports a harm argument.",
+      "quotes": [
+        "MR. DAVIS: Okay. Then, Your Honor, I\n10\nobject to relevance to this witness. I don't think he\n11\ncan testify to these, this document. And I still object\n12\nthat they don't have everything complete in these\n13\ndocuments.\n14\nMR. FREYER: This goes respectfully to\n15\nthe weight not the admissibility of these."
+      ]
+    },
+    {
+      "category": "sentencing",
+      "severity": "dispositive",
+      "confidence": 0.66,
+      "partB": "The jury assessed automatic life under Tex. Penal Code § 12.42(c)(2) on both counts and added a $10,000 fine on each. Section 12.42(c)(2) mandates 'imprisonment for life' and does not authorize a fine; a fine assessed in addition to a statutorily mandated life term is void and may be reformed or stricken on appeal or attacked as an illegal sentence at any time (Mizell v. State, 119 S.W.3d 804 (Tex. Crim. App. 2003)). The charge nonetheless authorized the jury to assess a fine alongside the mandatory life term (Excerpts 576-577, 583-586). Additionally, the trial court cumulated two life sentences (Excerpt 601) — counsel should verify that art. 42.08(a)/§ 3.03(b) authorized stacking on these two counts arising from the same criminal episode and that the cumulation order is sufficiently specific.",
+      "quotes": [
+        "THE COURT: All right. Verdict. Count\n10\nI. We, the Jury, having found the defendant, Gary Lynn\n11\nEllis, guilty beyond a reasonable doubt of the offense\n12\nof Sexual Assault of a Child, as charged in the\n13\nindictment, find he is the same person who was convicted\n14\non the February 11th, 1986, in the 184th District Court\n15\nin Harris County, Texas, in Cause No. 431106 for the\n16\noffense of Burglary of Habitation With Intent to Commit\n17\nSexual Assault, said conviction prior to the commission\n18\nof the offense and assess confinement in the\n19\nInstitutional Division of Texas Department of Justice\n20\nfor life. In addition thereto, we assess a fine of\n21\n$10,000."
+      ]
+    },
+    {
+      "category": "preserved_error",
+      "severity": "supportive",
+      "confidence": 0.58,
+      "partB": "Trial counsel preserved a double-jeopardy/multiple-punishments objection, arguing indecency by contact was subsumed within the sexual assault as a single continuous criminal episode; the objection was renewed at the charge conference and denied (Excerpts 436, 439-440). Under Patterson v. State, 152 S.W.3d 88 (Tex. Crim. App. 2004), and Aekins v. State, 447 S.W.3d 270 (Tex. Crim. App. 2014), sexual contact that is merely a preparatory or incidental step subsumed in the same act of penetration cannot support separate convictions. The complainant's testimony (Excerpt 406) described the breast contact as part of the same uninterrupted assault. Combined with the trial court's cumulation order (Excerpt 601), this preserved issue is dispositive as to Count II if Aekins applies.",
+      "quotes": [
+        "I `think my\n15\ninitial argument would be indecency is a lesser included\n16\noffense of the sexual assault. It will be consumed by\n17\nthe sexual assault. I think the evidence in trial would\n18\nshow that it's the same criminal episode. All happened\n19\nat one time. And therefore, double jeopardy would apply\n20\nto it if both charges were included in there."
+      ]
+    },
+    {
+      "category": "preserved_error",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "partB": "Preserved hearsay objections to the admission of the complainant's out-of-court statements to Jennifer Stutts under the excited-utterance exception, Tex. R. Evid. 803(2). Counsel specifically objected on remoteness grounds (Excerpts 321-322), noting a 15-20 minute intervening drive plus the pre-existing intake at McDonald's; the court overruled. The prosecutor's assertion that 'excited utterance can be 15 hours' (Excerpt 322) overstates the standard; the controlling inquiry under Zuliani v. State, 97 S.W.3d 589 (Tex. Crim. App. 2003), is whether the declarant was still dominated by the emotions of the event. Note also the State's stated strategy of stacking prior consistent statements (Excerpt 340-341, 350-351) and the cited authority read into the record — appellate counsel should evaluate whether the Tex. R. Evid. 801(e)(1)(B) predicate (charge of recent fabrication) was ever properly established, given trial counsel's express disavowal (Excerpt 433).",
+      "quotes": [
+        "MR. FREYER: He authenticated them\n23\nyesterday that that is what she told him as part of an\n24\nexcited utterance. And he was also stressed out and\n25\nworried about what she had just told him about what had"
+      ]
+    },
+    {
+      "category": "junk_science",
+      "severity": "supportive",
+      "confidence": 0.55,
+      "partB": "Preserved Confrontation Clause objection under Crawford/Bullcoming/Smith v. Arizona (2024). Analyst Solis testified she performed only comparison/interpretation; extraction, quantification, amplification, and detection were performed by non-testifying analysts, and the screening biology reports (State's Ex. 33, 35) were authored by non-testifying analyst Patnaik. Objection was made and expressly renewed as to Ex. 35 (Vol. 3 at 57), overruled. Smith v. Arizona holds that a surrogate expert may not convey a non-testifying analyst's testimonial statements as the basis for an opinion. Preserved for direct appeal and, if unraised, a potential IAC-on-appeal claim.",
+      "quotes": [
+        "Your Honor, Ms. Solis is here\n12\nrepresenting to be a witness concerning the DNA\n13\nanalysis. She's reviewed the DNA but she didn't, seems\n14\nto me - -\n15\nMR. FREYER: She did do it.\n16\nMR. DAVIS: She did the analysis - -\n17\nMR. FREYER: Mm-hmm.\n18\nMR. DAVIS: - - but she didn't do the\n19\nextraction, she didn't do any other testing other than\n20\njust the analysis itself, I guess, looking at the DNA\n21\nprofiles and comparing them. I'd object that this\n22\nwitness is the improper witness to testify as to the\n23\nDNA. I don't have a chance to cross-examine, to\n24\nconfront and cross-examine the witness who did the\n25\nextraction, did the amplification, or did any other"
+      ]
+    },
+    {
+      "category": "junk_science",
+      "severity": "supportive",
+      "confidence": 0.6,
+      "partB": "Sgt. Sheikh conceded he is not a cell-site expert and had never been qualified as one, yet the court admitted State's Ex. 18 (a self-made map generated on a free coordinate-plotting website, 'Batchego.com') and permitted him to opine that a 29-minute 'gap' between the Willis Valero video and the Livingston McDonald's video 'suggests that the suspect stopped somewhere.' Defense objected on relevance, hearsay, reliability, and lack of expertise (Vol. 3 at 169-173); overruled. This is lay testimony conveying expert historical cell-site location conclusions in violation of TRE 701/702 and Kelly/Daubert reliability requirements; the witness himself testified AT&T 'explicitly states their records and coordinates are not to be used accurately.' Preserved Rule 702 reliability claim central to venue and to the State's only proof of an opportunity window.",
+      "quotes": [
+        "You're not a cell phone expert, are you?\n24\nA. No.\n25\nQ.\nYou've taken a couple of classes. Is that"
+      ]
+    },
+    {
+      "category": "junk_science",
+      "severity": "background",
+      "confidence": 0.4,
+      "partB": "The State's fingerprint examiner (Goodwin) expressly declined to make a print comparison on State's Ex. 39 (the 1986 Burglary of a Habitation with Intent to Commit Sexual Assault pen packet) and on Ex. 40 and Ex. 41, testifying 'I didn't make a comparison due to the distortion' and 'I can't compare it.' Identity for the automatic-life enhancement rested solely on documentary identifiers (FBI/SID/SPN numbers, DOB, address) and lay opinions from defense character witnesses shown booking photos on cross. Defense preserved objections to the pen-packet self-authentication (incomplete declaration, no page count) and made a closing argument that the enhancement was unproven. Supports a sufficiency-of-the-enhancement challenge under Flowers v. State to two stacked life sentences.",
+      "quotes": [
+        "The prints I have on the documents I was\n13\nprovided from the Harris County, was from Harris County,\n14\nonly have the right thumb. Mr. Ellis has had an injury\n15\nand scarring to his right thumb that distorts the print\n16\nand it's harder for me, it's hard for me to be\n17\ncomfortable going on that print itself."
+      ]
+    },
+    {
+      "category": "sentencing",
+      "severity": "dispositive",
+      "confidence": 0.7,
+      "partB": "Consecutive life sentences were imposed on Count I (Sexual Assault of a Child) and Count II (Indecency with a Child by Contact) arising from the same criminal episode and same complainant on 6/12/2022. Defense preserved a double-jeopardy/lesser-included objection at the charge conference (Vol. 4 at 4, 93, 96-97) arguing indecency-by-contact merges into the sexual assault; overruled. Preserves (1) a Blockburger/Patterson v. State multiple-punishments claim where the indecency contact may be demonstrative of and subsumed within the penetration offense, and (2) a Tex. Penal Code § 3.03(b)(2) cumulation-order challenge. A double-jeopardy multiple-punishments claim may be raised for the first time on appeal where the violation is apparent on the face of the record.",
+      "quotes": [
+        "Court will order that the\n24\nsentences run consecutively."
+      ]
+    },
+    {
+      "category": "preserved_error",
+      "severity": "supportive",
+      "confidence": 0.45,
+      "partB": "Preserved improper-jury-argument claim: prosecutor's statement that defense counsel 'has the same subpoena power we do, and same right to call witnesses' shifts the burden of proof. Objection, request for instruction, and motion for mistrial all made and ruled upon — full preservation under Cockrell v. State. The trial court gave only a general curative instruction after denying the mistrial. Compounded by the prosecutor's repeated 'slam dunk' characterizations and closing remarks urging jurors to think of their own children.",
+      "quotes": [
+        "MR. DAVIS: I didn't have to call an\n11\nexpert because it's their job to prove it beyond a\n12\nreasonable doubt.\n13\nMR. FREYER: I object to that. He's got\n14\nthe same subpoena power we do, and same right to call\n15\nwitnesses. I respectfully object to that.\n16\nMR. DAVIS: And I think that's an\n17\nimproper comment on the burden of proof in this case,\n18\nJudge.\n19\nTHE COURT: Overruled.\n20\nMR. DAVIS: I'd ask for a mistrial.\n21\nTHE COURT: Pardon? I didn't hear you.\n22\nMR. DAVIS: I'd ask for a mistrial.\n23\nTHE COURT: Denied."
+      ]
+    },
+    {
+      "category": "preserved_error",
+      "severity": "supportive",
+      "confidence": 0.65,
+      "partB": "Preserved Rule 901/902(4) authentication objection to State's Exhibit 39 (1986 pen packet, Cause No. 431106), the sole documentary predicate for the § 12.42(c)(2) automatic-life enhancement. Objection overruled; error preserved under Tex. R. App. P. 33.1. Combined with the fingerprint expert's inability to make a comparison (see Goodwin's testimony that scarring precluded comparison of the right thumb), the sufficiency of the linkage evidence connecting Ellis to Cause No. 431106 is a live appellate issue. If the enhancement fails, the life sentences exceed the 2–20 year range for both second-degree counts.",
+      "quotes": [
+        "MR. DAVIS: Your Honor, I have the same\n21\nobjections to State's 39 as I did to the previous pen\n22\npacket that we had that I don't think the declaration of\n23\nSarah Wright, who is the declarant providing the pen\n24\npacket is a correct, and we don't know how many pages\n25\nare included in the pen packet."
+      ]
+    },
+    {
+      "category": "sentencing",
+      "severity": "supportive",
+      "confidence": 0.6,
+      "partB": "The State's identification witness conceded he could not perform a fingerprint comparison linking the defendant to the 1986 pen packet (State's Ex. 39) or to the 2010 pen packet (State's Ex. 40), relying instead on FBI/SID/DL identifiers from the sex-offender registration packet (State's Ex. 38). Counsel should brief legal sufficiency of the enhancement linkage under Flowers v. State, 220 S.W.3d 919 (Tex. Crim. App. 2007) (totality-of-circumstances 'jigsaw puzzle' test). If the linkage evidence is legally insufficient, the automatic-life finding fails and the case must be remanded for a new punishment hearing within the correct range.",
+      "quotes": [
+        "The prints I have on the documents I was\n13\nprovided from the Harris County, was from Harris County,\n14\nonly have the right thumb. Mr. Ellis has had an injury\n15\nand scarring to his right thumb that distorts the print\n16\nand it's harder for me, it's hard for me to be\n17\ncomfortable going on that print itself."
+      ]
+    }
+  ],
+  "challenger": [
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.8,
+      "chunkIndex": 275,
+      "quote": "Daisy could be lying about this?",
+      "partA": "During the trial, the lead detective admitted that in July 2022 he got a phone call from an unnamed woman who suggested the accuser might be lying. He talked to her briefly, but the record shows he never followed up or investigated her claim. The caller's identity and what she actually said do not appear anywhere in the evidence.",
+      "partB": "Sgt. Sheikh conceded on cross that on or about July 15, 2022 he received a call from an unidentified female (number of record (903) 452-4609) constituting 'an allegation... that Daisy could be lying,' and at Excerpt 277 admitted 'she did not identify herself' and that he conducted no further investigation. The substance of the call was excluded as hearsay and no report of its content appears to have been admitted. This is a facially exculpatory lead warranting a Brady/art. 39.14 audit: whether the full supplement, caller identity efforts, and any recording/notes were produced, and whether counsel investigated the caller (also a potential IAC investigation thread).",
+      "chunkId": "cmtfx0g2203x62m6jgltcpfmp"
+    },
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.75,
+      "chunkIndex": 243,
+      "quote": "handed me two other packets. Were these also included",
+      "partA": "In the middle of trial, the prosecutor handed the defense lawyer extra stacks of phone-record pages. The detective on the stand said he had never seen them and did not know what they were. This raises a question about whether all of the phone records were shared before trial.",
+      "partB": "During voir dire on State's 18/19 (AT&T CDRs), defense counsel was tendered 'two other packets' mid-examination; Sheikh testified 'I don't know what this is' (Excerpt 244) and admitted he had 'never seen these records before' (Excerpt 245). The State later acknowledged holding ~20 additional pages of raw AT&T data not marked or admitted (Excerpt 246). Audit whether the complete CDR production (including per-call detail and confidence-interval/RTT data) was disclosed pretrial under art. 39.14; late or partial production of the records underlying the State's 29-minute-gap theory is a discovery/Brady indicator.",
+      "chunkId": "cmtfx0g1603ve2m6jcqs049dz"
+    },
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.7,
+      "chunkIndex": 376,
+      "quote": "colposcope photos, even if they were here, would they",
+      "partA": "The nurse who examined the girl testified she took detailed forensic photographs during the exam, but as a practice those photos are not sent out with the medical chart. The photos themselves were never shown to the jury and do not appear in the trial exhibits.",
+      "partB": "SANE nurse Schofield testified she took SDFI high-resolution forensic photographs but that such genital photographs are deliberately withheld from the chart circulated to law enforcement (Excerpt 375: 'photos that may or may not get sent over with the medical chart'). The photos were referenced but not admitted; the exhibit list contains no SANE photograph exhibit. Confirm whether the SDFI images were ever produced to the defense; images documenting an absence of acute anogenital trauma are potentially favorable and their non-production would be a Brady/39.14 issue.",
+      "chunkId": "cmtfwr8t3024r2m6jl2mqxoiu"
+    },
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.65,
+      "chunkIndex": 138,
+      "quote": "that is able to extract the DNA. I do not have her name",
+      "partA": "The DNA witness admitted she did not do the lab work that pulled the DNA out of the swabs, and she could not even say the name of the person who did. The jury never heard from that person, and her name and lab notes were not identified at trial.",
+      "partB": "Analyst Solis testified that neither she nor Patnaik performed the extraction/quantification/amplification and that the performing analyst's identity was unknown to her on the stand. The identity, bench notes, proficiency records, and any corrective-action/QC history of the extraction analyst are Giglio/Brady-relevant and do not appear in the disclosed record; this also dovetails with the preserved Confrontation objection to Solis testifying through Patnaik's reports (Excerpts 109–115) under Smith v. Arizona.",
+      "chunkId": "cmtfx0fz603pk2m6j4ss8s9qf"
+    },
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.7,
+      "chunkIndex": 150,
+      "quote": "requested analysis on the trace collected from the",
+      "partA": "The lab collected hairs, fibers, or other tiny materials from the girl's underwear, but nobody ever tested them. The witness said she does not know what was collected, and no test results were ever produced.",
+      "partB": "Solis confirmed trace evidence was collected from the underwear but never examined because the agency did not request analysis; the panties also tested presumptively negative for semen (Excerpt 148). The untested trace collection is referenced-but-absent physical evidence: audit whether the trace inventory was disclosed, whether it still exists in the DPS vault, and whether post-conviction Chapter 64 testing of the underwear trace is available.",
+      "chunkId": "cmtfx0fza03q82m6jzgujjjkw"
+    },
+    {
+      "screen": "brady",
+      "category": "impeachment",
+      "severity": "supportive",
+      "confidence": 0.7,
+      "chunkIndex": 221,
+      "quote": "A. I don't remember. I reviewed it at the time.",
+      "partA": "The detective took photos of the supposed crime scene but could not say when he took them, even though he had looked at the camera data. The prosecutor then supplied dates from the stand, and even those dates were stated inconsistently ('July 22nd' vs. 'June 22nd').",
+      "partB": "Sheikh admitted he reviewed the digital-camera metadata for State's 31A–D but could not testify to the capture date; the exhibits were admitted only after the prosecutor supplied a date the record itself renders as 'July (Sic) 22nd, 2022' and later 'June (sic) 22nd' (Excerpts 221–223). The underlying EXIF metadata was never produced or admitted. This is impeachment material on the scene-identification evidence and a discovery item (native image files with metadata) that appears absent from the disclosed record.",
+      "chunkId": "cmtfx0g0o03u62m6j0z8awetp"
+    },
+    {
+      "screen": "brady",
+      "category": "junk_science",
+      "severity": "supportive",
+      "confidence": 0.75,
+      "chunkIndex": 283,
+      "quote": "and he's staying there until 9:35. That's not accurate,",
+      "partA": "The State's timeline came from cell-tower maps the detective made himself using a free website. He is not a cell-phone expert. On cross-examination he admitted his cell map put the truck at McDonald's at the wrong time — the video shows 9:15, his map said 9:21 to 9:35 — and he agreed his map 'is not accurate.'",
+      "partB": "Sheikh, who disclaimed cell-site expertise (Excerpt 249) and generated State's 18 on a free consumer website, Batchgeo (Excerpts 245, 247), conceded that AT&T 'explicitly states their records and coordinates are not to be used' as accurate (Excerpt 282) and admitted the mapped Livingston arrival (9:21–9:35) conflicts with the 9:15 McDonald's video — 'That's not accurate... No.' Yet the State's 29-minute-gap venue/opportunity theory rested on this data (Excerpt 259). Flag for a reliability (Kelly/Daubert) and sufficiency analysis, and for expert-review of the raw CDRs, including the packets the detective could not identify.",
+      "chunkId": "cmtfx0g2703xm2m6jyopxp4vc"
+    },
+    {
+      "screen": "brady",
+      "category": "lost_evidence",
+      "severity": "supportive",
+      "confidence": 0.6,
+      "chunkIndex": 238,
+      "quote": "A. They did not. They did not follow the",
+      "partA": "The detective asked the arresting police department to hold the truck and the defendant's phone when he was arrested. They never did. So the actual truck — where the State says the assault happened — and the phone were never searched or preserved as evidence.",
+      "partB": "Sheikh testified that despite TCIC instructions, Spring Valley PD failed to tow the F-150 or seize the cell phone at arrest (Excerpts 237–238, 283–284), so the interior of the alleged crime-scene vehicle was never processed for corroborating or exculpatory physical evidence, and only carrier CDRs — not a phone extraction — exist. Evaluate under Youngblood/Trombetta and as a factual predicate supporting the transfer-DNA defense theory the jury never saw tested.",
+      "chunkId": "cmtfx0g0y03v22m6jr20fzi6g"
+    },
+    {
+      "screen": "brady",
+      "category": "impeachment",
+      "severity": "supportive",
+      "confidence": 0.7,
+      "chunkIndex": 352,
+      "quote": "stuff in here that's not very complimentary of my",
+      "partA": "Outside the jury's presence, the prosecutor admitted that the girl's counseling records contain a lot of material that makes her look bad. Those records were never put into evidence, so the jury never saw them.",
+      "partB": "On the record, the prosecutor acknowledged the Burke Center records contain material 'not very complimentary of my victim' and that 'she obviously has lots of problems,' and elected not to offer them to avoid optional completeness (Excerpt 352). The records were referenced repeatedly (10 disclosures to a therapist, medications, prior suicide attempts, mother's statements about lying and attention-seeking, Excerpts 335–338) but never admitted. Audit the completeness of the defense's copy of the Burke/therapy file and any withheld portions as Brady/Giglio impeachment of the complainant's credibility in a he-said/she-said case.",
+      "chunkId": "cmtfwr8sr023f2m6j0oy9p0c7"
+    },
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "background",
+      "confidence": 0.6,
+      "chunkIndex": 141,
+      "quote": "item as no swabs were present inside the swab box. The",
+      "partA": "One of the swabs from the hospital exam — the vulva swab — was missing from the sealed kit when the lab opened it. The box was labeled for that swab, but there was nothing inside, so it was never tested.",
+      "partB": "Per the biology analyst's reading of Patnaik's notes, the vulva swab box in the SANE kit was labeled and sealed but contained no swabs, so no analysis was performed on that anatomical site. This is a chain-of-custody/evidence-integrity anomaly in the very kit the case turned on; audit hospital collection records (Schofield documented a vulva swab among the 16 swabs, Excerpt 378) against DPS intake to determine where the swab was lost and whether that discrepancy was disclosed.",
+      "chunkId": "cmtfx0fz703pq2m6jt6jfk4v6"
+    },
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.6,
+      "chunkIndex": 383,
+      "quote": "any kind of drugs or anything that's involved in that,",
+      "partA": "The girl told several people she got dizzy and 'blacked out' after drinking something the man gave her — which suggests she may have been drugged. The nurse agreed the hospital could have drawn blood to test for drugs, but no toxicology test was ever done or produced.",
+      "partB": "The complainant's account to Evan Perry (dizziness, blackout after alcohol) and her trial testimony (vision 'went white') raised an intoxication/drugging theory, yet SANE nurse Schofield confirmed blood could have been drawn and tested for drugs and no toxicology appears in State's 20 or the DPS submissions. The absence of any tox screen is both an uncollected-evidence issue and impeachment of the drugging narrative; confirm via the full CHI medical record whether any labs were drawn that night and, if so, whether results were produced.",
+      "chunkId": "cmtfwr8t502552m6jii7zoazz"
+    },
+    {
+      "screen": "brady",
+      "category": "investigation_gap",
+      "severity": "background",
+      "confidence": 0.6,
+      "chunkIndex": 269,
+      "quote": "A. I never spoke with the grandmother.",
+      "partA": "The detective never talked to the grandmother the girl was staying with, never went to the house where the day started, and never checked whether the fire station where she was picked up had cameras. Those witnesses and possible videos were never gathered.",
+      "partB": "Sheikh conceded he never interviewed Jeri Talbot (the 'nana' present that day), never contacted the fire station near the Bentwater pickup point about cameras or witnesses (Excerpt 269), and never verified the actual route driven (Excerpt 270–271). These uninvestigated sources are referenced in testimony but absent from the disclosed file; they bear on the origin narrative (why the complainant left) and are relevant to both a Brady audit of any undisclosed patrol/canvass notes and a trial-counsel investigation review.",
+      "chunkId": "cmtfx0g1x03wu2m6jppzsfene"
+    },
+    {
+      "screen": "junk_science",
+      "category": "junk_science",
+      "severity": "supportive",
+      "confidence": 0.75,
+      "chunkIndex": 248,
+      "quote": "You're not a cell phone expert, are you?",
+      "partA": "The detective who made the cell phone location map admitted he is not a cell phone expert. He had only taken a couple of classes and had never testified as a cell phone expert before, but the judge still let the jury see his map and hear his conclusions about where the phone was.",
+      "partB": "Sgt. Sheikh conceded on voir dire that he is not a qualified cell-site expert and has never testified as one, yet State's Exhibits 18 and 19 (his self-generated coordinate map and AT&T CDRs) were admitted over defense objections to relevance, hearsay, and the unidentified software (RR Vol. 3). Historical CSLI precision claims by lay/under-qualified witnesses are a recognized category of overstated forensic location testimony vulnerable under Tex. R. Evid. 702/Kelly and, if the underlying methodology is shown discredited or materially refined, Art. 11.073.",
+      "chunkId": "cmtfx0g1b03vo2m6jmwvix65g"
+    },
+    {
+      "screen": "junk_science",
+      "category": "junk_science",
+      "severity": "supportive",
+      "confidence": 0.7,
+      "chunkIndex": 247,
+      "quote": "It's a free website. It offers a free service",
+      "partA": "The detective did not use professional, tested mapping tools. He typed the phone company's coordinates into a free website called Batchego to make the map the jury saw. Free consumer websites are not tested or approved for courtroom accuracy.",
+      "partB": "Sheikh plotted AT&T CDR latitude/longitude values using 'Batchego.com,' a free public website with no demonstrated validation, error rate, or acceptance in the relevant scientific community. Admission of State's Ex. 18 without any Kelly/Daubert reliability showing—over preserved objection—supports a challenge to the methodology used to place the defendant's phone at specific locations and to construct the State's venue/timeline theory.",
+      "chunkId": "cmtfx0g1a03vm2m6jfk5km0cl"
+    },
+    {
+      "screen": "junk_science",
+      "category": "junk_science",
+      "severity": "supportive",
+      "confidence": 0.65,
+      "chunkIndex": 283,
+      "quote": "and he's staying there until 9:35. That's not accurate,",
+      "partA": "The detective's phone-map times did not match the McDonald's security video. The video showed the truck arriving at 9:15, but the phone data said it arrived at 9:21 and stayed until 9:35. The detective agreed his phone-location times were not accurate, yet the State still used a claimed 29-minute 'gap' from that data to argue where the assault happened.",
+      "partB": "On cross, Sheikh admitted the CSLI-derived arrival window (9:21–9:35 p.m.) conflicted with the authenticated McDonald's video timestamp (9:15 p.m.), i.e., 'That's not accurate.' He also acknowledged AT&T's own records disclaim positional accuracy. The State's asserted 29-minute gap (RR3 at 183) derived from this admittedly imprecise data was the linchpin for locating the offense at FM 945/SH 156 in San Jacinto County—material both to an 11.073-type reliability challenge and to the preserved venue/directed-verdict argument.",
+      "chunkId": "cmtfx0g2703xm2m6jyopxp4vc"
+    },
+    {
+      "screen": "junk_science",
+      "category": "preserved_error",
+      "severity": "supportive",
+      "confidence": 0.7,
+      "chunkIndex": 137,
+      "quote": "Correct. But it wasn't done by her.",
+      "partA": "The DNA witness who testified did not do the actual lab work. Another analyst did the screening, and a third, unnamed analyst did the extraction and other steps. The defense objected that it could not question the people who actually handled and tested the evidence, but the judge allowed the testimony anyway.",
+      "partB": "Jacaranda Solis testified as a surrogate: Patnaik performed the biology screening (Ex. 33, 35) and an unnamed analyst performed extraction/quantification/amplification; Solis performed only interpretation. Davis lodged and re-urged Confrontation objections that Solis was 'the improper witness' and that he could not cross-examine the analysts who did the testing; objections were overruled (RR3 at 33–35, 39, 57). Smith v. Arizona, 602 U.S. 779 (2024)—decided June 21, 2024, weeks after this June 3–5, 2024 trial—holds that surrogate-expert conveyance of an absent analyst's statements for their truth implicates the Confrontation Clause; the preserved objections position this claim for direct appeal in No. 09-24-00260-CR.",
+      "chunkId": "cmtfx0fz603pi2m6jalheafnq"
+    },
+    {
+      "screen": "junk_science",
+      "category": "junk_science",
+      "severity": "background",
+      "confidence": 0.45,
+      "chunkIndex": 126,
+      "quote": "is an updated version of one of my previous DNA reports.",
+      "partA": "The DNA lab changed how it words its results in late 2023 and reissued a report in this case in May 2024 with the new wording. This shows the DNA reporting rules in this field are still changing, which can matter later if the methods change again.",
+      "partB": "DPS Houston adopted a new verbal-scale/likelihood-ratio reporting standard effective November 28, 2023, and reissued the operative report (State's Ex. 37, dated 5/7/2024) superseding the 11/21/2023 report. This documented mid-case refinement of LR reporting conventions is directly relevant to Art. 11.073(d)'s 'scientific knowledge or method on which the relevant scientific evidence is based has changed' framework and should be monitored for further revisions to probabilistic-genotyping/LR reporting standards.",
+      "chunkId": "cmtfx0fz303ou2m6j7hzsx4mp"
+    },
+    {
+      "screen": "junk_science",
+      "category": "junk_science",
+      "severity": "background",
+      "confidence": 0.4,
+      "chunkIndex": 91,
+      "quote": "him. I mean that's the guy.",
+      "partA": "In his opening, the prosecutor told the jury the DNA numbers mean it was definitely the defendant. But DNA statistics give odds, not a certain identification, and saying 'it's him' overstates what the science can actually say.",
+      "partB": "The prosecutor converted a likelihood ratio (represented as '1 in 16.8 septillion') into an unqualified source attribution—'it's him. I mean that's the guy'—in opening statement. Presenting an LR as a certainty of identity misstates the statistic (transposed-conditional/source-attribution error). Unpreserved as argument, but relevant to a cumulative overstated-identification analysis and to framing the DNA evidence's true probative limits.",
+      "chunkId": "cmtfx0fyl03my2m6j1adf02v7"
+    },
+    {
+      "screen": "junk_science",
+      "category": "junk_science",
+      "severity": "background",
+      "confidence": 0.35,
+      "chunkIndex": 197,
+      "quote": "This is, and I'm probably not qualified to",
+      "partA": "The detective admitted he was probably not qualified to explain how children's memories work, but he was still asked expert-style questions about whether kids tell the same story the same way, which supported the child witness's changing accounts.",
+      "partB": "Sheikh conceded lack of qualification on child-memory science mid-answer, after which the State elicited that he had previously testified 'as an expert' on victim demeanor and absence of physical evidence, then obtained opinions normalizing inconsistencies in child disclosures (RR3 at 119–120). This is unqualified behavioral-science bolstering vulnerable under Rule 702; defense objection was lodged but the line of questioning continued.",
+      "chunkId": "cmtfx0g0003ss2m6jodgjb1he"
+    },
+    {
+      "screen": "junk_science",
+      "category": "sentencing",
+      "severity": "supportive",
+      "confidence": 0.45,
+      "chunkIndex": 516,
+      "quote": "I can't compare it.",
+      "partA": "The State's fingerprint examiner said he could not match the defendant's fingerprints to the old 1986 conviction papers—the very conviction that triggered an automatic life sentence. The jury found it was the same person anyway, based on ID numbers and photos rather than a fingerprint match.",
+      "partB": "Investigator Goodwin admitted he could not effect a fingerprint comparison to the 1986 pen packet (State's Ex. 39) due to microfilm degradation, and could not compare the 2010 J&S right-thumbprint due to scarring; the §12.42(c)(2) automatic-life enhancement 'true' finding on both counts (sentences stacked) therefore rested on FBI/SID numbers, jail cards, photographs, and character witnesses' photo identifications. Supports a sufficiency-of-the-linkage challenge to the enhancement under Flowers v. State's totality approach, and frames the punishment verdict's dependence on non-print identifiers.",
+      "chunkId": "cmtfwz17a031d2m6jnzgvpszm"
+    },
+    {
+      "screen": "sentencing",
+      "category": "sentencing",
+      "severity": "dispositive",
+      "confidence": 0.75,
+      "chunkIndex": 601,
+      "quote": "I, sentence you to life in prison with a $10,000 fine.",
+      "partA": "The jury found this was Mr. Ellis's second sexual offense, so Texas law required an automatic life sentence. But that specific law only allows a life sentence in prison — it does not say anything about a money fine. The jury and judge added a $10,000 fine to each count anyway. A court cannot add punishment the law does not allow, so those fines may have to be removed.",
+      "partB": "The jury found the Tex. Penal Code § 12.42(c)(2) repeat-sex-offender allegation true on both counts and assessed mandatory life plus a $10,000 fine on each count, which the court pronounced. Section 12.42(c)(2) prescribes imprisonment for life only and does not authorize a fine; Texas courts have repeatedly reformed judgments to delete fines assessed alongside § 12.42(c)(2) mandatory life sentences as unauthorized. The $10,000 fine on each count is an illegal-sentence component subject to deletion by reformation, cognizable at any time under Mizell v. State, 119 S.W.3d 804 (Tex. Crim. App. 2003).",
+      "chunkId": "cmtfwz17n035b2m6jyoppi69n"
+    },
+    {
+      "screen": "sentencing",
+      "category": "sentencing",
+      "severity": "supportive",
+      "confidence": 0.7,
+      "chunkIndex": 577,
+      "quote": "fine not to exceed $10,000.00 may be imposed.",
+      "partA": "The written instructions the judge read to the jury told them that, even under the automatic life sentence, they could also add a fine up to $10,000. That instruction appears to go beyond what the statute actually allows, and it invited the jury to add the unauthorized fines.",
+      "partB": "The punishment charge instructed the jury that upon finding the § 12.42(c)(2) enhancement true they must assess life 'and a fine not to exceed $10,000.00 may be imposed.' This charge authorized punishment outside the statutory range, since § 12.42(c)(2) provides for life imprisonment without a fine. This supports both an Almanza charge-error claim and the illegal-sentence/reformation argument as to the fines assessed on both counts.",
+      "chunkId": "cmtfwz17j03432m6j47wkttfz"
+    },
+    {
+      "screen": "sentencing",
+      "category": "sentencing",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "chunkIndex": 516,
+      "quote": "A. I can't compare it.",
+      "partA": "To trigger the automatic life sentence, the State had to prove Mr. Ellis was the same person convicted of the 1986 burglary case. Their fingerprint expert admitted he could not match the fingerprints on the old prison records to Mr. Ellis because of scarring. The State relied instead on things like an FBI number and photos. A lawyer should check whether that proof was legally enough to support the life-sentence enhancement.",
+      "partB": "The State's fingerprint expert (Goodwin) conceded he could not compare the prints in State's Exhibit 39 (the 1986 burglary-with-intent-to-commit-sexual-assault pen packet, the predicate for § 12.42(c)(2) mandatory life) to the known 10-print card (38A), and likewise could not compare the thumbprint on the 2010 prohibited-weapon judgment. Identity linkage rested on FBI/SID numbers, photographs, and jail cards. While non-fingerprint identifiers can suffice under Flowers v. State, 220 S.W.3d 919 (Tex. Crim. App. 2007), counsel should evaluate a legal-sufficiency challenge to the enhancement finding, including the microfilm-degraded print card, the contested pen-packet page counts preserved by objection, and defendant's 'not true' plea.",
+      "chunkId": "cmtfwz17a031d2m6jnzgvpszm"
+    },
+    {
+      "screen": "sentencing",
+      "category": "parole_instruction_error",
+      "severity": "background",
+      "confidence": 0.55,
+      "chunkIndex": 580,
+      "quote": "time served equals one-half of the sentence imposed, or",
+      "partA": "The judge's instructions told the jury that a person becomes eligible for parole after serving half the sentence or 30 years, whichever is less. But for an automatic life sentence given to a repeat sex offender, Texas law actually requires 35 full calendar years before parole eligibility. The jury got the wrong parole information, though it may not have changed anything since the life sentence was mandatory.",
+      "partB": "The punishment charge gave the standard Art. 37.07 § 4(a) parole instruction (one-half or 30 years, whichever is less), but for a life sentence imposed under § 12.42(c)(2), Tex. Gov't Code § 508.145(c) requires 35 calendar years' actual time before parole eligibility. The instruction misstated the parole law applicable to the mandatory-life scenario. No objection appears, so review would be for egregious harm under Almanza; harm is doubtful given the jury had no sentencing discretion once the enhancement was found true, but the defect should be documented.",
+      "chunkId": "cmtfwz17k03472m6jqlq5r4qn"
+    },
+    {
+      "screen": "sentencing",
+      "category": "cumulation_order",
+      "severity": "background",
+      "confidence": 0.4,
+      "chunkIndex": 601,
+      "quote": "sentences run consecutively. Anything else?",
+      "partA": "The judge ordered the two life sentences to be served one after the other instead of at the same time. Normally, when two charges come from the same event and one trial, sentences must run together — but Texas has an exception for sex crimes against children, which likely allows this. A lawyer should still confirm the stacking order was done correctly and is properly written in the judgment.",
+      "partB": "The court granted the State's motion to cumulate and ordered the Count II life sentence consecutive to Count I. Both counts arose from a single criminal episode prosecuted in one criminal action, ordinarily requiring concurrent sentences under Tex. Penal Code § 3.03(a); however, § 3.03(b)(2)(A) authorizes cumulation for §§ 22.011 and 21.11 offenses against a victim younger than 17, which appears to apply here (complainant was 16). Counsel should verify the written cumulation order contains the specific data required by Ward/Banks (prior cause number, court, county, offense, and sentence) and matches the oral pronouncement.",
+      "chunkId": "cmtfwz17n035b2m6jyoppi69n"
+    },
+    {
+      "screen": "sentencing",
+      "category": "preserved_error",
+      "severity": "background",
+      "confidence": 0.4,
+      "chunkIndex": 436,
+      "quote": "indecency with a child by contact is a lesser included",
+      "partA": "Before the verdict, the defense lawyer argued that the touching charge (indecency) was really part of the same act as the sexual assault charge, and that punishing Mr. Ellis for both could be unfair 'double punishment.' The judge disagreed. This argument was properly raised and saved, so an appeals lawyer can look at whether two convictions and two life sentences for the same episode were allowed.",
+      "partB": "Defense counsel preserved a multiple-punishments double-jeopardy/lesser-included objection to submitting both Count I (§ 22.011 penetration) and Count II (§ 21.11 indecency by breast contact), which the trial court overruled under a Blockburger analysis. Because the indecency count alleged touching of the breast — a discrete act not incident to or subsumed by the penetration under Aekins v. State, 447 S.W.3d 270 (Tex. Crim. App. 2014) — the claim likely fails, but the preserved objection and the record (single transaction, both convictions carrying stacked mandatory life terms) warrant appellate evaluation of the two-conviction, two-life-sentence outcome.",
+      "chunkId": "cmtfwr8tl02832m6jr6yvoeti"
+    }
+  ],
+  "overlapCount": 0
+}

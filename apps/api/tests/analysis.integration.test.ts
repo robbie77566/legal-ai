@@ -113,6 +113,20 @@ describe('response salvage (live-run lesson: one bad element must not void the s
     expect(res.grounded).toHaveLength(1);
     expect(res.grounded[0].category).toBe('Surrogate DNA analyst testimony / Confrontation');
   });
+
+  it('recovers complete findings from a max_tokens-truncated array (Fable comparison lesson)', async () => {
+    const { executeScreen, buildRecord } = await import('../src/services/analysis.service');
+    const chunks = [{ id: 'ch1', documentId: 'd1', content: `${run} the bite mark testimony was admitted over objection`, metadata: {} }];
+    const complete = JSON.stringify({
+      category: 'junk_science', severity: 'supportive', confidence: 0.8, chunkIndex: 0,
+      quote: 'bite mark testimony was admitted', partA: 'ok', partB: 'ok',
+    });
+    // Two complete elements, then the stream cuts off mid-third-object.
+    const truncated = `{"findings":[${complete},${complete},{"category":"iac","severity":"suppo`;
+    const truncModel = { name: 'fake-truncated', invoke: async () => truncated };
+    const res = await executeScreen(truncModel, 'junk_science', buildRecord(chunks), chunks);
+    expect(res.grounded).toHaveLength(2);
+  });
 });
 
 describe('runAnalysis (FR-6 grounding + state machine)', () => {
