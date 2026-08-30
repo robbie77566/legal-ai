@@ -14,8 +14,15 @@
  * Refuses to run against production (NODE_ENV or a live Stripe key).
  */
 import * as dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
+// tsx resolves __dirname as '.', so walk up from cwd to the repo root's .env.
+let dir = process.cwd();
+while (!fs.existsSync(path.join(dir, '.env')) && dir !== path.dirname(dir)) {
+  dir = path.dirname(dir);
+}
+dotenv.config({ path: path.join(dir, '.env') });
 
 import bcrypt from 'bcryptjs';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
@@ -98,6 +105,7 @@ async function main() {
     const evalBucket = (process.env.EVAL_CORPUS_BUCKET ?? '').replace(/"/g, '');
     const docsBucket = (process.env.S3_BUCKET ?? '').replace(/"/g, '');
     const s3 = new S3Client({ region });
+    console.log(`  s3      : region=${region} eval=${evalBucket} docs=${docsBucket}`);
 
     const listing = await s3.send(
       new ListObjectsV2Command({ Bucket: evalBucket, Prefix: 'corpus/Gary/' })
