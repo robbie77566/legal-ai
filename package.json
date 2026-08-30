@@ -18,15 +18,5 @@
     "turbo": "^2.0.0",
     "vitest": "^3.2.7"
   },
-  "packageManager": "pnpm@11.1.0",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@prisma/client",
-      "@prisma/engines",
-      "esbuild",
-      "fastify-socket.io",
-      "msgpackr-extract",
-      "prisma"
-    ]
-  }
+  "packageManager": "pnpm@11.1.0"
 }
