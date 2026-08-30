@@ -51,17 +51,12 @@ interface Screen {
 // Condensed from prompt_specifications.md; the full five-screen prompt set
 // with statute/registry MCP tools is the M4 remainder.
 const SCREENS: Record<Screen['id'], string> = {
-  iac: 'You are a senior Texas appellate attorney screening a trial record for ineffective-assistance-of-counsel indicators under Strickland (deficiency AND prejudice). Flag un-objected prejudicial events and failures to investigate.',
-  brady:
-    'You are a forensic discovery auditor screening for Brady indicators: evidence referenced in testimony that appears absent from disclosure references, and impeachment material.',
-  junk_science:
-    'You are a forensic-science consultant screening expert testimony for methods now discredited or materially refined (Art. 11.073): bite marks, hair comparison, arson indicators, dog-scent lineups, overstated identification claims.',
-  sentencing:
-    'You are auditing the judgment and sentence for illegal-sentence indicators: punishment outside the statutory range, enhancement defects, time-credit errors, cumulation-order and deadly-weapon-finding issues.',
-  plea_lane:
-    'You are screening plea papers for involuntary-plea indicators: missing admonishments, judgment terms that do not match the plea agreement, absent judicial confession, and affirmative misadvice (immigration/Padilla, parole eligibility).',
-  voir_dire:
-    'You are a Texas appellate attorney screening jury selection (voir dire) for juror-bias and preserved-error indicators: venire members with relationships to the victim, witnesses, law enforcement, or parties (actual or implied bias — note their panel numbers and whether the record shows them struck or seated); bias admissions followed by denied challenges for cause or inadequate rehabilitation; commitments hostile to rights (e.g., treating silence as guilt); Batson indicators; and counsel failures to question, challenge, or strike compromised panelists.',
+  iac: `You are a senior Texas appellate attorney screening a trial record for ineffective-assistance-of-counsel indicators under Strickland v. Washington (deficient performance AND prejudice), as applied by Texas courts (Ex parte Torres; the record-development lens of Art. 11.07). Sweep the ENTIRE record. Indicators to flag: failures to investigate or present available defenses/witnesses; un-objected prejudicial events (extraneous offenses, improper argument, inadmissible expert claims); harmful doors opened on direct or cross; conceded elements; absent motions the facts invited (suppression, severance, election, limiting instructions); punishment-phase failures (unprepared witnesses, no mitigation); conflicts of interest including counsel appointed as their own appellate counsel. For each, state both prongs: what a reasonable attorney would have done, and how the record shows harm.`,
+  brady: `You are a forensic discovery auditor screening for Brady v. Maryland / Art. 39.14 (Michael Morton Act) indicators: favorable or impeaching material the record suggests existed but may not have been disclosed. Sweep the ENTIRE record. Indicators: evidence referenced in testimony but absent from disclosure discussions (videos, notes, raw data, photographs, recordings); witness statements describing collected-but-never-analyzed or lost/destroyed evidence (Youngblood angle); impeachment material (inconsistent statements, benefits, bias, disciplinary history); prosecutor statements acknowledging withheld or late-disclosed items; law-enforcement concessions that reports, recordings, or files exist beyond what was produced. Identify WHAT the item is, WHO referenced it, and WHY it is favorable or impeaching.`,
+  junk_science: `You are a forensic-science consultant screening expert and quasi-expert testimony under Tex. Code Crim. Proc. Art. 11.073 (discredited or materially refined science) and Kelly/Daubert reliability: bite marks, hair comparison, arson indicators, dog-scent lineups, bloodstain-pattern overreach, historical cell-site overstatement, overstated DNA/statistics (source attribution from likelihood ratios), shaken-baby/abusive-head-trauma disputes, riflings/toolmarks certainty claims, and ANY opinion offered by a witness the record shows unqualified (no training, first time testifying to the method, consumer-grade tools). Also flag surrogate-analyst Confrontation issues (Bullcoming/Smith v. Arizona) and scientific claims exceeding the underlying report. Sweep the ENTIRE record including voir dire of experts.`,
+  sentencing: `You are auditing judgment and sentence for illegal-sentence and sentencing-error indicators. Check: punishment outside the statutory range for the offense as charged and found; enhancement defects (invalid or unproven priors, missing identity linkage, sequence errors under Tex. Penal Code 12.42); double-jeopardy multiple punishments (lesser-included counts, Blockburger); cumulation-order legality (Art. 42.08, Penal Code 3.03 limits); variance between oral pronouncement and written judgment (fines, costs, credits — oral controls); time-credit errors (compare booking/arrest dates to credit awarded); deadly-weapon-finding defects; parole-law jury instruction errors (Art. 37.07 4); court costs and fines against indigency findings. Quote the exact pronouncement and judgment language.`,
+  plea_lane: `You are screening plea papers and the plea colloquy for involuntary-plea indicators: missing or defective admonishments (Art. 26.13 — range, immigration, sex-offender registration); judgment terms that do not match the plea agreement; absent judicial confession or stipulation; affirmative misadvice (immigration/Padilla, parole eligibility, probation eligibility); coercion signals in the colloquy; failure to establish competency; charge-bargain terms the sentence exceeds. Compare every promise recited on the record against the judgment.`,
+  voir_dire: `You are a Texas appellate attorney screening jury selection (voir dire) for juror-bias and preserved-error indicators. Cross-reference every venire member's disclosures against the case principals (victim, witnesses, law enforcement, parties) named in the CASE CONTEXT. Flag: relationships to principals (familial, employment, spouse-of — actual or implied bias, Art. 35.16); bias admissions followed by denied challenges for cause, absent challenges, or conclusory one-question rehabilitation; commitments hostile to rights (silence as guilt, presumption reversal, automatic credibility for officers); Batson indicators; panelists exposed to prejudicial information; truncated individual voir dire. For each flagged panelist, give their number AND trace whether the record shows them struck, excused, or SEATED (seating list and jury polls) — a seated biased juror is the highest-severity outcome.`,
 };
 
 const SCREENS_BY_LANE: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
@@ -81,7 +76,7 @@ const SCREENS_BY_LANE: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
 const CONTEXT_INSTRUCTIONS =
   'From the record above identify: the defendant; the offense(s) charged; the complainant/victim name(s) and role; key State witnesses (law enforcement, experts, outcry/medical); and the central contested issue at trial. Respond with ONE compact plain-text paragraph beginning "CASE CONTEXT:" (max ~150 words). No JSON, no headings, no analysis.';
 
-const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
+const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. Severity calibration: "dispositive" = could plausibly justify relief or major posture change on its own (illegal sentence, seated biased juror, suppressed exculpatory evidence); "supportive" = strengthens a claim package but needs companions; "background" = context a lawyer should know. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
@@ -209,9 +204,60 @@ export interface AnalysisChunk {
   metadata: unknown;
 }
 
-/** The frozen record prompt — byte-stable across screens (cache prefix). */
+/**
+ * The frozen record prompt — byte-stable across screens (cache prefix).
+ * Excerpt headers carry source structure (volume file + page) so the model
+ * knows WHERE it is (voir dire vs. punishment) — better phase-targeted
+ * recall and better citations.
+ */
 export function buildRecord(chunks: AnalysisChunk[]): string {
-  return chunks.map((c, i) => `[Excerpt ${i}] ${c.content}`).join('\n\n');
+  return chunks
+    .map((c, i) => {
+      const m = (c.metadata ?? {}) as { page?: number; filename?: string };
+      const src = [m.filename, m.page != null ? `p.${m.page}` : null].filter(Boolean).join(' ');
+      return `[Excerpt ${i}${src ? ` | ${src}` : ''}] ${c.content}`;
+    })
+    .join('\n\n');
+}
+
+/**
+ * Deterministic attention anchors — code, not model. Converts known miss
+ * classes into guaranteed coverage: (a) keyword classes per screen, and
+ * (b) case-principal names (from the context header) cross-referenced into
+ * jury-selection excerpts — the scan that catches a venire member linked
+ * to the victim regardless of long-context attention.
+ */
+const ANCHOR_PATTERNS: Partial<Record<Screen['id'], RegExp>> = {
+  voir_dire: /\b(JUROR|VENIRE|panel member|strike|peremptor|challenge for cause)\b/i,
+  sentencing: /\b(pronounce|consecutive|cumulat|stacked|credit for time|time credit|enhancement|habitual|deadly weapon)\b/i,
+  iac: /\bobjection\b.{0,80}\b(overruled|sustained)\b/is,
+  brady: /\b(not (?:been )?(?:disclosed|produced|turned over)|working file|withheld|never (?:tested|analyzed|examined)|lost|destroyed)\b/i,
+};
+
+export function buildAnchors(
+  screenId: Screen['id'],
+  chunks: AnalysisChunk[],
+  contextHeader: string
+): string {
+  const hits = new Set<number>();
+  const pattern = ANCHOR_PATTERNS[screenId];
+  if (pattern) {
+    chunks.forEach((c, i) => {
+      if (pattern.test(c.content)) hits.add(i);
+    });
+  }
+  if (screenId === 'voir_dire' && contextHeader) {
+    // Case-principal surnames (capitalized tokens of 3+ letters, minus noise)
+    const STOP = new Set(['CASE', 'CONTEXT', 'The', 'Defendant', 'State', 'Texas', 'County', 'Court', 'District', 'Cause', 'Deputy', 'Officer', 'Sergeant', 'Investigator', 'Detective', 'Attempted', 'Capital', 'Murder', 'Police', 'Department']);
+    const names = [...new Set((contextHeader.match(/\b[A-Z][a-z]{2,}\b/g) ?? []).filter((n) => !STOP.has(n)))];
+    const jurorish = /\b(JUROR|VENIRE)\b/i;
+    chunks.forEach((c, i) => {
+      if (jurorish.test(c.content) && names.some((n) => c.content.includes(n))) hits.add(i);
+    });
+  }
+  if (hits.size === 0) return '';
+  const list = [...hits].sort((a, b) => a - b).slice(0, 60);
+  return `Deterministic pre-scan: excerpts especially likely to matter for this screen — review each individually: ${list.join(', ')}.`;
 }
 
 export interface ScreenFinding {
@@ -230,25 +276,52 @@ export interface ScreenFinding {
  * eval path (model_evaluation.md §4.1: swaps happen at the model seam,
  * everything else held constant).
  */
+const SEVERITY_RANK: Record<string, number> = { dispositive: 0, supportive: 1, background: 2 };
+
 export async function executeScreen(
   model: AnalysisModel,
   screenId: keyof typeof SCREENS,
   record: string,
   chunks: AnalysisChunk[],
-  contextHeader = ''
+  contextHeader = '',
+  samples = 1
 ): Promise<{ grounded: ScreenFinding[]; dropped: number }> {
   const prefix = contextHeader ? `${contextHeader}\n\n` : '';
-  const res = await invokeValidated(model, `${prefix}${SCREENS[screenId]}\n${OUTPUT_INSTRUCTIONS}`, record);
+  const anchors = buildAnchors(screenId, chunks, contextHeader);
+  const instruction = `${prefix}${SCREENS[screenId]}\n${anchors ? `${anchors}\n` : ''}${OUTPUT_INSTRUCTIONS}`;
+
+  // Self-consistency union: run-to-run variance IS recall left on the
+  // table (Brian runs 3/4 produced overlapping-but-different sets). Union
+  // the samples' grounded findings; near-duplicates (same chunk, one
+  // normalized quote containing the other) keep the more severe / more
+  // confident copy. QA reviews the union — recall-first by design.
   const grounded: ScreenFinding[] = [];
   let dropped = 0;
-  for (const f of res.findings) {
-    const chunk = chunks[f.chunkIndex];
-    // FR-6: grounding is a hard filter, not a preference.
-    if (!chunk || !quoteGrounds(chunk.content, f.quote)) {
-      dropped++;
-      continue;
+  for (let n = 0; n < Math.max(1, samples); n++) {
+    const res = await invokeValidated(model, instruction, record);
+    for (const f of res.findings) {
+      const chunk = chunks[f.chunkIndex];
+      // FR-6: grounding is a hard filter, not a preference.
+      if (!chunk || !quoteGrounds(chunk.content, f.quote)) {
+        dropped++;
+        continue;
+      }
+      const q = f.quote.replace(/\s+/g, ' ').trim().toLowerCase();
+      const dup = grounded.findIndex((g) => {
+        if (g.chunk.id !== chunk.id) return false;
+        const gq = g.quote.replace(/\s+/g, ' ').trim().toLowerCase();
+        return gq.includes(q) || q.includes(gq);
+      });
+      if (dup >= 0) {
+        const keep = grounded[dup];
+        const better =
+          SEVERITY_RANK[f.severity] < SEVERITY_RANK[keep.severity] ||
+          (f.severity === keep.severity && f.confidence > keep.confidence);
+        if (better) grounded[dup] = { ...f, chunk };
+        continue;
+      }
+      grounded.push({ ...f, chunk });
     }
-    grounded.push({ ...f, chunk });
   }
   return { grounded, dropped };
 }
@@ -332,7 +405,8 @@ export async function runAnalysis(
 
   for (const screenId of SCREENS_BY_LANE[lane]) {
     // Model call: minutes, OUTSIDE any transaction.
-    const result = await executeScreen(model, screenId, record, chunks, contextHeader);
+    const samples = Math.min(3, Math.max(1, Number(process.env.ANALYSIS_SAMPLES ?? '1') || 1));
+    const result = await executeScreen(model, screenId, record, chunks, contextHeader, samples);
     dropped += result.dropped;
 
     // Short tx per screen: findings + the tracker's honest sub-detail.

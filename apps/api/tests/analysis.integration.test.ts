@@ -5,6 +5,9 @@
  * QA approve/reject gates, and FR-7 tamper detection end to end.
  */
 process.env.NEXTAUTH_SECRET = 'test-secret-at-least-32-characters!!';
+// Pin sampling: src/index.ts dotenv-loads the root .env (ANALYSIS_SAMPLES=2);
+// dotenv never overrides pre-set vars, so set before any import.
+process.env.ANALYSIS_SAMPLES = '1';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { fastify } from '../src/index';
@@ -117,12 +120,13 @@ describe('response salvage (live-run lesson: one bad element must not void the s
   it('recovers complete findings from a max_tokens-truncated array (Fable comparison lesson)', async () => {
     const { executeScreen, buildRecord } = await import('../src/services/analysis.service');
     const chunks = [{ id: 'ch1', documentId: 'd1', content: `${run} the bite mark testimony was admitted over objection`, metadata: {} }];
-    const complete = JSON.stringify({
+    const mk = (quote: string) => JSON.stringify({
       category: 'junk_science', severity: 'supportive', confidence: 0.8, chunkIndex: 0,
-      quote: 'bite mark testimony was admitted', partA: 'ok', partB: 'ok',
+      quote, partA: 'ok', partB: 'ok',
     });
-    // Two complete elements, then the stream cuts off mid-third-object.
-    const truncated = `{"findings":[${complete},${complete},{"category":"iac","severity":"suppo`;
+    // Two complete DISTINCT elements (identical ones now merge in the
+    // sample union), then the stream cuts off mid-third-object.
+    const truncated = `{"findings":[${mk('bite mark testimony')},${mk('admitted over objection')},{"category":"iac","severity":"suppo`;
     const truncModel = { name: 'fake-truncated', invoke: async () => truncated };
     const res = await executeScreen(truncModel, 'junk_science', buildRecord(chunks), chunks);
     expect(res.grounded).toHaveLength(2);
@@ -185,6 +189,51 @@ describe('response salvage (live-run lesson: one bad element must not void the s
     // A model that answers the pre-pass with JSON must yield an empty header.
     const jsonModel = { name: 'fake-json', invoke: async () => '{"findings":[]}' };
     expect(await buildContextHeader(jsonModel, 'x')).toBe('');
+  });
+
+  it('buildRecord labels excerpts with volume file and page', async () => {
+    const { buildRecord } = await import('../src/services/analysis.service');
+    const rec = buildRecord([
+      { id: 'a', documentId: 'd', content: 'text one', metadata: { filename: 'RR-Vol002.pdf', page: 30 } },
+      { id: 'b', documentId: 'd', content: 'text two', metadata: {} },
+    ]);
+    expect(rec).toContain('[Excerpt 0 | RR-Vol002.pdf p.30] text one');
+    expect(rec).toContain('[Excerpt 1] text two');
+  });
+
+  it('anchors: principal-name × juror cross-reference and keyword classes', async () => {
+    const { buildAnchors } = await import('../src/services/analysis.service');
+    const chunks = [
+      { id: 'a', documentId: 'd', content: 'JUROR WILLETTS: My husband is Harper his corporal', metadata: {} },
+      { id: 'b', documentId: 'd', content: 'plain testimony about the truck', metadata: {} },
+      { id: 'c', documentId: 'd', content: 'THE COURT: sentences shall run consecutive to Count I', metadata: {} },
+    ];
+    const vd = buildAnchors('voir_dire', chunks, 'CASE CONTEXT: the victim is Deputy Brian Harper.');
+    expect(vd).toContain('0');
+    expect(vd).not.toContain('1,');
+    const sent = buildAnchors('sentencing', chunks, '');
+    expect(sent).toContain('2');
+  });
+
+  it('self-consistency union: overlapping quotes dedup keeping the more severe copy', async () => {
+    const { executeScreen, buildRecord } = await import('../src/services/analysis.service');
+    const chunks = [{ id: 'ch1', documentId: 'd1', content: `${run} the court ordered the sentences to run consecutively over objection`, metadata: {} }];
+    let call = 0;
+    const model = {
+      name: 'fake-sampler',
+      invoke: async () => {
+        call++;
+        const quote = call === 1 ? 'sentences to run consecutively' : 'the sentences to run consecutively over objection';
+        const severity = call === 1 ? 'supportive' : 'dispositive';
+        return JSON.stringify({ findings: [
+          { category: 'sentencing', severity, confidence: 0.6, chunkIndex: 0, quote, partA: 'a', partB: 'b' },
+        ]});
+      },
+    };
+    const res = await executeScreen(model, 'sentencing', buildRecord(chunks), chunks, '', 2);
+    expect(call).toBe(2);
+    expect(res.grounded).toHaveLength(1);
+    expect(res.grounded[0].severity).toBe('dispositive');
   });
 });
 

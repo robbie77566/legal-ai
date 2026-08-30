@@ -106,7 +106,8 @@ const norm = (q: string) => q.replace(/\s+/g, ' ').trim().toLowerCase();
   for (const screenId of SCREENS_BY_LANE[lane]) {
     console.log(`\n=== screen: ${screenId} ===`);
     const started = Date.now();
-    const res = await executeScreen(challenger, screenId, record, chunks, contextHeader);
+    const samples = Math.min(3, Math.max(1, Number(process.env.ANALYSIS_SAMPLES ?? '1') || 1));
+    const res = await executeScreen(challenger, screenId, record, chunks, contextHeader, samples);
     challengerResults[screenId] = res;
     console.log(
       `  grounded: ${res.grounded.length} | dropped ungrounded: ${res.dropped} | ${Math.round((Date.now() - started) / 1000)}s`
