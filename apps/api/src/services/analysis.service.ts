@@ -28,15 +28,12 @@ export interface AnalysisModel {
 }
 
 const FindingOutput = z.object({
-  category: z.enum([
-    'preserved_error',
-    'iac',
-    'brady',
-    'junk_science',
-    'sentencing',
-    'deadline',
-    'appeal_restoration',
-  ]),
+  // Bounded free text, not an enum: the live Gary run proved the model's
+  // specific labels ("Surrogate DNA analyst testimony / Confrontation…")
+  // are BETTER than a forced bucket — and enum rejection silently voided
+  // four screens of good findings. The canonical buckets are suggested in
+  // the prompt; the DB column is a string; grouping is by severity.
+  category: z.string().min(3).max(140),
   severity: z.enum(['dispositive', 'supportive', 'background']),
   confidence: z.number().min(0).max(1),
   chunkIndex: z.number().int().nonnegative(),
@@ -70,7 +67,7 @@ const SCREENS_BY_LANE: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
   PLEA: ['plea_lane', 'sentencing'],
 };
 
-const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":...,"severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
+const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
@@ -79,9 +76,22 @@ async function invokeValidated(model: AnalysisModel, system: string, user: strin
     const raw = await model.invoke(system, user);
     try {
       const jsonText = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
-      return FindingsResponse.parse(JSON.parse(jsonText));
-    } catch {
-      if (attempt === 1) return { findings: [] }; // bounded: give QA an empty screen, never a crash
+      const parsed = JSON.parse(jsonText) as { findings?: unknown[] };
+      if (!Array.isArray(parsed.findings)) throw new Error('no findings array');
+      // Per-finding salvage: one malformed element must never void its
+      // siblings (the second lesson of the first live run).
+      const findings: z.infer<typeof FindingOutput>[] = [];
+      let invalid = 0;
+      for (const item of parsed.findings) {
+        const check = FindingOutput.safeParse(item);
+        if (check.success) findings.push(check.data);
+        else invalid++;
+      }
+      if (invalid > 0) console.warn(`[analysis] salvage: kept ${findings.length}, dropped ${invalid} malformed finding(s)`);
+      return { findings };
+    } catch (e) {
+      console.warn(`[analysis] response parse attempt ${attempt + 1} failed: ${(e as Error).message.slice(0, 120)}`);
+      if (attempt === 1) return { findings: [] }; // bounded: empty screen for QA, never a crash
     }
   }
   return { findings: [] };
@@ -161,9 +171,16 @@ export async function runAnalysis(
   // Short tx 1: validate, freeze chunks, create the run, enter the stages.
   const { run, chunks, lane } = await withTenant(tenantId, async (tx) => {
     const kase = await tx.case.findUniqueOrThrow({ where: { id: caseId } });
-    // ANALYZING re-entry allows a crashed run's retry to start a fresh run.
-    if (kase.status !== 'DOCS_COMPLETE' && kase.status !== 'ANALYZING') {
+    // ANALYZING re-entry allows a crashed run's retry; QA_REJECTED re-entry
+    // is the QA-rejection re-run loop (QA_REJECTED → ANALYZING is legal).
+    if (!['DOCS_COMPLETE', 'ANALYZING', 'QA_REJECTED'].includes(kase.status)) {
       throw new Error(`runAnalysis requires DOCS_COMPLETE, case is ${kase.status}`);
+    }
+    if (kase.status === 'QA_REJECTED') {
+      await appendCaseEvent(tx, {
+        caseId, tenantId, type: 'stage.entered', payload: { status: 'ANALYZING' },
+        actor: 'pipeline', transition: 'ANALYZING',
+      });
     }
 
     const documents = await tx.document.findMany({

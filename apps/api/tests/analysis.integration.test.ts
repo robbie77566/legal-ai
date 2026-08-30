@@ -96,6 +96,25 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+describe('response salvage (live-run lesson: one bad element must not void the screen)', () => {
+  it('keeps free-text categories and valid siblings; drops only malformed elements', async () => {
+    const { executeScreen, buildRecord } = await import('../src/services/analysis.service');
+    const chunks = [{ id: 'ch1', documentId: 'd1', content: `${run} the bite mark testimony was admitted over objection`, metadata: {} }];
+    const salvageModel = {
+      name: 'fake-salvage',
+      invoke: async () => JSON.stringify({ findings: [
+        { category: 'Surrogate DNA analyst testimony / Confrontation', severity: 'supportive', confidence: 0.7,
+          chunkIndex: 0, quote: 'bite mark testimony was admitted', partA: 'ok', partB: 'ok' },
+        { category: 'junk_science', severity: 'NOT_A_SEVERITY', confidence: 0.7, chunkIndex: 0,
+          quote: 'bite mark testimony was admitted', partA: 'bad severity', partB: 'x' },
+      ]}),
+    };
+    const res = await executeScreen(salvageModel, 'junk_science', buildRecord(chunks), chunks);
+    expect(res.grounded).toHaveLength(1);
+    expect(res.grounded[0].category).toBe('Surrogate DNA analyst testimony / Confrontation');
+  });
+});
+
 describe('runAnalysis (FR-6 grounding + state machine)', () => {
   it('persists grounded findings, DROPS hallucinated quotes, drives the machine to QA_REVIEW', async () => {
     const summary = await runAnalysis(caseId, tenantId, fakeModel);
