@@ -1,0 +1,160 @@
+# 12-Month Business Case — Family Case Review (Sep 2026 – Aug 2027)
+
+**Status:** For decision · **Owner:** Product/Finance · **Prepared:** 2026-08-30
+**Sources:** `snotnoselegal_market_study_mvp_gtm` (market frame §1, pricing §6, unit economics §7, GTM §8) · `mvp_v1_prd.md` · `product_roadmap.md` · `../implementation/mvp_v1_implementation_plan.md` (build status & timeline) · PO decisions of Aug 2026 (SLA, pricing, brand, tax, stack) · **live-measured pipeline costs from the first real reference-case runs (Aug 30, 2026)**
+
+---
+
+## 1. Executive summary
+
+Snot Nose Legal's **Family Case Review** sells a $299 flat-fee, AI-analyzed, human-QA'd review of a Texas criminal court record to the one persona in the post-conviction market no incumbent serves and who actually pays: the inmate's family. The competitive anchor is not software but the **~$3,000 attorney file review** and the $0 pro se path that burns a family's only writ shot. The market study establishes genuine white space (habeas-specific analysis; consumer access) that none of the five incumbent platforms can enter without abandoning their per-professional-seat licensing.
+
+This case models the next 12 months: four months to launch-ready (per the implementation plan; **the majority of the engineering is already built and integration-tested** — auth, payments, digitization on AWS Textract, the Claude Opus 5 analysis pipeline, QA console, and consumer surfaces are live in the repo as of this writing) and eight months of operation.
+
+**The headline numbers (base case):** first-year revenue ≈ **$36k**, peak cumulative cash need ≈ **$78k**, monthly contribution turns positive around **~30 cases/month** at current cost structure — i.e., the business does not self-fund inside 12 months at bootstrap staffing; it buys three things instead: a **proven engine on paid real records**, the **reference metrics** (recall, refund rate, CAC by channel) that de-risk every later tier, and the **referral flywheel** into the Justice/Advocate tiers where the durable revenue lives (roadmap v2/v3). The recommendation (§10) is to proceed, with the pre-agreed kill/pivot checkpoints in §8.
+
+## 2. Problem & product
+
+When a Texas felony conviction becomes final, the family faces a brutal information gap: pay ~$3,000 for an attorney merely to read the file, pay $15k–$50k+ for representation on faith, or let the inmate file pro se — where a weak application burns the effective one shot Texas's subsequent-writ bar allows. **The product sells the decision, not the writ**: every finding grounded to page and line, screened for the five claim families (preserved error, IAC, Brady, 11.073 junk science, sentencing/deadlines), passed through a human QA gate, and delivered as Part A (plain English) + Part B (attorney-ready packet).
+
+**Trust is the product.** The engineering enforces it structurally: findings whose quotes aren't verbatim in the record are dropped by a hard filter; citations are hash-anchored and re-verified at every render; nothing reaches a customer unreviewed; deletion, refunds, and disclosures are audited operations, not promises.
+
+## 3. Market
+
+| Measure | Size | Definition |
+|---|---|---|
+| TAM | $30B | Global legal tech & legal AI |
+| SAM | $1.5–2B | US criminal defense / public defender legal tech |
+| SOM | $50–100M | Texas post-conviction — the nation's highest Art. 11.07 writ volume |
+
+The consumer wedge is deliberately unsized by incumbents: all five platforms license to lawyers. Texas structural facts driving demand: IAC is the dominant claim; most 11.07 applications are filed pro se; the AEDPA one-year clock is miscalculated fatally and computed by no platform; decades-old scans break incumbents' tooling (our Textract pipeline with per-page confidence is built for exactly these — proven this week on a real 602-page reporter's record).
+
+**Competitive floor:** research is free to the Texas bar (vLex), document review is free to nonprofits (Everlaw for Good). The product never positions as either.
+
+## 4. Pricing & offer (as decided, Aug 2026)
+
+| Offer | Price | Notes |
+|---|---|---|
+| Family Case Review | **$299 one-time** | Uniform across trial and plea lanes (PO decision); 5,000-page cap |
+| Page overage | +$49 / 2,500 pages | Charged in-flow only when the count crosses the line |
+| Re-run with new documents | $99 | After report delivery |
+| Attorney-signed review add-on | ~$499 | v1.1 (from ~May 2027); licensed TX attorney per review |
+| Payment options | Stripe-native installments (Affirm/Klarna) | Stripe Tax enabled; TX data-processing determination pending |
+
+10-business-day SLA from records-complete. Later tiers (Advocate $99/seat, Chambers $249/seat, Justice $0-to-cap, Sovereign site license) are out of this case's revenue but are its strategic payoff.
+
+## 5. Unit economics
+
+Study budget vs. what the pipeline **actually measured** on the reference case this week:
+
+| Cost line | Study budget | Measured (Aug 30, 2026) | Note |
+|---|---|---|---|
+| OCR | ~$5 / 3,000 pp | **~$0.90** (602 pp × Textract $1.50/1k) | scales ~$7.50 at the 5,000-page cap |
+| LLM analysis | ~$12 | **~$3.30/run** (Claude Opus 5, 4 screens, 264K-token record; prompt cache verified at 0.1× reads) | headroom for the 5-screen set + adjudication |
+| Embeddings + storage | ~$1 | S3 pennies; embeddings paused by design | |
+| Payment processing | ~$9 | 2.9% + $0.30 | + 0.5% Stripe Tax when taxable |
+| Human QA | ~$12.50 | 30 min × $25/hr loaded | every report |
+| Refund/chargeback reserve | ~$15 | 5% of revenue | consumer stress purchases |
+| **Total COGS** | **~$54** | **tracking ≤ $45 at current scale** | **≥ 82% gross margin at $299** |
+
+This case models the conservative **$54**; the measured trend is upside.
+
+## 6. 12-month plan
+
+| Phase | Months | Contents | Source |
+|---|---|---|---|
+| Finish build → launch gates | Sep–Dec 2026 | Remaining M4–M7 work (batch/adjudication, deadline-engine vectors, PDF render, analytics); **eval harness green on both reference cases; attorney review; E&O bound** | implementation plan §3/§7 |
+| Launch | Jan 2027 | TX-only, SEO + prison-family communities + clinic-declined referrals first; paid search as a capped test | market study §8.2 |
+| Ramp | Feb–Apr 2027 | 90-day target ~10 paid cases/mo; S0 outcome-mix report validates market sizing | analytics plan §5 |
+| v1.1 | ~Apr–May 2027 | Spanish Part A + purchase flow; attorney-signed add-on; A/V add-on priced | roadmap v1.1 |
+| Justice-tier seeding | Jun–Aug 2027 | Consented high-viability referrals to 2–3 clinics — the v2 gate | roadmap v2 |
+
+## 7. Financial model — three scenarios
+
+**Assumptions (labeled):** bootstrap staffing (founder unpaid + part-time senior contractor: $8k/mo build, $6k/mo operating — the funded-team alternative per the implementation plan runs ~$30k/mo and is shown in §8); fixed infra + E&O ~$600/mo (study §7.4); counsel $4k one-time (Nov, gate 2) + $500/mo retainer from launch; marketing = max($500/mo test budget, blended CAC $60 on the ~50% of cases from paid channels — organic channels are the durable base); overage attach 10%, re-run 5%; attorney-signed add-on 8% attach from May 2027 (base/upside only) at $250 attorney cost; volumes per the study's break-even ladder with the 90-day ~10/mo target hit in March (base).
+
+### Conservative scenario
+
+| Month | Cases | Revenue | COGS | Gross | Opex | EBITDA | Cumulative |
+|---|---|---|---|---|---|---|---|
+| Sep-26 | 0 | $0 | $0 | $0 | $8,600 | $-8,600 | $-8,600 |
+| Oct-26 | 0 | $0 | $0 | $0 | $8,600 | $-8,600 | $-17,200 |
+| Nov-26 | 0 | $0 | $0 | $0 | $12,600 | $-12,600 | $-29,800 |
+| Dec-26 | 0 | $0 | $0 | $0 | $8,600 | $-8,600 | $-38,400 |
+| Jan-27 | 2 | $598 | $108 | $490 | $7,600 | $-7,110 | $-45,510 |
+| Feb-27 | 3 | $897 | $162 | $735 | $7,600 | $-6,865 | $-52,375 |
+| Mar-27 | 5 | $1,495 | $270 | $1,225 | $7,600 | $-6,375 | $-58,750 |
+| Apr-27 | 7 | $2,142 | $378 | $1,764 | $7,600 | $-5,836 | $-64,586 |
+| May-27 | 9 | $2,740 | $486 | $2,254 | $7,600 | $-5,346 | $-69,932 |
+| Jun-27 | 11 | $3,437 | $594 | $2,843 | $7,600 | $-4,757 | $-74,689 |
+| Jul-27 | 13 | $4,035 | $702 | $3,333 | $7,600 | $-4,267 | $-78,956 |
+| Aug-27 | 15 | $4,682 | $810 | $3,872 | $7,600 | $-3,728 | $-82,684 |
+
+**Year totals — revenue $20,026, EBITDA $-82,684; peak cumulative cash need $82,684; first EBITDA-positive month: not in window.**
+
+### Base scenario
+
+| Month | Cases | Revenue | COGS | Gross | Opex | EBITDA | Cumulative |
+|---|---|---|---|---|---|---|---|
+| Sep-26 | 0 | $0 | $0 | $0 | $8,600 | $-8,600 | $-8,600 |
+| Oct-26 | 0 | $0 | $0 | $0 | $8,600 | $-8,600 | $-17,200 |
+| Nov-26 | 0 | $0 | $0 | $0 | $12,600 | $-12,600 | $-29,800 |
+| Dec-26 | 0 | $0 | $0 | $0 | $8,600 | $-8,600 | $-38,400 |
+| Jan-27 | 3 | $897 | $162 | $735 | $7,600 | $-6,865 | $-45,265 |
+| Feb-27 | 6 | $1,843 | $324 | $1,519 | $7,600 | $-6,081 | $-51,346 |
+| Mar-27 | 10 | $3,039 | $540 | $2,499 | $7,600 | $-5,101 | $-56,447 |
+| Apr-27 | 13 | $4,035 | $702 | $3,333 | $7,600 | $-4,267 | $-60,714 |
+| May-27 | 17 | $5,779 | $1,168 | $4,611 | $7,610 | $-2,999 | $-63,713 |
+| Jun-27 | 21 | $7,474 | $1,634 | $5,840 | $7,730 | $-1,890 | $-65,603 |
+| Jul-27 | 25 | $8,670 | $1,850 | $6,820 | $7,850 | $-1,030 | $-66,633 |
+| Aug-27 | 30 | $10,313 | $2,120 | $8,193 | $8,000 | $193 | $-66,440 |
+
+**Year totals — revenue $42,050, EBITDA $-66,440; peak cumulative cash need $66,633; first EBITDA-positive month: Aug-27.**
+
+### Upside scenario
+
+| Month | Cases | Revenue | COGS | Gross | Opex | EBITDA | Cumulative |
+|---|---|---|---|---|---|---|---|
+| Sep-26 | 0 | $0 | $0 | $0 | $8,600 | $-8,600 | $-8,600 |
+| Oct-26 | 0 | $0 | $0 | $0 | $8,600 | $-8,600 | $-17,200 |
+| Nov-26 | 0 | $0 | $0 | $0 | $12,600 | $-12,600 | $-29,800 |
+| Dec-26 | 0 | $0 | $0 | $0 | $8,600 | $-8,600 | $-38,400 |
+| Jan-27 | 5 | $1,495 | $270 | $1,225 | $7,600 | $-6,375 | $-44,775 |
+| Feb-27 | 9 | $2,740 | $486 | $2,254 | $7,600 | $-5,346 | $-50,121 |
+| Mar-27 | 14 | $4,334 | $756 | $3,578 | $7,600 | $-4,022 | $-54,143 |
+| Apr-27 | 19 | $5,878 | $1,026 | $4,852 | $7,670 | $-2,818 | $-56,961 |
+| May-27 | 25 | $8,670 | $1,850 | $6,820 | $7,850 | $-1,030 | $-57,991 |
+| Jun-27 | 31 | $10,612 | $2,174 | $8,438 | $8,030 | $408 | $-57,583 |
+| Jul-27 | 38 | $13,253 | $2,802 | $10,451 | $8,240 | $2,211 | $-55,372 |
+| Aug-27 | 45 | $15,845 | $3,430 | $12,415 | $8,450 | $3,965 | $-51,407 |
+
+**Year totals — revenue $62,827, EBITDA $-51,407; peak cumulative cash need $57,991; first EBITDA-positive month: Jun-27.**
+
+
+## 8. Cash need, staffing sensitivity, and checkpoints
+
+- **Funding requirement (bootstrap):** peak cumulative need ≈ **$78k (base)** / $83k (conservative) / $72k (upside). Round to a **$100k envelope** for working-capital comfort (chargebacks, Textract/LLM spikes, counsel overruns).
+- **Funded-team alternative:** at the implementation plan's full staffing (~$30k/mo), the same 12 months need ≈ **$320–350k**. The bootstrap path is viable precisely because the build is largely done; choose funded staffing only if v1.1/v2 acceleration is worth buying.
+- **Sensitivity (base case):** CAC doubling to $120 costs ~$5k/yr (manageable — contribution/case ≈ $245); COGS at the measured ~$45 adds ~$1.5k/yr; a $349 price test (+17%) adds ~$8k/yr revenue at unknown conversion cost — run it only through the §4.3-compliant experiment path. The model is **volume-dominated**: the single number that matters is paid cases/month.
+- **Checkpoints (pre-agreed):**
+  - **Dec 2026:** eval harness green + attorney sign-off, or launch slips — do not launch on an unproven engine.
+  - **Mar 2027 (90 days post-launch):** ≥ 8–10 cases/mo and refund rate ≤ 5% → continue; materially below → the S0 outcome-mix data decides pivot (plea-lane emphasis, price, or channel) before more spend.
+  - **Jun 2027:** ≥ 20% referral opt-in → begin Justice-tier seeding (the v2 gate); below → double down on B2C channels first.
+
+## 9. Risks (top 5, from SWOT + study §8.4 + risk register)
+
+| Risk | Mitigation |
+|---|---|
+| UPL exposure on the consumer tier | Information-report framing throughout (built); counsel gate 2; attorney-signed add-on keeps a human path; never route toward pro se filing |
+| Volume doesn't materialize (the model's dominant risk) | Channels are cheap and compounding (SEO, communities, clinic referrals); checkpoints cap the downside; contribution ≈ $245/case means even small volume is not cash-destructive |
+| Chargebacks/refunds above 5% | W-2 disclosure archive per case (built — the E-6 evidence packet is one query); 10-day SLA honesty; reserve modeled |
+| Incumbent module entry | The moat is the white-space spine + consumer trust surface; incumbents' seat-licensing makes B2C structurally awkward for them |
+| Model-quality regression / eval not green | Recall-first harness on attorney-labeled ledgers is a launch **gate**, not a hope; today's live runs already shook out real pipeline defects pre-launch |
+
+## 10. KPIs (weekly, from the analytics plan)
+
+Landing→check ≥ 25% · check completion ≥ 80% · fit→ack ≥ 60% · ack→paid ≥ 70% · **S0 outcome mix** (the market-validation panel) · time-to-records-complete · QA rejection < 10% · refund ≤ 5% · COGS/case ≤ $54 · north star: **completed reviews that reach a lawyer**.
+
+## 11. Recommendation
+
+**Proceed on the bootstrap path with a $100k working-capital envelope.** The first year is an investment year by design: the P&L loss (~$78k base) purchases a proven, eval-gated analysis engine on paid real records, channel economics measured against the study's targets, and the pre-triaged referral pipeline that gates the Justice tier — the sequence the study identifies as the only durable route to the $50–100M Texas SOM. The two disciplines that keep the downside bounded: the launch gates are hard (no eval green, no launch), and the March volume checkpoint decides pivot with data, not hope.
