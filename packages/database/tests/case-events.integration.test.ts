@@ -13,6 +13,14 @@ let tenantId: string
 let caseId: string
 
 beforeAll(async () => {
+  // Local runs accumulate an unpublished-event backlog (suites append events,
+  // nothing drains them); stamp pre-existing ones so the bounded drain below
+  // only ever sees THIS run's events. The append-only trigger permits exactly
+  // this write (the outbox stamp).
+  await admin.caseEvent.updateMany({
+    where: { publishedAt: null },
+    data: { publishedAt: new Date() },
+  })
   const t = await admin.tenant.create({ data: { name: `${run}_T` } })
   tenantId = t.id
   const c = await admin.case.create({ data: { title: `${run}_case`, tenantId } })
