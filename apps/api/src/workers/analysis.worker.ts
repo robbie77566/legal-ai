@@ -36,7 +36,7 @@ function buildModel(): AnalysisModel | null {
       const response = await client.beta.messages
         .stream({
           model: modelName,
-          max_tokens: 32000  // Fable comparison hit 16k mid-array; verbose models need headroom,
+          max_tokens: 32000, // Fable comparison hit 16k mid-array; verbose models need headroom
           betas: ['server-side-fallback-2026-07-01'],
           fallbacks: 'default',
           system: FIXED_SYSTEM,
