@@ -17,11 +17,23 @@ interface ChecklistItem {
   label: string
   state: 'NEEDED' | 'UPLOADED' | 'CONFIRMED' | 'PROBLEM'
 }
+interface CaseDocument {
+  id: string
+  filename: string
+  suggestedChecklistItemId: string | null
+  classificationConfirmed: boolean
+  quarantined: boolean
+}
 interface ChecklistData {
   status: string
   items: ChecklistItem[]
-  documents: { id: string; filename: string }[]
+  documents: CaseDocument[]
   slaStartedAt: string | null
+}
+interface Meter {
+  billable: number
+  duplicatesIgnored: number
+  cap: number
 }
 
 const HOWTO: Record<string, string> = {
@@ -50,10 +62,25 @@ export default function CaseDocuments() {
   const fileInput = useRef<HTMLInputElement>(null)
   const pendingItem = useRef<string | null>(null)
 
+  const [meter, setMeter] = useState<Meter | null>(null)
+  const [correcting, setCorrecting] = useState<string | null>(null)
+
   const refresh = useCallback(async () => {
     const res = await apiFetch(`/cases/${caseId}/checklist`)
     if (res.ok) setData(await res.json())
+    const m = await apiFetch(`/cases/${caseId}/pages`)
+    if (m.ok) setMeter(await m.json())
   }, [caseId])
+
+  const verdict = async (docId: string, action: 'confirm' | 'correct', checklistItemId?: string) => {
+    await apiFetch(`/cases/${caseId}/documents/${docId}/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      ...(checklistItemId ? { body: JSON.stringify({ checklistItemId }) } : {}),
+    })
+    setCorrecting(null)
+    await refresh()
+  }
 
   useEffect(() => {
     void refresh()
@@ -164,6 +191,61 @@ export default function CaseDocuments() {
         }}
       />
 
+      {/* Echo-back cards (UI spec §5.5): the pipeline's guess, the family's verdict */}
+      {data?.documents
+        .filter((d) => d.suggestedChecklistItemId && !d.classificationConfirmed && !d.quarantined)
+        .map((d) => {
+          const item = data.items.find((i) => i.id === d.suggestedChecklistItemId)
+          return (
+            <div key={d.id} data-testid="echoback" className="mt-4 rounded-xl border-2 border-db-accent bg-db-surface p-4">
+              <p>
+                <span className="font-db-mono text-sm text-db-muted">{d.filename}</span> — this looks
+                like <strong>{item?.label ?? 'one of your documents'}</strong>.
+              </p>
+              {correcting === d.id ? (
+                <div className="mt-3">
+                  <label className="text-sm font-semibold">What is it really?</label>
+                  <div className="mt-2 space-y-2">
+                    {data.items.map((i) => (
+                      <button
+                        key={i.id}
+                        onClick={() => void verdict(d.id, 'correct', i.id)}
+                        className="block w-full rounded-lg border border-db-line p-2 text-left text-sm hover:border-db-accent"
+                      >
+                        {i.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 flex gap-3">
+                  <button
+                    onClick={() => void verdict(d.id, 'confirm')}
+                    className="rounded-lg bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface"
+                  >
+                    That&rsquo;s right
+                  </button>
+                  <button
+                    onClick={() => setCorrecting(d.id)}
+                    className="rounded-lg border border-db-line px-4 py-2 text-sm"
+                  >
+                    No, let me fix it
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+
+      {/* Quarantine notice (ENG-4): honest, never alarming about their case */}
+      {data?.documents.filter((d) => d.quarantined).map((d) => (
+        <p key={d.id} role="alert" className="mt-4 rounded-xl border p-4 text-sm" style={{ borderColor: 'var(--db-urgent)', color: 'var(--db-urgent)' }}>
+          We couldn&rsquo;t accept <span className="font-db-mono">{d.filename}</span> — our safety
+          scan flagged the file itself (not your case). Try re-scanning or photographing those
+          pages and uploading again; your other documents are unaffected.
+        </p>
+      ))}
+
       {/* Shoebox path — first-class (UI spec §5.5) */}
       <div className="mt-6 rounded-xl border-2 border-dashed border-db-line bg-db-surface p-4">
         <p className="font-semibold">Not sure what a paper is?</p>
@@ -208,6 +290,19 @@ export default function CaseDocuments() {
           </li>
         ))}
       </ul>
+
+      {/* Page meter (ENG-3): the same authority billing reads */}
+      {meter && meter.billable > 0 && (
+        <p className="mt-6 rounded-lg border border-db-line bg-db-surface p-3 text-sm">
+          <span className="font-db-mono">{meter.billable.toLocaleString()} / {meter.cap.toLocaleString()}</span> pages
+          {meter.duplicatesIgnored > 0 && (
+            <span className="block text-db-muted">
+              Duplicates ignored: {meter.duplicatesIgnored} — they don&rsquo;t count toward your
+              pages, but we still read every page you send.
+            </span>
+          )}
+        </p>
+      )}
 
       <div className="mt-8 rounded-xl border border-db-line bg-db-surface p-4">
         <p className="text-sm text-db-muted">

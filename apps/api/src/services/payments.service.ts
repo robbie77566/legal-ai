@@ -250,9 +250,12 @@ export async function reconcilePayments(): Promise<{ checked: number; healed: nu
   const stripe = getStripe();
   if (!stripe) return { checked: 0, healed: 0 };
 
-  const twoHoursAgo = Math.floor(Date.now() / 1000) - 2 * 60 * 60;
+  // Sessions expire 24h after creation but can be PAID at any point in that
+  // window — the lookback must cover the full session lifetime plus slack,
+  // or a payment on an old session slips through unfulfilled.
+  const lookback = Math.floor(Date.now() / 1000) - 25 * 60 * 60;
   const sessions = await stripe.checkout.sessions.list({
-    created: { gte: twoHoursAgo },
+    created: { gte: lookback },
     limit: 100,
   });
 
