@@ -322,6 +322,16 @@ describe('QA console (US-8)', () => {
     expect(body.droppedByReverification).toBe(0);
   });
 
+  it('report PDF: renders the same verified payload as a well-formed PDF', async () => {
+    const res = await fastify.inject({
+      method: 'GET', url: `/cases/${caseId}/report/pdf`, headers: { cookie: clientCookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(res.rawPayload.length).toBeGreaterThan(2000);
+  });
+
   it('FR-7: tampering with a source chunk after approval drops the finding at render', async () => {
     await prisma.documentChunk.updateMany({
       where: { content: CHUNK_A },

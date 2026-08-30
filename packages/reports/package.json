@@ -1,0 +1,21 @@
+{
+  "name": "@hg/reports",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "dependencies": {
+    "pdfkit": "^0.15.2"
+  },
+  "devDependencies": {
+    "@hg/tsconfig": "workspace:*",
+    "@types/node": "^20.19.40",
+    "@types/pdfkit": "^0.13.9",
+    "typescript": "^5.4.0",
+    "vitest": "^3.2.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}
