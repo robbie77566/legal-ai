@@ -70,14 +70,32 @@ export function buildDefaultExtractor(): Extractor {
             DocumentLocation: { S3Object: { Bucket: bucket, Name: s3Key } },
           })
         );
-        // Poll (M4 moves this to delayed jobs; acceptable inside a worker now)
+        // Poll (M4 moves this to delayed jobs; acceptable inside a worker now).
+        // Transient throttles/stale-IAM denials on the poll must not burn the
+        // whole OCR job — treat them as "still in progress" for a bounded
+        // number of grace attempts.
+        let pollGraceLeft = 12;
         for (let i = 0; i < 120; i++) {
           await new Promise((r) => setTimeout(r, 5000));
           const pageMap = new Map<number, { texts: string[]; confs: number[] }>();
           let next: string | undefined;
-          const first = await client.send(
-            new GetDocumentTextDetectionCommand({ JobId: start.JobId })
-          );
+          let first;
+          try {
+            first = await client.send(
+              new GetDocumentTextDetectionCommand({ JobId: start.JobId })
+            );
+          } catch (e) {
+            const name = (e as { name?: string }).name ?? '';
+            if (
+              pollGraceLeft > 0 &&
+              /AccessDenied|Throttling|ProvisionedThroughputExceeded|LimitExceeded/.test(name)
+            ) {
+              pollGraceLeft--;
+              console.warn(`[digitize] poll blip (${name}) — retrying (${pollGraceLeft} grace left)`);
+              continue;
+            }
+            throw e;
+          }
           if (first.JobStatus === 'IN_PROGRESS') continue;
           if (first.JobStatus !== 'SUCCEEDED') throw new Error(`Textract ${first.JobStatus}`);
           let page = first;
