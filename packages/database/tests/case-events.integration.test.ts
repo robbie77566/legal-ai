@@ -164,6 +164,22 @@ describe('appendCaseEvent (projection in the same transaction)', () => {
 describe('transactional outbox', () => {
   // Other test projects append events concurrently, so every assertion here
   // is scoped to THIS case's channel — never to global batch counts.
+  //
+  // A LIVE outbox publisher (a running dev API server) stamps events before
+  // this suite's fake publisher can observe them — detect that and skip
+  // honestly rather than fail on a race we cannot win.
+  let externalPublisher = false
+  beforeAll(async () => {
+    const sentinel = await admin.caseEvent.create({
+      data: { caseId, tenantId, type: 'hold.set', version: 1, payload: { hold: 'OCR_HALT' }, actor: 'outbox-sentinel' },
+    })
+    await new Promise((r) => setTimeout(r, 3500))
+    const check = await admin.caseEvent.findUniqueOrThrow({ where: { id: sentinel.id } })
+    externalPublisher = check.publishedAt !== null
+    if (externalPublisher) {
+      console.warn('[outbox tests] live outbox publisher detected (dev API running) — suite skipped')
+    }
+  })
   const drain = async (published: { channel: string; message: string }[]) => {
     const fake = {
       publish: async (channel: string, message: string) => published.push({ channel, message }),
@@ -173,7 +189,8 @@ describe('transactional outbox', () => {
     }
   }
 
-  it('publishes unpublished events with the customer-visible mapping, then stamps them', async () => {
+  it('publishes unpublished events with the customer-visible mapping, then stamps them', async (ctx) => {
+    if (externalPublisher) return ctx.skip()
     const published: { channel: string; message: string }[] = []
     await drain(published)
 
@@ -190,7 +207,8 @@ describe('transactional outbox', () => {
     expect(again.filter((p) => p.channel === `case-progress:${caseId}`)).toHaveLength(0)
   })
 
-  it('a publisher failure leaves events unstamped for retry (at-least-once)', async () => {
+  it('a publisher failure leaves events unstamped for retry (at-least-once)', async (ctx) => {
+    if (externalPublisher) return ctx.skip()
     await withTenant(tenantId, (tx) =>
       appendCaseEvent(tx, {
         caseId,

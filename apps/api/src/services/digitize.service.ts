@@ -110,9 +110,28 @@ export function buildDefaultExtractor(): Extractor {
             }
             next = page.NextToken;
             if (!next) break;
-            page = await client.send(
-              new GetDocumentTextDetectionCommand({ JobId: start.JobId, NextToken: next })
-            );
+            // Same grace policy on pagination fetches — the largest volumes
+            // make the most Get calls and were dying on exactly these.
+            for (;;) {
+              try {
+                page = await client.send(
+                  new GetDocumentTextDetectionCommand({ JobId: start.JobId, NextToken: next })
+                );
+                break;
+              } catch (e) {
+                const name = (e as { name?: string }).name ?? '';
+                if (
+                  pollGraceLeft > 0 &&
+                  /AccessDenied|Throttling|ProvisionedThroughputExceeded|LimitExceeded/.test(name)
+                ) {
+                  pollGraceLeft--;
+                  console.warn(`[digitize] pagination blip (${name}) — retrying (${pollGraceLeft} grace left)`);
+                  await new Promise((r) => setTimeout(r, 5000));
+                  continue;
+                }
+                throw e;
+              }
+            }
           }
           const total = Math.max(...pageMap.keys(), 1);
           return Array.from({ length: total }, (_, i2) => {
