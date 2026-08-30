@@ -20,6 +20,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import prisma from '@hg/database';
 import {
   buildRecord,
+  buildContextHeader,
   executeScreen,
   SCREENS_BY_LANE,
   type AnalysisChunk,
@@ -99,11 +100,13 @@ const norm = (q: string) => q.replace(/\s+/g, ' ').trim().toLowerCase();
   console.log(`record: ${chunks.length} chunks | challenger: ${challengerName} | screens: ${SCREENS_BY_LANE[lane].join(', ')}`);
 
   const challenger = buildChallenger(challengerName);
+  const contextHeader = await buildContextHeader(challenger, record);
+  if (contextHeader) console.log(`context: ${contextHeader.slice(0, 140)}…`);
   const challengerResults: Record<string, { grounded: ScreenFinding[]; dropped: number }> = {};
   for (const screenId of SCREENS_BY_LANE[lane]) {
     console.log(`\n=== screen: ${screenId} ===`);
     const started = Date.now();
-    const res = await executeScreen(challenger, screenId, record, chunks);
+    const res = await executeScreen(challenger, screenId, record, chunks, contextHeader);
     challengerResults[screenId] = res;
     console.log(
       `  grounded: ${res.grounded.length} | dropped ungrounded: ${res.dropped} | ${Math.round((Date.now() - started) / 1000)}s`

@@ -165,6 +165,27 @@ describe('response salvage (live-run lesson: one bad element must not void the s
     expect(res.grounded).toHaveLength(1);
     expect(res.dropped).toBe(1);
   });
+
+  it('context pre-pass: header is prepended to screens; JSON-shaped context is rejected', async () => {
+    const { buildContextHeader, executeScreen, buildRecord } = await import('../src/services/analysis.service');
+    const chunks = [{ id: 'ch1', documentId: 'd1', content: `${run} some record text here`, metadata: {} }];
+    const seen: string[] = [];
+    const model = {
+      name: 'fake-context',
+      invoke: async (system: string) => {
+        seen.push(system);
+        if (system.includes('CASE CONTEXT')) return 'CASE CONTEXT: victim is Deputy Harper.';
+        return JSON.stringify({ findings: [] });
+      },
+    };
+    const header = await buildContextHeader(model, buildRecord(chunks));
+    expect(header).toBe('CASE CONTEXT: victim is Deputy Harper.');
+    await executeScreen(model, 'voir_dire', buildRecord(chunks), chunks, header);
+    expect(seen[seen.length - 1].startsWith('CASE CONTEXT: victim is Deputy Harper.')).toBe(true);
+    // A model that answers the pre-pass with JSON must yield an empty header.
+    const jsonModel = { name: 'fake-json', invoke: async () => '{"findings":[]}' };
+    expect(await buildContextHeader(jsonModel, 'x')).toBe('');
+  });
 });
 
 describe('runAnalysis (FR-6 grounding + state machine)', () => {

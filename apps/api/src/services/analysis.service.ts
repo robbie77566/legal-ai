@@ -69,6 +69,18 @@ const SCREENS_BY_LANE: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
   PLEA: ['plea_lane', 'sentencing'],
 };
 
+/**
+ * Case-context pre-pass (one cached-read call before the screens): a
+ * voir-dire relationship to "Brian Harper" only reads as victim contact if
+ * the screen knows Harper IS the victim — cross-referencing a name 400k
+ * tokens apart is exactly what a long-context single pass misses (proven
+ * on the Brian record: the Willetts juror finding appears ONLY with this
+ * header, then at dispositive severity). The header is model-derived, so
+ * it never bypasses grounding: findings still verify verbatim.
+ */
+const CONTEXT_INSTRUCTIONS =
+  'From the record above identify: the defendant; the offense(s) charged; the complainant/victim name(s) and role; key State witnesses (law enforcement, experts, outcry/medical); and the central contested issue at trial. Respond with ONE compact plain-text paragraph beginning "CASE CONTEXT:" (max ~150 words). No JSON, no headings, no analysis.';
+
 const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
@@ -222,9 +234,11 @@ export async function executeScreen(
   model: AnalysisModel,
   screenId: keyof typeof SCREENS,
   record: string,
-  chunks: AnalysisChunk[]
+  chunks: AnalysisChunk[],
+  contextHeader = ''
 ): Promise<{ grounded: ScreenFinding[]; dropped: number }> {
-  const res = await invokeValidated(model, `${SCREENS[screenId]}\n${OUTPUT_INSTRUCTIONS}`, record);
+  const prefix = contextHeader ? `${contextHeader}\n\n` : '';
+  const res = await invokeValidated(model, `${prefix}${SCREENS[screenId]}\n${OUTPUT_INSTRUCTIONS}`, record);
   const grounded: ScreenFinding[] = [];
   let dropped = 0;
   for (const f of res.findings) {
@@ -240,6 +254,18 @@ export async function executeScreen(
 }
 
 export { SCREENS_BY_LANE };
+
+/** The pre-pass itself — shared by the pipeline and compare-models. */
+export async function buildContextHeader(model: AnalysisModel, record: string): Promise<string> {
+  try {
+    const text = (await model.invoke(CONTEXT_INSTRUCTIONS, record)).trim();
+    // Tolerate a misbehaving model: context is an aid, never a gate.
+    if (!text || text.startsWith('{')) return '';
+    return text.slice(0, 2000);
+  } catch {
+    return '';
+  }
+}
 
 /**
  * Transaction shape (learned the expensive way on the first live run):
@@ -300,9 +326,13 @@ export async function runAnalysis(
   let persisted = 0;
   let dropped = 0;
 
+  // Context pre-pass: outside any transaction, one cached-read call.
+  const contextHeader = await buildContextHeader(model, record);
+  if (contextHeader) console.log(`[analysis] context header: ${contextHeader.slice(0, 160)}…`);
+
   for (const screenId of SCREENS_BY_LANE[lane]) {
     // Model call: minutes, OUTSIDE any transaction.
-    const result = await executeScreen(model, screenId, record, chunks);
+    const result = await executeScreen(model, screenId, record, chunks, contextHeader);
     dropped += result.dropped;
 
     // Short tx per screen: findings + the tracker's honest sub-detail.
