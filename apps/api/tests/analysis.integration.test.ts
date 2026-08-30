@@ -144,6 +144,27 @@ describe('response salvage (live-run lesson: one bad element must not void the s
     expect(res.grounded).toHaveLength(1);
     expect(res.grounded[0].quote).toContain('\nMR. SMITH');
   });
+
+  it('grounds a naturally-joined quote against line-broken transcript text (Willetts lesson)', async () => {
+    const { executeScreen, buildRecord } = await import('../src/services/analysis.service');
+    // The transcript breaks the sentence across lines with tabs; the model
+    // quotes it joined with single spaces. Normalized matching must ground
+    // it — while a fabricated quote must still be dropped.
+    const content = `${run} JUROR WILLETTS: My husband is his corporal\nat Clute.\tI have never personally met him`;
+    const chunks = [{ id: 'ch1', documentId: 'd1', content, metadata: {} }];
+    const model = {
+      name: 'fake-joined',
+      invoke: async () => JSON.stringify({ findings: [
+        { category: 'juror_bias', severity: 'supportive', confidence: 0.8, chunkIndex: 0,
+          quote: 'My husband is his corporal at Clute. I have never personally met him', partA: 'ok', partB: 'ok' },
+        { category: 'juror_bias', severity: 'supportive', confidence: 0.8, chunkIndex: 0,
+          quote: 'ENTIRELY FABRICATED QUOTE', partA: 'x', partB: 'x' },
+      ]}),
+    };
+    const res = await executeScreen(model, 'voir_dire', buildRecord(chunks), chunks);
+    expect(res.grounded).toHaveLength(1);
+    expect(res.dropped).toBe(1);
+  });
 });
 
 describe('runAnalysis (FR-6 grounding + state machine)', () => {

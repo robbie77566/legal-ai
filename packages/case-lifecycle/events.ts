@@ -70,6 +70,7 @@ export const CASE_EVENT_SCHEMAS = {
           'deadline',
           'appeal_restoration',
           'plea_lane',
+          'voir_dire',
         ]),
         // honest tracker sub-detail ("Volume 3 of 7 read") — counts only
         volumesRead: count.optional(),

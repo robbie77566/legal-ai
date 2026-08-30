@@ -44,7 +44,7 @@ const FindingOutput = z.object({
 const FindingsResponse = z.object({ findings: z.array(FindingOutput).max(50) });
 
 interface Screen {
-  id: 'iac' | 'brady' | 'junk_science' | 'sentencing' | 'plea_lane';
+  id: 'iac' | 'brady' | 'junk_science' | 'sentencing' | 'plea_lane' | 'voir_dire';
   system: string;
 }
 
@@ -60,16 +60,30 @@ const SCREENS: Record<Screen['id'], string> = {
     'You are auditing the judgment and sentence for illegal-sentence indicators: punishment outside the statutory range, enhancement defects, time-credit errors, cumulation-order and deadly-weapon-finding issues.',
   plea_lane:
     'You are screening plea papers for involuntary-plea indicators: missing admonishments, judgment terms that do not match the plea agreement, absent judicial confession, and affirmative misadvice (immigration/Padilla, parole eligibility).',
+  voir_dire:
+    'You are a Texas appellate attorney screening jury selection (voir dire) for juror-bias and preserved-error indicators: venire members with relationships to the victim, witnesses, law enforcement, or parties (actual or implied bias — note their panel numbers and whether the record shows them struck or seated); bias admissions followed by denied challenges for cause or inadequate rehabilitation; commitments hostile to rights (e.g., treating silence as guilt); Batson indicators; and counsel failures to question, challenge, or strike compromised panelists.',
 };
 
 const SCREENS_BY_LANE: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
-  TRIAL: ['iac', 'brady', 'junk_science', 'sentencing'],
+  TRIAL: ['iac', 'brady', 'junk_science', 'sentencing', 'voir_dire'],
   PLEA: ['plea_lane', 'sentencing'],
 };
 
 const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
+
+/**
+ * Whitespace-normalized comparison for grounding: court transcripts break
+ * sentences across lines (and OCR inserts tabs), so a model's naturally
+ * joined verbatim quote fails an exact includes() — which was silently
+ * dropping TRUE findings (Brian's record: a seated juror married to the
+ * victim's supervisor). Normalization applies to the MATCH only; the
+ * stored excerpt and the sha256 chunk-tamper anchors stay exact.
+ */
+const normWs = (s: string) => s.replace(/\s+/g, ' ').trim();
+export const quoteGrounds = (chunkContent: string, quote: string) =>
+  normWs(chunkContent).includes(normWs(quote));
 
 /**
  * Escape raw control characters that appear INSIDE string literals — the
@@ -216,7 +230,7 @@ export async function executeScreen(
   for (const f of res.findings) {
     const chunk = chunks[f.chunkIndex];
     // FR-6: grounding is a hard filter, not a preference.
-    if (!chunk || !chunk.content.includes(f.quote)) {
+    if (!chunk || !quoteGrounds(chunk.content, f.quote)) {
       dropped++;
       continue;
     }
@@ -371,7 +385,7 @@ export async function verifyFindings(
     let ok = citations.length > 0;
     for (const c of citations) {
       const chunk = await tx.documentChunk.findUnique({ where: { id: c.chunkId } });
-      if (!chunk || sha256(chunk.content) !== c.excerptHash || !chunk.content.includes(c.excerpt)) {
+      if (!chunk || sha256(chunk.content) !== c.excerptHash || !quoteGrounds(chunk.content, c.excerpt)) {
         ok = false;
         break;
       }
