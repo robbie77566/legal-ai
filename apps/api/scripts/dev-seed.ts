@@ -5,6 +5,8 @@
  *
  *   pnpm --filter api seed:dev            → sign-in-able CLIENT + funded case
  *   pnpm --filter api seed:dev -- --gary  → same, plus Gary's reference
+ *   pnpm --filter api seed:dev -- --corpus "Brian Spinks"
+ *                                           → same, with that corpus folder's
  *                                           volumes copied from the eval
  *                                           bucket and queued through the
  *                                           REAL digitization pipeline
@@ -100,7 +102,13 @@ async function main() {
   console.log(`  password: ${PASSWORD}`);
   console.log(`  case    : http://localhost:3000/case/${kase.id}/interview`);
 
-  if (process.argv.includes('--gary')) {
+  const corpusFlag = process.argv.indexOf('--corpus');
+  const corpusName = process.argv.includes('--gary')
+    ? 'Gary'
+    : corpusFlag >= 0
+      ? process.argv[corpusFlag + 1]
+      : null;
+  if (corpusName) {
     const region = (process.env.AWS_REGION ?? 'us-east-2').replace(/"/g, '');
     const evalBucket = (process.env.EVAL_CORPUS_BUCKET ?? '').replace(/"/g, '');
     const docsBucket = (process.env.S3_BUCKET ?? '').replace(/"/g, '');
@@ -108,10 +116,16 @@ async function main() {
     console.log(`  s3      : region=${region} eval=${evalBucket} docs=${docsBucket}`);
 
     const listing = await s3.send(
-      new ListObjectsV2Command({ Bucket: evalBucket, Prefix: 'corpus/Gary/' })
+      new ListObjectsV2Command({ Bucket: evalBucket, Prefix: `corpus/${corpusName}/` })
     );
-    const pdfs = (listing.Contents ?? []).filter((o) => o.Key?.toLowerCase().endsWith('.pdf'));
-    console.log(`  gary    : copying ${pdfs.length} volumes into the case…`);
+    // Top-level PDFs only: corpus folders also hold media (video, jail-call
+    // audio, photos) the MVP pipeline does not ingest.
+    const pdfs = (listing.Contents ?? []).filter(
+      (o) =>
+        o.Key?.toLowerCase().endsWith('.pdf') &&
+        !o.Key.slice(`corpus/${corpusName}/`.length).includes('/')
+    );
+    console.log(`  corpus  : ${corpusName} — copying ${pdfs.length} volumes into the case…`);
 
     const { enqueueDocument } = await import('../src/services/queue');
     for (const obj of pdfs) {
