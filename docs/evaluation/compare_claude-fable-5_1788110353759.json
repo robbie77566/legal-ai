@@ -1,0 +1,266 @@
+{
+  "caseId": "cmtfzvo5m000219djjmj3qe3i",
+  "championRunId": "cmtg2ac23000cr20ttisswbmt",
+  "championModel": "claude-opus-5",
+  "challengerModel": "claude-fable-5",
+  "champion": [
+    {
+      "category": "junk_science",
+      "severity": "supportive",
+      "confidence": 0.66,
+      "partB": "ID Investigator Thomas conceded that no latent-print processing of the Taurus 9mm and no GSR collection was performed, and Investigator Buchanan confirmed no forensic testing was requested, both on the stated rationale that the identity of the shooter was undisputed. But the contested issue at trial was not identity — it was the relative positions of Harper and Spinks at the moment of discharge, which bore directly on intent and self-defense. Buchanan conceded on recross that GSR distribution on front versus back of clothing 'could help nail down the location of where the gun was when it discharged' and that the State 'had nothing to lose by doing that.' Preserve as failure to develop readily available forensic evidence on the dispositive contested fact, relevant to both a Brady/lost-evidence theory and to ineffective assistance for failure to seek independent testing.",
+      "quotes": [
+        "I \tdid \tnot \ttest \tfor \tfingerprints \tbased \ton \tthe\ninformation \tthat \tI \twas \tgiven \tat \tthe \tscene \ton \thow \tit \twent\ndown. \tWe \tdidn't \tfeel \tthat \tit \twas \tnecessary."
+      ]
+    },
+    {
+      "category": "iac",
+      "severity": "supportive",
+      "confidence": 0.7,
+      "partB": "Multiple venire members affirmatively stated they would use the defendant's failure to testify as evidence of guilt (Jurors Lozano #4, Carter #21, Barclay #34, Ebey #35, Williams #44, Pavlu #77) — an unequivocal disqualification for cause under Tex. Code Crim. Proc. art. 35.16(c)(2) and Sells v. State. The record reflects no individual challenges for cause with adverse rulings preserved as to each such venire member, and no request for additional strikes. Compare the agreed-strike list (V2 at 140) to determine which biased jurors were seated. Counsel's failure to obtain adverse rulings on challenges for cause forfeits the strongest available voir dire error and constitutes potential deficient performance; the presence of any seated juror who declared an inability to honor the Fifth Amendment is structural prejudice.",
+      "quotes": [
+        "MS. \tSHARP: \tOkay. \tCan \tanybody \tthink \tof \ta\nreason \tother \tthan \t\"I \tthink \tthey're \thiding \tsomething\" \twhy\nsomeone \tmight \tnot \twant \tto \ttestify \tin \ttheir \town \tdefense?"
+      ]
+    },
+    {
+      "category": "iac",
+      "severity": "supportive",
+      "confidence": 0.6,
+      "partB": "The sole contested issue was specific intent to kill, which turned on the relative positions of the defendant and the complainant at the moment of discharge — a question directly amenable to gunshot-residue distribution and muzzle-to-target distance analysis. The State conducted no GSR testing, no fingerprint analysis of the weapon, and no stippling examination (V5 at 33-40, 146-161). Defense counsel attempted to develop this through State witnesses but was foreclosed by sustained expertise objections (V5 at 148, 159) and a sustained relevance objection to stippling testimony (V5 at 35). The record reflects no defense motion for appointment of a forensic expert under Ake/Rey, no independent testing, and no defense expert testimony on GSR or shot-distance reconstruction. Assess whether the failure to investigate and present available forensic evidence bearing directly on the position of the firearm — the dispositive intent issue — constitutes deficient performance and prejudice.",
+      "quotes": [
+        "MS. \tSHARP: \tI'm \tgoing \tto \tobject \tto \toutside\nthis \twitness' \tscope \tof \texpertise, \tunless \tthere's \ta\npredicate \tlaid.\nTHE \tCOURT: \tSustained."
+      ]
+    },
+    {
+      "category": "iac",
+      "severity": "supportive",
+      "confidence": 0.6,
+      "partB": "The defendant testified he was unmedicated at the time of the offense and is now on Seroquel and Wellbutrin (V6 at 33-34); his mother testified to a documented history of bipolar disorder, major depression, paranoid ideation, a suicide attempt, childhood sexual abuse, and a schizophrenic biological father (V7 at 47-57). No mental-health expert was retained, no competency or sanity examination appears in the record, and no expert testimony was offered at either guilt-innocence (on mens rea / reasonableness of the defendant's apprehension for § 9.31/9.32 purposes) or punishment (as mitigation). Counsel argued the mental-health theory in closing without evidentiary support (V6 at 111-112; V7 at 89-93). Evaluate failure to investigate and present readily available mental-health mitigation and mens rea evidence under Wiggins v. Smith and Ex parte Gonzales, and its prejudicial effect on the 60-year sentence.",
+      "quotes": [
+        "Q \tAre you currently on medication?\n11 \tA \tYes, sir.\n12 \tQ \tAnd who prescribed you that medication?\n13 \tA \tA psychiatrist.\n14 \tQ \tDo you know what medication you take?\n15 \tA \tSeroquel and Wellbutrin.\n16 \tQ \tWere you on medication at the time that this\n17 \thappened?\n18 \tA \tNo, sir."
+      ]
+    },
+    {
+      "category": "preserved_error",
+      "severity": "background",
+      "confidence": 0.5,
+      "partB": "The trial court granted the motion to suppress the warrantless seizure of the vehicle and all evidence obtained under the subsequent May 2 warrant (V3 at 30-32), expressly limiting the State to plain-view observations and excluding evidence regarding 'whose they were, how they were obtained.' Notwithstanding, the State introduced State's Exhibits 3-6 (photographs of firearms inside the vehicle) over a relevance objection to Exhibit 6 only (V5 at 128), and elicited from Investigator Buchanan that the firearms belonged to the grandfather and that the defendant lacked permission (V5 at 133-135) — evidence squarely within the suppression ruling and derived from the unlawfully seized vehicle. Defense counsel did not object on suppression-ruling-violation grounds or move for mistrial. Evaluate both the trial court's error in admitting evidence beyond the scope of its own ruling and counsel's failure to preserve it.",
+      "quotes": [
+        "THE \tCOURT: \tAbsolutely. \tBecause \twhile \tit's\nstill \tthere, \tnothing \thas \tbeen \ttaken. \tUp \tto \tthe \tpoint\nwhere \tit \twas \ttaken, \twhatever, \twherever \tit \tsits \tand\nwhatever \twas \tin \tthere; \tbut \tI \tdon't \tknow \twhere \tyou \tgo\nafter \tthat, \twith \tregard \tto \twhose \tthey \twere, \thow \tthey\nwere \tobtained. \tThat's \tthe \tpart \tI'm \tsuppressing."
+      ]
+    },
+    {
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.6,
+      "partB": "State acknowledged on the record at voir dire that a January 28, 2017 jail incident was omitted from its Art. 37.07 §3(g)/Rule 404(b) notice and was tendered to defense counsel the morning trial began, without a signed discovery receipt reflected in the court's file. That incident was subsequently developed at punishment through Deputy Torres's testimony regarding the sharpened eyeglass arm. Preserve the issue of untimely extraneous-offense notice and inadequate opportunity to investigate, and whether the trial court should have excluded or continued as to that unadjudicated jail offense.",
+      "quotes": [
+        "This \tmorning, \twe \tre-ran \tthe \tdefendant's \tjail\nincidents; \tand \tthere \twas \ta \tnew \tone \twe \twere \tnot \taware \tof\nthat \thappened \ton \tJanuary \t28th. \tSo, \tit \twas \tnot \tprovided\nin \tmy \t404(b) \tnotice. \tI \tprovided \tboth \tdefense \tcounsel \ta\ncopy \tof \tthat \treport \tthis \tmorning \tand \tdidn't \tget \ta \tsigned\nreceipt."
+      ]
+    },
+    {
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.55,
+      "partB": "After granting the motion to suppress the warrantless seizure of the Envoy and the weapons later recovered under the May search warrant, the court permitted the State to elicit testimony and admit photographs (State's Exhibits 3–6) of firearms observed inside the vehicle. Buchanan then testified at guilt/innocence that the defendant admitted taking his grandfather's guns without permission, and the State argued the guns in closing. Preserve whether the plain-view carve-out impermissibly allowed the fruits of the suppressed seizure before the jury, and whether the photographs themselves — taken by Buchanan at the scene of the illegal detention of the vehicle — fell within the suppression order. Defense objected to Exhibit 6 on relevance grounds only, so error preservation as to the suppression ruling itself should be examined.",
+      "quotes": [
+        "MS. \tSHARP: \tYour \tHonor, \tmay \tI \task? \tCan \twe\nask \tthe \tquestion \tabout \tthe \tplain \tview \tfrom \tthat \tnight,\nhim \twalking \tdown \tthere \tand \tseeing \tthem \tin \tthe \tcar? \tMay\nwe \task \tabout \tthat?"
+      ]
+    },
+    {
+      "category": "sentencing",
+      "severity": "supportive",
+      "confidence": 0.55,
+      "partB": "Oral pronouncement (VII:108) imposed only 60 years TDCJ-ID with 315 days' credit; the jury's assessed $5,000 fine (VII:102-03) was never orally pronounced, and the court additionally misdescribed the range as '5 years nor more than 60 years' for a first-degree-equivalent attempt of a capital felony (Penal Code §§15.01(d), 12.32). Under Taylor v. State, 131 S.W.3d 497 (Tex. Crim. App. 2004), and Ex parte Madding, 70 S.W.3d 131 (Tex. Crim. App. 2002), the oral pronouncement controls over the written judgment; if the judgment recites a $5,000 fine, reformation to delete the fine is the remedy. Compare judgment (Vol. 8 exhibits/clerk's record) to RR VII:108 and verdict form. Non-forfeitable; may be raised for the first time on appeal or by 11.07.",
+      "quotes": [
+        "That's not less than 5 years nor more than 60 years."
+      ]
+    },
+    {
+      "category": "sentencing",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "partB": "At sentencing the court simultaneously (1) found continuing indigency ('there's no reason to believe that that status has changed from indigency to otherwise since he's been in jail the whole time'), (2) directed appointed counsel to submit fee vouchers, and (3) announced defendant would be brought back to 'sign off on those collection papers.' Assessment of appointed-counsel fees against a defendant found indigent, absent a record-supported finding of a material change in financial resources under Art. 26.05(g), is an illegal cost. Mayer v. State, 309 S.W.3d 552 (Tex. Crim. App. 2010); Cates v. State, 402 S.W.3d 250 (Tex. Crim. App. 2013); Wiley v. State, 410 S.W.3d 313. Claim is unforfeitable when unsupported by the record; verify the bill of costs/judgment for an attorney-fee line item and move to modify.",
+      "quotes": [
+        "until next week, counsel, for you to turn in your vouchers"
+      ]
+    },
+    {
+      "category": "sentencing",
+      "severity": "background",
+      "confidence": 0.4,
+      "partB": "The punishment charge (RR VII:79-81) included the Art. 37.07 §4(a) good-conduct/one-fourth eligibility paragraph alongside the aggravated §4(a) one-half/30-year paragraph conditioned on the deadly-weapon special issue. Given the jury's affirmative deadly-weapon finding, Gov't Code §508.145(d) applies and good conduct time is irrelevant to eligibility; inclusion of the inapplicable one-fourth/good-conduct language risks misleading the jury on the effect of its 60-year verdict. Defense expressly stated 'no objections' to the punishment charge (RR VII:75), so review is for egregious harm under Almanza v. State, 686 S.W.2d 157. Preserve as a subsidiary charge-error point; standing alone unlikely to warrant reversal absent argument or jury notes on parole.",
+      "quotes": [
+        "plus any good conduct time earned equals one-forth of the"
+      ]
+    }
+  ],
+  "challenger": [
+    {
+      "screen": "iac",
+      "category": "iac",
+      "severity": "supportive",
+      "confidence": 0.55,
+      "chunkIndex": 694,
+      "quote": "Have you ever been hurt by the police before?",
+      "partA": "The defense lawyer asked the defendant a question that let the prosecutors bring up every past run-in he ever had with police — old arrests, fights, even charges that were dropped — in front of the jury while it was deciding guilt. The judge said the defense's own question 'opened the door' to all of it.",
+      "partB": "On redirect at guilt, defense counsel elicited that the defendant had been 'hurt by the police before,' prompting a bench ruling that the defense 'opened the door for pretty much anything' regarding prior police interactions. The State then cross-examined on multiple unadjudicated and dismissed extraneous matters (San Antonio resisting, 2010 Lake Jackson evading/resisting, 2014-15 Austin tasing/assault-on-EMS, Bexar burglary of vehicle) during the guilt phase. If counsel elicited this without appreciating the Rule 404(b)/rebuttal exposure, it supports Strickland deficiency; prejudice analysis is aided by the pervasiveness of the extraneous evidence in the State's guilt-phase closing and the contested intent element.",
+      "chunkId": "cmtfzvqkd02mw84itrxte1niy"
+    },
+    {
+      "screen": "iac",
+      "category": "iac",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "chunkIndex": 716,
+      "quote": "element 1, 2 or 3 listed above, the presumption does not",
+      "partA": "The written rules the jury got about self-defense left out an important protection: they should have been told the State had to disprove the self-defense presumption 'beyond a reasonable doubt.' The defense lawyers didn't object to this missing language.",
+      "partB": "The §9.32(b) presumption-of-reasonableness instruction told jurors the presumption 'does not apply' if the State 'has disproved element 1, 2 or 3,' without the Penal Code §2.05(b)(2) requirement that the State disprove the predicate facts beyond a reasonable doubt and without instructing that on failure of such proof the presumed fact must be found. No objection was lodged (charge approved without objection), relegating any direct-appeal review to Almanza egregious-harm; failure to object supports an IAC claim tied to the core defensive theory.",
+      "chunkId": "cmtfzvqkx02o284itxyfeuiws"
+    },
+    {
+      "screen": "iac",
+      "category": "iac",
+      "severity": "background",
+      "confidence": 0.4,
+      "chunkIndex": 889,
+      "quote": "is because probation is so far out of the realm of my mind",
+      "partA": "In her final argument about punishment, the prosecutor told the jury her own personal opinion — that probation was unthinkable to her. Lawyers are not supposed to give their personal opinions like that, and the defense did not object.",
+      "partB": "The State's punishment summation injected the prosecutor's personal opinion on the appropriate punishment ('so far out of the realm of my mind... I can't even consider that'), an improper personal-opinion argument outside the four permissible categories. No objection was made, forfeiting the complaint; supports a cumulative IAC allegation as to punishment-phase performance.",
+      "chunkId": "cmtfzvqs8033v84it5l2c6v6p"
+    },
+    {
+      "screen": "iac",
+      "category": "appeal_restoration",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "chunkIndex": 905,
+      "quote": "Ron and I thought we would stay",
+      "partA": "After the trial, the same two lawyers who handled the trial were appointed to handle the appeal. Lawyers almost never accuse themselves of making mistakes, so any claims that the trial lawyers were ineffective likely were never raised on appeal.",
+      "partB": "Trial counsel Helson and Faden were retained/appointed as appellate counsel at sentencing. Counsel cannot be expected to raise their own ineffectiveness, so the Strickland claims identified in this record (charge abandonment, door-opening, juror selection, mitigation) were structurally unavailable on direct appeal; this supports treating an Article 11.07 application as the first meaningful opportunity to litigate IAC and rebuts any laches/waiver argument premised on the direct appeal.",
+      "chunkId": "cmtfzvqsd034t84ittnzurnu7"
+    },
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.7,
+      "chunkIndex": 801,
+      "quote": "he informed me that there was a video from the",
+      "partA": "Right before the sentencing part of the trial, the prosecutor told the judge that an Austin police officer had a video of an old incident he was about to describe to the jury. No one had shared this video before, it could not be copied, and it would not play. The officer then testified about the incident without anyone ever watching the video.",
+      "partB": "On 2/17/2017 the State placed on the record that APD Officer Krzan possessed video of the 3/1/2015 Austin extraneous offense, first disclosed the morning of his punishment testimony; the video was never copied, viewed, or produced (Vol. 7, p. 5), yet Krzan testified in detail about the incident. This is a potential Art. 39.14/Brady issue: unproduced recorded evidence of an extraneous offense used at punishment that could contain impeaching or mitigating content, with no showing of preservation or later production.",
+      "chunkId": "cmtfzvqr802yx84it9bhcv20a"
+    },
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "chunkIndex": 790,
+      "quote": "that they observed Mr. Dubson attacking Mr. Spinks first?",
+      "partA": "At sentencing, an officer described a time Brian was accused of stabbing a man with a box cutter. Brian's lawyer asked if other witnesses had told a different officer that the other man attacked Brian first. The judge stopped the question, so the jury never heard the answer, and no charges were ever filed in that incident.",
+      "partB": "On recross of Officer Nesrsta about the 12/24/2015 Food King incident (never indicted), defense counsel's question indicates the LJPD offense report contains independent third-party accounts that Dubson attacked Spinks first; the hearsay objection was sustained (Vol. 7, p. 170). These referenced-but-undeveloped exculpatory witness statements bear directly on an extraneous offense the State emphasized at punishment, warranting confirmation that the complete report and witness statements were produced under Brady/Art. 39.14.",
+      "chunkId": "cmtfzvqlp02sa84it7qvojt8q"
+    },
+    {
+      "screen": "brady",
+      "category": "brady",
+      "severity": "supportive",
+      "confidence": 0.45,
+      "chunkIndex": 773,
+      "quote": "Did Lake Jackson back in 2009, they had video of",
+      "partA": "An officer testified about arresting Brian years earlier and said Brian caused his own facial injuries by banging his head in the police car. The officer admitted police cars back then had cameras filming the back seat, but no video was ever brought to court to show what actually happened.",
+      "partB": "Sgt. Jimenez conceded LJPD units in the 2010 era recorded both forward and rear-seat video and that he brought no recording of the 12/4/2010 transport (Vol. 7, pp. 151-152), while the State attributed the booking-photo facial injuries (Ex. 43) to self-infliction and defense elicited they could have come from being forced face-down. Any surviving in-car video is referenced-but-unproduced impeachment material central to the punishment-phase narrative of prior 'resisting' conduct.",
+      "chunkId": "cmtfzvqlj02ra84itw8m4brj4"
+    },
+    {
+      "screen": "brady",
+      "category": "impeachment",
+      "severity": "supportive",
+      "confidence": 0.45,
+      "chunkIndex": 948,
+      "quote": "SPEEDING EQUAL TO OR GREATER THAN 10% ABOVE POSTED LIMIT",
+      "partA": "Officer Harper said dispatch told him Brian had a warrant for assaulting a public servant. But the two warrants shown to the jury from that day were only for a speeding ticket and drug paraphernalia — small, ticket-level matters. Whether the stop and pat-down were lawful mattered a lot to Brian's self-defense claim.",
+      "partB": "Harper testified the 99-alert conveyed an Assault on a Public Servant warrant out of Travis County (Vol. 4, pp. 175, 188), yet the warrants admitted as active on 4/9/2016 (Exs. 29-30, issued 4/5/2016 by JP1-2 Brazoria) are Class C speeding and drug-paraphernalia warrants; the Travis County capias (Ex. 42) was admitted separately with a limiting instruction. The discrepancy between what dispatch allegedly confirmed and the documentary warrants is impeachment bearing on 'lawful discharge of an official duty' and the detention/pat-down predicate underlying the self-defense issue.",
+      "chunkId": "cmtfzvrap03ew84it26b0z4yn"
+    },
+    {
+      "screen": "brady",
+      "category": "forensic_omission",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "chunkIndex": 737,
+      "quote": "asking why they didn't do that.",
+      "partA": "No one tested the gun for fingerprints or checked anyone's hands or clothing for gunshot residue, even though the witnesses disagreed about where the gun was and who was holding it when it fired. Those tests could have helped show whose version of the shooting was right.",
+      "partB": "Investigators Thomas, Gentry, and Buchanan each confirmed no GSR, latent-print, or stippling analysis was performed despite materially conflicting accounts of the weapon's position at discharge (Vol. 5, pp. 33-41, 50-51, 146-161); Buchanan conceded such testing 'could have been helpful' and there was nothing to lose. The omission supports an incomplete-investigation impeachment theory and frames a defense-forensics IAC inquiry (no independent GSR/trajectory expert was retained) on the dispositive gun-position dispute.",
+      "chunkId": "cmtfzvql602p884itnzyitnpg"
+    },
+    {
+      "screen": "brady",
+      "category": "iac",
+      "severity": "supportive",
+      "confidence": 0.5,
+      "chunkIndex": 710,
+      "quote": "The Charge will be approved.",
+      "partA": "Before closing arguments, Brian's lawyers had told the judge they planned to ask that the jury be allowed to consider lesser charges. But the final jury instructions gave the jury only two choices — guilty or not guilty of attempted capital murder — and the lawyers said they had no objections to those instructions.",
+      "partB": "On 2/15/2017 defense counsel announced intent to request lesser-included offenses along with self-defense (Vol. 5, pp. 163-164), yet the guilt charge as read contains self-defense but no lesser-included instruction, and counsel affirmatively stated no objections, deletions, or changes (Vol. 6, p. 89). Given testimony negating specific intent (single trigger pull, aim at shoulder, no re-fire attempt), the abandonment of lessers without record explanation presents a potential Strickland claim and forfeits egregious-harm-only Almanza review.",
+      "chunkId": "cmtfzvqkr02nq84ith5yj9rdo"
+    },
+    {
+      "screen": "brady",
+      "category": "unlawful_seizure",
+      "severity": "background",
+      "confidence": 0.6,
+      "chunkIndex": 738,
+      "quote": "his vehicle against the law.",
+      "partA": "The judge threw out evidence from Brian's car because police towed and took the car without any legal right. The lead investigator even admitted in front of the jury that taking the car was not legal.",
+      "partB": "The trial court granted suppression of the warrantless vehicle seizure and the weapons later taken from it (Vol. 3, pp. 30-31), and Inv. Buchanan admitted before the jury the tow was not legally done (Vol. 5, p. 146). This is established, preserved impeachment of investigative regularity available to corroborate any habeas theory that other investigative shortcuts or omissions occurred in the same investigation.",
+      "chunkId": "cmtfzvql602pa84itzk25985w"
+    },
+    {
+      "screen": "junk_science",
+      "category": "junk_science",
+      "severity": "supportive",
+      "confidence": 0.45,
+      "chunkIndex": 608,
+      "quote": "There's \tno \tway \tthat's \tgoing \tto \thappen.",
+      "partA": "A police investigator told the jury that Brian's version of how the shooting happened was physically impossible, based on where the bullet hit. But this officer was not a trained expert in bullet paths or shooting reconstruction. He gave his personal opinion as if it were a scientific fact, and the jury may have treated it as proof that Brian was lying about acting in self-defense.",
+      "partB": "Investigator Buchanan, a lay case agent, offered an unqualified shooting-reconstruction opinion on redirect (Vol. 5) declaring the defendant's over-the-shoulder account physically incapable of producing the abdominal entry, culminating in agreement that the defendant's 'entire story ... cannot possibly be true based on just the physical evidence.' No Rule 702 predicate in wound ballistics, trajectory analysis, or reconstruction was laid; on cross he conceded he had no training in weapons testing. Because body-position/trajectory was the linchpin of the self-defense theory and the mens rea dispute, this overstated certainty opinion is a potential Rule 702/Daubert-Kelly issue and could feed an IAC-for-failure-to-object claim; standing alone it is a weak Art. 11.073 vehicle absent new scientific material contradicting the opinion.",
+      "chunkId": "cmtfzvqjc02is84itkg7rms4e"
+    },
+    {
+      "screen": "junk_science",
+      "category": "junk_science",
+      "severity": "background",
+      "confidence": 0.35,
+      "chunkIndex": 602,
+      "quote": "Have \tyou \ttaken \tany \tclasses \tor \thad \tany \ttraining",
+      "partA": "The same investigator admitted he had no formal training or classes about firearms testing. This matters because he was the witness who told the jury, with confidence, how the gun and the bullet must have behaved.",
+      "partB": "On cross-examination Buchanan conceded he had taken no classes or training in weapons or weapons testing and knew about GSR only from personal experience, yet he testified on GSR transfer, firearm cycling, and shooting-position reconstruction. This admission supports a foundational challenge to the reconstruction opinion (see companion finding) and frames a potential ineffective-assistance theory for counsel's failure to lodge a Rule 702 objection or retain a defense ballistics/reconstruction expert on the contested trajectory issue; it is not itself a discredited-discipline claim under Art. 11.073.",
+      "chunkId": "cmtfzvqja02hz84itrtluop9x"
+    },
+    {
+      "screen": "sentencing",
+      "category": "sentencing",
+      "severity": "supportive",
+      "confidence": 0.6,
+      "chunkIndex": 904,
+      "quote": "you, according to that verdict, to 60 years in the Texas",
+      "partA": "When the judge announced the punishment out loud in court, he said 60 years in prison but did not say anything about the $5,000 fine the jury had decided on. In Texas, what the judge says out loud at sentencing is what counts. If the written paperwork later added the fine anyway, that part may not be valid and could possibly be removed.",
+      "partB": "The jury's punishment verdict assessed 60 years' confinement and a $5,000 fine, but the trial court's oral pronouncement of sentence (RR Vol. 7, p. 108) imposed only the 60-year term and jail-time credit without pronouncing the fine. Under Taylor v. State, 131 S.W.3d 497 (Tex. Crim. App. 2004), and Armstrong v. State, 340 S.W.3d 759 (Tex. Crim. App. 2011), the oral pronouncement controls over the written judgment; if the written judgment includes the $5,000 fine that was never orally pronounced, the judgment is subject to modification/reformation deleting the fine (cognizable via direct appeal, nunc pro tunc is improper, and potentially via judgment-reformation motion or habeas depending on posture). Counsel should compare the written judgment against RR Vol. 7, p. 108.",
+      "chunkId": "cmtfzvqsc034r84it8xxyglb4"
+    },
+    {
+      "screen": "sentencing",
+      "category": "sentencing",
+      "severity": "background",
+      "confidence": 0.75,
+      "chunkIndex": 904,
+      "quote": "That's not less than 5 years nor more than 60 years.",
+      "partA": "When the judge announced the sentence, he misspoke about the legal punishment range. The correct range for this crime is 5 to 99 years or life, but he said 5 to 60 years. The actual 60-year sentence is inside the correct legal range, so this looks like a slip of the tongue rather than an illegal sentence, but it is worth noting.",
+      "partB": "At formal sentencing the trial court misstated the statutory range for attempted capital murder (a first-degree felony under Tex. Penal Code §§ 15.01(d), 12.32, carrying 5–99 years or life and up to a $10,000 fine) by describing the range as 'not less than 5 years nor more than 60 years.' The 60-year term itself falls within the lawful range, and the jury charge (RR Vol. 7, pp. 76, 85) correctly stated the range, so this appears to be a lapsus linguae rather than a void or illegal sentence; it is flagged as background context for any pronouncement/judgment-conformity review.",
+      "chunkId": "cmtfzvqsc034r84it8xxyglb4"
+    }
+  ],
+  "overlapCount": 1
+}

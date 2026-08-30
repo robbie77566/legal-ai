@@ -27,3 +27,21 @@ Both surfaced every load-bearing issue: the preserved double-jeopardy / lesser-i
 ## Calibration caveat
 
 Differences are differences, not correctness. Which model's severity calls and extra findings are *right* requires the attorney-adjudicated eval ledger (M4 remainder). On this single record: Fable looks better for recall (QA-reviewed pipeline where a human filters), Opus for precision/decisiveness (fewer, harder calls). Full machine-readable diff: `compare_claude-fable-5_1788105664619.json`.
+
+---
+
+# Second record — Brian (Brazoria 78734, 1,013 pp., 8 RR volumes)
+
+**Champion:** claude-opus-5 run `cmtg2ac23000cr20ttisswbmt` · **Challenger:** claude-fable-5 · 2026-08-30
+
+| | Opus 5 | Fable 5 |
+|---|---|---|
+| Grounded findings | 10 | 15 |
+| Dispositive / supportive / background | 0 / 8 / 2 | 0 / 11 / 4 |
+| Dropped by grounding filter | 9 | 5 |
+
+**The Gary pattern replicates.** Fable finds ~50% more (here: same-counsel-on-appeal conflict, a § 9.32(b) presumption-instruction issue, an undisclosed APD video placed on the record, the sentencing court misstating the statutory range); Opus is more selective. **Both** models independently assessed this case as supportive-only (zero dispositive) — a meaningfully different profile from Gary — and both converged on the strongest single issue: the oral pronouncement imposed 60 years but not the jury's $5,000 fine (judgment-variance/reformation), the run's only exact-quote overlap.
+
+**Cross-record read:** on two records the models' *portfolio judgments* agree (which case is strong, which issue leads) while coverage differs — supporting a recall-first single-engine + QA posture now, and making cross-model adjudication (M4 remainder) look valuable mostly as a coverage union, not a disagreement arbiter. Brian's higher Opus grounding-drop rate (9/19 vs Gary's 5/27) is flagged for investigation: his line-break-heavy formatting may be defeating verbatim matching on real quotes — candidate fix is whitespace-normalized grounding comparison (hash anchors unchanged).
+
+*Note:* this record also exercised the parser hardening end to end — the run only succeeded after the control-character escape fix (`c153d12`); the live salvage path dropped exactly one malformed finding while keeping its siblings.
