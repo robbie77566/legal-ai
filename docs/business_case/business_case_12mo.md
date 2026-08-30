@@ -209,3 +209,49 @@ Landing→check ≥ 25% · check completion ≥ 80% · fit→ack ≥ 60% · ack�
 ## 11. Recommendation
 
 **Proceed on the bootstrap path with a $100k working-capital envelope.** The first year is an investment year by design: the P&L loss (~$78k base) purchases a proven, eval-gated analysis engine on paid real records, channel economics measured against the study's targets, and the pre-triaged referral pipeline that gates the Justice tier — the sequence the study identifies as the only durable route to the $50–100M Texas SOM. The two disciplines that keep the downside bounded: the launch gates are hard (no eval green, no launch), and the March volume checkpoint decides pivot with data, not hope.
+
+## 12. Expansion model — two additional high-post-conviction states (BA answer to "what if we expand")
+
+### 12a. State selection
+
+Criteria: post-conviction demand (state prison population as proxy), a document-centric vehicle the engine can screen, a hard deadline that makes the product urgent, records accessibility, and UPL climate. Approximate 2025–26 state prison populations: TX ~134k, CA ~93k, FL ~85k, GA ~50k, OH ~45k, PA ~37k, NY ~33k.
+
+| State | Pop. (≈) | Vehicle & deadline | Fit notes |
+|---|---|---|---|
+| **Florida (pick #1)** | 85k | Rule 3.850 motion, **hard 2-year deadline** | Unified statewide rules, strong e-filing/clerk access, huge pro se volume; deadline engine is directly monetizable. Caution: the Florida Bar is the nation's most aggressive UPL enforcer (*Fla. Bar v. TIKD*) — counsel opinion is a launch gate, not a formality. |
+| **California (pick #2)** | 93k | § 1473 habeas + resentencing wave (§ 1172.6 felony-murder, SB 483) | Largest addressable population after TX; § 1473(e) (false/repudiated expert evidence) is a statutory analog to TX 11.073 — the junk-science screen ports naturally. Costs: county-by-county practice, fragmented/expensive transcripts, dense free legal-aid ecosystem. |
+| Pennsylvania (alternate) | 37k | PCRA, **1-year deadline** | Best product-fit-per-build-dollar (unified statute, hard clock, active CIU culture) but ~40% of CA's population. Named swap-in if CA build cost or records friction proves heavy. |
+
+### 12b. What a state launch actually costs
+
+Per state: vehicle/checklist/deadline-calendar build + screen-prompt adaptation + state disclosure set (founder time, ~6–8 weeks part-time); UPL counsel opinion ~$4k; eval corpus — one attorney-labeled reference case, records + labeling ~$2.5k; foreign qualification/registered agent ~$500. **One-time ≈ $7k cash per state**, plus **≈ $550/month incremental fixed** while active ($500 marketing floor + E&O/agent increment). The analysis engine itself is state-agnostic by construction (grounding, QA gate, event spine); what changes is legal framing — and the **per-state eval ledger green is the same hard launch gate TX has**.
+
+### 12c. Sequencing (gated, solo-founder-realistic)
+
+TX launch Jan-27 unchanged → **FL commit only if the Mar-27 TX checkpoint passes** (build Feb–Apr, launch May-27) → **CA commit only if FL's own 90-day look holds** (build Jun–Aug, launch Sep-27). Expansion ramps modeled at ~60% of the TX curve (population ratio × no-local-network discount).
+
+### 12d. Solo cash model, horizon extended to Feb-28
+
+Assumptions as §8c ($278/case cash contribution, $1,100/mo base fixed) plus the per-state costs above; when combined volume crosses ~50 cases/month the solo QA ceiling binds and hired QA (~$25/case, Lever 1's lean rate) is applied to **all** cases from that month.
+
+| Month | TX | FL | CA | Total | Net cash | Cumulative | TX-only cum. |
+|---|---|---|---|---|---|---|---|
+| Jan-27 | 3 | – | – | 3 | −$266 | −$5,116 | −$5,116 |
+| Mar-27 | 10 | – | – | 10 | +$1,680 | −$2,868 | −$2,868 |
+| Apr-27 | 13 | – | – | 13 | −$4,486 *(FL launch spend)* | −$7,354 | −$354 |
+| May-27 | 17 | 2 | – | 19 | +$3,632 | −$3,722 | +$3,272 |
+| Aug-27 | 30 | 8 | – | 38 | +$1,914 *(CA launch spend)* | +$10,460 | +$21,100 |
+| Oct-27 | 34 | 13 | 4 | 51 | +$10,703 *(QA hire binds)* | +$31,473 | +$37,248 |
+| **Dec-27** | 38 | 18 | 9 | 65 | +$14,245 | **+$58,192 (crossover)** | +$55,620 |
+| Feb-28 | 42 | 21 | 14 | 77 | +$17,281 | **+$91,236** | +$76,216 |
+
+### 12e. Reads
+
+- **Inside the original 12-month window, expansion is cash-negative relative to staying TX-only** (+$10.5k vs +$21.1k by Aug-27): $14k of launch spend plus early-ramp months. Anyone evaluating on the 12-month frame alone should not expand.
+- **The crossover lands ~Dec-27** (8 months after FL launch), and by Feb-28 the expanded business is **+$15k ahead and diverging ~$2k+/month**, exiting at a ~$17.3k/month cash run-rate vs ~$10.6k TX-only — with SOM roughly **2.3×** the TX-only frame and three states of Justice-tier seeding ground.
+- **Expansion forces the capacity decision early**: combined volume hits the ~50-case solo ceiling in Oct-27 — a good problem, already priced into the table via hired QA. The founder's binding constraint shifts from demand to throughput a full year earlier than TX-only.
+- **The dominant risk is unchanged and now tripled**: volume per state. Each state's Mar-27-style 90-day checkpoint caps its downside at ~$7k + ~$550/mo, individually killable without touching the others.
+
+### 12f. Recommendation
+
+**Plan FL now, commit at the Mar-27 checkpoint; hold CA until FL's 90-day read; keep PA as the named alternate.** The engine and spine are state-agnostic; each expansion buys ~0.6× a Texas at ~$7k entry cost, with per-state kill switches. Do not let expansion jump the TX launch gates — a second state doubles distribution, not proof.
