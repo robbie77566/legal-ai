@@ -273,7 +273,7 @@ export default function EligibilityCheck() {
                 role="radio"
                 aria-checked="false"
                 onClick={() => answer(current, o.value)}
-                className="block w-full rounded-xl border border-db-line bg-db-surface p-4 text-left hover:border-db-accent focus:outline-none focus:ring-2 focus:ring-db-accent"
+                className="block w-full rounded-xl border border-db-line bg-db-surface p-4 text-left hover:border-db-accent active:border-db-accent active:bg-db-accent-soft focus:outline-none focus:ring-2 focus:ring-db-accent"
               >
                 {o.label}
               </button>

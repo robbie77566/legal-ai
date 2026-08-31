@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { API_URL } from '../../../../../lib/api'
 import { apiFetch } from '@/lib/api'
 
 /**
@@ -131,6 +132,13 @@ export default function CaseReport() {
           exceptions the law allows.
         </p>
       )}
+
+      <a
+        href={`${API_URL}/cases/${caseId}/report/pdf`}
+        className="mt-5 inline-block rounded-xl border-2 border-db-accent px-5 py-3 font-semibold text-db-accent"
+      >
+        Download the PDF — easy to text or email to a lawyer
+      </a>
 
       {data.deadlinePosture && (
         <section

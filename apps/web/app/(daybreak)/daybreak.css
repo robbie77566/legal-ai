@@ -19,6 +19,7 @@
   font-size: 17px; /* body 17px/1.6 — reading under stress */
   line-height: 1.6;
   min-height: 100vh;
+  min-height: 100dvh; /* mobile URL-bar-proof where supported */
 }
 
 /* A/B Scheme B — "Steady Harbor" (trust blue; color_research_landing.md §3).

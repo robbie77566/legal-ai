@@ -65,6 +65,8 @@ export default function CaseInterview() {
           <input
             required
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             min={1950}
             max={2100}
             value={year}
@@ -78,6 +80,8 @@ export default function CaseInterview() {
           </span>
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             min={0}
             max={365}
             value={trialDays}

@@ -169,7 +169,7 @@ export default function CaseDocuments() {
       {data && (
         <p className="mt-2 text-db-muted">
           {data.documents.length === 0
-            ? 'Send documents in any order, at your own pace — photos from your phone are fine.'
+            ? 'Send documents in any order, at your own pace — photos from your phone are fine, and you can select several files at once. Big files can take a few minutes on cell service; keep this page open.'
             : `${data.documents.length} file${data.documents.length === 1 ? '' : 's'} received.`}
         </p>
       )}
@@ -182,11 +182,20 @@ export default function CaseDocuments() {
       <input
         ref={fileInput}
         type="file"
+        multiple
         accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.heic"
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) void upload(f)
+          // Mobile reality: eight volumes should be ONE picker trip. Files
+          // upload sequentially so a mid-batch failure keeps its progress.
+          // No `capture` attribute by design — forcing the camera would
+          // remove the gallery/files option on Android pickers.
+          const files = Array.from(e.target.files ?? [])
+          if (files.length) {
+            void (async () => {
+              for (const f of files) await upload(f)
+            })()
+          }
           e.target.value = ''
         }}
       />

@@ -47,15 +47,29 @@ const FAQ: [string, string][] = [
 
 export default function DaybreakLanding() {
   return (
-    <main className="mx-auto max-w-2xl px-5 pb-16">
+    <main className="mx-auto max-w-2xl px-5 pb-28 sm:pb-16">
       <PaletteExperiment pingView />
+      {/* Mobile thumb-zone CTA: the primary action stays reachable while the
+          page scrolls; hidden on >=sm where the inline CTAs are in view. */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-10 border-t border-db-line bg-db-surface p-3 sm:hidden"
+        style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+      >
+        <CtaLink
+          href="/check"
+          position="sticky"
+          className="block w-full rounded-xl bg-db-accent px-6 py-4 text-center text-lg font-semibold text-db-surface"
+        >
+          Free 2-minute check
+        </CtaLink>
+      </div>
       {/* Nav: brand + single CTA, no menu */}
       <nav className="flex items-center justify-between py-5">
         <span className="font-db-serif text-lg font-bold text-db-accent">Family Case Review</span>
         <CtaLink
           href="/check"
           position="nav"
-          className="rounded-full bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface"
+          className="inline-flex min-h-11 items-center rounded-full bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface"
         >
           See if this fits — free
         </CtaLink>

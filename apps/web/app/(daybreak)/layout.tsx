@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Source_Serif_4, Public_Sans, IBM_Plex_Mono } from 'next/font/google'
 import './daybreak.css'
 import PaletteExperiment from '../../components/ab/PaletteExperiment'
@@ -16,6 +16,12 @@ export const metadata: Metadata = {
   title: 'Family Case Review',
   description:
     'Find out what is really in the Texas court record — before you spend thousands. $299, one price, reviewed by a trained legal reviewer. Information, not legal advice.',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover', // safe-area insets for the sticky mobile CTA
 }
 
 export default function DaybreakLayout({ children }: { children: React.ReactNode }) {
