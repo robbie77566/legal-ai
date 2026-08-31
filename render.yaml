@@ -42,8 +42,8 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hg/database exec prisma generate && pnpm --filter api build
-    preDeployCommand: pnpm --filter @hg/database db:migrate:deploy
+    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter @hg/database exec prisma generate && corepack pnpm --filter api build
+    preDeployCommand: corepack pnpm --filter @hg/database db:migrate:deploy
     startCommand: node apps/api/dist/index.js
     healthCheckPath: /healthz
     envVars:
@@ -90,8 +90,8 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build
-    startCommand: pnpm --filter web start
+    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter web build
+    startCommand: corepack pnpm --filter web start
     envVars:
       - key: NODE_ENV
         value: production
