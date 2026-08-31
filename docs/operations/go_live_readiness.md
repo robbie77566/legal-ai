@@ -25,7 +25,7 @@ The application is launch-shaped; the **operations around it do not exist yet**.
 
 ## 2. Recommended architecture (fits the $150/mo line)
 
-**Managed PaaS, one provider** (Render or Railway class — pick one, both fit):
+**DECISION (2026-08-31): Render.** Full platform evaluation (Render / Railway / Fly / DigitalOcean / AWS / Heroku) against the system's discriminating requirements — persistent workers+SSE, pgvector Postgres with two roles and NATIVE PITR ≤35d (§11a.2), a ~2GB clamd sidecar, solo operator, ~$150/mo. Render wins on native PITR + one-dashboard operations; Railway loses only on PITR (would need Neon = second provider); Fly has a Dallas region but a too-young managed-Postgres story; **AWS is the designated scale-up destination** (S3/Textract data gravity, RDS 35-day PITR, IAM-role auth) when volume justifies real infra — the app is twelve-factor, so that migration stays a planned graduation. Architecture:
 
 - **web**: Next.js service (build `next build`, start `next start`).
 - **api**: Node service running `node apps/api/dist/index.js` from a monorepo Docker image (workers + outbox in-process, unchanged).
@@ -34,7 +34,7 @@ The application is launch-shaped; the **operations around it do not exist yet**.
 - **clamd**: sidecar container from the compose profile.
 - Cron: Stripe reconciliation already runs on an in-process interval; add a **provider-level daily "is the interval alive" check** rather than moving it.
 
-Estimated: $95–140/mo all-in (web $20, api $25, Postgres $20–50, Redis $10, clamd $7–15, uptime/monitoring free tiers). **Not recommended:** single VPS + compose — saves ~$60/mo and costs the founder the two things they can't buy back: managed backups and 3am pages about disks.
+Estimated on Render: ~$100–130/mo (web $7–25, api $25, Postgres-with-PITR ~$20+, Redis ~$10, clamd needs a ~2GB instance ~$25 — the hidden line item, uptime/monitoring free tiers). **Not recommended:** single VPS + compose — saves ~$60/mo and costs the founder the two things they can't buy back: managed backups and 3am pages about disks.
 
 **Explicitly decommission:** Neo4j (delete `services/neo4j.ts`, drop from compose) — post-MVP graph work re-adds it deliberately.
 
