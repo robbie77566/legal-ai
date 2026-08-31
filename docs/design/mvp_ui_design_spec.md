@@ -190,3 +190,10 @@ Professional deep-work surface: reuses the existing side-by-side workspace (Parc
 ## 9. Design QA checklist (per release)
 
 Every Daybreak screen ships only if: readable at 390px with 200% text zoom; operable keyboard-only; AA contrast on all pairs; every string ≤ 8th-grade level (linted) and externalized; every failure state pairs news with a next step; no legal content visible pre-QA; R-5 tone check passed on new copy.
+
+
+### 5.9 S8 — "Your reviews" home (`/cases`) *(added 2026-08-31, US-11)*
+
+The signed-in landing for families — one account, any number of reviews. A vertical list of review cards, newest first: human name (county + conviction year when the interview has run, else "Review started <date>"), the customer-visible stage chip (same mapping as the tracker — internal loops never leak), and ONE primary action per card by stage: *Continue your checklist* (AWAITING_DOCS), *Watch progress* (in-flight), *See your report* (READY/DELIVERED). Below the list, a single secondary CTA: **"Start another review"** → S0 wizard (`/check`); checkout skips account creation for a live session (already built). Sign-in default routes by role (`/go`): CLIENT → `/cases`, ATTORNEY → `/qa`, ADMIN → `/ops` — a family must never land on a professional surface.
+
+**Document return (US-11):** on the case documents page and the report page, every non-quarantined upload gets a *Download* action (short-TTL signed link, access-checked). The report page carries an **"Everything for your lawyer"** block: themed report PDF + link to the documents + *"Add documents & re-run ($99)"* (checkout `kind=rerun`). Printing = the PDF (no separate print stylesheet).

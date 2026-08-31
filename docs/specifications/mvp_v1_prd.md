@@ -78,6 +78,10 @@ Competitive frame: this persona is unserved by all five researched platforms; th
 **US-6 — Re-run.** As a past purchaser, I can add newly obtained documents and re-run for $99.
 - AC: re-run diffs against prior findings ("what changed"); same caps and QA gate.
 
+**US-11 — Returning purchaser (added 2026-08-31).** As a signed-in family member, I can hold **any number of reviews under one account**, land on a "Your reviews" home after sign-in, open any review to see or print its report, **download the report PDF and every document I uploaded** (to hand the complete packet to a lawyer), start another review without re-creating an account, and buy a re-run from a delivered report.
+- AC: `/cases` lists every case my account can access with its customer-visible stage and primary action; sign-in routes CLIENTs there (never to a professional surface); each non-quarantined uploaded document is retrievable via a short-lived signed link; the report page offers the themed PDF + the documents; "Start another review" reuses the existing account through the standard checkout; "Add documents & re-run ($99)" opens checkout with `kind=rerun` bound to the case.
+- Engineering notes from design interrogation (both fixed with this story): (1) `Document` never persisted its S3 key — uploads were unreturnable by construction; `s3Key` is now stored at registration and required for the download path. (2) `/upload/complete` accepted a client-supplied `s3Key` without prefix binding — a client could register another case's object into its own case and have the pipeline ingest it; the key is now validated against the case's own prefix.
+
 **US-7 — Refund.** As a purchaser whose record was unreadable, I get a partial or full refund without a fight.
 - AC: if OCR confidence falls below the readability threshold on > X% of pages, the pipeline halts *before* full analysis spend, support is notified, and the customer is offered re-upload or refund; refund issuable from the ops console; 5% revenue reserve budgeted.
 

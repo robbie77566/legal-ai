@@ -83,12 +83,19 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
     if (!(await assertCaseAccess(request, caseId))) {
       return reply.status(403).send({ error: 'Forbidden' });
     }
+    // US-11 interrogation fix: bind the key to THIS case's prefix — an
+    // unbound client-supplied key could register another case's object
+    // here and have the pipeline ingest it.
+    if (!s3Key.startsWith(`cases/${caseId}/`)) {
+      return reply.status(400).send({ error: 'Invalid document key' });
+    }
 
     // Register the document + its lifecycle event in one RLS-scoped tx
     const document = await withTenant(request.auth.tenantId, async (tx) => {
       const doc = await tx.document.create({
         data: {
           filename,
+          s3Key, // US-11: documents must be returnable
           caseId
         }
       });

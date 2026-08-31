@@ -1,8 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent } from '@hg/database';
-import { computeDeadlinePosture, type DeadlineInputs } from '@hg/case-lifecycle';
-import { checklistTemplate, customerView, expectedReadyDate, type CaseHold } from '@hg/case-lifecycle';
+import { computeDeadlinePosture, checklistTemplate, customerView, expectedReadyDate, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
 import { verifyFindings } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 
@@ -51,6 +50,66 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
   // Interview answers seed the pipeline (county → local practice, year →
   // statute-at-date, FR-5) and generate the personal checklist.
+  // US-11: "Your reviews" — every case this account can access, with the
+  // customer-visible stage and enough to name the card. One account, any
+  // number of reviews. (/summary: the bare GET /cases is the legacy
+  // professional-dashboard shape; static segments outrank /:id.)
+  fastify.get('/summary', async (request) => {
+    const { tenantId, userId } = request.auth;
+    return withTenant(tenantId, async (tx) => {
+      const access = await tx.caseAccess.findMany({ where: { userId }, select: { caseId: true } });
+      const cases = await tx.case.findMany({
+        where: { id: { in: access.map((a) => a.caseId) }, status: { not: 'DELETED' } },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true, title: true, status: true, county: true, convictionYear: true,
+          createdAt: true, expectedReadyAt: true, subsequentWrit: true,
+          ocrHalt: true, delayOurs: true,
+        },
+      });
+      return cases.map((c) => ({
+        id: c.id,
+        title: c.county && c.convictionYear ? `${c.county} County · ${c.convictionYear}` : `Review started ${c.createdAt.toISOString().slice(0, 10)}`,
+        status: c.status,
+        stage: customerView(c.status as CaseStatus, [
+          ...(c.ocrHalt ? (['OCR_HALT'] as const) : []),
+          ...(c.delayOurs ? (['DELAY_OURS'] as const) : []),
+          ...(c.subsequentWrit ? (['SUBSEQUENT_WRIT_MODE'] as const) : []),
+        ]),
+        expectedReadyAt: c.expectedReadyAt,
+        createdAt: c.createdAt,
+      }));
+    });
+  });
+
+  // US-11: return an uploaded document to its owner — short-TTL signed
+  // link, access-checked, never for quarantined files.
+  fastify.get('/:id/documents/:docId/download', async (request, reply) => {
+    const { id, docId } = request.params as { id: string; docId: string };
+    const { tenantId, userId } = request.auth;
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      const doc = await tx.document.findFirst({ where: { id: docId, caseId: id } });
+      if (!doc || doc.quarantined || !doc.s3Key) {
+        return reply.status(404).send({ error: 'Document not available for download' });
+      }
+      const { s3, bucket } = await import('../services/storage.service');
+      const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+      const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+      const url = await getSignedUrl(
+        s3(),
+        new GetObjectCommand({
+          Bucket: bucket(),
+          Key: doc.s3Key,
+          ResponseContentDisposition: `attachment; filename="${doc.filename.replace(/[^\w.\- ]/g, '_')}"`,
+        }),
+        { expiresIn: 300 }
+      );
+      return { url, filename: doc.filename };
+    });
+  });
+
   fastify.post('/:id/interview', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { tenantId, userId } = request.auth;

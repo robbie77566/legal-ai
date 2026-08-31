@@ -369,6 +369,7 @@ model CaseAccess {
 model Document {
   id        String   @id @default(cuid())
   filename  String
+  s3Key     String? // where the original bytes live — required to return documents (US-11)
   caseId    String
   case      Case     @relation(fields: [caseId], references: [id])
   chunks    DocumentChunk[]

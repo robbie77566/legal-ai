@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { API_URL } from '../../../../../lib/api'
 import { getPaletteVariant } from '../../../../../lib/ab'
@@ -134,12 +135,37 @@ export default function CaseReport() {
         </p>
       )}
 
-      <a
-        href={`${API_URL}/cases/${caseId}/report/pdf?palette=${getPaletteVariant()}`}
-        className="mt-5 inline-block rounded-xl border-2 border-db-accent px-5 py-3 font-semibold text-db-accent"
-      >
-        Download the PDF — easy to text or email to a lawyer
-      </a>
+      <section className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
+        <h2 className="font-db-serif text-lg font-semibold">Everything for your lawyer</h2>
+        <div className="mt-3 space-y-3">
+          <a
+            href={`${API_URL}/cases/${caseId}/report/pdf?palette=${getPaletteVariant()}`}
+            className="block rounded-xl bg-db-accent px-5 py-3 text-center font-semibold text-db-surface"
+          >
+            Download this report as a PDF
+          </a>
+          <Link
+            href={`/case/${caseId}/documents`}
+            className="block rounded-xl border-2 border-db-accent px-5 py-3 text-center font-semibold text-db-accent"
+          >
+            Download the court documents you uploaded
+          </Link>
+          <button
+            onClick={() => {
+              void apiFetch('/checkout/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kind: 'rerun', caseId }),
+              }).then(async (r) => {
+                if (r.ok) window.location.href = (await r.json()).url
+              })
+            }}
+            className="block w-full rounded-xl border border-db-line px-5 py-3 text-center text-sm text-db-muted"
+          >
+            Got new documents since this report? Add them &amp; re-run — $99
+          </button>
+        </div>
+      </section>
 
       {data.deadlinePosture && (
         <section

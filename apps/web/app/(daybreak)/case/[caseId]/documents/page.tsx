@@ -142,6 +142,19 @@ export default function CaseDocuments() {
     }
   }
 
+
+  const download = async (docId: string) => {
+    // Short-TTL signed link fetched on tap (US-11); opening in the same tab
+    // triggers the attachment download without a popup blocker fight.
+    const res = await apiFetch(`/cases/${caseId}/documents/${docId}/download`)
+    if (!res.ok) {
+      setError('That file is not available for download right now.')
+      return
+    }
+    const { url } = await res.json()
+    window.location.href = url
+  }
+
   if (celebrate) {
     return (
       <main className="mx-auto max-w-xl px-5 py-12">
@@ -178,6 +191,26 @@ export default function CaseDocuments() {
           {error}
         </p>
       )}
+
+      {data && data.documents.filter((d) => !d.quarantined).length > 0 && (
+        <section className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
+          <h2 className="font-db-serif text-lg font-semibold">Your files</h2>
+          <p className="mt-1 text-sm text-db-muted">
+            Every file stays yours — download any of them to hand to a lawyer.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {data.documents.filter((d) => !d.quarantined).map((d) => (
+              <li key={d.id} className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate font-db-mono text-sm">{d.filename}</span>
+                <button onClick={() => void download(d.id)} className="whitespace-nowrap text-sm font-semibold text-db-accent underline">
+                  Download
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
 
       <input
         ref={fileInput}

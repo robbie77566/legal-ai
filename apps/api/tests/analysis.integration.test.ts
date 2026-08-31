@@ -8,6 +8,11 @@ process.env.NEXTAUTH_SECRET = 'test-secret-at-least-32-characters!!';
 // Pin sampling: src/index.ts dotenv-loads the root .env (ANALYSIS_SAMPLES=2);
 // dotenv never overrides pre-set vars, so set before any import.
 process.env.ANALYSIS_SAMPLES = '1';
+// Deterministic presigning in CI (the SDK signs with whatever creds exist).
+process.env.AWS_ACCESS_KEY_ID ??= 'test-key';
+process.env.AWS_SECRET_ACCESS_KEY ??= 'test-secret';
+process.env.AWS_REGION ??= 'us-east-2';
+process.env.S3_BUCKET ??= 'test-bucket';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { fastify } from '../src/index';
@@ -400,6 +405,50 @@ describe('run diff (US-6)', () => {
     expect(body.added.map((f: { summary: string }) => f.summary)).toEqual(['finding new_only']);
     expect(body.removed.map((f: { summary: string }) => f.summary)).toEqual(['finding old_only']);
     expect(body.kept).toHaveLength(1);
+  });
+});
+
+describe('US-11: returning purchaser', () => {
+  it('GET /cases/summary lists every accessible case with the customer stage', async () => {
+    const res = await fastify.inject({ method: 'GET', url: '/cases/summary', headers: { cookie: clientCookie } });
+    expect(res.statusCode).toBe(200);
+    const rows = res.json() as { id: string; title: string; stage: { stage: string } }[];
+    expect(rows.length).toBeGreaterThanOrEqual(3); // main + batch + union fixtures
+    const main = rows.find((r) => r.id === caseId);
+    expect(main?.stage.stage).toBeTruthy();
+    expect(main?.title).toMatch(/Review started/);
+  });
+
+  it('document download: signed link for a stored key; 404 for quarantined or keyless', async () => {
+    const doc = await prisma.document.findFirstOrThrow({ where: { caseId } });
+    // legacy row without s3Key → 404 (never a guess)
+    const missing = await fastify.inject({
+      method: 'GET', url: `/cases/${caseId}/documents/${doc.id}/download`, headers: { cookie: clientCookie },
+    });
+    expect(missing.statusCode).toBe(404);
+
+    await prisma.document.update({ where: { id: doc.id }, data: { s3Key: `cases/${caseId}/rr-vol-3.pdf` } });
+    const ok = await fastify.inject({
+      method: 'GET', url: `/cases/${caseId}/documents/${doc.id}/download`, headers: { cookie: clientCookie },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().url).toContain('X-Amz-Signature');
+    expect(ok.json().filename).toBe('rr-vol-3.pdf');
+
+    await prisma.document.update({ where: { id: doc.id }, data: { quarantined: true } });
+    const quarantined = await fastify.inject({
+      method: 'GET', url: `/cases/${caseId}/documents/${doc.id}/download`, headers: { cookie: clientCookie },
+    });
+    expect(quarantined.statusCode).toBe(404);
+    await prisma.document.update({ where: { id: doc.id }, data: { quarantined: false } });
+  });
+
+  it('upload/complete rejects a key outside the case prefix (cross-case injection)', async () => {
+    const res = await fastify.inject({
+      method: 'POST', url: '/upload/complete', headers: { cookie: clientCookie },
+      payload: { caseId, filename: 'x.pdf', s3Key: 'cases/SOMEONE_ELSES_CASE/x.pdf' },
+    });
+    expect(res.statusCode).toBe(400);
   });
 });
 

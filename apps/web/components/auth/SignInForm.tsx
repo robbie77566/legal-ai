@@ -58,7 +58,7 @@ export function SignInForm() {
 
       // Only allow relative URLs to prevent open-redirect attacks
       const rawCallback = searchParams.get('callbackUrl');
-      const safeCallback = rawCallback?.startsWith('/') ? rawCallback : '/dashboard';
+      const safeCallback = rawCallback?.startsWith('/') ? rawCallback : '/go'; // role-aware landing (US-11)
       router.push(safeCallback);
     } finally {
       setIsLoading(false);
