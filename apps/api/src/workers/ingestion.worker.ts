@@ -29,16 +29,8 @@ export const ingestionWorker = new Worker(
       scanner: buildDefaultScanner(),
     });
 
-    // Legacy channel compatibility for the professional demo dashboard.
-    await connection.publish(
-      `case-progress:${caseId}`,
-      JSON.stringify({
-        message: `Digitized ${summary.pages} pages (${summary.billable} billable)`,
-        status: 'complete',
-        source: 'ingestion',
-      })
-    );
-
+    // M1 exit criterion: the SSE channel is fed by the outbox EXCLUSIVELY —
+    // digitization progress reaches customers via doc.ocr_done events.
     console.log(`[digitize] doc ${documentId}:`, summary);
     return summary;
   },

@@ -56,6 +56,18 @@ export function buildDefaultExtractor(): Extractor {
         const born = await extractPdfText(bytes);
         if (born) return born;
       }
+      // NFR-8: HEIC is the iPhone default — convert to JPEG (wasm libheif,
+      // no native deps) so Textract can read it. Conversion failure falls
+      // through with the original bytes and lets Textract report the error.
+      if (/\.hei[cf]$/i.test(filename)) {
+        try {
+          const heicConvert = (await import('heic-convert')).default;
+          bytes = Buffer.from(await heicConvert({ buffer: bytes, format: 'JPEG', quality: 0.9 }));
+          console.log(`[digitize] converted HEIC → JPEG (${bytes.length} bytes) for ${filename}`);
+        } catch (e) {
+          console.warn(`[digitize] HEIC conversion failed for ${filename}: ${(e as Error).message}`);
+        }
+      }
       // Scans and images → Textract. Async API for PDFs (S3-addressed),
       // sync for single images.
       const { TextractClient, DetectDocumentTextCommand, StartDocumentTextDetectionCommand, GetDocumentTextDetectionCommand } =

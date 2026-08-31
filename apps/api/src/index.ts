@@ -126,14 +126,12 @@ const start = async () => {
     // Start queue workers (they connect to Redis on import)
     await Promise.all([
       import('./workers/ingestion.worker'),
-      import('./workers/entity.worker'),
       import('./workers/analysis.worker'),
     ]);
 
     // Transactional-outbox publisher (M1): tails unpublished CaseEvents and
-    // publishes the customer-visible view to case-progress:{caseId}. The
-    // legacy workers still publish their own ad-hoc messages; those move to
-    // appendCaseEvent when M3/M4 replace them.
+    // publishes the customer-visible view to case-progress:{caseId} —
+    // the ONLY publisher on that channel (M1 exit criterion).
     const { startCaseEventOutbox } = await import('@hg/database');
     const { createConnection } = await import('./lib/redis');
     const stopOutbox = startCaseEventOutbox(createConnection(), {
