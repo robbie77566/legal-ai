@@ -1,0 +1,85 @@
+{
+  "counselSigned": false,
+  "note": "FR-5 launch gate: these vectors require licensed-attorney sign-off before public launch. Engineering-authored 2026-08-31; every expected value is an estimate encoding the PRD FR-5 rules.",
+  "vectors": [
+    {
+      "name": "no appeal: finality = judgment + 30",
+      "inputs": { "judgmentDate": "2024-01-10", "asOf": "2024-03-01" },
+      "expect": { "finalityDate": "2024-02-09", "daysElapsed": 21, "daysRemaining": 344, "expired": false, "tollingNow": false }
+    },
+    {
+      "name": "motion for new trial: finality = judgment + 90",
+      "inputs": { "judgmentDate": "2024-01-10", "motionForNewTrialFiled": true, "asOf": "2024-05-01" },
+      "expect": { "finalityDate": "2024-04-09", "daysElapsed": 22, "daysRemaining": 343 }
+    },
+    {
+      "name": "appeal, no PDR: finality = COA judgment + 30",
+      "inputs": { "judgmentDate": "2023-01-10", "coaJudgmentDate": "2024-06-01", "asOf": "2024-08-01" },
+      "expect": { "finalityDate": "2024-07-01", "daysElapsed": 31, "daysRemaining": 334 }
+    },
+    {
+      "name": "PDR refused: finality = PDR disposition + 90 (cert window included)",
+      "inputs": { "judgmentDate": "2022-01-10", "coaJudgmentDate": "2023-06-01", "pdrDisposedDate": "2024-01-15", "asOf": "2024-05-01" },
+      "expect": { "finalityDate": "2024-04-14", "daysElapsed": 17, "daysRemaining": 348 }
+    },
+    {
+      "name": "cert petition filed: denial date controls",
+      "inputs": { "judgmentDate": "2021-01-10", "coaJudgmentDate": "2022-06-01", "pdrDisposedDate": "2023-01-15", "certDisposedDate": "2023-10-02", "asOf": "2023-11-01" },
+      "expect": { "finalityDate": "2023-10-02", "daysElapsed": 30, "daysRemaining": 335 }
+    },
+    {
+      "name": "THE classic fatal miscalculation: state writ filed month 11, pending 8 months, denied - only ~30 days remain after denial",
+      "inputs": {
+        "judgmentDate": "2022-06-01",
+        "asOf": "2024-03-20",
+        "stateWrits": [{ "filedDate": "2023-06-01", "disposedDate": "2024-02-01" }]
+      },
+      "expect": { "finalityDate": "2022-07-01", "daysTolled": 245, "daysElapsed": 383, "daysRemaining": 0, "expired": true },
+      "comment": "335 days ran pre-filing; tolled 245 during pendency; 48 more ran post-denial by asOf -> elapsed 383 > 365. Filing state habeas did NOT reset the year."
+    },
+    {
+      "name": "same classic but asOf 10 days after denial: still inside, 20 days left",
+      "inputs": {
+        "judgmentDate": "2022-06-01",
+        "asOf": "2024-02-11",
+        "stateWrits": [{ "filedDate": "2023-06-01", "disposedDate": "2024-02-01" }]
+      },
+      "expect": { "daysTolled": 245, "daysElapsed": 345, "daysRemaining": 20, "expired": false, "tollingNow": false }
+    },
+    {
+      "name": "writ pending now: clock tolled, no expiry estimate",
+      "inputs": {
+        "judgmentDate": "2023-06-01",
+        "asOf": "2024-05-01",
+        "stateWrits": [{ "filedDate": "2024-01-01" }]
+      },
+      "expect": { "daysElapsed": 184, "tollingNow": true, "estimatedExpiryDate": null, "copyKey": "aedpa.tolled" }
+    },
+    {
+      "name": "writ filed BEFORE finality tolls only from finality",
+      "inputs": {
+        "judgmentDate": "2024-01-10",
+        "asOf": "2024-04-01",
+        "stateWrits": [{ "filedDate": "2024-01-20", "disposedDate": "2024-03-01" }]
+      },
+      "expect": { "finalityDate": "2024-02-09", "daysTolled": 21, "daysElapsed": 31 }
+    },
+    {
+      "name": "old conviction: laches urgency note (Ex parte Perez), AEDPA long expired",
+      "inputs": { "judgmentDate": "2015-03-01", "asOf": "2026-08-31" },
+      "expect": { "expired": true, "lachesUrgency": true, "copyKey": "aedpa.expired" }
+    },
+    {
+      "name": "two sequential writs both toll their own pendency",
+      "inputs": {
+        "judgmentDate": "2022-06-01",
+        "asOf": "2023-09-01",
+        "stateWrits": [
+          { "filedDate": "2022-09-01", "disposedDate": "2022-12-01" },
+          { "filedDate": "2023-03-01", "disposedDate": "2023-06-01" }
+        ]
+      },
+      "expect": { "finalityDate": "2022-07-01", "daysTolled": 183, "daysElapsed": 244, "daysRemaining": 121 }
+    }
+  ]
+}

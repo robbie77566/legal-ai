@@ -3,3 +3,4 @@ export * from './events'
 export * from './disclosures'
 export * from './checklist'
 export * from './calendar'
+export * from './deadlines';
