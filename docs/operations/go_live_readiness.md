@@ -12,7 +12,7 @@ The application is launch-shaped; the **operations around it do not exist yet**.
 
 | Area | State today |
 |---|---|
-| Prod build | API `tsup` build compiles (133KB, workspace deps external — runtime needs the monorepo `node_modules`); **`node dist/index.js` never smoke-tested**; port hardcoded 3001 *(fixed alongside this doc: `PORT` env)* |
+| Prod build | **DONE (Aug 31):** workspace packages now bundle (`tsup noExternal` — the external-TS crash was real and caught by smoke); `node dist/index.js` boots, `/healthz` proves DB+Redis, SIGTERM drains outbox+workers and exits (the original handler kept the process alive forever); `PORT` env |
 | Containers / deploy | **No Dockerfiles, no deploy pipeline** — CI is test-only (typecheck, vitest, `migrate deploy`, gitleaks, `pnpm audit`) |
 | Database | Docker-compose Postgres on the dev box; **no backups, no PITR, no managed offering chosen**; RLS + `hg_app` role proven by tests |
 | Secrets | One local `.env`; **no production secret store**; several keys were exposed during development and MUST be rotated (see §5) |
@@ -42,9 +42,9 @@ Estimated on Render: ~$100–130/mo (web $7–25, api $25, Postgres-with-PITR ~$
 
 | # | Task | Acceptance criterion |
 |---|---|---|
-| 1 | **Production Dockerfile** (multi-stage: pnpm fetch → build → prune; prisma generate in image; non-root user) for api + web | `docker run` of each image serves traffic locally against compose Postgres/Redis |
-| 2 | **Runtime smoke** of `node dist/index.js` (done for build; not runtime): boot, health route (add `GET /healthz` returning DB+Redis ping — currently there is **no health endpoint**), graceful SIGTERM drains outbox + workers | Health endpoint green; SIGTERM exits 0 with no orphaned jobs |
-| 3 | **CD pipeline**: on green main, build images, run `migrate deploy` as release step, deploy api then web; one-command rollback to previous image | A no-op commit reaches prod with zero manual steps; rollback rehearsed once |
+| 1 | ~~Dockerfile~~ **superseded by `render.yaml` blueprint (Aug 31):** Render-native Node builds for web+api (build/preDeploy/start commands in the blueprint), clamd as an image-based private service; Dockerfiles deferred to the AWS graduation | Blueprint deploys from the repo root |
+| 2 | ~~Runtime smoke~~ **DONE (Aug 31):** `/healthz` (200 only when Postgres AND Redis answer, 503 otherwise), graceful SIGTERM (outbox → workers → HTTP, 15s force-exit), verified live: boot → healthz 200 → SIGTERM → clean exit, port freed | ✅ |
+| 3 | **CD pipeline** — via the blueprint: Render auto-deploys on push to main, `preDeployCommand` runs `migrate deploy`, dashboard rollback to any prior deploy; rehearse one rollback after first deploy | A no-op commit reaches prod with zero manual steps; rollback rehearsed once |
 | 4 | **Managed Postgres**: create `hg_app` (non-superuser) with `HG_APP_PASSWORD`; owner conn only for migrations; **verify RLS live in prod** by running the superuser-bypass canary test against it once | Canary query proves policies active under `hg_app` |
 | 5 | **Secrets in the provider's store** (never files): DATABASE_URL ×2 roles, NEXTAUTH_SECRET (fresh 32+ bytes), ANTHROPIC_API_KEY (rotated — §5), STRIPE live secret + webhook secret, AWS prod IAM pair (scoped — §5), RESEND_API_KEY, SENTRY_DSN, POSTHOG_API_KEY, CLAMD_HOST, cost-rate envs, ANALYSIS_* flags | `.env` on any server contains nothing |
 | 6 | **DNS/TLS/email**: snotnoselegal.com → web; api subdomain; provider-managed certs; SPF+DKIM+DMARC for Resend; send a test receipt to a Gmail account and check headers | Email lands in inbox, not spam; SSL Labs grade A |

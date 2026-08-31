@@ -101,6 +101,26 @@ fastify.get('/', async (request, reply) => {
   return { hello: 'world' }
 })
 
+// go_live_readiness P0-2: platform health checks hit this — it must prove
+// the dependencies, not just the event loop. 200 only when Postgres AND
+// Redis answer; 503 otherwise so the platform stops routing traffic here.
+fastify.get('/healthz', async (_request, reply) => {
+  const checks: Record<string, boolean> = { db: false, redis: false };
+  try {
+    const prisma = (await import('@hg/database')).default;
+    await prisma.$queryRaw`SELECT 1`;
+    checks.db = true;
+  } catch { /* stays false */ }
+  try {
+    const { createConnection } = await import('./lib/redis');
+    const conn = createConnection();
+    checks.redis = (await conn.ping()) === 'PONG';
+    conn.disconnect();
+  } catch { /* stays false */ }
+  const ok = checks.db && checks.redis;
+  return reply.status(ok ? 200 : 503).send({ ok, ...checks });
+});
+
 async function probeRedis(): Promise<boolean> {
   const probe = new IORedis(REDIS_URL, {
     lazyConnect: true,
@@ -137,8 +157,32 @@ const start = async () => {
     const stopOutbox = startCaseEventOutbox(createConnection(), {
       onError: (e) => fastify.log.error({ err: e }, 'case-event outbox publish failed'),
     });
-    process.on('SIGTERM', stopOutbox);
-    process.on('SIGINT', stopOutbox);
+    // Graceful shutdown (go_live_readiness P0-2): the platform's deploys
+    // send SIGTERM and expect an EXIT — a handler alone keeps the process
+    // alive forever (found by smoke test). Drain in order: outbox, queue
+    // workers, HTTP; force-exit after 15s so a hung drain can't wedge a
+    // deploy.
+    let shuttingDown = false;
+    const shutdown = (signal: string) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      fastify.log.info({ signal }, 'shutting down');
+      const force = setTimeout(() => process.exit(1), 15_000);
+      force.unref();
+      void (async () => {
+        try {
+          stopOutbox();
+          const { analysisWorker } = await import('./workers/analysis.worker');
+          const { ingestionWorker } = await import('./workers/ingestion.worker');
+          await Promise.allSettled([analysisWorker.close(), ingestionWorker.close()]);
+          await fastify.close();
+        } finally {
+          process.exit(0);
+        }
+      })();
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
 
     // Register Bull Board (requires active queue connections)
     const { createBullBoard } = await import('@bull-board/api');

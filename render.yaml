@@ -1,0 +1,103 @@
+# Render Blueprint — Family Case Review (go_live_readiness §2 decision).
+# Deploy: Render dashboard → Blueprints → New Blueprint Instance → this repo.
+# Secrets marked sync:false are prompted at first deploy — set them from the
+# rotated values (readiness §5), never the dev .env.
+#
+# MANUAL STEPS the blueprint cannot do (run once after first deploy):
+#   1. Postgres shell:  CREATE EXTENSION IF NOT EXISTS vector;
+#   2. Create the RLS role (readiness P0-4):
+#        CREATE ROLE hg_app LOGIN PASSWORD '<HG_APP_PASSWORD value>';
+#        GRANT USAGE ON SCHEMA public TO hg_app;
+#        GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO hg_app;
+#        ALTER DEFAULT PRIVILEGES IN SCHEMA public
+#          GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO hg_app;
+#   3. Custom domains: www → web service, api → api service.
+#   4. Stripe live webhook → https://api.<domain>/webhooks/stripe.
+
+previewsEnabled: false
+
+databases:
+  - name: hg-postgres
+    plan: basic-1gb # includes point-in-time recovery — the §11a.2 bound
+    postgresMajorVersion: "16"
+    databaseName: familycasereview
+    ipAllowList: [] # private network only
+
+services:
+  - type: redis
+    name: hg-redis
+    plan: starter
+    maxmemoryPolicy: noeviction # BullMQ jobs must never be evicted
+    ipAllowList: []
+
+  - type: pserv # private service — clamd is reachable only inside the network
+    name: clamav
+    runtime: image
+    image:
+      url: docker.io/clamav/clamav:stable
+    plan: standard # clamd + signatures need ~2GB RAM
+
+  - type: web
+    name: api
+    runtime: node
+    plan: starter
+    region: ohio
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hg/database exec prisma generate && pnpm --filter api build
+    preDeployCommand: pnpm --filter @hg/database db:migrate:deploy
+    startCommand: node apps/api/dist/index.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: hg-postgres, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: redis, name: hg-redis, property: connectionString }
+      - key: CLAMD_HOST
+        fromService: { type: pserv, name: clamav, property: host }
+      - key: NODE_ENV
+        value: production
+      - key: WEB_ORIGIN
+        value: https://www.snotnoselegal.com
+      - key: ANALYSIS_MODEL
+        value: claude-opus-5
+      - key: ANALYSIS_SAMPLES
+        value: "2"
+      - key: ANALYSIS_BATCH
+        value: "1"
+      - key: ANALYSIS_BATCH_MAX_RECORD_TOKENS
+        value: "400000"
+      - key: MODEL_USD_PER_MTOK_IN
+        value: "5"
+      - key: MODEL_USD_PER_MTOK_OUT
+        value: "25"
+      - key: TEXTRACT_USD_PER_1K_PAGES
+        value: "1.5"
+      - { key: HG_APP_PASSWORD, sync: false }
+      - { key: NEXTAUTH_SECRET, sync: false }
+      - { key: ANTHROPIC_API_KEY, sync: false }
+      - { key: AWS_ACCESS_KEY_ID, sync: false }
+      - { key: AWS_SECRET_ACCESS_KEY, sync: false }
+      - { key: AWS_REGION, sync: false }
+      - { key: S3_BUCKET, sync: false }
+      - { key: EVAL_CORPUS_BUCKET, sync: false }
+      - { key: STRIPE_SECRET_KEY, sync: false }
+      - { key: STRIPE_WEBHOOK_SECRET, sync: false }
+      - { key: RESEND_API_KEY, sync: false }
+      - { key: SENTRY_DSN, sync: false }
+      - { key: POSTHOG_API_KEY, sync: false }
+
+  - type: web
+    name: web
+    runtime: node
+    plan: starter
+    region: ohio
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build
+    startCommand: pnpm --filter web start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://api.snotnoselegal.com
+      - key: NEXTAUTH_URL
+        value: https://www.snotnoselegal.com
+      - { key: NEXTAUTH_SECRET, sync: false }
+      - { key: NEXT_PUBLIC_POSTHOG_KEY, sync: false }

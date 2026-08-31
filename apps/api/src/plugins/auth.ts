@@ -15,7 +15,7 @@ declare module 'fastify' {
  *
  * Public paths are an explicit allowlist, not a pattern.
  */
-const PUBLIC_PATHS = new Set(['/', '/health', '/buy/account'])
+const PUBLIC_PATHS = new Set(['/', '/health', '/healthz', '/buy/account'])
 
 // Prefix-public: anonymous S0 drafts (token-addressed) and Stripe webhooks
 // (signature-verified in-route).
