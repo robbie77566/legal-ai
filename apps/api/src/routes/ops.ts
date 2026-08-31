@@ -51,6 +51,15 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     });
   });
 
+  // NFR-4: per-case COGS is a single query — tokens/pages are ground
+  // truth, dollars are env-rate estimates (see costs.service).
+  fastify.get('/cases/:id/cogs', async (request) => {
+    const { id } = request.params as { id: string };
+    const kase = await prisma.case.findUniqueOrThrow({ where: { id }, select: { tenantId: true } });
+    const { caseCogs } = await import('../services/costs.service');
+    return caseCogs(id, kase.tenantId);
+  });
+
   // OPS-3: the E-6 chargeback-defense packet — disclosure set + ack + IP/UA.
   fastify.get('/cases/:id/disclosure-archive', async (request, reply) => {
     const { id } = request.params as { id: string };

@@ -333,6 +333,15 @@ export async function digitizeDocument(
       actor: 'digitize',
     });
 
+    // NFR-4: Textract pages are the OCR cost (born-digital pdf-text is
+    // free). Fire-and-forget after the ledger writes — telemetry never
+    // fails a digitization.
+    const textractPages = extracted.filter((e) => e.confidence < 1).length;
+    if (textractPages > 0) {
+      const { recordOcrCost } = await import('./costs.service');
+      void recordOcrCost({ caseId, tenantId, pages: textractPages, detail: documentId });
+    }
+
     // Echo-back: propose a checklist item and mark it UPLOADED; the customer
     // confirms or corrects (doc.confirmed / doc.corrected).
     const fullText = analysisPages.map((p) => p.text).join('\n');

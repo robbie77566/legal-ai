@@ -61,3 +61,23 @@ describe('scoreRun', () => {
     expect(scoreRun(ledger({ mustFind: [] }), []).recall).toBe(1);
   });
 });
+
+describe('estimateModelUsd (costs.service)', () => {
+  it('applies env rates with cache multipliers', async () => {
+    process.env.MODEL_USD_PER_MTOK_IN = '10';
+    process.env.MODEL_USD_PER_MTOK_OUT = '40';
+    process.env.MODEL_CACHE_READ_MULT = '0.1';
+    process.env.MODEL_CACHE_WRITE_MULT = '1.25';
+    const { estimateModelUsd } = await import('../src/services/costs.service');
+    const usd = estimateModelUsd({
+      tokensIn: 1_000_000, tokensOut: 500_000,
+      cacheReadTokens: 2_000_000, cacheWriteTokens: 1_000_000,
+    });
+    // 10 + 20 + 2*10*0.1 + 1*10*1.25 = 10 + 20 + 2 + 12.5
+    expect(usd).toBeCloseTo(44.5);
+    delete process.env.MODEL_USD_PER_MTOK_IN;
+    delete process.env.MODEL_USD_PER_MTOK_OUT;
+    delete process.env.MODEL_CACHE_READ_MULT;
+    delete process.env.MODEL_CACHE_WRITE_MULT;
+  });
+});

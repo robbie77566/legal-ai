@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq';
 import Anthropic from '@anthropic-ai/sdk';
 import { createConnection } from '../lib/redis';
 import { runAnalysis, type AnalysisModel } from '../services/analysis.service';
+import { recordModelCost } from '../services/costs.service';
 
 /**
  * Analysis worker (M4) — Claude Opus 5 via the official Anthropic SDK.
@@ -25,7 +26,7 @@ import { runAnalysis, type AnalysisModel } from '../services/analysis.service';
 const FIXED_SYSTEM =
   'You are a meticulous post-conviction record examiner. You analyze Texas criminal court records exactly as instructed in the final message of each request, and you respond with ONLY the JSON object that instruction specifies.';
 
-function buildModel(): AnalysisModel | null {
+function buildModel(caseId: string, tenantId: string): AnalysisModel | null {
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) return null;
   const modelName = process.env.ANALYSIS_MODEL ?? 'claude-opus-5';
   const client = new Anthropic(); // resolves credentials from the environment
@@ -70,6 +71,19 @@ function buildModel(): AnalysisModel | null {
           ` cache_read:${response.usage.cache_read_input_tokens ?? 0}` +
           ` out:${response.usage.output_tokens}`
       );
+      // NFR-4: COGS is a query. Fire-and-forget by design (never blocks or
+      // kills paid model work); estimate rates are env-configured.
+      void recordModelCost({
+        caseId,
+        tenantId,
+        provider: response.model,
+        usage: {
+          tokensIn: response.usage.input_tokens,
+          tokensOut: response.usage.output_tokens,
+          cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
+          cacheWriteTokens: response.usage.cache_creation_input_tokens ?? 0,
+        },
+      });
 
       return response.content
         .filter((b): b is Anthropic.TextBlock => b.type === 'text')
@@ -83,7 +97,7 @@ export const analysisWorker = new Worker(
   'analysis',
   async (job: Job) => {
     const { caseId, tenantId } = job.data as { caseId: string; tenantId: string };
-    const model = buildModel();
+    const model = buildModel(caseId, tenantId);
     if (!model) {
       console.error(
         `[analysis] No ANTHROPIC_API_KEY configured — case ${caseId} remains at DOCS_COMPLETE. ` +
