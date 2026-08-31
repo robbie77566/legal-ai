@@ -90,10 +90,10 @@ afterAll(async () => {
   await prisma.finding.deleteMany({ where: { tenantId } });
   await prisma.report.deleteMany({ where: { tenantId } });
   await prisma.analysisRun.deleteMany({ where: { tenantId } });
-  await prisma.documentChunk.deleteMany({ where: { document: { caseId } } });
-  await prisma.document.deleteMany({ where: { caseId } });
-  await prisma.caseAccess.deleteMany({ where: { caseId } });
-  await prisma.case.deleteMany({ where: { id: caseId } });
+  await prisma.documentChunk.deleteMany({ where: { document: { case: { tenantId } } } });
+  await prisma.document.deleteMany({ where: { case: { tenantId } } });
+  await prisma.caseAccess.deleteMany({ where: { case: { tenantId } } });
+  await prisma.case.deleteMany({ where: { tenantId } });
   await prisma.user.deleteMany({ where: { tenantId } });
   await prisma.tenant.deleteMany({ where: { id: tenantId } });
   await prisma.$disconnect();
@@ -234,6 +234,52 @@ describe('response salvage (live-run lesson: one bad element must not void the s
     expect(call).toBe(2);
     expect(res.grounded).toHaveLength(1);
     expect(res.grounded[0].severity).toBe('dispositive');
+  });
+});
+
+describe('batch path (invokeMany seam)', () => {
+  it('runs all screens through invokeMany and persists identically', async () => {
+    const c2 = await prisma.case.create({
+      data: {
+        title: `${run}_batch`, tenantId, status: 'DOCS_COMPLETE', lane: 'TRIAL', vehicle: '11.07',
+        slaStartedAt: new Date(), accessList: { create: { userId, role: 'ADMIN' } },
+      },
+    });
+    const doc2 = await prisma.document.create({ data: { filename: 'rr-batch.pdf', caseId: c2.id } });
+    const chunk = await prisma.documentChunk.create({
+      data: { documentId: doc2.id, content: CHUNK_A, metadata: { volume: 'RR3', page: 214 } },
+    });
+
+    const seenKeys: string[] = [];
+    const batchModel: AnalysisModel = {
+      name: 'fake-batch',
+      invoke: async () => 'CASE CONTEXT: test case.', // context pre-pass only
+      invokeMany: async (requests) => {
+        const out = new Map<string, string>();
+        for (const r of requests) {
+          seenKeys.push(r.key);
+          out.set(
+            r.key,
+            r.key.startsWith('junk_science')
+              ? JSON.stringify({ findings: [{
+                  category: 'junk_science', severity: 'dispositive', confidence: 0.9, chunkIndex: 0,
+                  quote: 'The bite mark comparison testimony will be admitted.', partA: 'a', partB: 'b',
+                }]})
+              : '{"findings":[]}'
+          );
+        }
+        return out;
+      },
+    };
+
+    const summary = await runAnalysis(c2.id, tenantId, batchModel);
+    // TRIAL lane × ANALYSIS_SAMPLES=1 → one request per screen, all via the batch seam.
+    expect(seenKeys.length).toBe(5);
+    expect(seenKeys).toContain('voir_dire__0');
+    expect(summary.findingsPersisted).toBe(1);
+    const f = await prisma.finding.findFirstOrThrow({ where: { caseId: c2.id }, include: { citations: true } });
+    expect(f.citations[0].chunkId).toBe(chunk.id);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: c2.id } })).status).toBe('QA_REVIEW');
   });
 });
 

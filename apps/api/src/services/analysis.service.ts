@@ -25,6 +25,12 @@ import { withTenant, appendCaseEvent } from '@hg/database';
 export interface AnalysisModel {
   name: string;
   invoke(system: string, user: string): Promise<string>;
+  /**
+   * Optional bulk path (Message Batches, 50% price): all screen×sample
+   * requests submitted together; the runner owns budgets and per-request
+   * live fallback, and MUST return an entry for every key.
+   */
+  invokeMany?(requests: { key: string; instruction: string }[], record: string): Promise<Map<string, string>>;
 }
 
 const FindingOutput = z.object({
@@ -153,41 +159,47 @@ function salvageTruncatedArray(jsonText: string): unknown[] | null {
   return items.length ? items : null;
 }
 
+/** One response → validated findings, or null (all salvage layers applied). */
+export function parseFindingsText(raw: string): { findings: z.infer<typeof FindingOutput>[] } | null {
+  try {
+    const jsonText = escapeControlCharsInStrings(
+      raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
+    );
+    let elements: unknown[];
+    try {
+      const parsed = JSON.parse(jsonText) as { findings?: unknown[] };
+      if (!Array.isArray(parsed.findings)) throw new Error('no findings array');
+      elements = parsed.findings;
+    } catch (parseErr) {
+      const recovered = salvageTruncatedArray(jsonText);
+      if (!recovered) throw parseErr;
+      console.warn(`[analysis] truncated response — recovered ${recovered.length} complete finding(s)`);
+      elements = recovered;
+    }
+    // Per-finding salvage: one malformed element must never void its
+    // siblings (the second lesson of the first live run).
+    const findings: z.infer<typeof FindingOutput>[] = [];
+    let invalid = 0;
+    for (const item of elements) {
+      const check = FindingOutput.safeParse(item);
+      if (check.success) findings.push(check.data);
+      else invalid++;
+    }
+    if (invalid > 0) console.warn(`[analysis] salvage: kept ${findings.length}, dropped ${invalid} malformed finding(s)`);
+    return { findings };
+  } catch (e) {
+    console.warn(`[analysis] response parse failed: ${(e as Error).message.slice(0, 120)}`);
+    return null;
+  }
+}
+
 async function invokeValidated(model: AnalysisModel, system: string, user: string) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const raw = await model.invoke(system, user);
-    try {
-      const jsonText = escapeControlCharsInStrings(
-        raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
-      );
-      let elements: unknown[];
-      try {
-        const parsed = JSON.parse(jsonText) as { findings?: unknown[] };
-        if (!Array.isArray(parsed.findings)) throw new Error('no findings array');
-        elements = parsed.findings;
-      } catch (parseErr) {
-        const recovered = salvageTruncatedArray(jsonText);
-        if (!recovered) throw parseErr;
-        console.warn(`[analysis] truncated response — recovered ${recovered.length} complete finding(s)`);
-        elements = recovered;
-      }
-      // Per-finding salvage: one malformed element must never void its
-      // siblings (the second lesson of the first live run).
-      const findings: z.infer<typeof FindingOutput>[] = [];
-      let invalid = 0;
-      for (const item of elements) {
-        const check = FindingOutput.safeParse(item);
-        if (check.success) findings.push(check.data);
-        else invalid++;
-      }
-      if (invalid > 0) console.warn(`[analysis] salvage: kept ${findings.length}, dropped ${invalid} malformed finding(s)`);
-      return { findings };
-    } catch (e) {
-      console.warn(`[analysis] response parse attempt ${attempt + 1} failed: ${(e as Error).message.slice(0, 120)}`);
-      if (attempt === 1) return { findings: [] }; // bounded: empty screen for QA, never a crash
-    }
+    const parsed = parseFindingsText(raw);
+    if (parsed) return parsed;
   }
-  return { findings: [] };
+  return { findings: [] }; // bounded: empty screen for QA, never a crash
 }
 
 export interface AnalysisSummary {
@@ -278,28 +290,32 @@ export interface ScreenFinding {
  */
 const SEVERITY_RANK: Record<string, number> = { dispositive: 0, supportive: 1, background: 2 };
 
-export async function executeScreen(
-  model: AnalysisModel,
+export function buildScreenInstruction(
   screenId: keyof typeof SCREENS,
-  record: string,
   chunks: AnalysisChunk[],
-  contextHeader = '',
-  samples = 1
-): Promise<{ grounded: ScreenFinding[]; dropped: number }> {
+  contextHeader = ''
+): string {
   const prefix = contextHeader ? `${contextHeader}\n\n` : '';
   const anchors = buildAnchors(screenId, chunks, contextHeader);
-  const instruction = `${prefix}${SCREENS[screenId]}\n${anchors ? `${anchors}\n` : ''}${OUTPUT_INSTRUCTIONS}`;
+  return `${prefix}${SCREENS[screenId]}\n${anchors ? `${anchors}\n` : ''}${OUTPUT_INSTRUCTIONS}`;
+}
 
-  // Self-consistency union: run-to-run variance IS recall left on the
-  // table (Brian runs 3/4 produced overlapping-but-different sets). Union
-  // the samples' grounded findings; near-duplicates (same chunk, one
-  // normalized quote containing the other) keep the more severe / more
-  // confident copy. QA reviews the union — recall-first by design.
+/**
+ * Self-consistency union over sampled responses: run-to-run variance IS
+ * recall left on the table. Ground each sample's findings (FR-6 hard
+ * filter), then dedup near-duplicates (same chunk, one normalized quote
+ * containing the other) keeping the more severe / more confident copy.
+ * QA reviews the union — recall-first by design. Shared by the live loop
+ * and the batch path.
+ */
+export function groundUnion(
+  sampleFindings: z.infer<typeof FindingOutput>[][],
+  chunks: AnalysisChunk[]
+): { grounded: ScreenFinding[]; dropped: number } {
   const grounded: ScreenFinding[] = [];
   let dropped = 0;
-  for (let n = 0; n < Math.max(1, samples); n++) {
-    const res = await invokeValidated(model, instruction, record);
-    for (const f of res.findings) {
+  for (const findings of sampleFindings) {
+    for (const f of findings) {
       const chunk = chunks[f.chunkIndex];
       // FR-6: grounding is a hard filter, not a preference.
       if (!chunk || !quoteGrounds(chunk.content, f.quote)) {
@@ -324,6 +340,22 @@ export async function executeScreen(
     }
   }
   return { grounded, dropped };
+}
+
+export async function executeScreen(
+  model: AnalysisModel,
+  screenId: keyof typeof SCREENS,
+  record: string,
+  chunks: AnalysisChunk[],
+  contextHeader = '',
+  samples = 1
+): Promise<{ grounded: ScreenFinding[]; dropped: number }> {
+  const instruction = buildScreenInstruction(screenId, chunks, contextHeader);
+  const arrays: z.infer<typeof FindingOutput>[][] = [];
+  for (let n = 0; n < Math.max(1, samples); n++) {
+    arrays.push((await invokeValidated(model, instruction, record)).findings);
+  }
+  return groundUnion(arrays, chunks);
 }
 
 export { SCREENS_BY_LANE };
@@ -403,10 +435,39 @@ export async function runAnalysis(
   const contextHeader = await buildContextHeader(model, record);
   if (contextHeader) console.log(`[analysis] context header: ${contextHeader.slice(0, 160)}…`);
 
+  const samples = Math.min(3, Math.max(1, Number(process.env.ANALYSIS_SAMPLES ?? '1') || 1));
+
+  // Batch path (50% price): all screen×sample requests submitted together;
+  // the runner (worker) owns polling, the stage budget, and per-request
+  // live fallback. Results land at once, so persistence runs afterward —
+  // still one short transaction per screen.
+  const batchResults = model.invokeMany
+    ? await model.invokeMany(
+        SCREENS_BY_LANE[lane].flatMap((screenId) =>
+          Array.from({ length: samples }, (_, n) => ({
+            key: `${screenId}__${n}`,
+            instruction: buildScreenInstruction(screenId, chunks, contextHeader),
+          }))
+        ),
+        record
+      )
+    : null;
+
   for (const screenId of SCREENS_BY_LANE[lane]) {
-    // Model call: minutes, OUTSIDE any transaction.
-    const samples = Math.min(3, Math.max(1, Number(process.env.ANALYSIS_SAMPLES ?? '1') || 1));
-    const result = await executeScreen(model, screenId, record, chunks, contextHeader, samples);
+    let result: { grounded: ScreenFinding[]; dropped: number };
+    if (batchResults) {
+      const arrays: Parameters<typeof groundUnion>[0] = [];
+      for (let n = 0; n < samples; n++) {
+        const raw = batchResults.get(`${screenId}__${n}`);
+        if (raw == null) continue; // runner contract violation — tolerated
+        const parsed = parseFindingsText(raw);
+        if (parsed) arrays.push(parsed.findings);
+      }
+      result = groundUnion(arrays, chunks);
+    } else {
+      // Model call: minutes, OUTSIDE any transaction.
+      result = await executeScreen(model, screenId, record, chunks, contextHeader, samples);
+    }
     dropped += result.dropped;
 
     // Short tx per screen: findings + the tracker's honest sub-detail.

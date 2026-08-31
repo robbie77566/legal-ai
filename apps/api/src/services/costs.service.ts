@@ -43,6 +43,8 @@ export async function recordModelCost(args: {
   provider: string;
   detail?: string;
   usage: ModelUsage;
+  /** Price multiplier vs. the live rates (Message Batches: 0.5). */
+  usdFactor?: number;
 }): Promise<void> {
   try {
     await withTenant(args.tenantId, async (tx) => {
@@ -57,7 +59,7 @@ export async function recordModelCost(args: {
           tokensOut: args.usage.tokensOut,
           cacheReadTokens: args.usage.cacheReadTokens,
           cacheWriteTokens: args.usage.cacheWriteTokens,
-          amountUsd: estimateModelUsd(args.usage),
+          amountUsd: estimateModelUsd(args.usage) * (args.usdFactor ?? 1),
         },
       });
     });

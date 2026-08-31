@@ -31,9 +31,7 @@ function buildModel(caseId: string, tenantId: string): AnalysisModel | null {
   const modelName = process.env.ANALYSIS_MODEL ?? 'claude-opus-5';
   const client = new Anthropic(); // resolves credentials from the environment
 
-  return {
-    name: modelName,
-    invoke: async (screenInstruction, record) => {
+  const liveInvoke = async (screenInstruction: string, record: string): Promise<string> => {
       const response = await client.beta.messages
         .stream({
           model: modelName,
@@ -89,7 +87,103 @@ function buildModel(caseId: string, tenantId: string): AnalysisModel | null {
         .filter((b): b is Anthropic.TextBlock => b.type === 'text')
         .map((b) => b.text)
         .join('');
-    },
+  };
+
+  /**
+   * Batch runner (Message Batches, 50% price; cost doc §3.2). One batch
+   * per case run — requests share the record prefix, so prompt-cache hits
+   * inside the batch are best-effort but likely. Stage budget: past
+   * ANALYSIS_BATCH_BUDGET_MS the batch is cancelled and unfinished
+   * requests fall back to the live API (the 10-business-day SLA never
+   * hangs on a stuck batch). Every key gets a result, guaranteed.
+   */
+  const batchInvokeMany = async (
+    requests: { key: string; instruction: string }[],
+    record: string
+  ): Promise<Map<string, string>> => {
+    const budgetMs = Math.max(60_000, Number(process.env.ANALYSIS_BATCH_BUDGET_MS ?? '') || 4 * 3600_000);
+    const out = new Map<string, string>();
+    try {
+      const batch = await client.messages.batches.create({
+        requests: requests.map((r) => ({
+          custom_id: r.key,
+          params: {
+            model: modelName,
+            max_tokens: 32000,
+            system: FIXED_SYSTEM,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: record, cache_control: { type: 'ephemeral' } },
+                  { type: 'text', text: r.instruction },
+                ],
+              },
+            ],
+          },
+        })),
+      });
+      console.log(`[analysis] batch ${batch.id}: ${requests.length} requests submitted`);
+
+      const started = Date.now();
+      let b = batch;
+      while (b.processing_status === 'in_progress') {
+        if (Date.now() - started > budgetMs) {
+          console.warn(`[analysis] batch ${batch.id} over budget — cancelling, falling back live`);
+          await client.messages.batches.cancel(batch.id).catch(() => {});
+          break;
+        }
+        await new Promise((res) => setTimeout(res, 30_000));
+        b = await client.messages.batches.retrieve(batch.id);
+      }
+
+      if (b.processing_status === 'ended') {
+        for await (const entry of await client.messages.batches.results(batch.id)) {
+          if (entry.result.type !== 'succeeded') {
+            console.warn(`[analysis] batch item ${entry.custom_id}: ${entry.result.type}`);
+            continue;
+          }
+          const msg = entry.result.message;
+          void recordModelCost({
+            caseId, tenantId, provider: `${msg.model}#batch`,
+            usage: {
+              tokensIn: msg.usage.input_tokens,
+              tokensOut: msg.usage.output_tokens,
+              cacheReadTokens: msg.usage.cache_read_input_tokens ?? 0,
+              cacheWriteTokens: msg.usage.cache_creation_input_tokens ?? 0,
+            },
+            usdFactor: 0.5,
+          });
+          console.log(
+            `[analysis] batch item ${entry.custom_id} usage — in:${msg.usage.input_tokens}` +
+              ` cache_write:${msg.usage.cache_creation_input_tokens ?? 0}` +
+              ` cache_read:${msg.usage.cache_read_input_tokens ?? 0} out:${msg.usage.output_tokens}`
+          );
+          out.set(
+            entry.custom_id,
+            msg.stop_reason === 'refusal'
+              ? '{"findings":[]}'
+              : msg.content
+                  .filter((c): c is Anthropic.TextBlock => c.type === 'text')
+                  .map((c) => c.text)
+                  .join('')
+          );
+        }
+      }
+    } catch (e) {
+      console.warn(`[analysis] batch submission failed — full live fallback: ${(e as Error).message.slice(0, 160)}`);
+    }
+
+    for (const r of requests) {
+      if (!out.has(r.key)) out.set(r.key, await liveInvoke(r.instruction, record));
+    }
+    return out;
+  };
+
+  return {
+    name: modelName,
+    invoke: liveInvoke,
+    ...(process.env.ANALYSIS_BATCH === '1' ? { invokeMany: batchInvokeMany } : {}),
   };
 }
 
