@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Source_Serif_4, Public_Sans, IBM_Plex_Mono } from 'next/font/google'
 import './daybreak.css'
 import PaletteExperiment from '../../components/ab/PaletteExperiment'
+import SiteFooter from '../../components/SiteFooter'
 
 /**
  * Daybreak — the consumer surface (mvp_ui_design_spec.md). Light, warm, calm,
@@ -29,6 +30,7 @@ export default function DaybreakLayout({ children }: { children: React.ReactNode
     <div className={`daybreak font-db-sans ${serif.variable} ${sans.variable} ${mono.variable}`}>
       <PaletteExperiment />
       {children}
+      <SiteFooter />
     </div>
   )
 }

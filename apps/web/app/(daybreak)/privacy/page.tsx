@@ -11,7 +11,7 @@ export default function PrivacyPolicy() {
       </p>
       <h1 className="font-db-serif text-3xl font-semibold">Privacy policy</h1>
       <p className="mt-3">
-        Family Case Review, a service of Snot Nose Legal (&ldquo;we&rdquo;), analyzes criminal court
+        Family Case Review, a service of Snot Nose Legal and operated by Tangent Software LLC (&ldquo;we&rdquo;), analyzes criminal court
         records you choose to upload. This page says plainly what we keep, for how long, and what
         happens when you ask us to delete.
       </p>
