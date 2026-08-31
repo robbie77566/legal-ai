@@ -368,6 +368,41 @@ describe('runAnalysis (FR-6 grounding + state machine)', () => {
   });
 });
 
+describe('run diff (US-6)', () => {
+  it('diffs the latest two completed runs by stableKey', async () => {
+    // Own case: synthetic runs on the shared case would become "latest"
+    // and pollute the QA console tests downstream.
+    const c4 = await prisma.case.create({
+      data: {
+        title: `${run}_diff`, tenantId, status: 'QA_REVIEW', lane: 'TRIAL', vehicle: '11.07',
+        slaStartedAt: new Date(), accessList: { create: { userId, role: 'ADMIN' } },
+      },
+    });
+    const mkRun = async (runNo: number, keys: string[]) => {
+      const r = await prisma.analysisRun.create({
+        data: { caseId: c4.id, tenantId, runNo, modelConfig: {}, completedAt: new Date(Date.now() + runNo * 1000) },
+      });
+      for (const k of keys) {
+        await prisma.finding.create({
+          data: {
+            runId: r.id, caseId: c4.id, tenantId, stableKey: `${run}_${k}`, category: 'junk_science',
+            severity: 'supportive', confidence: 0.5, partAText: 'a', partBText: `finding ${k}`,
+          },
+        });
+      }
+      return r;
+    };
+    await mkRun(90, ['old_only', 'shared']);
+    await mkRun(91, ['shared', 'new_only']);
+    const res = await fastify.inject({ method: 'GET', url: `/qa/cases/${c4.id}/run-diff`, headers: { cookie: qaCookie } });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.added.map((f: { summary: string }) => f.summary)).toEqual(['finding new_only']);
+    expect(body.removed.map((f: { summary: string }) => f.summary)).toEqual(['finding old_only']);
+    expect(body.kept).toHaveLength(1);
+  });
+});
+
 describe('QA console (US-8)', () => {
   it('CLIENTs are locked out of the QA surface', async () => {
     const res = await fastify.inject({ method: 'GET', url: '/qa/queue', headers: { cookie: clientCookie } });

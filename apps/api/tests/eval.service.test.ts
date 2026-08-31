@@ -81,3 +81,16 @@ describe('estimateModelUsd (costs.service)', () => {
     delete process.env.MODEL_CACHE_WRITE_MULT;
   });
 });
+
+describe('readability lint', () => {
+  it('scores simple text under the 8th-grade target and dense legalese over it', async () => {
+    const { lintPartA } = await import('../src/services/readability');
+    const simple = lintPartA('The judge said no. The lawyer did not ask again. That may matter for your case.');
+    expect(simple.overTarget).toBe(false);
+    const dense = lintPartA(
+      'Notwithstanding the aforementioned constitutional determination, the multiplicitous prosecutorial characterization contravened jurisprudential requirements necessitating individualized rehabilitative examination.'
+    );
+    expect(dense.grade).toBeGreaterThan(8);
+    expect(dense.overTarget).toBe(true);
+  });
+});

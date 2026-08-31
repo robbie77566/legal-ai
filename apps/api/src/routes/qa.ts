@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { lintPartA } from '../services/readability';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { AuditService, LogAction } from '../services/audit.service';
 import { verifyFindings } from '../services/analysis.service';
@@ -54,7 +55,42 @@ export default async function qaRoutes(fastify: FastifyInstance) {
           orderBy: [{ adjudication: 'asc' }, { severity: 'asc' }], // disagreements would sort first
         })
       : [];
-    return { case: { id: kase.id, title: kase.title, lane: kase.lane, status: kase.status, subsequentWrit: kase.subsequentWrit }, run, findings };
+    return {
+      case: { id: kase.id, title: kase.title, lane: kase.lane, status: kase.status, subsequentWrit: kase.subsequentWrit },
+      run,
+      findings: findings.map((f) => ({ ...f, readability: lintPartA(f.partAText) })),
+    };
+  });
+
+  // US-6 re-run diff: latest two completed runs, keyed by stableKey —
+  // what the re-run added, what it no longer finds, what carried over.
+  fastify.get('/cases/:id/run-diff', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const runs = await prisma.analysisRun.findMany({
+      where: { caseId: id, completedAt: { not: null } },
+      orderBy: { completedAt: 'desc' },
+      take: 2,
+    });
+    if (runs.length < 2) return reply.status(404).send({ error: 'Fewer than two completed runs' });
+    const [latest, prior] = runs;
+    const pick = { id: true, stableKey: true, category: true, severity: true, confidence: true, partBText: true };
+    const [latestF, priorF] = await Promise.all([
+      prisma.finding.findMany({ where: { runId: latest.id }, select: pick }),
+      prisma.finding.findMany({ where: { runId: prior.id }, select: pick }),
+    ]);
+    const priorKeys = new Map(priorF.map((f) => [f.stableKey, f]));
+    const latestKeys = new Set(latestF.map((f) => f.stableKey));
+    const summarize = (f: { id: string; category: string; severity: string; confidence: number; partBText: string }) => ({
+      id: f.id, category: f.category, severity: f.severity, confidence: f.confidence,
+      summary: f.partBText.slice(0, 160),
+    });
+    return {
+      latestRunId: latest.id,
+      priorRunId: prior.id,
+      added: latestF.filter((f) => !priorKeys.has(f.stableKey)).map(summarize),
+      removed: priorF.filter((f) => !latestKeys.has(f.stableKey)).map(summarize),
+      kept: latestF.filter((f) => priorKeys.has(f.stableKey)).map(summarize),
+    };
   });
 
   // Reading-level edits to Part A (US-8): provenance flips, audit-logged.
@@ -79,6 +115,7 @@ export default async function qaRoutes(fastify: FastifyInstance) {
       });
       return u;
     });
+    const lint = lintPartA(updated.partAText);
     await AuditService.log({
       tenantId: finding.tenantId,
       caseId: finding.caseId,
@@ -86,7 +123,7 @@ export default async function qaRoutes(fastify: FastifyInstance) {
       userId: request.auth.userId,
       details: { findingId },
     });
-    return updated;
+    return { ...updated, readability: lint };
   });
 
   fastify.post('/cases/:id/approve', async (request, reply) => {
