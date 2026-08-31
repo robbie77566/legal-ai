@@ -18,6 +18,7 @@ previewsEnabled: false
 
 databases:
   - name: hg-postgres
+    region: ohio # MUST match the services — internal hostnames are region-scoped
     plan: basic-1gb # includes point-in-time recovery — the §11a.2 bound
     postgresMajorVersion: "16"
     databaseName: familycasereview
@@ -26,12 +27,14 @@ databases:
 services:
   - type: redis
     name: hg-redis
+    region: ohio
     plan: starter
     maxmemoryPolicy: noeviction # BullMQ jobs must never be evicted
     ipAllowList: []
 
   - type: pserv # private service — clamd is reachable only inside the network
     name: clamav
+    region: ohio
     runtime: image
     image:
       url: docker.io/clamav/clamav:stable
