@@ -93,7 +93,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter web build
+    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter @hg/database exec prisma generate && corepack pnpm --filter web build
     startCommand: corepack pnpm --filter web start
     envVars:
       - key: NODE_ENV
