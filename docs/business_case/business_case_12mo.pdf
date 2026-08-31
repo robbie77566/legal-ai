@@ -147,6 +147,45 @@ h2,h3 { page-break-inside:avoid; }
 </tbody>
 </table>
 <p>This case models the conservative <strong>$54</strong>; the measured trend is upside.</p>
+<h2>5b. External tools &amp; services — the documented monthly stack (added 2026-08-31)</h2>
+<p>The hosting/tooling line items are now provisioned and priced, not estimated (canonical register with tiers and upgrade triggers: <code>docs/operations/external_services.md</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Services</th>
+<th style="text-align: right;">$/month</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hosting (Render, decided platform)</td>
+<td>web $7 · api $25 · Postgres w/ PITR ~$20 · Redis $10 · clamav scan $25</td>
+<td style="text-align: right;">~$87</td>
+</tr>
+<tr>
+<td>Domain</td>
+<td>snotnoselegal.com (~$15/yr)</td>
+<td style="text-align: right;">~$1</td>
+</tr>
+<tr>
+<td>Email / errors / analytics / uptime / CI</td>
+<td>Resend · Sentry · PostHog · UptimeRobot · GitHub — all inside free tiers at launch</td>
+<td style="text-align: right;">$0</td>
+</tr>
+<tr>
+<td><strong>Fixed tools total</strong></td>
+<td></td>
+<td style="text-align: right;"><strong>~$88</strong></td>
+</tr>
+<tr>
+<td>Usage-based (in per-case COGS, §5)</td>
+<td>Anthropic ~$1.75–3.30/case (batch) · Textract ~$0.90/case · S3 &lt;$5/mo · Stripe ~2.9%+$0.30</td>
+<td style="text-align: right;">scales with cases</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Impact on the model:</strong> the solo-founder cash model (§8c) budgeted <strong>$150/mo</strong> for hosting; the provisioned reality is <strong>~$88/mo</strong> — a ~$62/mo favorable variance that also pre-funds the first paid-tier upgrades (Resend $20, Sentry $26 at ~100 cases/mo) without touching the budget line. Cash break-even stays ~4 cases/month; the variance is retained as buffer rather than re-plumbed through the tables.</p>
 <h2>6. 12-month plan</h2>
 <table>
 <thead>
@@ -687,7 +726,7 @@ h2,h3 { page-break-inside:avoid; }
 <h2>8c. The solo-founder cash model (the operator&rsquo;s actual position)</h2>
 <p>Sections 7–8b model <em>staffed</em> scenarios from the implementation plan&rsquo;s team assumptions. The operating reality is <strong>one founder, home-based, no payroll</strong> — which converts the model from a P&amp;L question into a cash-flow question, and changes the answer dramatically:</p>
 <ul>
-<li><strong>Fixed cash ≈ $1,100/month</strong> (hosting ~$150, E&amp;O ~$250, counsel pay-as-you-go ~$200, $500 marketing floor). No salaries, no office.</li>
+<li><strong>Fixed cash ≈ $1,100/month</strong> (hosting budgeted ~$150 — provisioned actual ~$88, see §5b; E&amp;O ~$250, counsel pay-as-you-go ~$200, $500 marketing floor). No salaries, no office.</li>
 <li><strong>Cash contribution ≈ $278/case</strong> — QA is founder time (sweat equity, not cash), so cash COGS is ~$31 (OCR + LLM + storage + Stripe + expected refunds).</li>
 <li><strong>Cash break-even: ~4 cases/month.</strong></li>
 </ul>

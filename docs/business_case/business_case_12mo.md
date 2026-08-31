@@ -59,6 +59,20 @@ Study budget vs. what the pipeline **actually measured** on the reference case t
 
 This case models the conservative **$54**; the measured trend is upside.
 
+## 5b. External tools & services — the documented monthly stack (added 2026-08-31)
+
+The hosting/tooling line items are now provisioned and priced, not estimated (canonical register with tiers and upgrade triggers: `docs/operations/external_services.md`):
+
+| Category | Services | $/month |
+|---|---|---:|
+| Hosting (Render, decided platform) | web $7 · api $25 · Postgres w/ PITR ~$20 · Redis $10 · clamav scan $25 | ~$87 |
+| Domain | snotnoselegal.com (~$15/yr) | ~$1 |
+| Email / errors / analytics / uptime / CI | Resend · Sentry · PostHog · UptimeRobot · GitHub — all inside free tiers at launch | $0 |
+| **Fixed tools total** | | **~$88** |
+| Usage-based (in per-case COGS, §5) | Anthropic ~$1.75–3.30/case (batch) · Textract ~$0.90/case · S3 <$5/mo · Stripe ~2.9%+$0.30 | scales with cases |
+
+**Impact on the model:** the solo-founder cash model (§8c) budgeted **$150/mo** for hosting; the provisioned reality is **~$88/mo** — a ~$62/mo favorable variance that also pre-funds the first paid-tier upgrades (Resend $20, Sentry $26 at ~100 cases/mo) without touching the budget line. Cash break-even stays ~4 cases/month; the variance is retained as buffer rather than re-plumbed through the tables.
+
 ## 6. 12-month plan
 
 | Phase | Months | Contents | Source |
@@ -174,7 +188,7 @@ The base case loses money for exactly one structural reason: **fixed operating c
 
 Sections 7–8b model *staffed* scenarios from the implementation plan's team assumptions. The operating reality is **one founder, home-based, no payroll** — which converts the model from a P&L question into a cash-flow question, and changes the answer dramatically:
 
-- **Fixed cash ≈ $1,100/month** (hosting ~$150, E&O ~$250, counsel pay-as-you-go ~$200, $500 marketing floor). No salaries, no office.
+- **Fixed cash ≈ $1,100/month** (hosting budgeted ~$150 — provisioned actual ~$88, see §5b; E&O ~$250, counsel pay-as-you-go ~$200, $500 marketing floor). No salaries, no office.
 - **Cash contribution ≈ $278/case** — QA is founder time (sweat equity, not cash), so cash COGS is ~$31 (OCR + LLM + storage + Stripe + expected refunds).
 - **Cash break-even: ~4 cases/month.**
 
