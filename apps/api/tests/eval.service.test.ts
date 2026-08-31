@@ -1,0 +1,63 @@
+/** Eval scorer — deterministic, no DB, no model (CI-safe launch gate). */
+import { describe, it, expect } from 'vitest';
+import { scoreRun, type EvalLedger, type ScorableFinding } from '../src/services/eval.service';
+
+const finding = (over: Partial<ScorableFinding>): ScorableFinding => ({
+  id: 'cmfinding000000000willet',
+  category: 'iac',
+  severity: 'supportive',
+  confidence: 0.6,
+  partAText: 'plain english',
+  partBText: 'Venire No. 5 Willetts: spouse is Harper’s corporal; seated and polled.',
+  pages: [30, 140],
+  ...over,
+});
+
+const ledger = (over: Partial<EvalLedger>): EvalLedger => ({
+  case: 'test',
+  caseTitle: 'Test',
+  provenance: 'test',
+  mustFind: [{ id: 'willetts', note: 'seated juror', allOf: ['willetts'], minSeverity: 'supportive' }],
+  verdicts: [],
+  ...over,
+});
+
+describe('scoreRun', () => {
+  it('finds a must-find via term match and reports full recall', () => {
+    const card = scoreRun(ledger({}), [finding({})]);
+    expect(card.recall).toBe(1);
+    expect(card.found[0].id).toBe('willetts');
+    expect(card.precision).toBeNull();
+  });
+
+  it('misses when terms are absent, severity is too low, or page window excludes', () => {
+    expect(scoreRun(ledger({}), [finding({ partBText: 'nothing relevant' })]).recall).toBe(0);
+    expect(scoreRun(ledger({}), [finding({ severity: 'background' })]).recall).toBe(0);
+    const pw = ledger({ mustFind: [{ id: 'w', note: '', allOf: ['willetts'], pageWindow: { min: 200, max: 210 } }] });
+    expect(scoreRun(pw, [finding({})]).recall).toBe(0);
+  });
+
+  it('anyOf requires at least one alternative term', () => {
+    const l = ledger({ mustFind: [{ id: 'w', note: '', allOf: ['willetts'], anyOf: ['corporal', 'sergeant'] }] });
+    expect(scoreRun(l, [finding({})]).recall).toBe(1);
+    expect(scoreRun(l, [finding({ partBText: 'Willetts mentioned alone' })]).recall).toBe(0);
+  });
+
+  it('computes precision and severity agreement from attorney verdicts', () => {
+    const l = ledger({
+      verdicts: [
+        { findingRef: 'aaaaaa', verdict: 'agree' },
+        { findingRef: 'bbbbbb', verdict: 'partly', severityOverride: 'background' },
+        { findingRef: 'cccccc', verdict: 'disagree' },
+      ],
+    });
+    const card = scoreRun(l, [finding({})]);
+    expect(card.precision).toBeCloseTo(2 / 3);
+    expect(card.severityAgreement).toBeCloseTo(1 / 2);
+    expect(card.verdictCounts).toEqual({ agree: 1, partly: 1, disagree: 1 });
+  });
+
+  it('empty mustFind scores recall 1 (verdict-only ledgers stay green)', () => {
+    expect(scoreRun(ledger({ mustFind: [] }), []).recall).toBe(1);
+  });
+});
