@@ -5,12 +5,12 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "dependencies": {
-    "pdfkit": "^0.15.2"
+    "pdfkit": "^0.20.1"
   },
   "devDependencies": {
     "@hg/tsconfig": "workspace:*",
     "@types/node": "^20.19.40",
-    "@types/pdfkit": "^0.13.9",
+    "@types/pdfkit": "^0.17.6",
     "typescript": "^5.4.0",
     "vitest": "^3.2.0"
   },
