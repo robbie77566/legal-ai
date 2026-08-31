@@ -21,6 +21,21 @@ export interface ReportFinding {
   citations: { volume: string | null; page: number | null; excerpt: string }[];
 }
 
+export interface DeadlinePostureView {
+  finalityDate: string;
+  finalityBasis: string;
+  aedpa: {
+    daysElapsed: number;
+    daysTolled: number;
+    daysRemaining: number;
+    expired: boolean;
+    estimatedExpiryDate: string | null;
+    tollingNow: boolean;
+  };
+  lachesUrgency: boolean;
+  asOf: string;
+}
+
 export interface ReportPdfInput {
   caseTitle: string;
   reportId: string;
@@ -28,6 +43,7 @@ export interface ReportPdfInput {
   templateVersion: string;
   renderedAt: Date | string;
   subsequentWritMode: boolean;
+  deadlinePosture?: DeadlinePostureView | null;
   strongSignals: ReportFinding[];
   possibleIssues: ReportFinding[];
   droppedByReverification: number;
@@ -124,6 +140,56 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
         );
     }
     doc.moveDown(1);
+
+    // FR-5: elapsed/remaining prominent, dates stamped "as of", the
+    // tolling direction stated correctly, laches urgency for old cases.
+    if (input.deadlinePosture) {
+      const d = input.deadlinePosture;
+      doc.font('Helvetica-Bold').fontSize(13).fillColor('#111111').text('Time limits (as of ' + d.asOf + ')');
+      doc.moveDown(0.3);
+      doc.font('Helvetica').fontSize(10).fillColor('#222222');
+      if (d.aedpa.expired) {
+        doc
+          .font('Helvetica-Bold')
+          .fillColor('#8a1c1c')
+          .text(
+            `Based on the dates provided, the one-year federal habeas window appears to have CLOSED (about ${d.aedpa.daysElapsed} countable days have passed since the conviction became final on ${d.finalityDate}). An attorney should verify — exceptions exist, and state filings remain possible.`
+          );
+      } else if (d.aedpa.tollingNow) {
+        doc.text(
+          `The one-year federal habeas clock is currently PAUSED because a state application is pending. About ${d.aedpa.daysElapsed} countable days have already been used; roughly ${d.aedpa.daysRemaining} days will remain when the state court rules. Important: a state filing pauses this clock only while it is pending — it does not restart it.`
+        );
+      } else {
+        doc
+          .font('Helvetica-Bold')
+          .text(
+            `About ${d.aedpa.daysRemaining} days appear to remain in the one-year federal habeas window (estimated end: ${d.aedpa.estimatedExpiryDate ?? 'n/a'}).`
+          );
+        doc
+          .font('Helvetica')
+          .text(
+            `The clock started when the conviction became final (${d.finalityDate} — ${d.finalityBasis}); about ${d.aedpa.daysElapsed} countable days have been used${d.aedpa.daysTolled > 0 ? `, and ${d.aedpa.daysTolled} days were paused during state filings` : ''}. A properly filed state application pauses this clock while it is pending — but only while it is pending.`
+          );
+      }
+      if (d.lachesUrgency) {
+        doc.moveDown(0.3);
+        doc
+          .fontSize(9.5)
+          .fillColor('#8a4b00')
+          .text(
+            'This conviction is old. Texas state habeas has no fixed deadline, but courts can refuse applications that waited too long (laches) — acting promptly matters even where no clock is shown.'
+          );
+      }
+      doc.moveDown(0.3);
+      doc
+        .font('Helvetica-Oblique')
+        .fontSize(8.5)
+        .fillColor('#555555')
+        .text(
+          'These time estimates are computed from the dates your family provided and standard rules; they are not legal advice. An attorney must verify every date and deadline before relying on them.'
+        );
+      doc.moveDown(1);
+    }
 
     const renderFinding = (f: ReportFinding, idx: number) => {
       if (doc.y > doc.page.height - 200) doc.addPage();

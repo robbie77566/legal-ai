@@ -279,6 +279,7 @@ model Case {
   delayOurs      Boolean    @default(false) // OPS-7 hold flag
   county         String?
   convictionYear Int?
+  deadlineFacts  Json? // FR-5 inputs captured at interview (judgment/appeal/writ dates)
   slaStartedAt   DateTime?  // stamped once by docs.complete (US-3)
   expectedReadyAt DateTime?
 

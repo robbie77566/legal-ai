@@ -18,11 +18,26 @@ interface ReportFinding {
   partBText: string
   citations: { volume: string | null; page: number | null; excerpt: string }[]
 }
+interface DeadlinePosture {
+  finalityDate: string
+  finalityBasis: string
+  aedpa: {
+    daysElapsed: number
+    daysTolled: number
+    daysRemaining: number
+    expired: boolean
+    estimatedExpiryDate: string | null
+    tollingNow: boolean
+  }
+  lachesUrgency: boolean
+  asOf: string
+}
 interface ReportData {
   strongSignals: ReportFinding[]
   possibleIssues: ReportFinding[]
   subsequentWritMode: boolean
   renderedAt: string
+  deadlinePosture?: DeadlinePosture | null
 }
 
 function FindingCard({ f, tone }: { f: ReportFinding; tone: 'signal' | 'review' }) {
@@ -115,6 +130,44 @@ export default function CaseReport() {
           another one. Show this report to a lawyer — the findings below are marked for the narrow
           exceptions the law allows.
         </p>
+      )}
+
+      {data.deadlinePosture && (
+        <section
+          className="mt-6 rounded-xl border p-4"
+          style={{ borderColor: data.deadlinePosture.aedpa.expired ? 'var(--db-review)' : 'var(--db-line)' }}
+        >
+          <h2 className="font-db-serif text-lg font-semibold">Time limits (as of {data.deadlinePosture.asOf})</h2>
+          {data.deadlinePosture.aedpa.expired ? (
+            <p className="mt-2 text-sm">
+              Based on the dates you provided, the one-year federal habeas window appears to have
+              closed. An attorney should verify — exceptions exist, and state filings remain possible.
+            </p>
+          ) : data.deadlinePosture.aedpa.tollingNow ? (
+            <p className="mt-2 text-sm">
+              The one-year federal clock is currently paused while a state application is pending.
+              About {data.deadlinePosture.aedpa.daysRemaining} days will remain when the state court
+              rules. A state filing pauses this clock only while it is pending — it does not restart it.
+            </p>
+          ) : (
+            <p className="mt-2 text-sm">
+              About <strong>{data.deadlinePosture.aedpa.daysRemaining} days</strong> appear to remain in
+              the one-year federal habeas window (estimated end:{' '}
+              {data.deadlinePosture.aedpa.estimatedExpiryDate ?? 'n/a'}). A properly filed state
+              application pauses this clock while it is pending — but only while it is pending.
+            </p>
+          )}
+          {data.deadlinePosture.lachesUrgency && (
+            <p className="mt-2 text-sm text-db-muted">
+              This conviction is old. Texas state habeas has no fixed deadline, but courts can refuse
+              applications that waited too long — acting promptly matters.
+            </p>
+          )}
+          <p className="mt-2 text-xs text-db-muted">
+            Estimates from the dates your family provided; an attorney must verify every date before
+            relying on them.
+          </p>
+        </section>
       )}
 
       {data.strongSignals.length > 0 && (

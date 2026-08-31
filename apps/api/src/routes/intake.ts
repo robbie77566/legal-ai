@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent } from '@hg/database';
+import { computeDeadlinePosture, type DeadlineInputs } from '@hg/case-lifecycle';
 import { checklistTemplate, customerView, expectedReadyDate, type CaseHold } from '@hg/case-lifecycle';
 import { verifyFindings } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
@@ -11,11 +12,28 @@ import { pageMeter } from '../services/digitize.service';
  * §S2–S3). All tenant-scoped through withTenant; case access verified.
  */
 
+const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
 const InterviewSchema = z.object({
   county: z.string().min(1).max(64),
   convictionYear: z.number().int().min(1950).max(2100),
   trialDays: z.number().int().min(0).max(365).optional(),
   hadAppeal: z.boolean(),
+  // FR-5 deadline facts — all optional; families rarely know every date,
+  // and a partial posture ("as of what we know") beats none.
+  deadlineFacts: z
+    .object({
+      judgmentDate: civilDate,
+      motionForNewTrialFiled: z.boolean().optional(),
+      coaJudgmentDate: civilDate.optional(),
+      pdrDisposedDate: civilDate.optional(),
+      certDisposedDate: civilDate.optional(),
+      stateWrits: z
+        .array(z.object({ filedDate: civilDate, disposedDate: civilDate.optional() }).strict())
+        .max(5)
+        .optional(),
+    })
+    .strict()
+    .optional(),
 });
 
 export default async function intakeRoutes(fastify: FastifyInstance) {
@@ -47,7 +65,11 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
       await tx.case.update({
         where: { id },
-        data: { county: answers.county, convictionYear: answers.convictionYear },
+        data: {
+          county: answers.county,
+          convictionYear: answers.convictionYear,
+          ...(answers.deadlineFacts ? { deadlineFacts: answers.deadlineFacts } : {}),
+        },
       });
 
       // Idempotent re-run of the interview replaces un-started checklist state.
@@ -301,11 +323,30 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       snapshot.findings.map((f) => f.id)
     );
     const visible = snapshot.findings.filter((f) => verified.includes(f.id));
+
+    // FR-5: deadline posture computed fresh at every render on the civil
+    // "today" in America/Chicago — elapsed/remaining always current,
+    // stamped "as of", never cached into the snapshot.
+    let deadlinePosture: ReturnType<typeof computeDeadlinePosture> | null = null;
+    const facts = (kase as { deadlineFacts?: unknown }).deadlineFacts as
+      | (Omit<DeadlineInputs, 'asOf'> & { judgmentDate: string })
+      | null
+      | undefined;
+    if (facts?.judgmentDate) {
+      const asOf = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+      try {
+        deadlinePosture = computeDeadlinePosture({ ...facts, asOf });
+      } catch {
+        deadlinePosture = null; // malformed stored facts never break a report
+      }
+    }
+
     return {
       report,
       payload: {
         templateVersion: report.templateVersion,
         renderedAt: report.renderedAt,
+        deadlinePosture,
         subsequentWritMode: kase.subsequentWrit,
         strongSignals: visible.filter((f) => f.severity === 'dispositive'),
         possibleIssues: visible.filter((f) => f.severity !== 'dispositive'),

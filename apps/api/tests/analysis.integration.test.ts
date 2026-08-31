@@ -428,6 +428,28 @@ describe('QA console (US-8)', () => {
     expect(res.rawPayload.length).toBeGreaterThan(2000);
   });
 
+  it('FR-5: deadline posture renders in the report when facts are on file', async () => {
+    await prisma.case.update({
+      where: { id: caseId },
+      data: { deadlineFacts: { judgmentDate: '2024-01-10', stateWrits: [{ filedDate: '2024-06-01' }] } },
+    });
+    const res = await fastify.inject({
+      method: 'GET', url: `/cases/${caseId}/report`, headers: { cookie: clientCookie },
+    });
+    expect(res.statusCode).toBe(200);
+    const d = res.json().deadlinePosture;
+    expect(d.finalityDate).toBe('2024-02-09'); // judgment + 30 (TRAP 26.2(a)(1))
+    expect(d.aedpa.tollingNow).toBe(true); // writ pending now
+    expect(d.disclaimerKey).toBe('deadline.verify_with_attorney');
+
+    const pdf = await fastify.inject({
+      method: 'GET', url: `/cases/${caseId}/report/pdf`, headers: { cookie: clientCookie },
+    });
+    expect(pdf.statusCode).toBe(200);
+    expect(pdf.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
+    await prisma.case.update({ where: { id: caseId }, data: { deadlineFacts: undefined } });
+  });
+
   it('FR-7: tampering with a source chunk after approval drops the finding at render', async () => {
     await prisma.documentChunk.updateMany({
       where: { content: CHUNK_A },
