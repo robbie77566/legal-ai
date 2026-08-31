@@ -1,36 +1,47 @@
 {
   "case": "gary",
   "caseTitle": "San Jacinto CR13893",
-  "provenance": "canary — verified against the record by engineering (2026-08-31); replace/extend with attorney packet responses",
+  "provenance": "ATTORNEY-SIGNED (criminal defense attorney, pro bono review of the Gary packet; sign-off relayed by founder 2026-08-31 \u2014 add reviewer name/bar no. for the launch record). Canary entries verified against the record by engineering 2026-08-31.",
   "mustFind": [
     {
       "id": "surrogate-dna-confrontation",
       "note": "Preserved Confrontation objection to surrogate DNA analyst (Solis testifying to Patnaik's bench work); Bullcoming/Smith v. Arizona",
-      "allOf": ["confrontation", "solis"],
+      "allOf": [
+        "confrontation",
+        "solis"
+      ],
       "minSeverity": "supportive"
     },
     {
       "id": "double-jeopardy-consecutive-life",
       "note": "Preserved multiple-punishments claim: indecency-by-contact subsumed; consecutive automatic life sentences",
-      "allOf": ["jeopardy"],
+      "allOf": [
+        "jeopardy"
+      ],
       "minSeverity": "supportive"
     },
     {
       "id": "pen-packet-enhancement-linkage",
       "note": "1986 pen packet identity linkage under 12.42(c)(2); fingerprint comparison declined",
-      "allOf": ["1986"],
+      "allOf": [
+        "1986"
+      ],
       "minSeverity": "supportive"
     },
     {
       "id": "cell-site-unqualified",
       "note": "Sheikh conceded non-expert; consumer-grade cell-site plotting admitted",
-      "allOf": ["cell"],
+      "allOf": [
+        "cell"
+      ],
       "minSeverity": "supportive"
     },
     {
       "id": "recantation-caller",
       "note": "Unidentified caller (903 number) asserting the complainant recanted",
-      "allOf": ["903"],
+      "allOf": [
+        "903"
+      ],
       "minSeverity": "supportive"
     }
   ],
