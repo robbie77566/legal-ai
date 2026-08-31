@@ -26,7 +26,7 @@
 | Screen returns 0 findings but run "succeeds" | Historically: category enum / truncation / control chars / whitespace grounding | All four have salvage layers + regression tests; a persistent 0-findings screen now logs the parse reason — read the API log before rerunning |
 | Findings dropped as "ungrounded" in bulk | Quote wording drift beyond whitespace | FR-6 is meant to drop these; QA never sees them. Check `droppedUngrounded` vs. persisted ratio; > ~50% suggests prompt drift — run the eval gate |
 | Case parked at DOCS_COMPLETE | No ANTHROPIC key, or Redis down at enqueue | Loud in logs by design (SRE-2); re-enqueue via rerun script |
-| Textract AccessDenied/Throttling mid-poll | IAM propagation or rate | Poll grace窗 absorbs 12 attempts; persistent = check IAM policy attach |
+| Textract AccessDenied/Throttling mid-poll | IAM propagation or rate | Poll grace window absorbs 12 attempts; persistent = check IAM policy attach |
 | OCR_HALT hold | >30% pages under 0.6 confidence (E-1) | Deliberate money-saver: inspect pages via `/cases/:id/pages`, decide re-scan vs. proceed with customer |
 
 ## Server & process discipline (dev)
