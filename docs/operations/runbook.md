@@ -38,6 +38,6 @@
 ## Blocked-on-external checklist (launch gates)
 
 - Resend key → activates all transactional email (already fully wired).
-- Attorney: **BOTH eval ledgers SIGNED (Aug 31)** — launch gate 1's attorney-sign-off requirement met; add reviewer name/bar no. to the ledgers, and transcribe any per-finding packet marks into `verdicts[]` to activate precision scoring. Still open: deadline-vector sign-off (flip `counselSigned: true` in tests/deadline-vectors.json), UPL/product review, privacy-policy review (page is live in DRAFT).
+- Attorney: **BOTH eval ledgers SIGNED (Aug 31)** — launch gate 1's attorney-sign-off requirement met; add reviewer name/bar no. to the ledgers, and transcribe any per-finding packet marks into `verdicts[]` to activate precision scoring. Still open: deadline-vector sign-off (flip `counselSigned: true` in tests/deadline-vectors.json), UPL/product review, privacy-policy review, and per-state disclosure review — /disclosures page is live in DRAFT with TX active and FL/CA staged for the §12 expansion (each state's section needs an attorney licensed in THAT state; the purchase-flow ack card set gets its own versioned counsel-gated update per state launch).
 - E&O binding; TX sales-tax determination on the $299 review (Stripe Tax flag ready).
 - Production secrets at deploy: `HG_APP_PASSWORD`, `SENTRY_DSN`, `POSTHOG_API_KEY`, `CLAMD_HOST` (compose ships a `scan` profile), cost-rate envs from the current price sheet.

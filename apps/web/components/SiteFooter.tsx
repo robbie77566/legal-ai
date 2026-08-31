@@ -24,6 +24,9 @@ export default function SiteFooter() {
           <a href="mailto:admin@snotnoselegal.com" className="underline">
             admin@snotnoselegal.com
           </a>
+          <Link href="/disclosures" className="underline">
+            Disclosures
+          </Link>
           <Link href="/privacy" className="underline">
             Privacy
           </Link>
