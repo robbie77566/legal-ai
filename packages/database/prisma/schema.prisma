@@ -124,6 +124,7 @@ model Finding {
   severity     String // dispositive | supportive | background
   confidence   Float
   adjudication String  @default("not_run") // agree | disagree | not_run
+  engine       String? // which engine produced the kept copy (multi-engine union)
   s4Tags       String[] @default([])
   partAText    String
   partBText    String

@@ -283,6 +283,56 @@ describe('batch path (invokeMany seam)', () => {
   });
 });
 
+describe('multi-engine union', () => {
+  it('unions engines into one QA set, tags engine, counts cross-engine agreements', async () => {
+    const c3 = await prisma.case.create({
+      data: {
+        title: `${run}_union`, tenantId, status: 'DOCS_COMPLETE', lane: 'TRIAL', vehicle: '11.07',
+        slaStartedAt: new Date(), accessList: { create: { userId, role: 'ADMIN' } },
+      },
+    });
+    const doc3 = await prisma.document.create({ data: { filename: 'rr-union.pdf', caseId: c3.id } });
+    await prisma.documentChunk.createMany({
+      data: [
+        { documentId: doc3.id, content: CHUNK_A, metadata: { page: 1 } },
+        { documentId: doc3.id, content: CHUNK_B, metadata: { page: 2 } },
+      ],
+    });
+
+    const mk = (name: string, findings: object[]): AnalysisModel => ({
+      name,
+      invoke: async (system: string) =>
+        system.includes('forensic-science') ? JSON.stringify({ findings }) : '{"findings":[]}',
+    });
+    // Engine A and B agree on the bite-mark passage (same chunk, engine B's
+    // quote contains engine A's); engine B alone finds the working-file one.
+    const engineA = mk('engine-a', [{
+      category: 'junk_science', severity: 'supportive', confidence: 0.7, chunkIndex: 0,
+      quote: 'bite mark comparison testimony', partA: 'a', partB: 'a',
+    }]);
+    const engineB = mk('engine-b', [
+      { category: 'junk_science', severity: 'dispositive', confidence: 0.9, chunkIndex: 0,
+        quote: 'The bite mark comparison testimony will be admitted.', partA: 'b', partB: 'b' },
+      { category: 'brady', severity: 'supportive', confidence: 0.6, chunkIndex: 1,
+        quote: 'we kept those in the working file', partA: 'b2', partB: 'b2' },
+    ]);
+
+    const summary = await runAnalysis(c3.id, tenantId, [engineA, engineB]);
+    expect(summary.findingsPersisted).toBe(2); // union: merged agreement + engine-B-only
+
+    const fnds = await prisma.finding.findMany({ where: { caseId: c3.id } });
+    const junk = fnds.find((f) => f.category === 'junk_science');
+    expect(junk?.severity).toBe('dispositive'); // merge kept the more severe copy
+    expect(junk?.engine).toBe('engine-b');
+    expect(fnds.find((f) => f.category === 'brady')?.engine).toBe('engine-b');
+
+    const adj = await prisma.caseEvent.findFirstOrThrow({
+      where: { caseId: c3.id, type: 'adjudication.completed' },
+    });
+    expect((adj.payload as { agreements: number }).agreements).toBe(1);
+  });
+});
+
 describe('runAnalysis (FR-6 grounding + state machine)', () => {
   it('persists grounded findings, DROPS hallucinated quotes, drives the machine to QA_REVIEW', async () => {
     const summary = await runAnalysis(caseId, tenantId, fakeModel);

@@ -26,9 +26,8 @@ import { recordModelCost } from '../services/costs.service';
 const FIXED_SYSTEM =
   'You are a meticulous post-conviction record examiner. You analyze Texas criminal court records exactly as instructed in the final message of each request, and you respond with ONLY the JSON object that instruction specifies.';
 
-function buildModel(caseId: string, tenantId: string): AnalysisModel | null {
+function buildModel(caseId: string, tenantId: string, modelName: string): AnalysisModel | null {
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) return null;
-  const modelName = process.env.ANALYSIS_MODEL ?? 'claude-opus-5';
   const client = new Anthropic(); // resolves credentials from the environment
 
   const liveInvoke = async (screenInstruction: string, record: string): Promise<string> => {
@@ -191,7 +190,16 @@ export const analysisWorker = new Worker(
   'analysis',
   async (job: Job) => {
     const { caseId, tenantId } = job.data as { caseId: string; tenantId: string };
-    const model = buildModel(caseId, tenantId);
+    // Multi-engine union (Advanced tier): ANALYSIS_ENGINES is a comma list;
+    // single-engine default preserves the launch posture.
+    const engines = (process.env.ANALYSIS_ENGINES ?? process.env.ANALYSIS_MODEL ?? 'claude-opus-5')
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean);
+    const models = engines
+      .map((name) => buildModel(caseId, tenantId, name))
+      .filter((m): m is AnalysisModel => m !== null);
+    const model = models[0];
     if (!model) {
       console.error(
         `[analysis] No ANTHROPIC_API_KEY configured — case ${caseId} remains at DOCS_COMPLETE. ` +
@@ -199,7 +207,7 @@ export const analysisWorker = new Worker(
       );
       return { skipped: 'no model configured' };
     }
-    const summary = await runAnalysis(caseId, tenantId, model);
+    const summary = await runAnalysis(caseId, tenantId, models);
     console.log(`[analysis] case ${caseId}:`, summary);
     return summary;
   },

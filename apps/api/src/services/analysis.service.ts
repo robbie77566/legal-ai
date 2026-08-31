@@ -280,6 +280,8 @@ export interface ScreenFinding {
   partA: string;
   partB: string;
   chunk: AnalysisChunk;
+  /** Engine that produced the kept copy (multi-engine union). */
+  engine?: string;
 }
 
 /**
@@ -309,11 +311,12 @@ export function buildScreenInstruction(
  * and the batch path.
  */
 export function groundUnion(
-  sampleFindings: z.infer<typeof FindingOutput>[][],
+  sampleFindings: (z.infer<typeof FindingOutput> & { engine?: string })[][],
   chunks: AnalysisChunk[]
-): { grounded: ScreenFinding[]; dropped: number } {
+): { grounded: ScreenFinding[]; dropped: number; agreements: number } {
   const grounded: ScreenFinding[] = [];
   let dropped = 0;
+  let agreements = 0;
   for (const findings of sampleFindings) {
     for (const f of findings) {
       const chunk = chunks[f.chunkIndex];
@@ -330,6 +333,9 @@ export function groundUnion(
       });
       if (dup >= 0) {
         const keep = grounded[dup];
+        // Two ENGINES independently grounding the same passage is the
+        // adjudication signal (coverage-union model: agreement, never veto).
+        if (f.engine && keep.engine && f.engine !== keep.engine) agreements++;
         const better =
           SEVERITY_RANK[f.severity] < SEVERITY_RANK[keep.severity] ||
           (f.severity === keep.severity && f.confidence > keep.confidence);
@@ -339,7 +345,7 @@ export function groundUnion(
       grounded.push({ ...f, chunk });
     }
   }
-  return { grounded, dropped };
+  return { grounded, dropped, agreements };
 }
 
 export async function executeScreen(
@@ -383,8 +389,14 @@ export async function buildContextHeader(model: AnalysisModel, record: string): 
 export async function runAnalysis(
   caseId: string,
   tenantId: string,
-  model: AnalysisModel
+  modelOrModels: AnalysisModel | AnalysisModel[]
 ): Promise<AnalysisSummary> {
+  // Multi-engine union (Advanced tier): engines complement rather than
+  // contradict (measured Aug-31 comparisons, ~+50–77% coverage), so
+  // additional engines ADD findings into the same QA set; cross-engine
+  // duplicates count as adjudication agreements, never vetoes.
+  const models = Array.isArray(modelOrModels) ? modelOrModels : [modelOrModels];
+  const model = models[0];
   // Short tx 1: validate, freeze chunks, create the run, enter the stages.
   const { run, chunks, lane } = await withTenant(tenantId, async (tx) => {
     const kase = await tx.case.findUniqueOrThrow({ where: { id: caseId } });
@@ -437,12 +449,15 @@ export async function runAnalysis(
 
   const samples = Math.min(3, Math.max(1, Number(process.env.ANALYSIS_SAMPLES ?? '1') || 1));
 
-  // Batch path (50% price): all screen×sample requests submitted together;
-  // the runner (worker) owns polling, the stage budget, and per-request
-  // live fallback. Results land at once, so persistence runs afterward —
-  // still one short transaction per screen.
-  const batchResults = model.invokeMany
-    ? await model.invokeMany(
+  // Per-engine batch path (50% price): each engine's screen×sample requests
+  // go out as one batch; the runner (worker) owns polling, the stage
+  // budget, and per-request live fallback. Live engines run per screen.
+  const batchByEngine = new Map<string, Map<string, string>>();
+  for (const m of models) {
+    if (!m.invokeMany) continue;
+    batchByEngine.set(
+      m.name,
+      await m.invokeMany(
         SCREENS_BY_LANE[lane].flatMap((screenId) =>
           Array.from({ length: samples }, (_, n) => ({
             key: `${screenId}__${n}`,
@@ -451,23 +466,32 @@ export async function runAnalysis(
         ),
         record
       )
-    : null;
+    );
+  }
 
+  let agreements = 0;
   for (const screenId of SCREENS_BY_LANE[lane]) {
-    let result: { grounded: ScreenFinding[]; dropped: number };
-    if (batchResults) {
-      const arrays: Parameters<typeof groundUnion>[0] = [];
-      for (let n = 0; n < samples; n++) {
-        const raw = batchResults.get(`${screenId}__${n}`);
-        if (raw == null) continue; // runner contract violation — tolerated
-        const parsed = parseFindingsText(raw);
-        if (parsed) arrays.push(parsed.findings);
+    const arrays: Parameters<typeof groundUnion>[0] = [];
+    for (const m of models) {
+      const batched = batchByEngine.get(m.name);
+      if (batched) {
+        for (let n = 0; n < samples; n++) {
+          const raw = batched.get(`${screenId}__${n}`);
+          if (raw == null) continue; // runner contract violation — tolerated
+          const parsed = parseFindingsText(raw);
+          if (parsed) arrays.push(parsed.findings.map((f) => ({ ...f, engine: m.name })));
+        }
+      } else {
+        // Model call: minutes, OUTSIDE any transaction.
+        const instruction = buildScreenInstruction(screenId, chunks, contextHeader);
+        for (let n = 0; n < samples; n++) {
+          const res = await invokeValidated(m, instruction, record);
+          arrays.push(res.findings.map((f) => ({ ...f, engine: m.name })));
+        }
       }
-      result = groundUnion(arrays, chunks);
-    } else {
-      // Model call: minutes, OUTSIDE any transaction.
-      result = await executeScreen(model, screenId, record, chunks, contextHeader, samples);
     }
+    const result = groundUnion(arrays, chunks);
+    agreements += result.agreements;
     dropped += result.dropped;
 
     // Short tx per screen: findings + the tracker's honest sub-detail.
@@ -484,6 +508,7 @@ export async function runAnalysis(
             severity: f.severity,
             confidence: f.confidence,
             adjudication: 'not_run',
+            engine: f.engine ?? model.name,
             partAText: f.partA,
             partBText: f.partB,
             citations: {
@@ -521,7 +546,7 @@ export async function runAnalysis(
     });
     await appendCaseEvent(tx, {
       caseId, tenantId, type: 'adjudication.completed',
-      payload: { agreements: 0, disagreements: 0 }, // single-engine: not_run
+      payload: { agreements, disagreements: 0 }, // union model: agreement, never veto
       actor: 'pipeline',
     });
     await appendCaseEvent(tx, {
