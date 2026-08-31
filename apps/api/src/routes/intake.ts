@@ -212,6 +212,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
       const owner = await tx.user.findUnique({ where: { id: userId } });
       if (owner?.email) {
+        const { capture } = await import('../services/analytics.service');
+        capture('snl.records_complete', tenantId, { billablePages });
         const { sendRecordsComplete } = await import('@hg/email');
         void sendRecordsComplete(owner.email, {
           expectedReadyBy: updated.expectedReadyAt?.toISOString().slice(0, 10),
@@ -364,6 +366,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       if (!kase) return reply.status(403).send({ error: 'Forbidden' });
       const loaded = await loadVerifiedReport(tx, kase, id);
       if (!loaded) return reply.status(404).send({ error: 'No report is ready yet' });
+      const { capture } = await import('../services/analytics.service');
+      capture('snl.report_viewed', tenantId, { dropped: loaded.payload.droppedByReverification });
       return loaded.payload;
     });
   });

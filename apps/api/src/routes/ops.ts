@@ -51,6 +51,24 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     });
   });
 
+  // NFR-3 retention: cases past the stated 12-month retention window,
+  // listed for a HUMAN decision — deletion stays a deliberate OPS-4 act
+  // (scoped, certificated), never an automatic sweep.
+  fastify.get('/retention-candidates', async () => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 12);
+    const cases = await prisma.case.findMany({
+      where: {
+        status: { in: ['READY', 'DELIVERED', 'REFUNDED'] },
+        updatedAt: { lt: cutoff },
+      },
+      select: { id: true, title: true, status: true, tenantId: true, updatedAt: true },
+      orderBy: { updatedAt: 'asc' },
+      take: 200,
+    });
+    return { cutoff: cutoff.toISOString(), count: cases.length, cases };
+  });
+
   // NFR-4: per-case COGS is a single query — tokens/pages are ground
   // truth, dollars are env-rate estimates (see costs.service).
   fastify.get('/cases/:id/cogs', async (request) => {

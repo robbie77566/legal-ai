@@ -31,6 +31,20 @@ services:
     volumes:
       - neo4j_data:/data
 
+  # ENG-4 malware scanning: set CLAMD_HOST=localhost (port 3310) in .env to
+  # activate the scan gate; without it, dev uploads log an unscanned warning.
+  # Opt-in profile: `docker compose --profile scan up -d clamav` (the virus-db
+  # download is ~300MB and unneeded for most dev work).
+  clamav:
+    profiles: ["scan"]
+    restart: unless-stopped
+    image: clamav/clamav:stable
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav_data:/var/lib/clamav
+
 volumes:
   postgres_data:
   neo4j_data:
+  clamav_data:

@@ -239,7 +239,24 @@ export function buildRecord(chunks: AnalysisChunk[]): string {
  * jury-selection excerpts — the scan that catches a venire member linked
  * to the victim regardless of long-context attention.
  */
+/**
+ * Discredited/contested-method registry (Art. 11.073 families; MCP-lite —
+ * the interactive mcp-forensic-science server is post-MVP, but the
+ * registry TERMS drive deterministic anchors today so no mention of a
+ * listed method escapes the junk-science screen's attention).
+ */
+const FORENSIC_REGISTRY_TERMS = [
+  'bite mark', 'bitemark', 'hair comparison', 'hair analysis', 'microscopic hair',
+  'arson', 'pour pattern', 'accelerant', 'dog scent', 'scent lineup', 'bloodstain pattern',
+  'blood spatter', 'shaken baby', 'abusive head trauma', 'cell site', 'cell tower', 'CDR',
+  'likelihood ratio', 'random match', 'toolmark', 'ballistics match', 'firearms identification',
+  'comparative bullet lead', 'gunshot residue', 'GSR', 'facial recognition', 'hypnosis',
+  'field sobriety', 'drug recognition expert', 'touch DNA', 'DNA mixture',
+];
+const FORENSIC_REGISTRY_RE = new RegExp(`\\b(${FORENSIC_REGISTRY_TERMS.join('|').replace(/ /g, '\\s+')})\\b`, 'i');
+
 const ANCHOR_PATTERNS: Partial<Record<Screen['id'], RegExp>> = {
+  junk_science: FORENSIC_REGISTRY_RE,
   voir_dire: /\b(JUROR|VENIRE|panel member|strike|peremptor|challenge for cause)\b/i,
   sentencing: /\b(pronounce|consecutive|cumulat|stacked|credit for time|time credit|enhancement|habitual|deadly weapon)\b/i,
   iac: /\bobjection\b.{0,80}\b(overruled|sustained)\b/is,

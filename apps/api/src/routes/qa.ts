@@ -204,6 +204,8 @@ export default async function qaRoutes(fastify: FastifyInstance) {
       const owner = ownerAccess
         ? await prisma.user.findUnique({ where: { id: ownerAccess.userId } })
         : null;
+      const { capture } = await import('../services/analytics.service');
+      capture('snl.report_approved', kase.tenantId, {});
       if (owner?.email) {
         const origin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
         const { sendReportReady } = await import('@hg/email');

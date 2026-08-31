@@ -70,6 +70,8 @@ export async function fulfillCheckoutSession(session: {
   if (!userId || !tenantId || !kind) {
     return { skipped: 'missing metadata' };
   }
+  const { capture } = await import('./analytics.service');
+  capture('snl.purchase_fulfilled', tenantId, { kind });
 
   // Level-2 idempotency: this session already fulfilled?
   const existing = await prisma.payment.findUnique({ where: { stripeId: session.id } });
