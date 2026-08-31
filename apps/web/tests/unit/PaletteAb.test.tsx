@@ -15,6 +15,13 @@ describe('getPaletteVariant', () => {
     expect(window.localStorage.getItem('snl_palette')).toBe('harbor')
   })
 
+  it('?palette= override wins and persists', () => {
+    window.history.pushState({}, '', '/?palette=harbor')
+    expect(getPaletteVariant()).toBe('harbor')
+    window.history.pushState({}, '', '/')
+    expect(getPaletteVariant()).toBe('harbor') // persisted after the override
+  })
+
   it('defaults to the incumbent amber when storage throws', () => {
     const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked')

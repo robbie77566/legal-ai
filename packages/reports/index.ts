@@ -36,6 +36,13 @@ export interface DeadlinePostureView {
   asOf: string;
 }
 
+/** Brand palettes (color_research_landing.md §3) — semantic colors stay fixed. */
+const PALETTES = {
+  amber: { accent: '#7a5f15', ink: '#1f2937' },
+  harbor: { accent: '#1f5c99', ink: '#1a2433' },
+} as const;
+export type ReportPalette = keyof typeof PALETTES;
+
 export interface ReportPdfInput {
   caseTitle: string;
   reportId: string;
@@ -47,6 +54,8 @@ export interface ReportPdfInput {
   strongSignals: ReportFinding[];
   possibleIssues: ReportFinding[];
   droppedByReverification: number;
+  /** Matches the customer's assigned web scheme; default amber. */
+  palette?: ReportPalette;
 }
 
 const FOOTER =
@@ -71,6 +80,7 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
         Subject: `Report ${input.reportId} v${input.versionNo} (template ${input.templateVersion})`,
       },
     });
+    const pal = PALETTES[input.palette ?? 'amber'];
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -103,10 +113,10 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
     doc.on('pageAdded', footer);
 
     // ---- Cover header ----
-    doc.font('Helvetica-Bold').fontSize(20).fillColor('#111111').text('Family Case Review');
+    doc.font('Helvetica-Bold').fontSize(20).fillColor(pal.accent).text('Family Case Review');
     doc.font('Helvetica').fontSize(10).fillColor('#555555').text('a service of Snot Nose Legal');
     doc.moveDown(0.8);
-    doc.fontSize(12).fillColor('#111111').text(input.caseTitle);
+    doc.fontSize(12).fillColor(pal.ink).text(input.caseTitle);
     doc
       .fontSize(9)
       .fillColor('#555555')
@@ -116,7 +126,7 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
     doc.moveDown(1);
 
     // ---- TL;DR ----
-    doc.font('Helvetica-Bold').fontSize(13).fillColor('#111111').text('What we found');
+    doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('What we found');
     doc.moveDown(0.3);
     doc
       .font('Helvetica')
@@ -145,7 +155,7 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
     // tolling direction stated correctly, laches urgency for old cases.
     if (input.deadlinePosture) {
       const d = input.deadlinePosture;
-      doc.font('Helvetica-Bold').fontSize(13).fillColor('#111111').text('Time limits (as of ' + d.asOf + ')');
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('Time limits (as of ' + d.asOf + ')');
       doc.moveDown(0.3);
       doc.font('Helvetica').fontSize(10).fillColor('#222222');
       if (d.aedpa.expired) {
@@ -193,7 +203,7 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
 
     const renderFinding = (f: ReportFinding, idx: number) => {
       if (doc.y > doc.page.height - 200) doc.addPage();
-      doc.font('Helvetica-Bold').fontSize(11).fillColor('#111111').text(`${idx}. ${severityLabel(f.severity)} — ${f.category.replace(/_/g, ' ')}`);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(pal.ink).text(`${idx}. ${severityLabel(f.severity)} — ${f.category.replace(/_/g, ' ')}`);
       doc.moveDown(0.2);
       doc.font('Helvetica-Bold').fontSize(9).fillColor('#444444').text('For your family (plain English)');
       doc.font('Helvetica').fontSize(10).fillColor('#222222').text(f.partAText);
@@ -210,13 +220,13 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
 
     let n = 1;
     if (input.strongSignals.length > 0) {
-      doc.font('Helvetica-Bold').fontSize(13).text('Strong signals');
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('Strong signals');
       doc.moveDown(0.4);
       for (const f of input.strongSignals) renderFinding(f, n++);
     }
     if (input.possibleIssues.length > 0) {
       if (doc.y > doc.page.height - 200) doc.addPage();
-      doc.font('Helvetica-Bold').fontSize(13).fillColor('#111111').text('Possible issues and background');
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('Possible issues and background');
       doc.moveDown(0.4);
       for (const f of input.possibleIssues) renderFinding(f, n++);
     }

@@ -7,7 +7,7 @@
   --db-ink: #1f2937;
   --db-muted: #5b6472;
   --db-line: #e5dfd2;
-  --db-accent: #8a6d1d;
+  --db-accent: #7a5f15; /* deepened from #8a6d1d: white-on-accent ~5.6:1 (mobile/CTA contrast) */
   --db-accent-soft: #f4ecd6;
   --db-signal: #1e7a3d;
   --db-review: #8a6206;

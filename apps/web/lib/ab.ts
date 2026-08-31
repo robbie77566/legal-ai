@@ -18,6 +18,14 @@ const SEED_KEY = 'snl_anon_id'
 
 export function getPaletteVariant(): PaletteVariant {
   try {
+    // Explicit preview/demo override: ?palette=amber|harbor wins and
+    // persists (so a support link or device test shows one scheme
+    // consistently through the whole funnel).
+    const forced = new URLSearchParams(window.location.search).get('palette')
+    if (forced === 'amber' || forced === 'harbor') {
+      window.localStorage.setItem(KEY, forced)
+      return forced
+    }
     const existing = window.localStorage.getItem(KEY)
     if (existing === 'amber' || existing === 'harbor') return existing
     const assigned: PaletteVariant = Math.random() < 0.5 ? 'amber' : 'harbor'

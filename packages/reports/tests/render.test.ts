@@ -43,6 +43,16 @@ describe('renderReportPdf', () => {
     expect(buf.length).toBeGreaterThan(20000);
   });
 
+  it('renders in the harbor palette (themed document, semantic colors fixed)', async () => {
+    const buf = await renderReportPdf({
+      caseTitle: 'Harbor Case', reportId: 'rep_h', versionNo: 1,
+      templateVersion: '2026-08-29.1', renderedAt: new Date(), subsequentWritMode: false,
+      palette: 'harbor',
+      strongSignals: [finding('dispositive')], possibleIssues: [], droppedByReverification: 0,
+    });
+    expect(buf.subarray(0, 5).toString()).toBe('%PDF-');
+  });
+
   it('renders the neutral nothing-found report', async () => {
     const buf = await renderReportPdf({
       caseTitle: 'Empty Case',

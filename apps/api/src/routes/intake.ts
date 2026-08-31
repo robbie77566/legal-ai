@@ -383,8 +383,10 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       const loaded = await loadVerifiedReport(tx, kase, id);
       if (!loaded) return reply.status(404).send({ error: 'No report is ready yet' });
 
+      const { palette } = request.query as { palette?: string };
       const { renderReportPdf } = await import('@hg/reports');
       const pdf = await renderReportPdf({
+        palette: palette === 'harbor' ? 'harbor' : 'amber',
         caseTitle: kase.title,
         reportId: loaded.report.id,
         versionNo: loaded.report.versionNo,
