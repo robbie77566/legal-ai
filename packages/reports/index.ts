@@ -60,12 +60,28 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
+    // Footer discipline: save/restore covers graphics state but NOT the
+    // text cursor — writing at the page bottom moves doc.y past the edge,
+    // and if that happens while a text wrap is in flight, pdfkit adds a
+    // page, which fires pageAdded, which writes a footer… (live 500 on the
+    // first 73-finding report). Restore the cursor and guard re-entrancy.
+    let inFooter = false;
     const footer = () => {
-      const y = doc.page.height - MARGIN - 14;
+      if (inFooter) return;
+      inFooter = true;
+      const { x, y } = doc;
       doc.save();
       doc.fontSize(6.5).fillColor('#666666').font('Helvetica');
-      doc.text(FOOTER, MARGIN, y, { width: doc.page.width - MARGIN * 2, lineBreak: false, ellipsis: true });
+      doc.text(FOOTER, MARGIN, doc.page.height - MARGIN - 14, {
+        width: doc.page.width - MARGIN * 2,
+        height: 24,
+        lineBreak: false,
+        ellipsis: true,
+      });
       doc.restore();
+      doc.x = x;
+      doc.y = y;
+      inFooter = false;
     };
     footer();
     doc.on('pageAdded', footer);

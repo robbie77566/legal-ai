@@ -28,6 +28,21 @@ describe('renderReportPdf', () => {
     expect(buf.toString('latin1')).toContain('%%EOF');
   });
 
+  it('renders a many-page report without footer recursion (73-finding regression)', async () => {
+    const many = Array.from({ length: 73 }, (_, i) => ({
+      ...finding(i < 3 ? 'dispositive' : 'supportive'),
+      id: `f_${i}`,
+      partBText: 'A long attorney statement. '.repeat(30),
+    }));
+    const buf = await renderReportPdf({
+      caseTitle: 'Big Case', reportId: 'rep_big', versionNo: 1,
+      templateVersion: '2026-08-29.1', renderedAt: new Date(), subsequentWritMode: false,
+      strongSignals: many.slice(0, 3), possibleIssues: many.slice(3), droppedByReverification: 0,
+    });
+    expect(buf.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(buf.length).toBeGreaterThan(20000);
+  });
+
   it('renders the neutral nothing-found report', async () => {
     const buf = await renderReportPdf({
       caseTitle: 'Empty Case',
