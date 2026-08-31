@@ -1,283 +1,149 @@
-# HabeasGraph: Texas Post-Conviction Advocacy Platform
+# Family Case Review — Snot Nose Legal
 
-HabeasGraph is a multi-tenant Legal AI platform engineered for the full lifecycle of **Texas Post-Conviction Advocacy**. It transforms trial records and institutional documents into structured legal intelligence, supporting attorneys pursuing **Direct Appeals**, **Article 11.07 Writs**, **Clemency Applications**, and **Administrative Sentence Audits**.
+A consumer legal-AI service for **Texas post-conviction** families: a $299 flat-fee, AI-analyzed, human-QA'd review of a criminal court record. Findings are grounded to the record verbatim (hash-anchored, re-verified at every render), passed through an attorney QA gate, and delivered as plain-English Part A + attorney-ready Part B — as a web report and a downloadable PDF.
 
----
-
-## Current Status: MVP (Active Development)
-
-Three core modules are feature-complete with infrastructure fully wired:
-
-| Module | Description |
-|--------|-------------|
-| **Bento Dashboard** | Ingests PDFs and dockets, extracts metadata via Gemini, enqueues document processing, streams real-time progress |
-| **Knowledge Graph** | Force-directed Neo4j graph visualizing entities (persons, evidence, charges) extracted from uploaded documents |
-| **Parchment Workspace** | Side-by-side transcript viewer; highlight text to trigger LangGraph agents drafting CREAC arguments |
-
-**Known gaps before production:** chunking uses naive word-splits (not Docling), MCP servers return mock JSON, Axon transcriber is deferred, no Sentry/OpenTelemetry monitoring or API rate limiting.
+**Status:** MVP feature-complete; full loop proven end to end on two real reference cases (purchase → Stripe fulfillment → S3/Textract digitization → Claude analysis → QA approval → customer report + PDF). Launch gates tracked in [docs/operations/runbook.md](docs/operations/runbook.md); production readiness plan in [docs/operations/go_live_readiness.md](docs/operations/go_live_readiness.md).
 
 ---
 
-## Architecture
-
-### Data Strategy
-
-- **PostgreSQL + pgvector** — Multi-tenant case data, user sessions, immutable audit logs, and 768-dim vector embeddings for semantic search
-- **Neo4j** — Lineage-of-evidence graph mapping relationships between witnesses, charges, and Clio-synced matter data
-- **Redis** — BullMQ-backed queue for ingestion, entity extraction, and media processing workers
-
-### AI Reasoning Layer
-
-- **LangGraph.js** — Stateful multi-agent workflow engine with human-in-the-loop checkpointing
-- **MCP Servers** — Grounded access to Texas statutes, CCA case law, Bluebook formatter, and Axon bodycam audio
-- **Model Routing** — Local Ollama (Llama 3) for entity extraction; Gemini 1.5 Pro for complex drafting
-
-### Auth
-
-NextAuth v4 (JWT strategy) with bcrypt credentials, per-tenant RBAC (ADMIN / ATTORNEY / INVESTIGATOR / VIEWER), route-protection middleware, and session invalidation on password change.
-
----
-
-## Monorepo Structure
+## Repository layout
 
 ```
-legal-ai/
-├── apps/
-│   ├── web/               # Next.js 14 — Dashboard, Graph, Workspace, Auth pages
-│   └── api/               # Fastify 5  — Case/permission APIs, BullMQ workers, SSE
-├── packages/
-│   ├── ai/                # LangGraph state machines and personas (IAC, Brady)
-│   ├── auth/              # NextAuth options, JWT callbacks, token utilities
-│   ├── database/          # Prisma schema (RLS), pgvector, Neo4j client
-│   ├── mcp/               # MCP servers (statutes, case law, Clio, Axon)
-│   ├── ui/                # Shared design system
-│   └── tsconfig/          # Shared TypeScript configuration
-├── docs/
-│   └── specifications/    # PM specs and engineering design documents
-└── docker-compose.yml     # Postgres (pgvector), Redis, Neo4j
+apps/
+  web/                 Next.js 14 (App Router) — customer surfaces, /qa console, /ops console
+  api/                 Fastify 5 — API, BullMQ workers (in-process), transactional outbox
+packages/
+  database/            Prisma 5 schema + migrations, RLS policies, event-sourcing helpers
+  case-lifecycle/      Pure domain: state machine, event registry, checklists, calendar, FR-5 deadline engine
+  auth/                Session-token helpers (NextAuth v4 JWT compatible)
+  email/               Transactional email (Resend; honest console transport without a key)
+  reports/             Customer report PDF renderer (pdfkit)
+  tsconfig/            Shared strict TypeScript config
+docs/                  Requirements, design, implementation plan (progress ledgers), evaluation, operations
+scripts/gate.sh        THE verification gate (typecheck + tests + web build)
 ```
 
----
+Language: **TypeScript, strict, everywhere** (shared `@hg/tsconfig`; `pnpm typecheck` covers all workspaces).
 
-## First-Time Setup
+## Prerequisites
 
-### 1. Prerequisites
+- Node 20+ (dev box runs 24), **pnpm 11** (`corepack enable`)
+- Docker (Postgres + Redis; optional clamav)
+- Accounts/keys for full functionality: Anthropic API, AWS (S3 + Textract), Stripe (test), Resend (optional — email logs to console without it)
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Node.js | v20 LTS+ | `node --version` |
-| pnpm | v11+ | `npm install -g pnpm@latest` |
-| Docker Engine | Any recent | Rootless Docker works; see Ubuntu note below |
-| Git | Any | — |
-
-> **Ubuntu 23.10 / 24.04 — rootless Docker requires an AppArmor fix.**
-> Ubuntu 23.10+ blocks unprivileged user namespaces by default. Run once as root to allow `rootlesskit`:
->
-> ```bash
-> cat <<'EOF' | sudo tee /etc/apparmor.d/home.robbie..local.bin.rootlesskit
-> abi <abi/4.0>,
-> include <tunables/global>
-> /home/robbie/.local/bin/rootlesskit flags=(unconfined) {
->   userns,
->   include if exists <local/home.robbie..local.bin.rootlesskit>
-> }
-> EOF
-> sudo systemctl restart apparmor.service
-> ```
-> Replace `/home/robbie` with your actual home directory if different.
-> Then complete rootless Docker setup: `~/.local/bin/dockerd-rootless-setuptool.sh install`
-
-### 2. Clone and Install
+## Install & first run
 
 ```bash
-git clone <repo-url> legal-ai
-cd legal-ai
 pnpm install
+
+# Infrastructure (Postgres w/ pgvector on :5433, Redis on :6379)
+docker compose up -d postgres redis
+# Optional malware-scan gate (ENG-4): docker compose --profile scan up -d clamav
+
+# Environment
+cp .env.example .env          # fill in keys; see notes below
+# packages/database/.env must contain ONLY DATABASE_URL (Prisma auto-loads it first)
+
+# Database: migrations + RLS policies (never `db push` — it skips RLS SQL)
+pnpm --filter @hg/database db:migrate:deploy
+
+# Run (two terminals)
+pnpm --filter api dev         # Fastify + workers + outbox on :3001 (PORT env overrides)
+pnpm --filter web dev         # Next.js on :3000
 ```
 
-### 3. Environment Configuration
+**Seed a working case** (bypasses the paywall — dev only, refuses production):
 
 ```bash
-cp .env.example .env
+pnpm --filter api seed:dev                        # sign-in-able family + funded case
+pnpm --filter api seed:dev -- --corpus "Gary"     # + reference volumes from the eval bucket,
+                                                  #   queued through the REAL digitization pipeline
 ```
 
-Open `.env` and fill in the required values (see [Environment Variables](#environment-variables) below). The minimum required for local development:
+Dev accounts: customer `family@dev.local` / `DevFamily2026!x` · QA attorney `qa@dev.local` / `DevQA2026!x`.
+
+### Environment notes (.env)
+
+Documented inline in `.env.example`. The ones that change behavior:
+
+| Var | Effect |
+|---|---|
+| `ANALYSIS_MODEL` / `ANALYSIS_ENGINES` | Engine, or comma list for multi-engine union (findings tagged per engine; cross-engine agreement recorded) |
+| `ANALYSIS_SAMPLES` | Self-consistency passes per screen (1–3; 2 = recall-tuned default) |
+| `ANALYSIS_BATCH=1` | Message Batches (50% price) with stage-budget live fallback; `ANALYSIS_BATCH_MAX_RECORD_TOKENS` routes huge records to live-sequential (cache economics — measured) |
+| `CLAMD_HOST` | Activates the upload malware-scan gate |
+| `MODEL_USD_PER_MTOK_*`, `TEXTRACT_USD_PER_1K_PAGES` | Cost-telemetry estimate rates (`/ops/cases/:id/cogs`) |
+| `RESEND_API_KEY`, `POSTHOG_API_KEY`, `SENTRY_DSN` | Email / analytics / error reporting — each silently honest-off when unset |
+
+## Testing & the gate
+
+**The rule of this repo: every change set passes the gate before it is committed.**
 
 ```bash
-NEXTAUTH_SECRET="<run: openssl rand -hex 32>"
-TOKEN_SECRET="<run: openssl rand -hex 32>"    # must differ from NEXTAUTH_SECRET
-ADMIN_EMAIL="admin@yourfirm.local"
-ADMIN_PASSWORD="<strong-password>"
+./scripts/gate.sh     # typecheck (all workspaces) + full vitest suite + web build
+                      # branch on ITS exit code — never pipe it (a pipe eats the failure)
 ```
 
-### 4. Start the Docker Daemon
+- ~190 tests: live-Postgres integration (RLS isolation both directions + superuser-bypass canary, event spine, payments idempotency/replay, analysis pipeline incl. FR-6 grounding and FR-7 tamper detection, QA gates, auth), pure-domain suites (state machine, FR-5 deadline vectors, eval scorer), and web unit tests.
+- Integration tests need the compose Postgres/Redis running.
+- Single project: `npx vitest run apps/api/tests/<file>` **from the repo root** (running inside a workspace breaks project resolution).
 
-> Skip if Docker Desktop is running or Docker is configured as a system service.
+**Quality gates beyond the suite** (see runbook for when to run):
 
 ```bash
-# Start rootless Docker daemon (persists until logout/reboot)
-systemctl --user start docker
+# Eval harness — run after ANY prompt/model/engine change; exit 1 below 100% recall
+pnpm --filter api tsx scripts/eval-run.ts <caseId> docs/evaluation/ledgers/<case>.json
 
-# Verify
-docker ps
+# Re-run a case's analysis (QA-reject → re-enqueue loop)
+pnpm --filter api tsx scripts/rerun-analysis.ts <caseId>
+
+# Compare engines on the executeScreen seam (diff written to docs/evaluation/)
+pnpm --filter api tsx scripts/compare-models.ts <caseId> [challengerModel]
 ```
 
-> **To start Docker automatically on login:**
-> ```bash
-> systemctl --user enable docker
-> loginctl enable-linger $USER
-> ```
-
-### 5. Start Infrastructure Services
+## Build
 
 ```bash
-# Start PostgreSQL (pgvector) — required for all development
-docker run -d \
-  --name legal-ai-postgres \
-  -e POSTGRES_USER=user \
-  -e POSTGRES_PASSWORD=password \
-  -e POSTGRES_DB=legal_ai \
-  -p 5433:5432 \
-  --restart unless-stopped \
-  ankane/pgvector:latest
-
-# Optional: Redis (enables queue workers and Bull Board at /admin/queues)
-docker run -d --name legal-ai-redis -p 6379:6379 --restart unless-stopped redis:7-alpine
-
-# Optional: Neo4j (enables knowledge graph visualisation)
-docker run -d --name legal-ai-neo4j \
-  -e NEO4J_AUTH=neo4j/password \
-  -p 7475:7474 -p 7688:7687 \
-  --restart unless-stopped \
-  neo4j:latest
+pnpm --filter api build     # tsup → apps/api/dist/index.js (workspace deps external;
+                            #   runtime needs the monorepo node_modules)
+pnpm --filter api start     # node dist/index.js (PORT env, default 3001)
+pnpm --filter web build     # next build
+pnpm --filter web start     # next start
 ```
 
-> If you have Docker Compose v2 (`docker compose version`), you can use the provided file instead:
-> ```bash
-> docker compose up -d
-> ```
+## CI/CD
 
-### 6. Initialise the Database
+**CI** (`.github/workflows/ci.yml`, required on `main` and PRs): pgvector + Redis service containers → `pnpm install` → **`migrate deploy`** (never `db push` — push skips every RLS policy) → typecheck → full vitest → **gitleaks** secret scan → `pnpm audit --audit-level critical`. Dependabot is enabled.
 
-```bash
-# Push schema to the database (creates all tables, enums, and indexes)
-pnpm --filter @hg/database db:push
+**CD**: none yet by design — deployment is the P0 workstream in [go_live_readiness.md](docs/operations/go_live_readiness.md) (production Dockerfiles, `/healthz`, deploy-on-green-main with `migrate deploy` as the release step, one-command rollback). Until that lands, "deploy" means the dev box.
 
-# Seed the initial tenant and admin user
-pnpm run db:seed:prod
-```
+## Deployment (target)
 
-### 7. Start the Dev Server
+Summarized from the readiness plan — read it before provisioning anything:
 
-```bash
-pnpm dev
-```
+- **Single managed PaaS provider**: web + api services (Docker), managed Postgres 16 + pgvector (**PITR retention ≤ 35 days — a §11a.2 compliance bound, not a preference**), managed Redis, clamd sidecar. Fits the ~$150/mo hosting line.
+- Secrets live in the provider's store only; the production DB gets the non-superuser `hg_app` role and a one-time live RLS canary check.
+- Before any live traffic: rotate the Anthropic/AWS/Stripe keys used during development, fresh `NEXTAUTH_SECRET`, least-privilege prod IAM, SPF/DKIM/DMARC for Resend, alert wiring to a phone, and the cutover smoke test — one real $299 purchase walked through purchase → QA → refund.
 
-This starts both apps via Turborepo with HMR:
+## Operations
 
-| Service | URL |
-|---------|-----|
-| Web (Next.js) | http://localhost:3000 |
-| API (Fastify) | http://localhost:3001 |
-| Bull Board (requires Redis) | http://localhost:3001/admin/queues |
+Day-2 operations, failure modes (all learned live, none hypothetical), and the blocked-on-external launch checklist: **[docs/operations/runbook.md](docs/operations/runbook.md)**.
 
-### 8. Sign In
+Key surfaces: `/ops` (queue, timelines, refunds, scoped deletion, retention candidates, per-case COGS) · `/qa` (review queue, edits with reading-level lint, run diff, approve/reject) · customer tracker + report at `/case/<id>`.
 
-Navigate to http://localhost:3000 and click **Sign In**.
+## Engineering invariants (do not break these)
 
-| Field | Value |
-|-------|-------|
-| Email | Value of `ADMIN_EMAIL` in `.env` (default: `admin@habeasgraph.local`) |
-| Password | Value of `ADMIN_PASSWORD` in `.env` (default: `changeme-before-production`) |
+1. **Grounding is a hard filter (FR-6):** a finding whose quote doesn't verify against its chunk (whitespace-normalized) is dropped, counted, and never persisted. **FR-7** re-verifies hash anchors at QA approval and at *every* render.
+2. **The event spine is append-only** (`CaseEvent`, no FK, denormalized tenant, outbox-published); every state change is an event; the outbox is the only SSE publisher.
+3. **RLS is real:** app queries run as non-superuser `hg_app` via `withTenant`; the owner connection is migrations/auth/system only.
+4. **Model calls never run inside DB transactions** (screens take minutes; transactions time out in seconds).
+5. **Honest failure:** no key → case parks loudly at DOCS_COMPLETE; refusals/parse failures → empty screen for QA, never fake findings; email without a key logs, never pretends.
+6. Any new analysis screen id must be added to **both** `SCREENS`/lane in `analysis.service.ts` **and** the `screen.completed` enum in `packages/case-lifecycle/events.ts`.
 
-> The default password triggers a warning in the seed script. Set `ADMIN_PASSWORD` in `.env` before running `db:seed:prod` on any shared or production environment.
+## Documentation map
 
----
-
-## Day-to-Day Development
-
-After the first-time setup, starting a dev session is:
-
-```bash
-# 1. Ensure Docker daemon is running (rootless only — skip for Docker Desktop)
-systemctl --user start docker
-
-# 2. Ensure the database container is running
-docker start legal-ai-postgres     # add legal-ai-redis if you need queue workers
-
-# 3. Start the dev server
-pnpm dev
-```
-
----
-
-## Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string. Default port is **5433** (Docker maps 5433→5432). |
-| `NEXTAUTH_SECRET` | Yes | 32-byte random secret for signing JWT session tokens. `openssl rand -hex 32` |
-| `NEXTAUTH_URL` | Yes | Full URL of the web app. `http://localhost:3000` for local dev. |
-| `TOKEN_SECRET` | Yes | 32-byte random secret for invite and password-reset tokens. Must differ from `NEXTAUTH_SECRET`. |
-| `ADMIN_EMAIL` | Yes | Email for the seeded admin account. |
-| `ADMIN_PASSWORD` | Yes | Password for the seeded admin account. |
-| `REDIS_URL` | No | Redis connection string. Queue workers and Bull Board are disabled when Redis is unreachable. |
-| `NEO4J_URI` | No | Neo4j Bolt URI. Knowledge graph features degrade gracefully without it. |
-| `GEMINI_API_KEY` | No | Gemini 1.5 Pro API key. Required for document metadata extraction on case upload. |
-| `OLLAMA_BASE_URL` | No | Ollama base URL. Required for local entity extraction. Default: `http://localhost:11434`. |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | No | S3 credentials for document storage. Dev uploads work without these (S3 step is skipped gracefully). |
-| `S3_BUCKET` | No | S3 bucket name for documents. S3 direct uploads support up to 5 GB (pre-signed PUT). The API multipart limit (preview extraction) is 500 MB. |
-| `SYSTEM_TENANT_NAME` | No | Display name for the seeded tenant. Default: `HabeasGraph System`. |
-
----
-
-## Schema Changes
-
-When the Prisma schema (`packages/database/prisma/schema.prisma`) is modified:
-
-```bash
-# Regenerate the Prisma client types
-pnpm --filter @hg/database db:generate
-
-# Apply changes to the running database (development only — use migrations in production)
-pnpm --filter @hg/database db:push
-```
-
----
-
-## Testing
-
-```bash
-# Unit and integration tests (Vitest)
-pnpm test
-
-# End-to-end tests (Playwright) — requires dev server running
-pnpm --filter web exec playwright test
-```
-
----
-
-## Production Build
-
-```bash
-# Build all apps and packages
-pnpm build
-
-# Start the API (Node.js)
-NODE_ENV=production node apps/api/dist/index.js
-
-# Start the web app
-cd apps/web && NODE_ENV=production pnpm start
-```
-
-For containerised deployments and CI/CD pipeline details see `docs/development/deployment_guide.md`.
-
----
-
-## Security & Compliance
-
-- **Row-Level Security** — All PostgreSQL queries are scoped to the authenticated tenant via `app.current_tenant_id`. No cross-tenant data leakage is possible at the query layer.
-- **Immutable Audit Logs** — `AuditLog` rows are protected by database-level `BEFORE UPDATE OR DELETE` triggers.
-- **Zero-Retention AI** — Document text is processed in-memory and never stored in AI provider logs (Ollama runs locally; Gemini calls use ephemeral sessions).
-- **Session Invalidation** — Changing a password sets `passwordChangedAt`; all other active sessions are invalidated on their next request.
-- **Token Security** — Invite and password-reset tokens are SHA-256 hashed before storage. Only the raw token (sent in the email link) can verify; the stored hash is useless to an attacker with DB access.
+- Product/req: `docs/specifications/` · Design: `docs/architecture/`, `docs/design/`
+- Plan + progress ledgers (the canonical "what's done"): `docs/implementation/mvp_v1_implementation_plan.md`
+- Evaluation: `docs/evaluation/` (model comparisons, attorney-signed eval ledgers)
+- Business: `docs/business_case/` (12-month case, expansion model)
+- Operations: `docs/operations/` (runbook, go-live readiness)
