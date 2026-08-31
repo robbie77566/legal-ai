@@ -63,6 +63,13 @@ describe('access + queue', () => {
     expect(res.statusCode).toBe(403);
   });
 
+  it('sentry drill route: 403 for clients, deliberate 500 for admin', async () => {
+    const locked = await fastify.inject({ method: 'GET', url: '/ops/sentry-test', headers: { cookie: clientCookie } });
+    expect(locked.statusCode).toBe(403);
+    const drill = await fastify.inject({ method: 'GET', url: '/ops/sentry-test', headers: { cookie: adminCookie } });
+    expect(drill.statusCode).toBe(500);
+  });
+
   it('the queue lists the case with stage and stall math', async () => {
     const res = await fastify.inject({ method: 'GET', url: '/ops/queue', headers: { cookie: adminCookie } });
     expect(res.statusCode).toBe(200);

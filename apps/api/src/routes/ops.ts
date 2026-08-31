@@ -69,6 +69,13 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     return { cutoff: cutoff.toISOString(), count: cases.length, cases };
   });
 
+  // Alert drill (readiness P0-10): a deliberate, ADMIN-gated error to
+  // verify Sentry capture and alert routing end to end. The correct way
+  // to verify Sentry is a real thrown error - no dashboard button does it.
+  fastify.get('/sentry-test', async () => {
+    throw new Error(`Sentry alert drill — deliberate test error at ${new Date().toISOString()}`);
+  });
+
   // NFR-4: per-case COGS is a single query — tokens/pages are ground
   // truth, dollars are env-rate estimates (see costs.service).
   fastify.get('/cases/:id/cogs', async (request) => {
