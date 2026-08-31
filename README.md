@@ -75,7 +75,9 @@ Documented inline in `.env.example`. The ones that change behavior:
 | `MODEL_USD_PER_MTOK_*`, `TEXTRACT_USD_PER_1K_PAGES` | Cost-telemetry estimate rates (`/ops/cases/:id/cogs`) |
 | `RESEND_API_KEY`, `POSTHOG_API_KEY`, `SENTRY_DSN` | Email / analytics / error reporting — each silently honest-off when unset |
 
-## Testing & the gate
+## How to test
+
+### The gate (run before every commit)
 
 **The rule of this repo: every change set passes the gate before it is committed.**
 
@@ -84,14 +86,29 @@ Documented inline in `.env.example`. The ones that change behavior:
                       # branch on ITS exit code — never pipe it (a pipe eats the failure)
 ```
 
-- ~190 tests: live-Postgres integration (RLS isolation both directions + superuser-bypass canary, event spine, payments idempotency/replay, analysis pipeline incl. FR-6 grounding and FR-7 tamper detection, QA gates, auth), pure-domain suites (state machine, FR-5 deadline vectors, eval scorer), and web unit tests.
-- Integration tests need the compose Postgres/Redis running.
-- Single project: `npx vitest run apps/api/tests/<file>` **from the repo root** (running inside a workspace breaks project resolution).
+### Automated tests
 
-**Quality gates beyond the suite** (see runbook for when to run):
+Integration tests hit live Postgres/Redis — start them first: `docker compose up -d postgres redis`.
 
 ```bash
-# Eval harness — run after ANY prompt/model/engine change; exit 1 below 100% recall
+pnpm test                                            # full suite, all workspaces (turbo → vitest)
+npx vitest run apps/api/tests/payments.test.ts       # one file — ALWAYS from the repo root
+npx vitest run apps/api/tests -t "grounding"         # by test-name pattern
+npx vitest --project api                             # watch mode for one workspace
+pnpm test:coverage                                   # coverage report
+pnpm --filter web test:e2e                           # Playwright e2e (needs `pnpm dev` running
+                                                     #   in another terminal; landing.spec is current,
+                                                     #   triage/workspace specs cover legacy surfaces)
+```
+
+What the suites cover (~190 tests): RLS isolation both directions + a superuser-bypass canary, the event spine/outbox, Stripe webhook idempotency and replay, the analysis pipeline (FR-6 grounding, salvage/truncation/control-char regressions, sampling union, batch seam), QA approve/reject + FR-7 tamper detection, report PDF rendering, FR-5 deadline vectors, the eval scorer, auth/recovery, and web unit tests (eligibility wizard, landing, documents, QA console, tracker, palette A/B).
+
+Gotchas: run vitest from the **repo root** (workspace resolution breaks inside a package); integration suites pin `ANALYSIS_SAMPLES=1` themselves; a fresh clone needs migrations before tests (`pnpm --filter @hg/database db:migrate:deploy`).
+
+### Quality gates (run after any prompt/model/engine change)
+
+```bash
+# Eval harness — attorney-ledger recall; exits 1 below 100% (the NFR-1 launch gate)
 pnpm --filter api tsx scripts/eval-run.ts <caseId> docs/evaluation/ledgers/<case>.json
 
 # Re-run a case's analysis (QA-reject → re-enqueue loop)
@@ -100,6 +117,19 @@ pnpm --filter api tsx scripts/rerun-analysis.ts <caseId>
 # Compare engines on the executeScreen seam (diff written to docs/evaluation/)
 pnpm --filter api tsx scripts/compare-models.ts <caseId> [challengerModel]
 ```
+
+### Manual end-to-end walkthroughs (dev)
+
+**Full product loop without the paywall** (the dev seed is the ONLY path around it — production creates cases exclusively through payment fulfillment):
+
+1. `pnpm --filter api seed:dev -- --corpus "Gary"` — funded case + reference volumes queued through the real digitization pipeline (watch the api terminal).
+2. Sign in at `http://localhost:3000/auth/signin` as `family@dev.local` / `DevFamily2026!x` → complete the interview → watch the checklist fill as digitization lands → click "My records are complete" (starts analysis; needs `ANTHROPIC_API_KEY`; **real model spend, ~$2–4/run**).
+3. Sign in as `qa@dev.local` / `DevQA2026!x` → `/qa` → review findings (edit Part A, watch the reading-level lint) → approve.
+4. Back as the family: `/case/<id>/report` renders; download the PDF; `/case/<id>/status` shows the tracker.
+
+**Paywall/purchase flow (no real billing):** with Stripe TEST keys in `.env`, go through `/check` → `/buy` and pay with card `4242 4242 4242 4242` (any future expiry/CVC). Fulfillment creates the case exactly as production does. Refund it from `/ops` to exercise the refund path. Webhooks in dev need `stripe listen --forward-to localhost:3001/webhooks/stripe` (or rely on the hourly reconciliation sweep).
+
+**Malware-scan path:** `docker compose --profile scan up -d clamav`, set `CLAMD_HOST=localhost`, upload an [EICAR test file](https://www.eicar.org/download-anti-malware-testfile/) — it must quarantine, never digitize.
 
 ## Build
 
