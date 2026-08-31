@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Source_Serif_4, Public_Sans, IBM_Plex_Mono } from 'next/font/google'
 import './daybreak.css'
+import PaletteExperiment from '../../components/ab/PaletteExperiment'
 
 /**
  * Daybreak — the consumer surface (mvp_ui_design_spec.md). Light, warm, calm,
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 export default function DaybreakLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`daybreak font-db-sans ${serif.variable} ${sans.variable} ${mono.variable}`}>
+      <PaletteExperiment />
       {children}
     </div>
   )

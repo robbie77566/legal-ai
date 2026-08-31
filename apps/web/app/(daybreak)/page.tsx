@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import CtaLink from '../../components/ab/CtaLink'
+import PaletteExperiment from '../../components/ab/PaletteExperiment'
 
 /**
  * Daybreak landing (landing_page_spec.md §2). The conversion event is the
@@ -46,15 +48,17 @@ const FAQ: [string, string][] = [
 export default function DaybreakLanding() {
   return (
     <main className="mx-auto max-w-2xl px-5 pb-16">
+      <PaletteExperiment pingView />
       {/* Nav: brand + single CTA, no menu */}
       <nav className="flex items-center justify-between py-5">
         <span className="font-db-serif text-lg font-bold text-db-accent">Family Case Review</span>
-        <Link
+        <CtaLink
           href="/check"
+          position="nav"
           className="rounded-full bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface"
         >
           See if this fits — free
-        </Link>
+        </CtaLink>
       </nav>
 
       {/* Hero */}
@@ -68,12 +72,13 @@ export default function DaybreakLanding() {
           trained legal reviewer.{' '}
           <strong className="text-db-ink">$299. One price, no per-page fees.</strong>
         </p>
-        <Link
+        <CtaLink
           href="/check"
+          position="hero"
           className="mt-7 inline-block rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface"
         >
           {CTA}
-        </Link>
+        </CtaLink>
         <p className="mt-3 text-sm text-db-muted">
           Free 2-minute check · Not a law firm · Information, not legal advice
         </p>
@@ -192,12 +197,13 @@ export default function DaybreakLanding() {
 
       {/* Final CTA */}
       <div className="py-8 text-center">
-        <Link
+        <CtaLink
           href="/check"
+          position="footer"
           className="inline-block rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface"
         >
           {CTA}
-        </Link>
+        </CtaLink>
       </div>
 
       {/* Footer disclosures (landing spec §5) */}

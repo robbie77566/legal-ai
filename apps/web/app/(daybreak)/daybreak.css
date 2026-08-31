@@ -21,6 +21,19 @@
   min-height: 100vh;
 }
 
+/* A/B Scheme B — "Steady Harbor" (trust blue; color_research_landing.md §3).
+   Semantic colors (signal/review/urgent) are canon and identical in both
+   schemes; only brand hues change. Applied via data-palette on the root. */
+.daybreak[data-palette='harbor'] {
+  --db-bg: #f6f8fb;
+  --db-surface: #ffffff;
+  --db-ink: #1a2433;
+  --db-muted: #55637a;
+  --db-line: #dbe2ec;
+  --db-accent: #1f5c99;
+  --db-accent-soft: #e3edf8;
+}
+
 @media (prefers-color-scheme: dark) {
   .daybreak {
     --db-bg: #12151c;
@@ -34,6 +47,18 @@
     --db-review: #d29922;
     --db-none: #96a0ae;
     --db-urgent: #f85149;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .daybreak[data-palette='harbor'] {
+    --db-bg: #0f141c;
+    --db-surface: #171e2a;
+    --db-ink: #e6ebf2;
+    --db-muted: #93a1b5;
+    --db-line: #28323f;
+    --db-accent: #5b9bd5;
+    --db-accent-soft: #14263c;
   }
 }
 
