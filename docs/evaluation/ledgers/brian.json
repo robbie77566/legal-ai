@@ -1,31 +1,43 @@
 {
   "case": "brian",
   "caseTitle": "Brazoria 78734-CR",
-  "provenance": "canary — verified against the record by engineering (2026-08-31); the Willetts entry was independently confirmed at Vol 2 p30/p140-41 and Vol 7 p103",
+  "provenance": "canary \u2014 verified against the record by engineering (2026-08-31); the Willetts entry was independently confirmed at Vol 2 p30/p140-41 and Vol 7 p103",
   "mustFind": [
     {
       "id": "willetts-seated-juror",
       "note": "Venire No. 5 Willetts: spouse is the victim's corporal at Clute PD; seated (Jacob Willetts Martinez) and polled; never challenged",
-      "allOf": ["willetts"],
+      "allOf": [
+        "willetts"
+      ],
       "minSeverity": "supportive"
     },
     {
       "id": "oral-pronouncement-fine-variance",
       "note": "Oral pronouncement omitted the jury's $5,000 fine; oral controls; judgment reformation",
-      "allOf": ["pronounce"],
+      "allOf": [
+        "pronounce"
+      ],
       "minSeverity": "supportive"
     },
     {
       "id": "no-forensics-on-weapon",
       "note": "No latent prints / GSR on the Taurus 9mm where intent was the sole contested issue",
-      "allOf": ["latent"],
+      "allOf": [
+        "latent"
+      ],
       "minSeverity": "supportive"
     },
     {
       "id": "silence-as-guilt-venire",
-      "note": "Multiple venire members committed to using failure to testify as evidence of guilt",
-      "allOf": ["silence"],
-      "anyOf": ["testify", "fifth"],
+      "note": "Venire members committed/equivocated on using failure to testify against the defendant (Fifth Amendment)",
+      "allOf": [
+        "testify"
+      ],
+      "anyOf": [
+        "silence",
+        "fifth",
+        "evidence of guilt"
+      ],
       "minSeverity": "background"
     }
   ],

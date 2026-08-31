@@ -469,9 +469,21 @@ export async function runAnalysis(
   // Per-engine batch path (50% price): each engine's screen×sample requests
   // go out as one batch; the runner (worker) owns polling, the stage
   // budget, and per-request live fallback. Live engines run per screen.
+  // Batch economics gate (measured Aug 31): parallel batch items RACE the
+  // prompt cache — on a 695k-token record 7/10 items re-wrote the cache
+  // and the "50% price" run cost ~2× live-sequential. Below the threshold
+  // batch wins clearly (282k record: perfect hits, ~$1.75/run); above it,
+  // live sequential caching is the cheaper certainty.
+  const batchMaxTokens = Number(process.env.ANALYSIS_BATCH_MAX_RECORD_TOKENS ?? '') || 400_000;
+  const recordTokensEst = Math.round(record.length / 4);
+  const batchAllowed = recordTokensEst <= batchMaxTokens;
+  if (!batchAllowed && models.some((m) => m.invokeMany)) {
+    console.log(`[analysis] record ~${recordTokensEst} tokens > ${batchMaxTokens} — batch skipped, live sequential caching`);
+  }
+
   const batchByEngine = new Map<string, Map<string, string>>();
   for (const m of models) {
-    if (!m.invokeMany) continue;
+    if (!m.invokeMany || !batchAllowed) continue;
     batchByEngine.set(
       m.name,
       await m.invokeMany(

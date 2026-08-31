@@ -16,7 +16,7 @@
 - **Seed a reference case:** `pnpm --filter api seed:dev -- --corpus "<folder>"` (copies that eval-bucket folder's top-level PDFs and runs the real pipeline).
 - **Eval gate:** `pnpm --filter api tsx scripts/eval-run.ts <caseId> docs/evaluation/ledgers/<case>.json` — exits 1 below 100% recall. Run after ANY prompt/model/engine change.
 - **Model comparison:** `pnpm --filter api tsx scripts/compare-models.ts <caseId> [model]`.
-- **Batch mode:** `ANALYSIS_BATCH=1` (50% price; validated: perfect in-batch cache hits, ~7 min for 5 screens). Budget `ANALYSIS_BATCH_BUDGET_MS` (default 4h) cancels and falls back live per request — a stuck batch cannot break the SLA.
+- **Batch mode:** `ANALYSIS_BATCH=1` (50% price). Budget `ANALYSIS_BATCH_BUDGET_MS` (default 4h) cancels and falls back live per request — a stuck batch cannot break the SLA. **Economics caveat (measured):** parallel batch items race the prompt cache — records over `ANALYSIS_BATCH_MAX_RECORD_TOKENS` (~400k, ≈1,600 pages) automatically run live-sequential instead, where caching is certain (a 695k-token batch run cost ~2× live before this gate).
 - **Engines:** `ANALYSIS_ENGINES=claude-opus-5[,claude-fable-5]` — union model; cross-engine agreement is recorded, never used as a veto. `ANALYSIS_SAMPLES=2` is the recall-tuned default.
 
 ## Known failure modes (all encountered live, all now handled)
