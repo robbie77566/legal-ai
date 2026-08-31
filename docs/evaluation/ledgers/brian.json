@@ -1,7 +1,7 @@
 {
   "case": "brian",
   "caseTitle": "Brazoria 78734-CR",
-  "provenance": "canary \u2014 engineering-verified 2026-08-31 (Willetts confirmed at Vol 2 p30/p140-41, Vol 7 p103). NOT yet attorney-signed: the Aug-31 legal sign-off covered the Gary packet.",
+  "provenance": "ATTORNEY-SIGNED (criminal defense attorney, pro bono review; sign-off relayed by founder 2026-08-31, covering both reference-case ledgers \u2014 add reviewer name/bar no. for the launch record). Canary entries verified against the record by engineering 2026-08-31 (Willetts confirmed at Vol 2 p30/p140-41, Vol 7 p103).",
   "mustFind": [
     {
       "id": "willetts-seated-juror",
