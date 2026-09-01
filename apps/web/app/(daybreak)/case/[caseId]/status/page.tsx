@@ -47,12 +47,26 @@ export default function CaseStatus() {
   const [view, setView] = useState<CustomerView | null>(null)
   const [lastDetail, setLastDetail] = useState<string | null>(null)
   const [checksDone, setChecksDone] = useState<string[]>([])
+  const [dates, setDates] = useState<{ started: string | null; readyBy: string | null }>({ started: null, readyBy: null })
+  const [facts, setFacts] = useState<{ pagesDigitized: number; documentsProcessed: number; documentsTotal: number } | null>(null)
 
   useEffect(() => {
-    // Base state from the checklist endpoint, then live via SSE.
+    // Base state + COLD-LOAD progress facts from the checklist endpoint,
+    // then live via SSE — a mid-run page open must not start empty.
     void apiFetch(`/cases/${caseId}/checklist`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d?.customer && setView(d.customer))
+      .then((d) => {
+        if (!d) return
+        if (d.customer) setView(d.customer)
+        setDates({ started: d.slaStartedAt ?? null, readyBy: d.expectedReadyAt ?? null })
+        if (d.progressFacts) {
+          setFacts(d.progressFacts)
+          const seeded = (d.progressFacts.checksDone as string[])
+            .map((k) => SCREEN_NAMES[k])
+            .filter(Boolean)
+          if (seeded.length) setChecksDone((prev) => [...new Set([...seeded, ...prev])])
+        }
+      })
       .catch(() => {})
 
     const es = apiEventSource(`/cases/${caseId}/progress`)
@@ -82,6 +96,15 @@ export default function CaseStatus() {
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
       <h1 className="font-db-serif text-2xl font-semibold">Your review&rsquo;s progress</h1>
+      {(dates.started || dates.readyBy) && (
+        <p className="mt-2 text-sm text-db-muted" data-testid="date-anchors">
+          {dates.started && <>Started {new Date(dates.started).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>}
+          {dates.started && dates.readyBy && ' · '}
+          {dates.readyBy && (
+            <>Expect your report by <strong className="text-db-ink">{new Date(dates.readyBy).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</strong></>
+          )}
+        </p>
+      )}
 
       {model?.overlayCopy && (
         <p
@@ -124,6 +147,11 @@ export default function CaseStatus() {
                   )}
                   {isActive && stage.id !== 'quality_review' && lastDetail && (
                     <span className="mt-1 block text-sm text-db-muted">{lastDetail}</span>
+                  )}
+                  {isActive && stage.id === 'digitizing' && !lastDetail && facts && facts.pagesDigitized > 0 && (
+                    <span className="mt-1 block text-sm text-db-muted" data-testid="digitize-facts">
+                      {facts.pagesDigitized.toLocaleString()} pages read so far, across {facts.documentsProcessed} of {facts.documentsTotal} documents
+                    </span>
                   )}
                   {/* What's happening right now (upload_page_ux_review.md §2):
                       silence during a long stage reads as "nothing is

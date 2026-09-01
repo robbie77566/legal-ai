@@ -191,6 +191,31 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         select: { payload: true, createdAt: true },
       });
 
+      // High-level progress facts (upload_page_ux_review.md §2): the status
+      // page must explain itself on a COLD load mid-run, not only from live
+      // SSE events. Names/counts only — never finding counts pre-QA.
+      const latestRun = await tx.analysisRun.findFirst({
+        where: { caseId: id },
+        orderBy: { startedAt: 'desc' },
+        select: { startedAt: true },
+      });
+      const screenEvents = latestRun
+        ? await tx.caseEvent.findMany({
+            where: { caseId: id, type: 'screen.completed', createdAt: { gte: latestRun.startedAt } },
+            select: { payload: true },
+          })
+        : [];
+      const checksDone = [
+        ...new Set(
+          screenEvents
+            .map((e) => (e.payload as { screen?: string }).screen)
+            .filter((s): s is string => typeof s === 'string')
+        ),
+      ];
+      const pagesDigitized = await tx.documentPage.count({ where: { document: { caseId: id } } });
+      const documentsTotal = await tx.document.count({ where: { caseId: id, quarantined: false } });
+      const processedDocs = await tx.documentPage.groupBy({ by: ['documentId'], where: { document: { caseId: id } } });
+
       return {
         status: kase.status,
         customer: customerView(kase.status as Parameters<typeof customerView>[0], holds),
@@ -200,6 +225,13 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         items,
         documents,
         lastZip: lastZipEvent ? { ...(lastZipEvent.payload as object), at: lastZipEvent.createdAt } : null,
+        progressFacts: {
+          pagesDigitized,
+          documentsProcessed: processedDocs.length,
+          documentsTotal,
+          checksDone,
+          analysisStartedAt: latestRun?.startedAt ?? null,
+        },
       };
     });
   });

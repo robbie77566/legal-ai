@@ -61,6 +61,50 @@ describe('status page — what the system is doing during analysis', () => {
     expect(feed).not.toHaveTextContent(/7|3 finding/) // counts never leak pre-QA
   })
 
+  it('COLD LOAD mid-run seeds the feed and date anchors from server progress facts — no SSE needed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          customer: { stage: 'analyzing', overlay: null },
+          slaStartedAt: '2026-09-01T15:00:00Z',
+          expectedReadyAt: '2026-09-15T00:00:00Z',
+          progressFacts: {
+            pagesDigitized: 2140,
+            documentsProcessed: 12,
+            documentsTotal: 13,
+            checksDone: ['brady', 'iac'],
+            analysisStartedAt: '2026-09-01T16:00:00Z',
+          },
+        }),
+      }) as Response)
+    )
+    render(<CaseStatus />)
+    const feed = await screen.findByTestId('checks-feed')
+    expect(feed).toHaveTextContent('2 of 6 checks finished')
+    expect(feed).toHaveTextContent(/evidence the State may not have turned over/)
+    const anchors = screen.getByTestId('date-anchors')
+    expect(anchors).toHaveTextContent(/Started September 1/)
+    expect(anchors).toHaveTextContent(/Expect your report by September 1[45]/) // tz-safe
+  })
+
+  it('cold load during digitizing shows page/document facts', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          customer: { stage: 'digitizing', overlay: null },
+          progressFacts: { pagesDigitized: 890, documentsProcessed: 4, documentsTotal: 13, checksDone: [], analysisStartedAt: null },
+        }),
+      }) as Response)
+    )
+    render(<CaseStatus />)
+    const factsLine = await screen.findByTestId('digitize-facts')
+    expect(factsLine).toHaveTextContent('890 pages read so far, across 4 of 13 documents')
+  })
+
   it('a duplicate screen.completed (multi-sample runs) never double-lists a check', async () => {
     render(<CaseStatus />)
     await screen.findByTestId('stage-explainer')
