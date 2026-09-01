@@ -86,6 +86,14 @@ describe('event registry (§11a.5 — PII-minimal, versioned, strict)', () => {
     ).toThrow()
   })
 
+  it('accepts a real-length Stripe checkout-session id as paymentId (66 chars; regression: max(64) rejected every live Stripe fulfillment)', () => {
+    const stripeSessionId = 'cs_test_a1vsxTCJiW1RtaRa3A97BI2t5Rlgrc9AmbjuEEWsnhhMHziId26Tn1bONK'
+    expect(stripeSessionId.length).toBeGreaterThan(64)
+    expect(
+      validateEventPayload('payment.succeeded', 1, { paymentId: stripeSessionId, kind: 'review' })
+    ).toEqual({ paymentId: stripeSessionId, kind: 'review' })
+  })
+
   it('rejects unknown types and versions', () => {
     expect(() => validateEventPayload('made.up', 1, {})).toThrow(UnknownCaseEventError)
     expect(() => validateEventPayload('docs.complete', 2, {})).toThrow(UnknownCaseEventError)

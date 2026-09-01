@@ -16,7 +16,10 @@ import { CASE_STATUSES, CASE_HOLDS } from './machine'
 
 const status = z.enum(CASE_STATUSES)
 const hold = z.enum(CASE_HOLDS)
-const id = z.string().min(1).max(64)
+// 255, not 64: Stripe object ids ride in these payloads (payment.succeeded
+// carries the checkout-session id, 66 chars in test mode; Stripe documents up
+// to 255). Widening is read-compatible with every stored event.
+const id = z.string().min(1).max(255)
 const count = z.number().int().nonnegative()
 
 /** type → version → payload schema. Add new versions; never edit old ones. */
