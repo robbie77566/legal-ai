@@ -134,6 +134,10 @@ pnpm --filter api tsx scripts/compare-models.ts <caseId> [challengerModel]
 
 **Malware-scan path:** `docker compose --profile scan up -d clamav`, set `CLAMD_HOST=localhost`, upload an [EICAR test file](https://www.eicar.org/download-anti-malware-testfile/) — it must quarantine, never digitize.
 
+## Internationalization (Spanish)
+
+The consumer site is bilingual (English/US Spanish) via a lightweight typed-dictionary context (`apps/web/lib/i18n.tsx`) — spec and trade-offs in [docs/specifications/i18n_localization.md](docs/specifications/i18n_localization.md). **Release rule (every release): any user-facing string change updates BOTH languages** — the structural parity test (`I18n.test.tsx`) fails CI on drift, and the release checklist includes a Spanish smoke of changed surfaces. Legal copy (disclosure cards) stays English-governing until counsel signs Spanish versions; the es UI shows a governing-language notice. Language selector: landing nav, sign-in page, `?lang=es` link override.
+
 ## Build
 
 ```bash

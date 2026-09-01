@@ -2,6 +2,7 @@ import { Source_Serif_4, Public_Sans } from 'next/font/google'
 import Link from 'next/link'
 import '../(daybreak)/daybreak.css'
 import PaletteExperiment from '../../components/ab/PaletteExperiment'
+import { LangProvider, LangSwitch } from '../../lib/i18n'
 
 /**
  * Auth pages wear the Daybreak consumer skin (was the legacy dark
@@ -16,9 +17,14 @@ const sans = Public_Sans({ subsets: ['latin'], variable: '--font-db-sans' })
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`daybreak font-db-sans ${serif.variable} ${sans.variable} flex min-h-screen flex-col`}>
+      <LangProvider>
       <PaletteExperiment />
       <div className="flex flex-1 items-center justify-center p-5">
         <div className="w-full max-w-md">
+          {/* i18n R2: the selector is clearly visible on the sign-in/up page */}
+          <div className="mb-3 flex justify-end">
+            <LangSwitch />
+          </div>
           <div className="mb-8 text-center">
             <Link href="/" className="font-db-serif text-2xl font-bold text-db-accent">
               Family Case Review
@@ -31,6 +37,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </p>
         </div>
       </div>
+      </LangProvider>
     </div>
   )
 }

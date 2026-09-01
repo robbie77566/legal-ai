@@ -16,7 +16,11 @@ describe('Daybreak landing (landing_page_spec §2 canon)', () => {
 
   it('every CTA routes to the free check — the conversion event is the check, not the sale', () => {
     render(<DaybreakLanding />)
-    const ctas = screen.getAllByRole('link', { name: /free/i })
+    // CTAs are the "free ... check" buttons; the free documents GUIDE link is
+    // education, not a conversion CTA, and routes to /how-to-get-documents.
+    const ctas = screen
+      .getAllByRole('link', { name: /free/i })
+      .filter((l) => !/guide/i.test(l.textContent ?? ''))
     expect(ctas.length).toBeGreaterThanOrEqual(2)
     for (const cta of ctas) expect(cta).toHaveAttribute('href', '/check')
   })

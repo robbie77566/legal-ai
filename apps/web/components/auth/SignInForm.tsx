@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PasswordInput } from './PasswordInput';
+import { useLang } from '../../lib/i18n';
 
 const signInSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
@@ -28,6 +29,11 @@ function mapAuthError(error: string | undefined): string {
 }
 
 export function SignInForm() {
+  const { lang } = useLang();
+  const T = lang === 'es'
+    ? { email: 'Correo electrónico', remember: 'Recordarme por 30 días', signin: 'Iniciar sesión', signingIn: 'Iniciando…', forgot: '¿Olvidó su contraseña?', password: 'Contraseña' }
+    : { email: 'Email address', remember: 'Remember me for 30 days', signin: 'Sign in', signingIn: 'Signing in…', forgot: 'Forgot your password?', password: 'Password' };
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -71,7 +77,7 @@ export function SignInForm() {
         {/* Email */}
         <div className="space-y-1">
           <label htmlFor="email" className="block text-sm font-semibold">
-            Email address
+            {T.email}
           </label>
           <input
             id="email"
@@ -95,7 +101,7 @@ export function SignInForm() {
         {/* Password */}
         <PasswordInput
           id="password"
-          label="Password"
+          label={T.password}
           autoComplete="current-password"
           error={errors.password?.message}
           {...register('password')}
@@ -110,7 +116,7 @@ export function SignInForm() {
             {...register('rememberMe')}
           />
           <label htmlFor="rememberMe" className="text-sm text-db-muted">
-            Remember me for 30 days
+            {T.remember}
           </label>
         </div>
 
@@ -129,14 +135,14 @@ export function SignInForm() {
                      transition-colors focus:outline-none focus:ring-2 focus:ring-db-accent
                      focus:ring-offset-2"
         >
-          {isLoading ? 'Signing in…' : 'Sign in'}
+          {isLoading ? T.signingIn : T.signin}
         </button>
 
         <a
           href="/auth/forgot-password"
           className="block text-center text-sm text-db-muted underline"
         >
-          Forgot your password?
+          {T.forgot}
         </a>
       </div>
     </form>

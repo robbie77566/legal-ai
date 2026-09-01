@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useSession, signIn } from 'next-auth/react'
 import { apiFetch } from '@/lib/api'
+import { useLang } from '@/lib/i18n'
 import { DISCLOSURE_SET_VERSION } from '@hg/case-lifecycle/disclosures'
 
 /**
@@ -51,6 +52,7 @@ export default function BuyPage() {
   const { data: session } = useSession()
   const [step, setStep] = useState<Step>('disclosures')
   const [acked, setAcked] = useState(false)
+  const { lang } = useLang()
   // Promo (promo_codes.md §1): collapsed by default, validated server-side,
   // explicit applied state; $0 renders as Free and skips payment entirely.
   const [promoOpen, setPromoOpen] = useState(false)
@@ -166,6 +168,14 @@ export default function BuyPage() {
           <h1 className="font-db-serif text-2xl font-semibold">
             Before you pay, please read these — they matter.
           </h1>
+          {lang === 'es' && (
+            <p className="mt-4 rounded-xl border border-db-line bg-db-surface p-3 text-sm text-db-muted">
+              Estos términos se muestran en inglés porque la versión en inglés es la que rige
+              legalmente. Si necesita ayuda para entenderlos en español, escríbanos a{' '}
+              <a className="underline" href="mailto:admin@snotnoselegal.com">admin@snotnoselegal.com</a>{' '}
+              antes de comprar.
+            </p>
+          )}
           <div className="mt-6 space-y-3">
             {DISCLOSURES.map(([title, body]) => (
               <div key={title} className="rounded-xl border border-db-line bg-db-surface p-4">
