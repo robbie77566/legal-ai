@@ -14,7 +14,7 @@
 | F6 | Echo-back cards appeared as unexplained interruptions. | Low | Fixed: grouped under one heading — "Quick check — did we name these right?" |
 | F7 | Intro paragraph carried four instructions in one breath. | Low | Fixed: one line; operational guidance lives in the add zone |
 | F8 | 402 overage response renders as raw error text with no purchase path | Medium | **Deferred** — needs the in-flow overage purchase UI (tracked in mobile_ux_review.md) |
-| F9 | No upload progress % for large files on slow connections (fetch PUT has no progress events) | Low | **Deferred** — needs XHR/tus swap; revisit if support tickets show it |
+| F9 | No upload progress % for large files on slow connections (fetch PUT has no progress events) | Low | **Fixed (2026-09-01, PO request):** the S3 PUT moved to XHR — per-file progress bar with % and "file N of M" in the add zone, plus the keep-page-open reassurance |
 
 ## 2. Analysis-progress feedback (status page)
 

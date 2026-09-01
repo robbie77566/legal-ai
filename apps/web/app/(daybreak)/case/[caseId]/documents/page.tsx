@@ -81,6 +81,9 @@ export default function CaseDocuments() {
   const zipStartedAt = useRef<number>(0)
   const [pollBudget, setPollBudget] = useState(0)
   const [confirmRun, setConfirmRun] = useState(false)
+  // F9: real upload progress — fetch() cannot report upload bytes, so the S3
+  // PUT rides XHR. Slow cell connections get a moving bar, not a frozen page.
+  const [progress, setProgress] = useState<{ name: string; pct: number; index: number; total: number } | null>(null)
 
   const refresh = useCallback(async () => {
     const res = await apiFetch(`/cases/${caseId}/checklist`)
@@ -131,17 +134,43 @@ export default function CaseDocuments() {
     fileInput.current?.click()
   }
 
+  const putWithProgress = (url: string, file: File) =>
+    new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', url)
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100)
+          setProgress((prev) => (prev ? { ...prev, pct } : prev))
+        }
+      }
+      xhr.onload = () =>
+        xhr.status < 300
+          ? resolve()
+          : reject(new Error('The upload didn’t reach our storage — please try again.'))
+      xhr.onerror = () =>
+        reject(new Error('The upload didn’t reach our storage — check your connection and try again.'))
+      xhr.send(file)
+    })
+
   // One entry point for everything (F1): ZIPs route to the bulk path, other
   // files upload sequentially so a mid-batch failure keeps its progress.
   const handleFiles = async (files: File[]) => {
-    for (const f of files) {
-      if (/\.zip$/i.test(f.name)) {
-        setZipBusy('uploading')
-        await upload(f)
-        setZipBusy((z) => (z === 'uploading' ? null : z))
-      } else {
-        await upload(f)
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i]
+        setProgress({ name: f.name, pct: 0, index: i + 1, total: files.length })
+        if (/\.zip$/i.test(f.name)) {
+          setZipBusy('uploading')
+          await upload(f)
+          setZipBusy((z) => (z === 'uploading' ? null : z))
+        } else {
+          await upload(f)
+        }
       }
+    } finally {
+      setProgress(null)
     }
   }
 
@@ -160,13 +189,9 @@ export default function CaseDocuments() {
       // Honest failure: a swallowed S3 error here once registered documents
       // with NO object behind them (the presign-region 301, 2026-09-01) —
       // the file "arrived" on screen and the pipeline starved. If storage
-      // says no, the customer must hear it.
-      const put = await fetch(url, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-      })
-      if (!put.ok) throw new Error('The upload didn’t reach our storage — please try again.')
+      // says no, the customer must hear it. XHR, not fetch: upload progress
+      // events (F9) only exist on XHR.
+      await putWithProgress(url, file)
 
       const complete = await apiFetch('/upload/complete', {
         method: 'POST',
@@ -326,6 +351,24 @@ export default function CaseDocuments() {
                 ? 'Uploading…'
                 : 'Add files'}
         </button>
+        {progress && (
+          <div className="mt-3" data-testid="upload-progress">
+            <p className="text-sm">
+              Uploading{progress.total > 1 ? ` file ${progress.index} of ${progress.total}` : ''}:{' '}
+              <span className="font-db-mono">{progress.name}</span> —{' '}
+              <span className="font-semibold">{progress.pct}%</span>
+            </p>
+            <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--db-line)' }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ background: 'var(--db-accent)', width: `${progress.pct}%` }}
+              />
+            </div>
+            <p className="mt-1 text-sm text-db-muted">
+              Keep this page open until the bar finishes — a slow connection is fine, it just takes longer.
+            </p>
+          </div>
+        )}
         {zipBusy === 'unpacking' && (
           <p className="mt-2 text-sm text-db-muted" data-testid="zip-unpacking">
             We&rsquo;re opening your file and reading what&rsquo;s inside — this can take a few

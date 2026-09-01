@@ -163,6 +163,54 @@ describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
     expect(calls.some((c) => c.includes('/records-complete'))).toBe(false)
   })
 
+  it('shows a moving progress bar during the S3 PUT (F9 — slow connections)', async () => {
+    // Fake XHR: emits 47% progress, then holds the connection open so the
+    // bar is assertable mid-flight.
+    let live: FakeXhr | null = null
+    class FakeXhr {
+      upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      status = 200
+      open() {}
+      setRequestHeader() {}
+      send() {
+        live = this
+        setTimeout(() => this.upload.onprogress?.({ lengthComputable: true, loaded: 47, total: 100 }), 0)
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', FakeXhr as unknown as typeof XMLHttpRequest)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: RequestInfo | URL) => {
+        const u = String(url)
+        const body = u.endsWith('/checklist')
+          ? CHECKLIST
+          : u.endsWith('/pages')
+            ? METER
+            : u.endsWith('/upload/url')
+              ? { url: 'https://s3.example/put', s3Key: 'cases/case_1/x.pdf' }
+              : { ok: true }
+        return { ok: true, json: async () => body } as Response
+      })
+    )
+
+    const { container } = render(<CaseDocuments />)
+    await screen.findByTestId('zip-card')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File([new Uint8Array(100)], 'slow-vol1.pdf', { type: 'application/pdf' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    const bar = await screen.findByTestId('upload-progress')
+    await waitFor(() => expect(bar).toHaveTextContent('47%'))
+    expect(bar).toHaveTextContent('slow-vol1.pdf')
+    expect(bar).toHaveTextContent(/Keep this page open/)
+
+    // Finish the upload: the bar clears
+    live!.onload!()
+    await waitFor(() => expect(screen.queryByTestId('upload-progress')).toBeNull())
+  })
+
   it('a fully satisfied checklist keeps the direct records-complete button — no consent detour', async () => {
     const done = { ...CHECKLIST, items: CHECKLIST.items.map((i) => ({ ...i, state: 'CONFIRMED' })) }
     vi.stubGlobal(
