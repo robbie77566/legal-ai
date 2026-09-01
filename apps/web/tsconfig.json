@@ -3,7 +3,9 @@
   "compilerOptions": {
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
@@ -11,7 +13,8 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx",
-    "../../packages/auth/types/next-auth.d.ts"
+    "../../packages/auth/types/next-auth.d.ts",
+    ".next-gate/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

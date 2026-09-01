@@ -14,6 +14,7 @@ npx vitest run > /tmp/gate-tests.log 2>&1 || { grep -E "FAIL|Tests |×" /tmp/gat
 grep -E "Test Files|Tests " /tmp/gate-tests.log | tail -2
 
 echo "── web build ──"
-pnpm --filter web build > /tmp/gate-build.log 2>&1 || { tail -20 /tmp/gate-build.log; exit 1; }
+# Isolated dist dir: never corrupt a running dev server's .next (see next.config.mjs)
+NEXT_DIST_DIR=.next-gate pnpm --filter web build > /tmp/gate-build.log 2>&1 || { tail -20 /tmp/gate-build.log; exit 1; }
 echo "build OK"
 echo "GATE GREEN"
