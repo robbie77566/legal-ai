@@ -57,6 +57,7 @@ interface CheckoutMetadata {
   kind: PurchaseKind;
   draftToken?: string;
   caseId?: string; // overage/rerun target
+  promoCode?: string; // attribution + paid-path redemption (promo_codes.md)
 }
 
 /** Fulfil a completed checkout session. Safe to call more than once. */
@@ -145,6 +146,7 @@ export async function fulfillCheckoutSession(session: {
         kind: kind.toUpperCase() as 'REVIEW' | 'OVERAGE' | 'RERUN',
         status: 'SUCCEEDED',
         amountCents: session.amount_total ?? PRICES_CENTS[kind],
+        promoCode: meta.promoCode ?? null,
       },
     });
 
@@ -197,6 +199,14 @@ export async function fulfillCheckoutSession(session: {
   // Promotion complete: the draft is copied, now deleted (ENG-7).
   if (draft) {
     await prisma.eligibilityDraft.delete({ where: { token: draft.token } }).catch(() => {});
+  }
+
+  // Paid-with-discount promo: redeem at fulfillment (the free path redeemed
+  // before its synthetic session; free sessions carry amount_total 0 and
+  // their code was already consumed — skip double-redeeming those).
+  if (meta.promoCode && (session.amount_total ?? 0) > 0) {
+    const { redeemPromo } = await import('./promo.service');
+    await redeemPromo(meta.promoCode);
   }
 
   return { caseId };

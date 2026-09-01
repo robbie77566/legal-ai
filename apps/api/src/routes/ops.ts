@@ -76,6 +76,56 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     throw new Error(`Sentry alert drill — deliberate test error at ${new Date().toISOString()}`);
   });
 
+  // Promo management (promo_codes.md §2 admin JTBD).
+  fastify.get('/promos', async () => {
+    return prisma.promoCode.findMany({ orderBy: { createdAt: 'desc' } });
+  });
+
+  fastify.post('/promos', async (request, reply) => {
+    const body = z
+      .object({
+        code: z.string().min(3).max(24),
+        amountOffCents: z.number().int().min(1).max(29900),
+        maxRedemptions: z.number().int().min(1).max(10000).optional(),
+        expiresAt: z.string().datetime().optional(),
+      })
+      .parse(request.body);
+    const { normalizeCode, CODE_SHAPE } = await import('../services/promo.service');
+    const code = normalizeCode(body.code);
+    if (!CODE_SHAPE.test(code)) {
+      return reply.status(400).send({ error: 'Codes are 3-24 letters, numbers, or dashes' });
+    }
+    try {
+      const promo = await prisma.promoCode.create({
+        data: {
+          code,
+          amountOffCents: body.amountOffCents,
+          maxRedemptions: body.maxRedemptions,
+          expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
+          createdBy: request.auth.userId,
+        },
+      });
+      await AuditService.log({
+        tenantId: request.auth.tenantId,
+        caseId: 'promo:' + code, // promo audit rows are not case-bound
+        action: LogAction.QA_DECISION,
+        userId: request.auth.userId,
+        details: { decision: 'promo_created', code, amountOffCents: body.amountOffCents },
+      });
+      return promo;
+    } catch {
+      return reply.status(409).send({ error: 'That code already exists' });
+    }
+  });
+
+  fastify.patch('/promos/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { active } = z.object({ active: z.boolean() }).parse(request.body);
+    const promo = await prisma.promoCode.update({ where: { id }, data: { active } }).catch(() => null);
+    if (!promo) return reply.status(404).send({ error: 'Not found' });
+    return promo;
+  });
+
   // NFR-4: per-case COGS is a single query — tokens/pages are ground
   // truth, dollars are env-rate estimates (see costs.service).
   fastify.get('/cases/:id/cogs', async (request) => {

@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import crypto from 'crypto';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import prisma, { withTenant } from '@hg/database';
@@ -28,6 +29,7 @@ const AccountSchema = z.object({
 
 const SessionSchema = z.object({
   kind: z.enum(['review', 'overage', 'rerun']).default('review'),
+  promoCode: z.string().max(32).optional(), // review purchases only (promo_codes.md)
   draftToken: z.string().max(64).optional(),
   caseId: z.string().max(64).optional(), // overage/rerun target
 });
@@ -90,13 +92,29 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
     return { ok: true, disclosureSetVersion };
   });
 
+  // Promo validation for the buy page: applied-state preview before any
+  // payment step. Generic failure only (promo_codes.md §1.2, §4.5).
+  fastify.post('/checkout/promo/validate', async (request, reply) => {
+    const { userId, role } = request.auth;
+    if (role !== 'CLIENT') return reply.status(403).send({ error: 'Consumer purchases only' });
+    const { code } = z.object({ code: z.string().max(32) }).parse(request.body);
+    const { checkPromo, normalizeCode } = await import('../services/promo.service');
+    const check = await checkPromo(code, userId);
+    if (!check.valid) {
+      request.log.info({ code, reason: check.reason }, 'promo validate rejected');
+      return reply.status(400).send({ error: "That code isn't valid" });
+    }
+    const newTotal = Math.max(PRICES_CENTS.review - (check.amountOffCents ?? 0), 0);
+    return { code: normalizeCode(code), amountOffCents: check.amountOffCents, newTotalCents: newTotal };
+  });
+
   fastify.post('/checkout/session', async (request, reply) => {
     const { userId, tenantId, role } = request.auth;
     if (role !== 'CLIENT') {
       return reply.status(403).send({ error: 'Consumer purchases only' });
     }
 
-    const { kind, draftToken, caseId } = SessionSchema.parse(request.body);
+    const { kind, draftToken, caseId, promoCode } = SessionSchema.parse(request.body);
 
     // No pay button without the acknowledged disclosure set (W-2). Checked
     // before Stripe config so the contract holds in every environment.
@@ -113,11 +131,50 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
       }
     }
 
+    // Promo (review only): validate; a full-price code takes the FREE path
+    // through the same fulfillment machinery — no Stripe at all.
+    let amountCents = PRICES_CENTS[kind as PurchaseKind];
+    let appliedPromo: string | undefined;
+    if (promoCode && kind === 'review') {
+      const { checkPromo, redeemPromo, normalizeCode } = await import('../services/promo.service');
+      const check = await checkPromo(promoCode, userId);
+      if (!check.valid) {
+        request.log.info({ code: promoCode, reason: check.reason }, 'promo rejected');
+        return reply.status(400).send({ error: "That code isn't valid" });
+      }
+      appliedPromo = normalizeCode(promoCode);
+      amountCents = Math.max(PRICES_CENTS.review - (check.amountOffCents ?? 0), 0);
+
+      if (amountCents === 0) {
+        // Atomic redemption BEFORE fulfillment: two racers for the last
+        // slot cannot both create a free case.
+        if (!(await redeemPromo(appliedPromo))) {
+          return reply.status(400).send({ error: "That code isn't valid" });
+        }
+        const { fulfillCheckoutSession } = await import('../services/payments.service');
+        const synthetic = {
+          id: `promo_${appliedPromo}_${crypto.randomUUID()}`,
+          amount_total: 0,
+          metadata: {
+            userId, tenantId, kind: 'review' as const,
+            ...(draftToken ? { draftToken } : {}),
+            promoCode: appliedPromo,
+          },
+        };
+        const result = await fulfillCheckoutSession(synthetic);
+        if (!result.caseId) return reply.status(500).send({ error: 'Could not start your review' });
+        const { capture } = await import('../services/analytics.service');
+        capture('snl.promo_applied', tenantId, { code: appliedPromo, free: true });
+        const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+        return { free: true, caseId: result.caseId, url: `${origin}/case/${result.caseId}/interview` };
+      }
+    }
+
     const stripe = getStripe();
     if (!stripe) {
       return reply.status(503).send({ error: 'Payments are not configured' });
     }
-    const origin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
+    const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -126,7 +183,7 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
           quantity: 1,
           price_data: {
             currency: 'usd',
-            unit_amount: PRICES_CENTS[kind as PurchaseKind],
+            unit_amount: amountCents,
             product_data: {
               // Managed Payments/Stripe Tax require a product tax code.
               // 'General - Services' pending the accountant's TX
@@ -160,6 +217,7 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
         kind,
         ...(draftToken ? { draftToken } : {}),
         ...(caseId ? { caseId } : {}),
+        ...(appliedPromo ? { promoCode: appliedPromo } : {}),
       },
     });
 

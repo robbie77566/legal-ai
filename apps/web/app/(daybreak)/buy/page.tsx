@@ -51,6 +51,27 @@ export default function BuyPage() {
   const { data: session } = useSession()
   const [step, setStep] = useState<Step>('disclosures')
   const [acked, setAcked] = useState(false)
+  // Promo (promo_codes.md §1): collapsed by default, validated server-side,
+  // explicit applied state; $0 renders as Free and skips payment entirely.
+  const [promoOpen, setPromoOpen] = useState(false)
+  const [promoInput, setPromoInput] = useState('')
+  const [promoError, setPromoError] = useState('')
+  const [promo, setPromo] = useState<{ code: string; amountOffCents: number; newTotalCents: number } | null>(null)
+
+  const applyPromo = async () => {
+    setPromoError('')
+    const res = await apiFetch('/checkout/promo/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: promoInput }),
+    })
+    if (!res.ok) {
+      setPromoError("That code isn't valid")
+      return
+    }
+    setPromo(await res.json())
+    setPromoOpen(false)
+  }
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -70,7 +91,11 @@ export default function BuyPage() {
     const res = await apiFetch('/checkout/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'review', ...(draftToken ? { draftToken } : {}) }),
+      body: JSON.stringify({
+        kind: 'review',
+        ...(draftToken ? { draftToken } : {}),
+        ...(promo ? { promoCode: promo.code } : {}),
+      }),
     })
     if (res.status === 503) {
       throw new Error(
@@ -149,6 +174,59 @@ export default function BuyPage() {
               </div>
             ))}
           </div>
+          <div className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold">Family Case Review</span>
+              <span className="font-db-serif text-lg font-bold">
+                {promo ? (
+                  promo.newTotalCents === 0 ? (
+                    <span className="text-db-signal">Free</span>
+                  ) : (
+                    <>
+                      <s className="mr-2 text-sm font-normal text-db-muted">$299</s>${(promo.newTotalCents / 100).toFixed(0)}
+                    </>
+                  )
+                ) : (
+                  '$299'
+                )}
+              </span>
+            </div>
+            {promo ? (
+              <p className="mt-2 flex items-center gap-2 text-sm">
+                <span className="rounded-full bg-db-accent-soft px-3 py-1 font-db-mono text-db-accent">
+                  {promo.code} — ${(promo.amountOffCents / 100).toFixed(0)} off
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setPromo(null); setPromoInput('') }}
+                  className="text-db-muted underline"
+                >
+                  remove
+                </button>
+              </p>
+            ) : promoOpen ? (
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value)}
+                  placeholder="Enter code"
+                  autoCapitalize="characters"
+                  className="w-full rounded-lg border border-db-line bg-db-surface p-3 font-db-mono uppercase"
+                />
+                <button type="button" onClick={() => void applyPromo()} className="rounded-lg bg-db-accent px-4 font-semibold text-db-surface">
+                  Apply
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setPromoOpen(true)} className="mt-2 text-sm text-db-muted underline">
+                Have a promo code?
+              </button>
+            )}
+            {promoError && (
+              <p className="mt-2 text-sm" style={{ color: 'var(--db-urgent)' }}>{promoError}</p>
+            )}
+          </div>
+
           <label className="mt-6 flex items-start gap-3">
             <input
               type="checkbox"
@@ -163,7 +241,7 @@ export default function BuyPage() {
             onClick={continueFromDisclosures}
             className="mt-6 w-full rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface disabled:opacity-40"
           >
-            Continue
+            {promo && promo.newTotalCents === 0 ? 'Start your review — free with your code' : 'Continue'}
           </button>
         </div>
       )}

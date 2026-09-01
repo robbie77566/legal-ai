@@ -42,6 +42,7 @@ model Payment {
   kind        PaymentKind
   status      PaymentStatus @default(PENDING)
   amountCents Int
+  promoCode   String? // attribution (promo_codes.md §5)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -89,6 +90,19 @@ model AnalysisRun {
   completedAt DateTime?
 
   @@index([caseId])
+}
+
+// Promo codes (US-12, promo_codes.md): operator-global, owner-written.
+model PromoCode {
+  id             String    @id @default(cuid())
+  code           String    @unique // stored UPPERCASE
+  amountOffCents Int // 1..29900; 29900 = free
+  maxRedemptions Int?
+  redeemedCount  Int       @default(0)
+  expiresAt      DateTime?
+  active         Boolean   @default(true)
+  createdBy      String
+  createdAt      DateTime  @default(now())
 }
 
 // NFR-4 cost telemetry: every model/OCR call writes a row, so per-case
