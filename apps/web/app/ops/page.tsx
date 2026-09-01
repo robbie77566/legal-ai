@@ -76,7 +76,24 @@ export default function OpsConsole() {
 
   return (
     <div className="min-h-screen bg-[#0B0E14] p-6 font-sans text-[#E6EDF3]">
-      <h1 className="font-serif text-xl font-bold text-[#D4AF37]">Operations Console</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-serif text-xl font-bold text-[#D4AF37]">Operations Console</h1>
+        <button
+          data-testid="sentry-drill"
+          onClick={() => {
+            void apiFetch('/ops/sentry-test').then((r) =>
+              setNotice(
+                r.status === 500
+                  ? 'Alert drill fired — a deliberate error is on its way to Sentry. Check Issues (and your alert email) to confirm the pipeline.'
+                  : `Unexpected response ${r.status} — the drill route should return 500.`
+              )
+            )
+          }}
+          className="rounded border border-[#30363D] px-3 py-1.5 text-xs text-[#8B949E] hover:border-[#D29922] hover:text-[#D29922]"
+        >
+          Fire Sentry alert drill
+        </button>
+      </div>
       {notice && <p className="mt-2 text-sm text-[#D29922]">{notice}</p>}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_380px]">
