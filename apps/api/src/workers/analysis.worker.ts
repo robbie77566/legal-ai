@@ -174,7 +174,17 @@ function buildModel(caseId: string, tenantId: string, modelName: string): Analys
     }
 
     for (const r of requests) {
-      if (!out.has(r.key)) out.set(r.key, await liveInvoke(r.instruction, record));
+      if (out.has(r.key)) continue;
+      try {
+        out.set(r.key, await liveInvoke(r.instruction, record));
+      } catch (e) {
+        // One filtered/failed SAMPLE must never kill the run (learned live:
+        // a content-filtering rejection on one sentencing sample wedged a
+        // whole case at ANALYZING). Empty screen-sample, loud log, QA and
+        // the sibling sample carry the recall.
+        console.warn(`[analysis] live fallback for ${r.key} failed — empty sample: ${(e as Error).message.slice(0, 160)}`);
+        out.set(r.key, '{"findings":[]}');
+      }
     }
     return out;
   };
