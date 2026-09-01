@@ -65,6 +65,13 @@ pnpm --filter api seed:dev -- --corpus "Gary"     # + reference volumes from the
 
 Dev accounts: customer `family@dev.local` / `DevFamily2026!x` · QA attorney `qa@dev.local` / `DevQA2026!x`.
 
+**Reference case files on a new machine** (real court records — ENG-10: they live ONLY in the encrypted eval bucket, never in git; `Test Case Files/` is gitignored):
+
+```bash
+pnpm --filter api tsx scripts/fetch-test-cases.ts --list    # what's available (Gary, Brian Spinks)
+pnpm --filter api tsx scripts/fetch-test-cases.ts Gary      # download into "Test Case Files/" (re-runs skip files you have)
+```
+
 ### Environment notes (.env)
 
 Documented inline in `.env.example`. The ones that change behavior:
