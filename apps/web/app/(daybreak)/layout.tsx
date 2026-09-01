@@ -16,7 +16,7 @@ const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '600'], variabl
 export const metadata: Metadata = {
   title: 'Family Case Review',
   description:
-    'Find out what is really in the Texas court record — before you spend thousands. $299, one price, reviewed by a trained legal reviewer. Information, not legal advice.',
+    'Find out what is really in the Texas court record — before you spend thousands. World-class AI built for Texas post-conviction, every finding backed by an exact quote from the record. $299, one price. Information, not legal advice.',
 }
 
 export const viewport: Viewport = {

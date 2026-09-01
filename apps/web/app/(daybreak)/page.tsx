@@ -24,6 +24,14 @@ const FAQ: [string, string][] = [
     'No. This is a detailed review of court records — information to help you and a lawyer decide what to do next. We are not a law firm, and no attorney-client relationship is created. We never recommend filing anything on your own; a report is something to take to a lawyer.',
   ],
   [
+    "Couldn't I just paste the record into ChatGPT?",
+    "You could — and for a decision this final, you shouldn't. A general chatbot wasn't built for this: a trial record runs hundreds or thousands of pages (most tools can't even hold it all), and when a chatbot is unsure, it can confidently make things up — with no way for you to tell. Our system is engineered for exactly this job: it analyzes your complete record in multiple specialized passes built around Texas post-conviction law, and it is forbidden by design from showing you anything it can't back with an exact quote from your documents — every finding is mechanically re-verified against the record, every time you look at it. In Texas, the first writ is effectively the only writ. That's not a job for a general-purpose chatbot.",
+  ],
+  [
+    "Couldn't I just paste the record into ChatGPT?",
+    "You could — and for a decision this final, you shouldn't. A general chatbot wasn't built for this: a trial record runs hundreds or thousands of pages (most tools can't even hold it all), and when a chatbot is unsure, it can confidently make things up — with no way for you to tell. Our system is engineered for exactly this job: it analyzes your complete record in multiple specialized passes built around Texas post-conviction law, and it is forbidden by design from showing you anything it can't back with an exact quote from your documents — every finding is mechanically re-verified against the record, every time you look at it. In Texas, the first writ is effectively the only writ. That's not a job for a general-purpose chatbot.",
+  ],
+  [
     'What if the news is bad?',
     'We tell you straight, with dignity, and there is always a next step — whatever we find, including nothing.',
   ],
@@ -81,9 +89,9 @@ export default function DaybreakLanding() {
           Find out what&rsquo;s really in the court record — before you spend thousands.
         </h1>
         <p className="mt-5 text-db-muted">
-          We read every page of your loved one&rsquo;s Texas trial record, check it for the problems
-          that win appeals and writs, and explain what we find in plain English. Reviewed by a
-          trained legal reviewer.{' '}
+          World-class AI, built for one job: Texas post-conviction. It reads every page of your
+          loved one&rsquo;s trial record, screens it for the problems that win appeals and writs,
+          and backs every finding with the exact page and quote — explained in plain English.{' '}
           <strong className="text-db-ink">$299. One price, no per-page fees.</strong>
         </p>
         <CtaLink
