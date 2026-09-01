@@ -41,3 +41,31 @@
 - Attorney: **BOTH eval ledgers SIGNED (Aug 31)** — launch gate 1's attorney-sign-off requirement met; add reviewer name/bar no. to the ledgers, and transcribe any per-finding packet marks into `verdicts[]` to activate precision scoring. Still open: deadline-vector sign-off (flip `counselSigned: true` in tests/deadline-vectors.json), UPL/product review, privacy-policy review, and per-state disclosure review — /disclosures page is live in DRAFT with TX active and FL/CA staged for the §12 expansion (each state's section needs an attorney licensed in THAT state; the purchase-flow ack card set gets its own versioned counsel-gated update per state launch).
 - E&O binding; TX sales-tax determination on the $299 review (Stripe Tax flag ready).
 - Production secrets at deploy: `HG_APP_PASSWORD`, `SENTRY_DSN`, `POSTHOG_API_KEY`, `CLAMD_HOST` (compose ships a `scan` profile), cost-rate envs from the current price sheet.
+
+
+## Production operations (learned provisioning night, 2026-08-31/09-01)
+
+**Env vars:** the complete reference — every variable, which service, where its value comes from — is [environment_reference.md](environment_reference.md). The three dev env files and their traps are at the top of it.
+
+### Production database access
+- Access is IP-allowlisted: hg-postgres → Networking → add `<your public IP>/32` (`curl -4 ifconfig.me`). Home IPs rotate — if psql suddenly fails with "SSL connection closed unexpectedly", re-check the IP before suspecting anything deeper.
+- No local psql needed: `docker compose exec -T postgres psql '<External Connection String>'` uses the compose container's client.
+- Migrations/seed can run from the dev box against prod: prefix the command with `DATABASE_URL='<prod external URL>'` (e.g. `… npx prisma migrate deploy`, or the admin seed per environment_reference).
+
+### Admin bootstrap & the Sentry drill
+- Admin account: seeded as `admin@snotnoselegal.com` (ADMIN role — the seed sets it explicitly; the schema default is ATTORNEY and would be rejected by /ops).
+- Alert drill: **"Fire Sentry alert drill"** button on the ops console (or GET `/ops/sentry-test` as ADMIN; script pattern in the session scratchpad). A 500 response proves the throw; **delivery additionally requires SENTRY_DSN on that instance** — dev without a DSN shows the same 500 and sends nothing. Verified end-to-end 2026-09-01 (2 events in Issues). Remaining: the Sentry alert RULE (Alerts → new issue → email) is what actually pages a human.
+
+### Render deploy failure playbook (every entry hit for real)
+| Error | Cause | Fix (all committed) |
+|---|---|---|
+| `EROFS … /usr/bin/pnpm` on `corepack enable` | Render's build image is read-only where corepack symlinks | Invoke via `corepack pnpm …`; version pinned by `packageManager` |
+| `ERR_PNPM_IGNORED_BUILDS` | pnpm 11 blocks postinstall scripts; dev stores masked it | `pnpm-workspace.yaml` `allowBuilds:` real booleans (placeholders = not approved) |
+| `P1001 can't reach database` at pre-deploy | Internal hostnames are region-scoped; DB defaulted to Oregon vs api in Ohio | Every blueprint resource pins `region`; out-of-region resources must be deleted and re-applied |
+| `Prisma.InputJsonValue` missing in web build | Web type-checks against @hg/database; no `prisma generate` in its build | generate step added to web buildCommand |
+| `42501 row-level security` on first system write | FORCE RLS binds the owner; Render's owner isn't superuser (dev's is) | Migration 000012: ENABLE without FORCE — owner = system surface, hg_app stays fully bound (founder-approved Option A) |
+| Sign-in `error=Configuration` / `NO_SECRET` (dev) | Next.js never reads the root .env | `apps/web/.env.local` with NEXTAUTH_SECRET/URL + API url |
+
+### Local dev network testing
+- Web/api bind all interfaces; from a phone/laptop on the LAN use `http://<dev-box-ip>:3000` with `NEXT_PUBLIC_API_URL` pointed at `http://<dev-box-ip>:3001` (root .env + apps/web/.env.local) — CORS dev default already allows the LAN origin.
+- Dev servers do not survive reboots; restart per README ("Install & first run"), or ask the assistant — restart = kill the PID on the port, never `pkill -f`.
