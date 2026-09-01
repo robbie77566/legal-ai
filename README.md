@@ -43,6 +43,9 @@ docker compose up -d postgres redis
 # Environment
 cp .env.example .env          # fill in keys; see notes below
 # packages/database/.env must contain ONLY DATABASE_URL (Prisma auto-loads it first)
+# apps/web/.env.local: Next.js does NOT read the root .env — create it with
+#   NEXTAUTH_SECRET (same value as root), NEXTAUTH_URL, NEXT_PUBLIC_API_URL
+#   (browser sign-in fails with error=Configuration / NO_SECRET without it)
 
 # Database: migrations + RLS policies (never `db push` — it skips RLS SQL)
 pnpm --filter @hg/database db:migrate:deploy
