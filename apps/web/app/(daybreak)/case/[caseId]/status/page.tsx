@@ -12,10 +12,41 @@ import type { CustomerView } from '@hg/case-lifecycle'
  * outbox channel — the customer view arrives pre-mapped; raw state never
  * reaches this page.
  */
+/**
+ * Plain-language names for the analysis checks (upload_page_ux_review.md §2).
+ * Finding COUNTS are deliberately never shown pre-QA — completed checks are
+ * facts; numbers wait for the verified report.
+ */
+const SCREEN_NAMES: Record<string, string> = {
+  preserved_error: 'mistakes the defense lawyer objected to at trial',
+  iac: 'how well the defense lawyer did their job',
+  brady: 'evidence the State may not have turned over',
+  junk_science: 'outdated or discredited scientific evidence',
+  sentencing: 'sentencing problems',
+  deadline: 'filing deadlines',
+  appeal_restoration: 'lost appeal rights',
+  plea_lane: 'problems with the guilty plea',
+  voir_dire: 'jury selection problems',
+}
+const TOTAL_CHECKS = 6 // the running screen set (ANALYSIS_* config)
+
+/** The always-available "what's happening right now" copy per active stage —
+ * a cold page load mid-analysis must explain itself without waiting for the
+ * next live event. */
+const STAGE_EXPLAINERS: Record<string, string> = {
+  digitizing:
+    'Right now the system is reading every page you sent — turning scans and photos into text it can search, and counting pages as it goes.',
+  analyzing:
+    'Right now the system is reading the full record and running its checks — each one looks for a different kind of problem. Before anything reaches you, every quote it flags is double-checked word-for-word against your actual documents; anything that doesn’t match exactly is thrown out.',
+  quality_review:
+    'The analysis is done. The report is now going through its quality checks before it’s released to you.',
+}
+
 export default function CaseStatus() {
   const { caseId } = useParams<{ caseId: string }>()
   const [view, setView] = useState<CustomerView | null>(null)
   const [lastDetail, setLastDetail] = useState<string | null>(null)
+  const [checksDone, setChecksDone] = useState<string[]>([])
 
   useEffect(() => {
     // Base state from the checklist endpoint, then live via SSE.
@@ -30,8 +61,12 @@ export default function CaseStatus() {
         const msg = JSON.parse(e.data)
         if (msg.customer) setView(msg.customer)
         // Honest sub-detail: counts only, from the registry-validated payload
-        if (msg.type === 'screen.completed' && msg.payload?.volumesTotal) {
-          setLastDetail(`Volume ${msg.payload.volumesRead} of ${msg.payload.volumesTotal} read`)
+        if (msg.type === 'screen.completed') {
+          if (msg.payload?.volumesTotal) {
+            setLastDetail(`Volume ${msg.payload.volumesRead} of ${msg.payload.volumesTotal} read`)
+          }
+          const name = SCREEN_NAMES[msg.payload?.screen as string]
+          if (name) setChecksDone((prev) => (prev.includes(name) ? prev : [...prev, name]))
         } else if (msg.type === 'doc.ocr_done' && typeof msg.payload?.pages === 'number') {
           setLastDetail(`${msg.payload.pages} pages digitized`)
         }
@@ -89,6 +124,26 @@ export default function CaseStatus() {
                   )}
                   {isActive && stage.id !== 'quality_review' && lastDetail && (
                     <span className="mt-1 block text-sm text-db-muted">{lastDetail}</span>
+                  )}
+                  {/* What's happening right now (upload_page_ux_review.md §2):
+                      silence during a long stage reads as "nothing is
+                      happening" — the panel explains, the feed proves. */}
+                  {isActive && STAGE_EXPLAINERS[stage.id] && (
+                    <span data-testid="stage-explainer" className="mt-2 block rounded-lg border border-db-line bg-db-surface p-3 text-sm text-db-muted">
+                      {STAGE_EXPLAINERS[stage.id]}
+                    </span>
+                  )}
+                  {isActive && stage.id === 'analyzing' && checksDone.length > 0 && (
+                    <span data-testid="checks-feed" className="mt-2 block text-sm">
+                      <span className="font-semibold">
+                        {Math.min(checksDone.length, TOTAL_CHECKS)} of {TOTAL_CHECKS} checks finished
+                      </span>
+                      {checksDone.map((c) => (
+                        <span key={c} className="mt-1 block text-db-muted">
+                          ✓ Finished checking for {c}
+                        </span>
+                      ))}
+                    </span>
                   )}
                 </span>
               </li>

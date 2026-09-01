@@ -75,13 +75,29 @@ describe('documents page — echo-back, meter, quarantine (UI spec §5.5)', () =
 })
 
 describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
-  it('renders the ZIP card with the plain-words explainer and per-device how-to', async () => {
+  it('renders ONE upload zone taking files and ZIPs, with the plain-words ZIP explainer', async () => {
     render(<CaseDocuments />)
     const card = await screen.findByTestId('zip-card')
     expect(card).toHaveTextContent(/one file that holds many files/)
     expect(card).toHaveTextContent(/Compressed \(zipped\) folder/) // Windows
     expect(card).toHaveTextContent(/Files by Google/) // Android
-    expect(screen.getByRole('button', { name: /Upload a ZIP file/ })).toBeInTheDocument()
+    expect(card).toHaveTextContent(/Not sure what a paper is\? Add it anyway/) // shoebox folded in
+    expect(screen.getByRole('button', { name: /Add files/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Upload a ZIP file/ })).toBeNull() // no competing entry points
+  })
+
+  it('answers "how close am I?" with the found-count progress header', async () => {
+    render(<CaseDocuments />)
+    const progress = await screen.findByTestId('doc-progress')
+    expect(progress).toHaveTextContent('Documents found: 1 of 2') // rr UPLOADED, judgment NEEDED
+  })
+
+  it('state chips distinguish received items; upload link only on still-needed items', async () => {
+    render(<CaseDocuments />)
+    expect(await screen.findByText('✓ Received')).toBeInTheDocument()
+    expect(screen.getByText('Needed')).toBeInTheDocument()
+    // one NEEDED item → exactly one per-item upload link
+    expect(screen.getAllByRole('button', { name: /Upload this document/ })).toHaveLength(1)
   })
 
   it('shows the unpack summary with skipped-file honesty when lastZip is present', async () => {

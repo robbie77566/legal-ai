@@ -77,7 +77,6 @@ export default function CaseDocuments() {
   // Bulk ZIP path (bulk_zip_upload.md): the archive unpacks in the
   // background; we poll until its zip.ingested summary lands, then keep a
   // short polling budget so echo-back classifications check items off live.
-  const zipInput = useRef<HTMLInputElement>(null)
   const [zipBusy, setZipBusy] = useState<'uploading' | 'unpacking' | null>(null)
   const zipStartedAt = useRef<number>(0)
   const [pollBudget, setPollBudget] = useState(0)
@@ -130,6 +129,20 @@ export default function CaseDocuments() {
   const pickFile = (itemLabel: string | null) => {
     pendingItem.current = itemLabel
     fileInput.current?.click()
+  }
+
+  // One entry point for everything (F1): ZIPs route to the bulk path, other
+  // files upload sequentially so a mid-batch failure keeps its progress.
+  const handleFiles = async (files: File[]) => {
+    for (const f of files) {
+      if (/\.zip$/i.test(f.name)) {
+        setZipBusy('uploading')
+        await upload(f)
+        setZipBusy((z) => (z === 'uploading' ? null : z))
+      } else {
+        await upload(f)
+      }
+    }
   }
 
   const upload = async (file: File) => {
@@ -230,13 +243,27 @@ export default function CaseDocuments() {
 
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
-      <h1 className="font-db-serif text-2xl font-semibold">Your document checklist</h1>
-      {data && (
-        <p className="mt-2 text-db-muted">
-          {data.documents.length === 0
-            ? 'Send documents in any order, at your own pace — photos from your phone are fine, and you can select several files at once. Big files can take a few minutes on cell service; keep this page open.'
-            : `${data.documents.length} file${data.documents.length === 1 ? '' : 's'} received.`}
-        </p>
+      <h1 className="font-db-serif text-2xl font-semibold">Your documents</h1>
+      {/* F2: the single highest-leverage motivator on a multi-visit task —
+          "how close am I?" — always answered first. */}
+      {data && data.items.length > 0 && (
+        <div className="mt-3" data-testid="doc-progress">
+          <p className="text-sm font-semibold">
+            Documents found: {data.items.filter((i) => i.state !== 'NEEDED').length} of {data.items.length}
+          </p>
+          <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--db-line)' }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                background: 'var(--db-accent)',
+                width: `${Math.round((data.items.filter((i) => i.state !== 'NEEDED').length / data.items.length) * 100)}%`,
+              }}
+            />
+          </div>
+          <p className="mt-1 text-sm text-db-muted">
+            Send them in any order, at your own pace — we recognize each one and check it off for you.
+          </p>
+        </div>
       )}
       {error && (
         <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--db-urgent)' }}>
@@ -244,17 +271,31 @@ export default function CaseDocuments() {
         </p>
       )}
 
-      {/* Bulk ZIP path (bulk_zip_upload.md): one file instead of a checklist crawl */}
-      <section data-testid="zip-card" className="mt-6 rounded-xl border-2 border-db-accent bg-db-surface p-4">
-        <h2 className="font-db-serif text-lg font-semibold">Have a lot of files? Send them all at once</h2>
+      {/* F1: ONE upload zone that takes anything — PDFs, photos, or a ZIP of
+          everything (bulk_zip_upload.md). The shoebox promise lives here too. */}
+      <section
+        data-testid="zip-card"
+        className="mt-6 rounded-xl border-2 border-dashed border-db-accent bg-db-surface p-4"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          const files = Array.from(e.dataTransfer.files ?? [])
+          if (files.length) void handleFiles(files)
+        }}
+      >
+        <h2 className="font-db-serif text-lg font-semibold">Add your documents</h2>
         <p className="mt-1 text-sm text-db-muted">
-          Put everything into one <strong>ZIP file</strong> and upload it in a single step.
-          A ZIP is one file that holds many files inside it — like a folder squeezed into a
-          single package. We&rsquo;ll open it, read every document, and check items off your
-          list below as we recognize them.
+          PDFs and phone photos both work, several at once is fine — and if you have a lot of
+          files, you can send one <strong>ZIP file</strong> with everything inside. Not sure
+          what a paper is? Add it anyway — we&rsquo;ll figure out what it is and check it off
+          your list below.
         </p>
         <details className="mt-2 text-sm text-db-muted">
-          <summary className="cursor-pointer font-semibold text-db-ink">How do I make a ZIP file?</summary>
+          <summary className="cursor-pointer font-semibold text-db-ink">What&rsquo;s a ZIP file, and how do I make one?</summary>
+          <p className="mt-2">
+            A ZIP is one file that holds many files inside it — like a folder squeezed into a
+            single package. Making one takes about a minute:
+          </p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li><strong>Windows:</strong> put your documents in one folder, right-click the folder, choose <em>Send to</em> → <em>Compressed (zipped) folder</em>.</li>
             <li><strong>Mac:</strong> put them in one folder, right-click (or hold Control and click) the folder, choose <em>Compress</em>.</li>
@@ -263,16 +304,22 @@ export default function CaseDocuments() {
           </ul>
           <p className="mt-2">
             We can read PDF files and photos (JPG, PNG, HEIC, TIFF) inside the ZIP — anything
-            else is skipped and we&rsquo;ll tell you. Uploading one at a time below works just
+            else is skipped and we&rsquo;ll tell you. Uploading files one at a time works just
             as well if a ZIP feels like too much.
           </p>
         </details>
         <button
-          onClick={() => zipInput.current?.click()}
+          onClick={() => fileInput.current?.click()}
           disabled={uploading !== null || zipBusy !== null}
-          className="mt-3 rounded-lg bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface disabled:opacity-40"
+          className="mt-3 w-full rounded-xl bg-db-accent px-5 py-3 font-semibold text-db-surface disabled:opacity-40 sm:w-auto sm:px-6"
         >
-          {zipBusy === 'uploading' ? 'Uploading your ZIP…' : zipBusy === 'unpacking' ? 'Opening your ZIP…' : 'Upload a ZIP file'}
+          {zipBusy === 'uploading'
+            ? 'Uploading your ZIP…'
+            : zipBusy === 'unpacking'
+              ? 'Opening your ZIP…'
+              : uploading !== null
+                ? 'Uploading…'
+                : 'Add files'}
         </button>
         {zipBusy === 'unpacking' && (
           <p className="mt-2 text-sm text-db-muted" data-testid="zip-unpacking">
@@ -295,63 +342,28 @@ export default function CaseDocuments() {
           </p>
         )}
       </section>
-      <input
-        ref={zipInput}
-        type="file"
-        accept=".zip"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) {
-            setZipBusy('uploading')
-            void upload(f).then(() => setZipBusy((z) => (z === 'uploading' ? null : z)))
-          }
-          e.target.value = ''
-        }}
-      />
-
-      {data && data.documents.filter((d) => !d.quarantined).length > 0 && (
-        <section className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
-          <h2 className="font-db-serif text-lg font-semibold">Your files</h2>
-          <p className="mt-1 text-sm text-db-muted">
-            Every file stays yours — download any of them to hand to a lawyer.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {data.documents.filter((d) => !d.quarantined).map((d) => (
-              <li key={d.id} className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate font-db-mono text-sm">{d.filename}</span>
-                <button onClick={() => void download(d.id)} className="whitespace-nowrap text-sm font-semibold text-db-accent underline">
-                  Download
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
 
       <input
         ref={fileInput}
         type="file"
         multiple
-        accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.heic"
+        accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.heic,.zip"
         className="hidden"
         onChange={(e) => {
-          // Mobile reality: eight volumes should be ONE picker trip. Files
-          // upload sequentially so a mid-batch failure keeps its progress.
-          // No `capture` attribute by design — forcing the camera would
-          // remove the gallery/files option on Android pickers.
+          // Mobile reality: eight volumes should be ONE picker trip. No
+          // `capture` attribute by design — forcing the camera would remove
+          // the gallery/files option on Android pickers.
           const files = Array.from(e.target.files ?? [])
-          if (files.length) {
-            void (async () => {
-              for (const f of files) await upload(f)
-            })()
-          }
+          if (files.length) void handleFiles(files)
           e.target.value = ''
         }}
       />
 
-      {/* Echo-back cards (UI spec §5.5): the pipeline's guess, the family's verdict */}
+      {/* Echo-back cards (UI spec §5.5): the pipeline's guess, the family's
+          verdict — grouped under one heading (F6) so they read as one task. */}
+      {data && data.documents.some((d) => d.suggestedChecklistItemId && !d.classificationConfirmed && !d.quarantined) && (
+        <h2 className="mt-6 font-db-serif text-lg font-semibold">Quick check — did we name these right?</h2>
+      )}
       {data?.documents
         .filter((d) => d.suggestedChecklistItemId && !d.classificationConfirmed && !d.quarantined)
         .map((d) => {
@@ -406,50 +418,88 @@ export default function CaseDocuments() {
         </p>
       ))}
 
-      {/* Shoebox path — first-class (UI spec §5.5) */}
-      <div className="mt-6 rounded-xl border-2 border-dashed border-db-line bg-db-surface p-4">
-        <p className="font-semibold">Not sure what a paper is?</p>
-        <p className="mt-1 text-sm text-db-muted">
-          Upload it anyway — we&rsquo;ll figure out what it is.
-        </p>
-        <button
-          onClick={() => pickFile(null)}
-          disabled={uploading !== null}
-          className="mt-3 rounded-lg border border-db-accent px-4 py-2 text-sm font-semibold text-db-accent disabled:opacity-40"
-        >
-          {uploading === 'shoebox' ? 'Uploading…' : 'Upload a document'}
-        </button>
-      </div>
 
-      <ul className="mt-4 space-y-3">
+      {/* F5: the state chips distinguish confirmed and problem items instead
+          of collapsing everything to "Received". F1: uploads for a specific
+          item are a small link on still-needed items only. */}
+      <h2 className="mt-6 font-db-serif text-lg font-semibold">The documents we look for</h2>
+      <ul className="mt-2 space-y-3">
         {data?.items.map((item) => (
           <li key={item.id} className="rounded-xl border border-db-line bg-db-surface p-4">
             <div className="flex items-center justify-between gap-3">
               <span className="font-semibold">{item.label}</span>
               <span
-                className="rounded-full px-3 py-1 text-xs font-semibold"
+                className="whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold"
                 style={{
-                  background: 'var(--db-accent-soft)',
-                  color: item.state === 'NEEDED' ? 'var(--db-muted)' : 'var(--db-accent)',
+                  background: item.state === 'PROBLEM' ? 'transparent' : 'var(--db-accent-soft)',
+                  border: item.state === 'PROBLEM' ? '1px solid var(--db-urgent)' : 'none',
+                  color:
+                    item.state === 'NEEDED'
+                      ? 'var(--db-muted)'
+                      : item.state === 'PROBLEM'
+                        ? 'var(--db-urgent)'
+                        : 'var(--db-accent)',
                 }}
               >
-                {item.state === 'NEEDED' ? 'Needed' : 'Received'}
+                {item.state === 'NEEDED'
+                  ? 'Needed'
+                  : item.state === 'PROBLEM'
+                    ? 'Needs attention'
+                    : item.state === 'CONFIRMED'
+                      ? '✓ Confirmed'
+                      : '✓ Received'}
               </span>
             </div>
-            <details className="mt-2 text-sm text-db-muted">
-              <summary className="cursor-pointer">Don&rsquo;t have this? Here&rsquo;s how to get it</summary>
-              <p className="mt-1">{HOWTO[item.kind] ?? 'The district clerk of the county of conviction is the place to start.'}</p>
-            </details>
-            <button
-              onClick={() => pickFile(item.label)}
-              disabled={uploading !== null}
-              className="mt-3 rounded-lg border border-db-accent px-4 py-2 text-sm font-semibold text-db-accent disabled:opacity-40"
-            >
-              {uploading === item.label ? 'Uploading…' : 'Upload for this item'}
-            </button>
+            {item.state === 'NEEDED' && (
+              <>
+                <details className="mt-2 text-sm text-db-muted">
+                  <summary className="cursor-pointer">Don&rsquo;t have this? Here&rsquo;s how to get it</summary>
+                  <p className="mt-1">{HOWTO[item.kind] ?? 'The district clerk of the county of conviction is the place to start.'}</p>
+                </details>
+                <button
+                  onClick={() => pickFile(item.label)}
+                  disabled={uploading !== null}
+                  className="mt-2 text-sm font-semibold text-db-accent underline disabled:opacity-40"
+                >
+                  {uploading === item.label ? 'Uploading…' : 'Upload this document'}
+                </button>
+              </>
+            )}
           </li>
         ))}
       </ul>
+
+      {/* F3/F4: files live below the checklist, collapsed, each with its
+          processing state — "did my upload work?" answered at a glance. */}
+      {data && data.documents.filter((d) => !d.quarantined).length > 0 && (
+        <details className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
+          <summary className="cursor-pointer font-db-serif text-lg font-semibold">
+            Your files ({data.documents.filter((d) => !d.quarantined).length})
+          </summary>
+          <p className="mt-1 text-sm text-db-muted">
+            Every file stays yours — download any of them to hand to a lawyer.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {data.documents.filter((d) => !d.quarantined).map((d) => (
+              <li key={d.id} className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate font-db-mono text-sm">{d.filename}</span>
+                <span className="flex items-center gap-3 whitespace-nowrap text-sm">
+                  <span className="text-db-muted">
+                    {d.suggestedChecklistItemId
+                      ? '✓ Recognized'
+                      : pollBudget > 0
+                        ? 'Reading it now…'
+                        : 'Received'}
+                  </span>
+                  <button onClick={() => void download(d.id)} className="font-semibold text-db-accent underline">
+                    Download
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {/* Page meter (ENG-3): the same authority billing reads */}
       {meter && meter.billable > 0 && (
