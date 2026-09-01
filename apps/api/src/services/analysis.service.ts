@@ -475,7 +475,10 @@ export async function runAnalysis(
   // batch wins clearly (282k record: perfect hits, ~$1.75/run); above it,
   // live sequential caching is the cheaper certainty.
   const batchMaxTokens = Number(process.env.ANALYSIS_BATCH_MAX_RECORD_TOKENS ?? '') || 400_000;
-  const recordTokensEst = Math.round(record.length / 4);
+  // 2.3 chars/token, MEASURED on real transcripts (Brian: 1.6M chars →
+  // 695,332 actual cached tokens). The generic 4:1 heuristic undercounted
+  // by ~1.75× and let a 695k record through the 400k gate.
+  const recordTokensEst = Math.round(record.length / 2.3);
   const batchAllowed = recordTokensEst <= batchMaxTokens;
   if (!batchAllowed && models.some((m) => m.invokeMany)) {
     console.log(`[analysis] record ~${recordTokensEst} tokens > ${batchMaxTokens} — batch skipped, live sequential caching`);

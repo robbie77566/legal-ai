@@ -139,7 +139,7 @@ async function main() {
         })
       );
       const doc = await withTenant(tenantId, async (tx) => {
-        const d = await tx.document.create({ data: { filename, caseId: kase.id } });
+        const d = await tx.document.create({ data: { filename, s3Key: destKey, caseId: kase.id } });
         await appendCaseEvent(tx, {
           caseId: kase.id, tenantId, type: 'doc.uploaded',
           payload: { documentId: d.id }, actor: 'dev-seed',
