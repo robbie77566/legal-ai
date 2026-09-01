@@ -147,6 +147,8 @@ After a successful test payment, the sequence to watch: Stripe redirects to the 
 
 **Promo/free path (no Stripe at all):** apply a 100%-off code (dev has `SNOT26`, cap 5) at `/buy` — checkout must return a $0 fulfillment with **no card form**, the case appears immediately, and the code's redemption count ticks in `/ops` promos.
 
+**Ready-made files:** [`test-fixtures/`](test-fixtures/) has synthetic court documents (judgment, indictment, transcript volume, plea papers) plus a prebuilt `court-papers.zip` with junk inside — see its README for what each exercises. Fully fictional; the real reference corpora live only in the encrypted S3 eval bucket.
+
 **Bulk ZIP path:** on the case documents page, upload a `.zip` of many PDFs/photos — it unpacks in the background (zip queue), every entry becomes a normal document (scan → digitize → echo-back), the checklist checks off live, and the page reports what was skipped. With gaps still open, "That's everything I could get" gates the review behind the $99-per-later-run consent (spec: `docs/specifications/bulk_zip_upload.md`).
 
 **Malware-scan path:** `docker compose --profile scan up -d clamav`, set `CLAMD_HOST=localhost`, upload an [EICAR test file](https://www.eicar.org/download-anti-malware-testfile/) — it must quarantine, never digitize.
