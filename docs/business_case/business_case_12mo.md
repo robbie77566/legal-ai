@@ -1,23 +1,35 @@
 # 12-Month Business Case — Family Case Review (Sep 2026 – Aug 2027)
 
-**Status:** For decision · **Owner:** Product/Finance · **Prepared:** 2026-08-30
-**Sources:** `snotnoselegal_market_study_mvp_gtm` (market frame §1, pricing §6, unit economics §7, GTM §8) · `mvp_v1_prd.md` · `product_roadmap.md` · `../implementation/mvp_v1_implementation_plan.md` (build status & timeline) · PO decisions of Aug 2026 (SLA, pricing, brand, tax, stack) · **live-measured pipeline costs from the first real reference-case runs (Aug 30, 2026)**
+**Status:** For decision · **Owner:** Product/Finance · **Prepared:** 2026-08-30 · **Updated:** 2026-09-01
+**Sources:** `snotnoselegal_market_study_mvp_gtm` (market frame §1, pricing §6, unit economics §7, GTM §8) · `mvp_v1_prd.md` · `product_roadmap.md` · `../implementation/mvp_v1_implementation_plan.md` (build status & timeline) · PO decisions of Aug 2026 (SLA, pricing, brand, tax, stack) · **live-measured pipeline costs from the first real reference-case runs (Aug 30, 2026)** · **Sep 1, 2026 actuals: production provisioning, automated QA decision, attorney-signed eval ledgers, instrumented full-case COGS**
 
 ---
 
+## 0. Update log — 2026-09-01 (what changed since prepared)
+
+Material facts that have moved since this case was written; sections below carry dated inline edits.
+
+1. **Manual QA is removed from the operating model.** The PO decision to eliminate the human-review bottleneck shipped as an automated QA gate (`auto_qa_hold_workflow.md`): screens-complete, minimum-findings, drop-ratio, and render re-verification checks auto-deliver passing reports; failures hold with a customer notice and a 24-hour manual-triage SLA; the founder spot-checks a sample rather than touching every report. `AUTO_APPROVE=1` is armed. This deletes the ~$12.50/report QA cost line (§5), removes the ~50-case/month solo throughput ceiling (§8c, §12d), and converts Lever 1 of §8b from a plan into shipped software.
+2. **Engineering is complete and production is provisioned** — not "four months to launch-ready." As of Sep 1: full loop proven repeatedly on both reference cases end-to-end (purchase → upload → digitize → analyze → auto-QA → delivered PDF); Render production stack live (Ohio: web, api, Postgres w/ PITR, Redis, clamav — the §5b ~$88/mo actuals); promo engine, customer-feedback program, retention tiering (S3 lifecycle), Sentry/PostHog wired and verified. Remaining launch work is **business, not build**: DNS cutover, Stripe live-mode webhook, E&O, counsel sign-offs, credential rotation.
+3. **Launch gate 1 is met early:** the reviewing attorney signed **both** reference-case eval ledgers (Sep 1). Current harness state: Gary case **green 5/5** must-finds (64 findings, auto-delivered as the first live AUTO_APPROVE case); Brian case **2/4** on the latest fresh run (run-variance remediation — sample count 3 + larger output cap — is scoped and pending a go decision, ~$12 of re-run spend). The Dec-26 "no eval green, no launch" checkpoint stands for the Brian ledger.
+4. **COGS is now instrumented per case, not estimated:** Gary case **$4.66** all-in tech (model $3.75 + OCR $0.91, scanned 602-pp record), Brian case **$9.42** (born-digital transcript-heavy record, all model, 2-sample union). Batch API validated at ~50% model-cost reduction ($1.75 Gary harness run). §5 updated.
+5. **Trial GTM in place:** admin-managed 100%-off promo codes with atomic cap enforcement and a Stripe-free $0 fulfillment path, live-verified — EARLYBIRD (25 uses, early adopters) and SNOT26 (**5 uses**, trial offer). 30 free slots ≈ **~$200–300 of COGS as the launch marketing/testimonial budget** — under one month of the $500 paid-channel floor.
+6. **Spanish pulled forward:** the v1.1 "Spanish purchase flow" item partially shipped Sep 1 — bilingual landing, auth, buy-flow disclosures (English-governs banner pending counsel), and a plain-language documents guide, with a per-release parity gate (`i18n_localization.md`). The Spanish **report Part A** remains v1.1. Adds a one-time ~$200–400 professional translation review before Spanish ad spend.
+7. **New recurring obligations created:** 24-hour QA-hold triage SLA (founder), promo redemption monitoring, and the counsel review queue now includes the rewritten disclosure set (`2026-09-01.1`, training-use promise removed), TX/FL/CA disclosure pages, and the Spanish legal copy.
+
 ## 1. Executive summary
 
-Snot Nose Legal's **Family Case Review** sells a $299 flat-fee, AI-analyzed, human-QA'd review of a Texas criminal court record to the one persona in the post-conviction market no incumbent serves and who actually pays: the inmate's family. The competitive anchor is not software but the **~$3,000 attorney file review** and the $0 pro se path that burns a family's only writ shot. The market study establishes genuine white space (habeas-specific analysis; consumer access) that none of the five incumbent platforms can enter without abandoning their per-professional-seat licensing.
+Snot Nose Legal's **Family Case Review** sells a $299 flat-fee, AI-analyzed, quality-gated review of a Texas criminal court record to the one persona in the post-conviction market no incumbent serves and who actually pays: the inmate's family. The competitive anchor is not software but the **~$3,000 attorney file review** and the $0 pro se path that burns a family's only writ shot. The market study establishes genuine white space (habeas-specific analysis; consumer access) that none of the five incumbent platforms can enter without abandoning their per-professional-seat licensing.
 
-This case models the next 12 months: four months to launch-ready (per the implementation plan; **the majority of the engineering is already built and integration-tested** — auth, payments, digitization on AWS Textract, the Claude Opus 5 analysis pipeline, QA console, and consumer surfaces are live in the repo as of this writing) and eight months of operation.
+This case models the next 12 months: four months to launch-ready (per the implementation plan) and eight months of operation. *(Updated 2026-09-01: the build finished early — the full loop is proven end-to-end on both reference cases, production is provisioned on Render, and automated QA is live; the Sep–Dec phase is now legal/business gate work, not engineering. See §0.)*
 
 **The headline numbers (base case):** first-year revenue ≈ **$36k**, peak cumulative cash need ≈ **$78k**, monthly contribution turns positive around **~30 cases/month** at current cost structure — i.e., the business does not self-fund inside 12 months at bootstrap staffing; it buys three things instead: a **proven engine on paid real records**, the **reference metrics** (recall, refund rate, CAC by channel) that de-risk every later tier, and the **referral flywheel** into the Justice/Advocate tiers where the durable revenue lives (roadmap v2/v3). The recommendation (§10) is to proceed, with the pre-agreed kill/pivot checkpoints in §8.
 
 ## 2. Problem & product
 
-When a Texas felony conviction becomes final, the family faces a brutal information gap: pay ~$3,000 for an attorney merely to read the file, pay $15k–$50k+ for representation on faith, or let the inmate file pro se — where a weak application burns the effective one shot Texas's subsequent-writ bar allows. **The product sells the decision, not the writ**: every finding grounded to page and line, screened for the five claim families (preserved error, IAC, Brady, 11.073 junk science, sentencing/deadlines), passed through a human QA gate, and delivered as Part A (plain English) + Part B (attorney-ready packet).
+When a Texas felony conviction becomes final, the family faces a brutal information gap: pay ~$3,000 for an attorney merely to read the file, pay $15k–$50k+ for representation on faith, or let the inmate file pro se — where a weak application burns the effective one shot Texas's subsequent-writ bar allows. **The product sells the decision, not the writ**: every finding grounded to page and line, screened for the six claim families (preserved error, IAC, Brady, 11.073 junk science, sentencing/deadlines, jury selection), passed through an automated QA gate, and delivered as Part A (plain English) + Part B (attorney-ready packet).
 
-**Trust is the product.** The engineering enforces it structurally: findings whose quotes aren't verbatim in the record are dropped by a hard filter; citations are hash-anchored and re-verified at every render; nothing reaches a customer unreviewed; deletion, refunds, and disclosures are audited operations, not promises.
+**Trust is the product.** The engineering enforces it structurally: findings whose quotes aren't verbatim in the record are dropped by a hard filter; citations are hash-anchored and re-verified at every render; every report clears automated quality gates before delivery — failures hold for human review on a stated 24-hour SLA rather than shipping — with founder spot-checks on a sample; deletion, refunds, and disclosures are audited operations, not promises.
 
 ## 3. Market
 
@@ -45,19 +57,19 @@ The consumer wedge is deliberately unsized by incumbents: all five platforms lic
 
 ## 5. Unit economics
 
-Study budget vs. what the pipeline **actually measured** on the reference case this week:
+Study budget vs. what the pipeline **actually measured** — updated 2026-09-01 with instrumented full-case costs (CostRecord table) from complete fresh runs of both reference cases at the final configuration (6 screens, context pre-pass, 2-sample union):
 
-| Cost line | Study budget | Measured (Aug 30, 2026) | Note |
+| Cost line | Study budget | Measured (Sep 1, 2026) | Note |
 |---|---|---|---|
-| OCR | ~$5 / 3,000 pp | **~$0.90** (602 pp × Textract $1.50/1k) | scales ~$7.50 at the 5,000-page cap |
-| LLM analysis | ~$12 | **~$3.30/run** (Claude Opus 5, 4 screens, 264K-token record; prompt cache verified at 0.1× reads) | headroom for the 5-screen set + adjudication |
-| Embeddings + storage | ~$1 | S3 pennies; embeddings paused by design | |
-| Payment processing | ~$9 | 2.9% + $0.30 | + 0.5% Stripe Tax when taxable |
-| Human QA | ~$12.50 | 30 min × $25/hr loaded | every report |
+| OCR | ~$5 / 3,000 pp | **$0.91** (Gary: 602 pp scanned × Textract $1.50/1k); **$0** (Brian: born-digital) | scales ~$7.50 at the 5,000-page cap |
+| LLM analysis | ~$12 | **$3.75–$9.42/case** (Claude Opus 5; range = scanned vs transcript-heavy record) | batch API validated at ~50% off these numbers ($1.75 Gary harness run); economics gate enforces the batch path |
+| Embeddings + storage | ~$1 | S3 pennies; 90-day lifecycle tiering applied; embeddings paused by design | |
+| Payment processing | ~$9 | 2.9% + $0.30 | + 0.5% Stripe Tax when taxable; **$0 on promo-trial cases** (no Stripe on the free path) |
+| Human QA | ~$12.50 | **$0 — automated QA gates + founder spot-check sample** (auto_qa_hold_workflow.md; AUTO_APPROVE live) | holds route to a 24h manual triage; founder time, not cash |
 | Refund/chargeback reserve | ~$15 | 5% of revenue | consumer stress purchases |
-| **Total COGS** | **~$54** | **tracking ≤ $45 at current scale** | **≥ 82% gross margin at $299** |
+| **Total COGS** | **~$54** | **~$29–34 measured** (tech $5–10 + Stripe ~$9 + reserve ~$15) | **~89% gross margin at $299** |
 
-This case models the conservative **$54**; the measured trend is upside.
+This case's tables still model the conservative **$54**; the measured trend is upside and the QA line's removal is structural, not situational (see §8b Lever 1, now shipped).
 
 ## 5b. External tools & services — the documented monthly stack (added 2026-08-31)
 
@@ -77,7 +89,7 @@ The hosting/tooling line items are now provisioned and priced, not estimated (ca
 
 | Phase | Months | Contents | Source |
 |---|---|---|---|
-| Finish build → launch gates | Sep–Dec 2026 | Remaining M4–M7 work (batch/adjudication, deadline-engine vectors, PDF render, analytics); **eval harness green on both reference cases; attorney review; E&O bound** | implementation plan §3/§7 |
+| Finish build → launch gates | Sep–Dec 2026 | **Build complete as of Sep 1** (batch, PDF render, analytics, auto-QA, promos, feedback, Spanish P0 all shipped; production provisioned). Remaining gate work is business-side: Brian-ledger eval green, counsel sign-offs (disclosures `2026-09-01.1`, state pages, Spanish legal copy), E&O bound, DNS + Stripe live, credential rotation. **Launch can pull forward from Jan-27 if the gates clear early — a favorable schedule variance this case does not spend** | implementation plan §3/§7; Sep 1 actuals |
 | Launch | Jan 2027 | TX-only, SEO + prison-family communities + clinic-declined referrals first; paid search as a capped test | market study §8.2 |
 | Ramp | Feb–Apr 2027 | 90-day target ~10 paid cases/mo; S0 outcome-mix report validates market sizing | analytics plan §5 |
 | v1.1 | ~Apr–May 2027 | Spanish Part A + purchase flow; attorney-signed add-on; A/V add-on priced | roadmap v1.1 |
@@ -151,7 +163,7 @@ The hosting/tooling line items are now provisioned and priced, not estimated (ca
 - **Funded-team alternative:** at the implementation plan's full staffing (~$30k/mo), the same 12 months need ≈ **$320–350k**. The bootstrap path is viable precisely because the build is largely done; choose funded staffing only if v1.1/v2 acceleration is worth buying.
 - **Sensitivity (base case):** CAC doubling to $120 costs ~$5k/yr (manageable — contribution/case ≈ $245); COGS at the measured ~$45 adds ~$1.5k/yr; a $349 price test (+17%) adds ~$8k/yr revenue at unknown conversion cost — run it only through the §4.3-compliant experiment path. The model is **volume-dominated**: the single number that matters is paid cases/month.
 - **Checkpoints (pre-agreed):**
-  - **Dec 2026:** eval harness green + attorney sign-off, or launch slips — do not launch on an unproven engine.
+  - **Dec 2026:** eval harness green + attorney sign-off, or launch slips — do not launch on an unproven engine. *(Status Sep 1: attorney signed both ledgers; Gary case green 5/5; Brian case 2/4 pending the scoped run-variance remediation — this checkpoint is more than half met, three months early.)*
   - **Mar 2027 (90 days post-launch):** ≥ 8–10 cases/mo and refund rate ≤ 5% → continue; materially below → the S0 outcome-mix data decides pivot (plea-lane emphasis, price, or channel) before more spend.
   - **Jun 2027:** ≥ 20% referral opt-in → begin Justice-tier seeding (the v2 gate); below → double down on B2C channels first.
 
@@ -160,7 +172,7 @@ The hosting/tooling line items are now provisioned and priced, not estimated (ca
 
 The base case loses money for exactly one structural reason: **fixed operating cost ($7.6k/mo) needs ~31 cases/month to cover at $245 contribution, and the ramp only reaches 30 by month 12.** Profitability is therefore engineered from three levers, in order of leverage:
 
-**Lever 1 — lean operations (the big one).** The $6k/mo operating contractor is 79% of post-launch opex, budgeted for a build that is *already done*. Founder-run operations with an on-call contractor (~$1.5k/mo) cut fixed cost to ~$3.1k/mo → **break-even falls from 31 to 13 cases/month** — inside the study's own 90-day trajectory.
+**Lever 1 — lean operations (the big one). *Shipped as software, 2026-09-01.*** The $6k/mo operating contractor is 79% of post-launch opex, budgeted for a build that is *already done*. Founder-run operations with an on-call contractor (~$1.5k/mo) cut fixed cost to ~$3.1k/mo → **break-even falls from 31 to 13 cases/month** — inside the study's own 90-day trajectory. The automated QA gate goes further than the lean-rate assumption: passing reports deliver with zero marginal labor (spot-check sample only), and the failure path is a bounded 24h triage queue, so this lever no longer depends on anyone's discipline — it is the default behavior of the system.
 
 **Lever 2 — contribution stacking (no new customers needed).** Measured COGS (~$45, not $54) + overage/re-run attach + the v1.1 attorney-signed add-on pulled forward (10% attach × $249 margin) lifts contribution from $245 to **~$289/case** → break-even ~**11 cases/month**.
 
@@ -189,7 +201,7 @@ The base case loses money for exactly one structural reason: **fixed operating c
 Sections 7–8b model *staffed* scenarios from the implementation plan's team assumptions. The operating reality is **one founder, home-based, no payroll** — which converts the model from a P&L question into a cash-flow question, and changes the answer dramatically:
 
 - **Fixed cash ≈ $1,100/month** (hosting budgeted ~$150 — provisioned actual ~$88, see §5b; E&O ~$250, counsel pay-as-you-go ~$200, $500 marketing floor). No salaries, no office.
-- **Cash contribution ≈ $278/case** — QA is founder time (sweat equity, not cash), so cash COGS is ~$31 (OCR + LLM + storage + Stripe + expected refunds).
+- **Cash contribution ≈ $278/case** — cash COGS is ~$31 (OCR + LLM + storage + Stripe + expected refunds), consistent with the Sep-1 instrumented range (§5). *(Updated 2026-09-01: QA is no longer founder time per case — automated gates deliver passing reports; founder time is a spot-check sample plus the 24h hold-triage queue.)*
 - **Cash break-even: ~4 cases/month.**
 
 | Phase | Cash position |
@@ -204,7 +216,7 @@ Sections 7–8b model *staffed* scenarios from the implementation plan's team as
 
 **Read:** on the base volume ramp, the entire venture recovers its cash by ~May 2027 and exits the year at an ~$8k/month cash run-rate — total capital at risk under **$6k** plus founder time.
 
-**The honest disclosures that keep this rigorous:** (1) founder time is the real investment — QA at 30 min/case plus support plus everything else caps solo throughput somewhere around 50–80 cases/month before paid help returns to the model (a good problem; it re-enters at Lever 1's lean rate, ~$25 of QA cost per case, leaving contribution strong); (2) sweat equity is deferred compensation, not free — the staffed scenarios in §7 remain the true economic cost of the business and the basis for any future hiring or investment conversation; (3) volume remains the gating variable — 4 cases/month is a low bar, but it is still a bar the channels must clear.
+**The honest disclosures that keep this rigorous:** (1) founder time is the real investment — with QA automated (2026-09-01) the old ~50–80 case/month QA ceiling is gone, and the solo binding constraint shifts to **support + hold-triage + everything else**, plausibly 100+ cases/month before paid help returns to the model (a good problem; when it does, it re-enters as support/ops labor, not per-report QA, leaving contribution strong); (2) sweat equity is deferred compensation, not free — the staffed scenarios in §7 remain the true economic cost of the business and the basis for any future hiring or investment conversation; (3) volume remains the gating variable — 4 cases/month is a low bar, but it is still a bar the channels must clear.
 
 ## 9. Risks (top 5, from SWOT + study §8.4 + risk register)
 
@@ -214,7 +226,8 @@ Sections 7–8b model *staffed* scenarios from the implementation plan's team as
 | Volume doesn't materialize (the model's dominant risk) | Channels are cheap and compounding (SEO, communities, clinic referrals); checkpoints cap the downside; contribution ≈ $245/case means even small volume is not cash-destructive |
 | Chargebacks/refunds above 5% | W-2 disclosure archive per case (built — the E-6 evidence packet is one query); 10-day SLA honesty; reserve modeled |
 | Incumbent module entry | The moat is the white-space spine + consumer trust surface; incumbents' seat-licensing makes B2C structurally awkward for them |
-| Model-quality regression / eval not green | Recall-first harness on attorney-labeled ledgers is a launch **gate**, not a hope; today's live runs already shook out real pipeline defects pre-launch |
+| Model-quality regression / eval not green | Recall-first harness on attorney-labeled ledgers is a launch **gate**, not a hope; live runs already shook out real pipeline defects pre-launch |
+| Auto-delivery quality escape (added 2026-09-01: no human reads every report) | Layered gates (grounding filter, render re-verification, screens-complete/min-findings/drop-ratio checks) fail **closed** into a 24h human-triage hold; founder spot-check sample; per-case feedback survey as the customer-side detector; kill switch is one env var (`AUTO_APPROVE=0`) |
 
 ## 10. KPIs (weekly, from the analytics plan)
 
@@ -246,7 +259,7 @@ TX launch Jan-27 unchanged → **FL commit only if the Mar-27 TX checkpoint pass
 
 ### 12d. Solo cash model, horizon extended to Feb-28
 
-Assumptions as §8c ($278/case cash contribution, $1,100/mo base fixed) plus the per-state costs above; when combined volume crosses ~50 cases/month the solo QA ceiling binds and hired QA (~$25/case, Lever 1's lean rate) is applied to **all** cases from that month.
+Assumptions as §8c ($278/case cash contribution, $1,100/mo base fixed) plus the per-state costs above; when combined volume crosses ~50 cases/month the solo QA ceiling binds and hired QA (~$25/case, Lever 1's lean rate) is applied to **all** cases from that month. *(Updated 2026-09-01: with QA automated, the ~50-case trigger and the $25/case hire are now a conservatism — the real trigger is support/hold-triage load, later and cheaper. The table below is kept unchanged as the downside-safe version; every row from Oct-27 on is therefore understated.)*
 
 | Month | TX | FL | CA | Total | Net cash | Cumulative | TX-only cum. |
 |---|---|---|---|---|---|---|---|
