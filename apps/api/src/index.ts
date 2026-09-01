@@ -55,7 +55,9 @@ fastify.addHook('onError', async (_request, _reply, error) => {
 
 // CORS pinned to the web origin (never `origin: true` — credentials flow here)
 fastify.register(cors, {
-  origin: process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+  // Comma-separated origins: prod sets one; dev allows localhost + the
+  // LAN address so a phone/laptop on the network can use the full app.
+  origin: (process.env.WEB_ORIGIN ?? 'http://localhost:3000,http://192.168.154.213:3000').split(','),
   credentials: true
 })
 
