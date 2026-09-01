@@ -26,6 +26,18 @@
 2. **A live activity feed**: each `screen.completed` event appends "✓ Finished checking — {plain-language name}" (e.g. *how well the defense lawyer did their job*, *evidence the State may not have turned over*), with a "check X of 6" counter; `doc.ocr_done` streams page counts during digitization.
 3. **Honesty rule kept:** finding **counts are deliberately not shown pre-QA** (§5.6's zero-legal-content-pre-QA rule) — raw screen output shrinks under grounding/verification, and a number shown here that shrinks later is a broken promise. Completed *checks* are facts; counts wait for the report.
 
-## 3. Out of scope, tracked
+## 3. Round 2 — density & phase separation (2026-09-01, PO request)
+
+The checklist needs *many* documents; round 1 left each as a padded card (~80px × 12 items) and mixed the "collect documents" work with the "run the review" decision. Because **every analysis run is charged** (one included, $99 after), collect-vs-run is not presentation — it's a billing boundary the layout must teach.
+
+| # | Finding | Disposition |
+|---|---|---|
+| F10 | **Card-per-item checklist burns the screen** — a phone shows ~4 items per viewport; scanning "what's left" takes scrolling, not a glance. | Fixed: dense single-line rows, split into two groups — **"Still needed (N)"** open at top (each row expands for the how-to + upload link) and **"Received (M)"** collapsed to one line. What's left IS the visible list. |
+| F11 | **No phase model.** Upload actions and the run-the-review decision interleaved on one flat page, though families iterate uploads for weeks before the one charged run. | Fixed: explicit two-step frame — **Step 1 · Collect & upload** (everything upload-related) and **Step 2 · Run your review** (its own card at the end, visually distinct, disabled-feeling until files exist). |
+| F12 | The "still missing" nudge **duplicated the checklist** right below it. | Fixed: merged — the Still-needed group's header carries the guidance (≤2 gaps → single files; 3+ → another ZIP). One list, one truth. |
+| F13 | Add-zone copy restated what the picker already communicates. | Fixed: two lines + the collapsed ZIP explainer. |
+| F14 | **The cost consequence lived only inside the confirm modal** — the $99-per-later-run fact arrived at the last click instead of shaping the iterate-then-run behavior. | Fixed: the Step 2 card states it always: "Your purchase includes one analysis run… a later run with new documents costs $99. Take your time — uploading more documents never costs anything." The modal remains the final gate when items are missing. |
+
+## 4. Out of scope, tracked
 
 F8/F9 above; Spanish for both surfaces (the recorded i18n P1 gap); replaying missed activity-feed lines on reconnect (needs a customer-safe events endpoint — today a mid-analysis page load gets the panel, new lines from the next event on).

@@ -244,6 +244,13 @@ export default function CaseDocuments() {
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
       <h1 className="font-db-serif text-2xl font-semibold">Your documents</h1>
+      {/* F11: the phase model, always visible — collecting is free and
+          iterative; running the review is the (charged) commitment. */}
+      <p className="mt-2 text-sm" data-testid="phase-steps">
+        <span className="rounded-full bg-db-accent px-2.5 py-0.5 font-semibold text-db-surface">Step 1 · Collect &amp; upload</span>
+        <span className="mx-2 text-db-muted">then</span>
+        <span className="rounded-full border border-db-line px-2.5 py-0.5 font-semibold text-db-muted">Step 2 · Run your review</span>
+      </p>
       {/* F2: the single highest-leverage motivator on a multi-visit task —
           "how close am I?" — always answered first. */}
       {data && data.items.length > 0 && (
@@ -261,7 +268,7 @@ export default function CaseDocuments() {
             />
           </div>
           <p className="mt-1 text-sm text-db-muted">
-            Send them in any order, at your own pace — we recognize each one and check it off for you.
+            Any order, your own pace — we recognize each document and check it off for you.
           </p>
         </div>
       )}
@@ -285,10 +292,8 @@ export default function CaseDocuments() {
       >
         <h2 className="font-db-serif text-lg font-semibold">Add your documents</h2>
         <p className="mt-1 text-sm text-db-muted">
-          PDFs and phone photos both work, several at once is fine — and if you have a lot of
-          files, you can send one <strong>ZIP file</strong> with everything inside. Not sure
-          what a paper is? Add it anyway — we&rsquo;ll figure out what it is and check it off
-          your list below.
+          PDFs and phone photos both work — several at once, or one <strong>ZIP file</strong>{' '}
+          with everything inside. Not sure what a paper is? Add it anyway.
         </p>
         <details className="mt-2 text-sm text-db-muted">
           <summary className="cursor-pointer font-semibold text-db-ink">What&rsquo;s a ZIP file, and how do I make one?</summary>
@@ -419,55 +424,64 @@ export default function CaseDocuments() {
       ))}
 
 
-      {/* F5: the state chips distinguish confirmed and problem items instead
-          of collapsing everything to "Received". F1: uploads for a specific
-          item are a small link on still-needed items only. */}
-      <h2 className="mt-6 font-db-serif text-lg font-semibold">The documents we look for</h2>
-      <ul className="mt-2 space-y-3">
-        {data?.items.map((item) => (
-          <li key={item.id} className="rounded-xl border border-db-line bg-db-surface p-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-semibold">{item.label}</span>
-              <span
-                className="whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold"
-                style={{
-                  background: item.state === 'PROBLEM' ? 'transparent' : 'var(--db-accent-soft)',
-                  border: item.state === 'PROBLEM' ? '1px solid var(--db-urgent)' : 'none',
-                  color:
-                    item.state === 'NEEDED'
-                      ? 'var(--db-muted)'
-                      : item.state === 'PROBLEM'
-                        ? 'var(--db-urgent)'
-                        : 'var(--db-accent)',
-                }}
-              >
-                {item.state === 'NEEDED'
-                  ? 'Needed'
-                  : item.state === 'PROBLEM'
-                    ? 'Needs attention'
-                    : item.state === 'CONFIRMED'
-                      ? '✓ Confirmed'
-                      : '✓ Received'}
-              </span>
-            </div>
-            {item.state === 'NEEDED' && (
-              <>
-                <details className="mt-2 text-sm text-db-muted">
-                  <summary className="cursor-pointer">Don&rsquo;t have this? Here&rsquo;s how to get it</summary>
-                  <p className="mt-1">{HOWTO[item.kind] ?? 'The district clerk of the county of conviction is the place to start.'}</p>
+      {/* F10/F12: what's left is the visible list — dense rows, still-needed
+          group open on top (with the how-to inside each row), received rows
+          collapsed to one line. */}
+      {data && data.items.some((i) => i.state === 'NEEDED') && (
+        <section data-testid="still-needed" className="mt-6 rounded-xl border border-db-line bg-db-surface">
+          <div className="border-b border-db-line p-4 pb-3">
+            <h2 className="font-db-serif text-lg font-semibold">
+              Still needed ({data.items.filter((i) => i.state === 'NEEDED').length})
+            </h2>
+            <p className="mt-1 text-sm text-db-muted">
+              {data.items.filter((i) => i.state === 'NEEDED').length <= 2
+                ? 'If you can get these, upload each one on its own — a single PDF or a few photos is perfect.'
+                : 'If you can gather these, put them all in one ZIP and send them in one go — or upload them one at a time.'}{' '}
+              Tap an item for who to ask.
+            </p>
+          </div>
+          <ul>
+            {data.items.filter((i) => i.state === 'NEEDED').map((item) => (
+              <li key={item.id} className="border-b border-db-line last:border-b-0">
+                <details>
+                  <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5">
+                    <span className="text-sm font-semibold">{item.label}</span>
+                    <span className="whitespace-nowrap text-xs font-semibold text-db-muted">Needed ›</span>
+                  </summary>
+                  <div className="px-4 pb-3 text-sm text-db-muted">
+                    <p>{HOWTO[item.kind] ?? 'The district clerk of the county of conviction is the place to start.'}</p>
+                    <button
+                      onClick={() => pickFile(item.label)}
+                      disabled={uploading !== null}
+                      className="mt-2 font-semibold text-db-accent underline disabled:opacity-40"
+                    >
+                      {uploading === item.label ? 'Uploading…' : 'Upload this document'}
+                    </button>
+                  </div>
                 </details>
-                <button
-                  onClick={() => pickFile(item.label)}
-                  disabled={uploading !== null}
-                  className="mt-2 text-sm font-semibold text-db-accent underline disabled:opacity-40"
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {data && data.items.some((i) => i.state !== 'NEEDED') && (
+        <section className="mt-3 rounded-xl border border-db-line bg-db-surface">
+          <ul>
+            {data.items.filter((i) => i.state !== 'NEEDED').map((item) => (
+              <li key={item.id} className="flex items-center justify-between gap-3 border-b border-db-line px-4 py-2.5 last:border-b-0">
+                <span className="text-sm">{item.label}</span>
+                <span
+                  className="whitespace-nowrap text-xs font-semibold"
+                  style={{ color: item.state === 'PROBLEM' ? 'var(--db-urgent)' : 'var(--db-accent)' }}
                 >
-                  {uploading === item.label ? 'Uploading…' : 'Upload this document'}
-                </button>
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
+                  {item.state === 'PROBLEM' ? 'Needs attention' : item.state === 'CONFIRMED' ? '✓ Confirmed' : '✓ Received'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* F3/F4: files live below the checklist, collapsed, each with its
           processing state — "did my upload work?" answered at a glance. */}
@@ -514,25 +528,19 @@ export default function CaseDocuments() {
         </p>
       )}
 
-      {/* The remaining-documents nudge (bulk_zip_upload.md §UX): once files
-          are in, point at the gaps and match the ask to their size. */}
-      {data && data.documents.length > 0 && data.items.some((i) => i.state === 'NEEDED') && (
-        <div data-testid="still-needed" className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
-          <p className="font-semibold">
-            Still missing: {data.items.filter((i) => i.state === 'NEEDED').map((i) => i.label).join(', ')}
-          </p>
-          <p className="mt-1 text-sm text-db-muted">
-            {data.items.filter((i) => i.state === 'NEEDED').length <= 2
-              ? 'If you can get these, upload each one on its own — a single PDF or a few photos is perfect. The "how to get it" note under each item tells you who to ask.'
-              : 'If you can gather these, you can put them all in one ZIP and send them in one go — or upload them one at a time. The "how to get it" note under each item tells you who to ask.'}
-          </p>
-        </div>
-      )}
-
-      <div className="mt-8 rounded-xl border border-db-line bg-db-surface p-4">
-        <p className="text-sm text-db-muted">
-          Records arrive over weeks for most families — save and come back any time. When
-          everything you can get is here:
+      {/* F11/F14: Step 2 is its own moment — the charged commitment, with
+          the cost rule stated here, not first discovered inside the modal. */}
+      <section data-testid="run-review" className="mt-8 rounded-xl border-2 border-db-accent bg-db-surface p-4">
+        <p className="text-sm">
+          <span className="rounded-full bg-db-accent px-2.5 py-0.5 text-xs font-semibold text-db-surface">Step 2</span>{' '}
+          <span className="font-db-serif text-lg font-semibold">Run your review</span>
+        </p>
+        <p className="mt-2 text-sm text-db-muted">
+          Records arrive over weeks for most families — save and come back as often as you need.
+          Uploading more documents never costs anything. <strong className="text-db-ink">Your purchase
+          includes one analysis run</strong>, and it reads only what&rsquo;s uploaded when you start
+          it; a later run with new documents costs $99. So start the review when everything you can
+          get is here.
         </p>
         {data && data.items.some((i) => i.state === 'NEEDED') ? (
           <button
@@ -551,7 +559,7 @@ export default function CaseDocuments() {
             My records are complete — start the review
           </button>
         )}
-      </div>
+      </section>
 
       {/* Informed run-anyway consent (bulk_zip_upload.md §UX): the review can
           run on a partial record, but the cost consequence is stated BEFORE

@@ -95,9 +95,31 @@ describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
   it('state chips distinguish received items; upload link only on still-needed items', async () => {
     render(<CaseDocuments />)
     expect(await screen.findByText('✓ Received')).toBeInTheDocument()
-    expect(screen.getByText('Needed')).toBeInTheDocument()
+    expect(screen.getByText(/Needed/)).toBeInTheDocument()
     // one NEEDED item → exactly one per-item upload link
     expect(screen.getAllByRole('button', { name: /Upload this document/ })).toHaveLength(1)
+  })
+
+  it('frames the two phases: free iterative upload (Step 1) vs the charged run (Step 2)', async () => {
+    render(<CaseDocuments />)
+    const steps = await screen.findByTestId('phase-steps')
+    expect(steps).toHaveTextContent('Step 1 · Collect & upload')
+    expect(steps).toHaveTextContent('Step 2 · Run your review')
+    const run = screen.getByTestId('run-review')
+    expect(run).toHaveTextContent(/includes one analysis run/)
+    expect(run).toHaveTextContent(/later run with new documents costs \$99/)
+    expect(run).toHaveTextContent(/Uploading more documents never costs anything/)
+  })
+
+  it('groups the checklist by what is left: still-needed rows on top, received collapsed to one line', async () => {
+    render(<CaseDocuments />)
+    const needed = await screen.findByTestId('still-needed')
+    expect(needed).toHaveTextContent('Still needed (1)')
+    expect(needed).toHaveTextContent('Judgment and sentence')
+    // the received item lives OUTSIDE the still-needed group as a single line
+    // (it also appears in the echo-back card, hence getAllByText)
+    expect(needed).not.toHaveTextContent("Reporter's record volumes")
+    expect(screen.getAllByText("Reporter's record volumes").length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows the unpack summary with skipped-file honesty when lastZip is present', async () => {
