@@ -416,6 +416,49 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     };
   }
 
+  // Customer feedback (customer_feedback_program.md): partial upsert across
+  // touches; open text stays in the database only.
+  fastify.get('/:id/feedback', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { tenantId, userId } = request.auth;
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      return (await tx.caseFeedback.findUnique({ where: { caseId: id } })) ?? {};
+    });
+  });
+
+  fastify.post('/:id/feedback', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { tenantId, userId } = request.auth;
+    const body = z
+      .object({
+        clarity: z.number().int().min(1).max(5).optional(),
+        recommend: z.enum(['yes', 'not_sure', 'no']).optional(),
+        decidedText: z.string().max(2000).optional(),
+        sharedWithLawyer: z.enum(['yes', 'planning', 'no']).optional(),
+        objectionText: z.string().max(2000).optional(),
+      })
+      .parse(request.body);
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      const row = await tx.caseFeedback.upsert({
+        where: { caseId: id },
+        create: { caseId: id, tenantId, ...body },
+        update: body,
+      });
+      const { capture } = await import('../services/analytics.service');
+      capture('snl.survey_report', tenantId, {
+        ...(body.clarity != null ? { clarity: body.clarity } : {}),
+        ...(body.recommend ? { recommend: body.recommend } : {}),
+        ...(body.sharedWithLawyer ? { shared: body.sharedWithLawyer } : {}),
+        has_text: Boolean(body.decidedText || body.objectionText),
+      });
+      return row;
+    });
+  });
+
   fastify.get('/:id/report', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { tenantId, userId } = request.auth;

@@ -115,6 +115,19 @@ export function sendQualityHold(to: string, opts: { caseUrl: string }) {
   });
 }
 
+export function sendFeedbackFollowup(to: string, opts: { surveyUrl: string }) {
+  return getProvider().send({
+    to,
+    subject: 'One quick question about your report',
+    text:
+      "It's been about a week since your Family Case Review report was ready. However it turned out, we want to know if we did our job well.\n\n" +
+      'Two quick questions (30 seconds, no sign-in tricks — the link opens your report page):\n' +
+      `${opts.surveyUrl}\n\n` +
+      'Thank you — every answer is read personally.' +
+      FOOTER,
+  });
+}
+
 export function sendPasswordReset(to: string, opts: { resetUrl: string }) {
   return send({
     to,

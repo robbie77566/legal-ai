@@ -221,6 +221,14 @@ const start = async () => {
     );
   }, 6 * 60 * 60 * 1000).unref();
 
+  // Feedback +7d follow-ups: daily sweep (customer_feedback_program.md §2)
+  // — independent of Stripe configuration.
+  setInterval(() => {
+    void import('./services/feedback.service').then(({ sendFeedbackFollowups }) =>
+      sendFeedbackFollowups().catch((e) => fastify.log.warn({ err: e }, 'feedback follow-up sweep failed'))
+    );
+  }, 24 * 3600 * 1000).unref();
+
   if (getStripe()) {
     setInterval(() => {
       void reconcilePayments()

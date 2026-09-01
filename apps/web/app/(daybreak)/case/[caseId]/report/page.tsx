@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { API_URL } from '../../../../../lib/api'
 import { getPaletteVariant } from '../../../../../lib/ab'
+import FeedbackCard from '../../../../../components/FeedbackCard'
 import { apiFetch } from '@/lib/api'
 
 /**
@@ -66,6 +67,7 @@ function FindingCard({ f, tone }: { f: ReportFinding; tone: 'signal' | 'review' 
 
 export default function CaseReport() {
   const { caseId } = useParams<{ caseId: string }>()
+  const variant = (useSearchParams().get('survey') === 'share' ? 'share' : 'report') as 'report' | 'share'
   const [opened, setOpened] = useState(false)
   const [data, setData] = useState<ReportData | null>(null)
   const [notReady, setNotReady] = useState(false)
@@ -140,6 +142,7 @@ export default function CaseReport() {
         <div className="mt-3 space-y-3">
           <a
             href={`${API_URL}/cases/${caseId}/report/pdf?palette=${getPaletteVariant()}`}
+            onClick={() => window.dispatchEvent(new Event('snl:pdf-download'))}
             className="block rounded-xl bg-db-accent px-5 py-3 text-center font-semibold text-db-surface"
           >
             Download this report as a PDF
@@ -166,6 +169,8 @@ export default function CaseReport() {
           </button>
         </div>
       </section>
+
+      <FeedbackCard caseId={caseId} variant={variant} />
 
       {data.deadlinePosture && (
         <section

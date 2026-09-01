@@ -346,6 +346,60 @@ describe('auto-QA (AUTO_APPROVE)', () => {
   });
 });
 
+describe('customer feedback (customer_feedback_program.md)', () => {
+  it('upserts across touches, enforces access, sweeps the +7d follow-up once', async () => {
+    const post = await fastify.inject({
+      method: 'POST', url: `/cases/${caseId}/feedback`, headers: { cookie: clientCookie },
+      payload: { clarity: 5, recommend: 'yes', decidedText: 'to hire a lawyer' },
+    });
+    expect(post.statusCode).toBe(200);
+    const touch2 = await fastify.inject({
+      method: 'POST', url: `/cases/${caseId}/feedback`, headers: { cookie: clientCookie },
+      payload: { sharedWithLawyer: 'planning' },
+    });
+    expect(touch2.statusCode).toBe(200);
+    const row = await prisma.caseFeedback.findUniqueOrThrow({ where: { caseId } });
+    expect(row.clarity).toBe(5);
+    expect(row.sharedWithLawyer).toBe('planning'); // upsert preserved touch 1
+
+    // A stranger cannot read or write another case's feedback
+    const stranger = await prisma.user.create({ data: { email: `${run}_s@x.com`, tenantId, role: 'CLIENT' } });
+    const strangerCookie = `next-auth.session-token=${await encodeSessionToken({ userId: stranger.id, tenantId, role: 'CLIENT' })}`;
+    const denied = await fastify.inject({ method: 'GET', url: `/cases/${caseId}/feedback`, headers: { cookie: strangerCookie } });
+    expect(denied.statusCode).toBe(403);
+
+    // +7d sweep: a self-contained READY fixture with an 8-day-old report
+    const { sendFeedbackFollowups } = await import('../src/services/feedback.service');
+    const { __setEmailProviderForTests } = await import('@hg/email');
+    const sent: { subject: string }[] = [];
+    __setEmailProviderForTests({ send: async (m) => { sent.push(m); return { delivered: true }; } });
+    const c5 = await prisma.case.create({
+      data: {
+        title: `${run}_fb`, tenantId, status: 'READY', lane: 'TRIAL', vehicle: '11.07',
+        slaStartedAt: new Date(), accessList: { create: { userId, role: 'ADMIN' } },
+      },
+    });
+    await prisma.report.create({
+      data: {
+        caseId: c5.id, tenantId, runId: 'r_fb', versionNo: 1, templateVersion: 'AB-v1',
+        approvedBy: 'auto_qa', findingsSnapshot: { findings: [] },
+        renderedAt: new Date(Date.now() - 8 * 86400_000),
+      },
+    });
+    const n1 = await sendFeedbackFollowups();
+    expect(n1).toBeGreaterThanOrEqual(1);
+    const firstBatch = sent.filter((m) => /quick question/.test(m.subject)).length;
+    expect(firstBatch).toBeGreaterThanOrEqual(1);
+    await sendFeedbackFollowups();
+    expect(sent.filter((m) => /quick question/.test(m.subject)).length).toBe(firstBatch); // idempotent
+    __setEmailProviderForTests(undefined);
+
+    // founder read
+    const opsRead = await fastify.inject({ method: 'GET', url: '/ops/feedback', headers: { cookie: qaCookie } });
+    expect(opsRead.statusCode).toBe(403); // ATTORNEY is not ADMIN
+  });
+});
+
 describe('auto-QA holds: customer notice + admin queue (auto_qa_hold_workflow.md)', () => {
   it('emails the family ONCE per hold episode, lists the hold with reasons, and 409s rerun on wrong status', async () => {
     const { autoApproveCase } = await import('../src/services/auto-qa.service');

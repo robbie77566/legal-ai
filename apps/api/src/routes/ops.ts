@@ -126,6 +126,17 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     return promo;
   });
 
+  // Founder weekly read (customer_feedback_program.md 4): every response, raw.
+  fastify.get('/feedback', async () => {
+    const rows = await prisma.caseFeedback.findMany({ orderBy: { updatedAt: 'desc' }, take: 200 });
+    const cases = await prisma.case.findMany({
+      where: { id: { in: rows.map((r) => r.caseId) } },
+      select: { id: true, title: true },
+    });
+    const byId = new Map(cases.map((c) => [c.id, c.title]));
+    return rows.map((r) => ({ ...r, title: byId.get(r.caseId) ?? r.caseId }));
+  });
+
   // NFR-4: per-case COGS is a single query — tokens/pages are ground
   // truth, dollars are env-rate estimates (see costs.service).
   fastify.get('/cases/:id/cogs', async (request) => {

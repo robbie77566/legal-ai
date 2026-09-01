@@ -105,6 +105,22 @@ model PromoCode {
   createdAt      DateTime  @default(now())
 }
 
+// Customer feedback (customer_feedback_program.md): one row per case,
+// upserted across touches. Open text stays HERE only - never in analytics.
+model CaseFeedback {
+  id               String   @id @default(cuid())
+  caseId           String   @unique
+  tenantId         String
+  clarity          Int? // Q1 CSAT 1-5
+  recommend        String? // yes | not_sure | no  (Q2, the value proxy)
+  decidedText      String? // "what did this report help you decide?"
+  sharedWithLawyer String? // yes | planning | no (touch 2)
+  objectionText    String? // "what almost stopped you?"
+  followupSentAt   DateTime? // +7d email stamp (idempotence)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 // NFR-4 cost telemetry: every model/OCR call writes a row, so per-case
 // COGS is a single query. No FK (survives deletion like other ledgers);
 // amountUsd is computed from env-configured rates — tokens are the truth,
