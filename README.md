@@ -130,7 +130,22 @@ pnpm --filter api tsx scripts/compare-models.ts <caseId> [challengerModel]
 3. Sign in as `qa@dev.local` / `DevQA2026!x` → `/qa` → review findings (edit Part A, watch the reading-level lint) → approve.
 4. Back as the family: `/case/<id>/report` renders; download the PDF; `/case/<id>/status` shows the tracker.
 
-**Paywall/purchase flow (no real billing):** with Stripe TEST keys in `.env`, go through `/check` → `/buy` and pay with card `4242 4242 4242 4242` (any future expiry/CVC). Fulfillment creates the case exactly as production does. Refund it from `/ops` to exercise the refund path. Webhooks in dev need `stripe listen --forward-to localhost:3001/webhooks/stripe` (or rely on the hourly reconciliation sweep).
+**Paywall/purchase flow (no real billing):** with Stripe TEST keys in `.env`, go through `/check` → `/buy` and pay with a test card (any future expiry, any CVC, any ZIP). Fulfillment creates the case exactly as production does. Refund it from `/ops` to exercise the refund path. Webhooks in dev need `stripe listen --forward-to localhost:3001/webhooks/stripe` (or rely on the hourly reconciliation sweep).
+
+Stripe test cards (work ONLY with test-mode keys; live mode rejects them):
+
+| Card number | Tests | Expected outcome |
+|---|---|---|
+| `4242 4242 4242 4242` | Happy path | Payment succeeds; case created |
+| `4000 0025 0000 3155` | 3D Secure challenge | Authentication popup, then succeeds |
+| `4000 0000 0000 0002` | Generic decline | Checkout shows a sane error; **no case is created** |
+| `4000 0000 0000 9995` | Insufficient funds | Same as decline — error, no case |
+
+After a successful test payment, the sequence to watch: Stripe redirects to the success URL → `checkout.session.completed` webhook hits the api → case created in `AWAITING_DOCS` → case appears in the buyer's case list. **If payment succeeds but no case appears, the webhook secret is the first suspect** — `STRIPE_WEBHOOK_SECRET` in `.env` must be the one printed by `stripe listen` (it changes per listener session); the hourly reconciliation sweep will eventually fulfill anyway, which masks a broken webhook — check webhook 200s, don't rely on the sweep.
+
+**Production is different:** live keys reject all test cards. The prod payment path is verified by the launch-day real-money smoke (buy with a personal card, refund from `/ops`) — see `docs/operations/go_live_readiness.md` §6.
+
+**Promo/free path (no Stripe at all):** apply a 100%-off code (dev has `SNOT26`, cap 5) at `/buy` — checkout must return a $0 fulfillment with **no card form**, the case appears immediately, and the code's redemption count ticks in `/ops` promos.
 
 **Malware-scan path:** `docker compose --profile scan up -d clamav`, set `CLAMD_HOST=localhost`, upload an [EICAR test file](https://www.eicar.org/download-anti-malware-testfile/) — it must quarantine, never digitize.
 

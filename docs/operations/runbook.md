@@ -28,6 +28,7 @@
 | Case parked at DOCS_COMPLETE | No ANTHROPIC key, or Redis down at enqueue | Loud in logs by design (SRE-2); re-enqueue via rerun script |
 | Textract AccessDenied/Throttling mid-poll | IAM propagation or rate | Poll grace window absorbs 12 attempts; persistent = check IAM policy attach |
 | OCR_HALT hold | >30% pages under 0.6 confidence (E-1) | Deliberate money-saver: inspect pages via `/cases/:id/pages`, decide re-scan vs. proceed with customer |
+| Payment succeeded but no case created | `checkout.session.completed` webhook not landing — wrong/stale `STRIPE_WEBHOOK_SECRET` (dev: it changes per `stripe listen` session; prod: endpoint secret from the Stripe dashboard) | Check webhook delivery 200s in Stripe first. The hourly reconciliation sweep will fulfill eventually and MASKS the broken webhook — fix the secret, don't declare victory on the sweep. Test cards (`4242…`, decline/3DS variants — matrix in README §How to test) work only in test mode; prod is verified by the launch-day real-money smoke (go_live_readiness §6) |
 
 ## Server & process discipline (dev)
 
