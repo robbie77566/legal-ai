@@ -23,7 +23,7 @@ In production (Render) there are no files: every value is a service env var (blu
 | `NEXTAUTH_SECRET` | 🔑 | Session-token signing — **identical value on api AND web** or every API call 401s after sign-in | You generate: `openssl rand -base64 32` |
 | `PORT` | | HTTP port (default 3001) | Render injects it; never set manually there |
 | `NODE_ENV` | | `production` enables prod guards (seed refusal etc.) | Blueprint sets it |
-| `WEB_ORIGIN` | | CORS allowlist, comma-separated | Prod: `https://www.snotnoselegal.com`. Dev default covers localhost + LAN |
+| `WEB_ORIGIN` | | Comma-separated, dual purpose: CORS allowlist (all entries) AND Stripe checkout success/cancel redirect origin (FIRST entry) | Prod: `https://www.snotnoselegal.com` (blueprint sets it). Dev: set it with your browsing host first — unset, redirects default to localhost and a LAN-IP test lands on the wrong host after payment (hit live 2026-09-01) |
 
 ## AI & document pipeline — API service
 
