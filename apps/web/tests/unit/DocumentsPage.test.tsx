@@ -19,6 +19,7 @@ const CHECKLIST = {
     { id: 'doc_1', filename: 'vol3.pdf', suggestedChecklistItemId: 'it_rr', classificationConfirmed: false, quarantined: false },
     { id: 'doc_2', filename: 'weird.pdf', suggestedChecklistItemId: null, classificationConfirmed: false, quarantined: true },
   ],
+  lastZip: null,
 }
 const METER = { billable: 214, duplicatesIgnored: 12, cap: 5000 }
 
@@ -70,5 +71,72 @@ describe('documents page — echo-back, meter, quarantine (UI spec §5.5)', () =
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('weird.pdf')
     expect(alert).toHaveTextContent(/not your case/)
+  })
+})
+
+describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
+  it('renders the ZIP card with the plain-words explainer and per-device how-to', async () => {
+    render(<CaseDocuments />)
+    const card = await screen.findByTestId('zip-card')
+    expect(card).toHaveTextContent(/one file that holds many files/)
+    expect(card).toHaveTextContent(/Compressed \(zipped\) folder/) // Windows
+    expect(card).toHaveTextContent(/Files by Google/) // Android
+    expect(screen.getByRole('button', { name: /Upload a ZIP file/ })).toBeInTheDocument()
+  })
+
+  it('shows the unpack summary with skipped-file honesty when lastZip is present', async () => {
+    CHECKLIST.lastZip = {
+      accepted: 7, skippedUnsupported: 2, skippedTooLarge: 0, skippedJunk: 3, failed: 1,
+      at: new Date().toISOString(),
+    } as never
+    render(<CaseDocuments />)
+    const summary = await screen.findByTestId('zip-summary')
+    expect(summary).toHaveTextContent('7 documents added')
+    expect(summary).toHaveTextContent(/2 files skipped/)
+    expect(summary).toHaveTextContent(/never cost you anything/)
+    CHECKLIST.lastZip = null
+  })
+
+  it('still-needed nudge names the missing items and suggests the single-file path for ≤2 gaps', async () => {
+    render(<CaseDocuments />)
+    const nudge = await screen.findByTestId('still-needed')
+    expect(nudge).toHaveTextContent('Judgment and sentence')
+    expect(nudge).toHaveTextContent(/upload each one on its own/)
+  })
+
+  it('an incomplete checklist gates the review behind the informed $99 consent, then posts records-complete', async () => {
+    render(<CaseDocuments />)
+    fireEvent.click(await screen.findByRole('button', { name: /everything I could get/ }))
+    const modal = screen.getByTestId('run-anyway-confirm')
+    expect(modal).toHaveTextContent(/includes one full analysis/)
+    expect(modal).toHaveTextContent(/costs \$99/)
+    expect(calls.some((c) => c.includes('/records-complete'))).toBe(false) // nothing ran yet
+    fireEvent.click(screen.getByRole('button', { name: /run my review now/i }))
+    await waitFor(() =>
+      expect(calls.some((c) => c === 'POST http://localhost:3001/cases/case_1/records-complete')).toBe(true)
+    )
+  })
+
+  it('backing out of the consent runs nothing', async () => {
+    render(<CaseDocuments />)
+    fireEvent.click(await screen.findByRole('button', { name: /everything I could get/ }))
+    fireEvent.click(screen.getByRole('button', { name: /keep collecting/i }))
+    expect(screen.queryByTestId('run-anyway-confirm')).toBeNull()
+    expect(calls.some((c) => c.includes('/records-complete'))).toBe(false)
+  })
+
+  it('a fully satisfied checklist keeps the direct records-complete button — no consent detour', async () => {
+    const done = { ...CHECKLIST, items: CHECKLIST.items.map((i) => ({ ...i, state: 'CONFIRMED' })) }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: RequestInfo | URL) => {
+        const u = String(url)
+        const body = u.endsWith('/checklist') ? done : u.endsWith('/pages') ? METER : { ok: true }
+        return { ok: true, json: async () => body } as Response
+      })
+    )
+    render(<CaseDocuments />)
+    expect(await screen.findByRole('button', { name: /My records are complete/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /everything I could get/ })).toBeNull()
   })
 })

@@ -42,6 +42,19 @@ export const CASE_EVENT_SCHEMAS = {
     1: z.object({ checklistItemCount: count }).strict(),
   },
   'doc.uploaded': { 1: z.object({ documentId: id }).strict() },
+  // Bulk ZIP unpack summary (bulk_zip_upload.md) — counts only, never entry
+  // names (filenames carry PII).
+  'zip.ingested': {
+    1: z
+      .object({
+        accepted: count,
+        skippedUnsupported: count,
+        skippedTooLarge: count,
+        skippedJunk: count,
+        failed: count,
+      })
+      .strict(),
+  },
   'doc.quarantined': { 1: z.object({ documentId: id }).strict() },
   'doc.ocr_done': {
     1: z.object({ documentId: id, pages: count, lowConfidencePages: count }).strict(),

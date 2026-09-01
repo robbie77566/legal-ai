@@ -1,4 +1,5 @@
 import { Queue } from 'bullmq';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { createConnection } from '../lib/redis';
 dotenv.config();
@@ -36,6 +37,21 @@ export const enqueueAnalysis = async (caseId: string, tenantId: string) => {
 
 export const enqueueDocument = async (documentId: string, s3Key: string, caseId: string) => {
   await ingestionQueue.add('document:process', { documentId, s3Key, caseId });
+};
+
+// Bulk ZIP unpack (bulk_zip_upload.md): jobId = the zip's s3Key, so a
+// double-registered zip can never unpack twice.
+export const zipQueue = new Queue('zip', {
+  connection,
+  defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+});
+
+export const enqueueZip = async (zipKey: string, caseId: string, tenantId: string, actor: string) => {
+  await zipQueue.add(
+    'zip:ingest',
+    { zipKey, caseId, tenantId, actor },
+    { jobId: `zip-${crypto.createHash('sha1').update(zipKey).digest('hex')}` }
+  );
 };
 
 export const enqueueGraphEntityExtraction = async (documentId: string, chunks: { id: string; text: string }[], caseId: string) => {

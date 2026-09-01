@@ -90,6 +90,20 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid document key' });
     }
 
+    // Bulk ZIP path (bulk_zip_upload.md): the archive itself is a container,
+    // not a Document — a background job unpacks it and registers each usable
+    // entry as an ordinary document (scan → digitize → echo-back unchanged).
+    if (/\.zip$/i.test(filename)) {
+      try {
+        const { enqueueZip } = await import('../services/queue');
+        await enqueueZip(s3Key, caseId, request.auth.tenantId, request.auth.userId);
+      } catch (e) {
+        console.warn('[Queue] Failed to enqueue zip — Redis may be unavailable:', e);
+        return reply.status(503).send({ error: 'Could not start unpacking — please try again' });
+      }
+      return { success: true, zip: true };
+    }
+
     // Register the document + its lifecycle event in one RLS-scoped tx
     const document = await withTenant(request.auth.tenantId, async (tx) => {
       const doc = await tx.document.create({

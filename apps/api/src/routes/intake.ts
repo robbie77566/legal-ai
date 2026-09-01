@@ -183,6 +183,14 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       if (kase.delayOurs) holds.push('DELAY_OURS');
       if (kase.subsequentWrit) holds.push('SUBSEQUENT_WRIT_MODE');
 
+      // Latest bulk-ZIP unpack summary (bulk_zip_upload.md) so the page can
+      // report "we found N usable files, skipped M" after an archive upload.
+      const lastZipEvent = await tx.caseEvent.findFirst({
+        where: { caseId: id, type: 'zip.ingested' },
+        orderBy: { id: 'desc' },
+        select: { payload: true, createdAt: true },
+      });
+
       return {
         status: kase.status,
         customer: customerView(kase.status as Parameters<typeof customerView>[0], holds),
@@ -191,6 +199,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         expectedReadyAt: kase.expectedReadyAt,
         items,
         documents,
+        lastZip: lastZipEvent ? { ...(lastZipEvent.payload as object), at: lastZipEvent.createdAt } : null,
       };
     });
   });

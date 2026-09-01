@@ -149,6 +149,7 @@ const start = async () => {
     await Promise.all([
       import('./workers/ingestion.worker'),
       import('./workers/analysis.worker'),
+      import('./workers/zip.worker'),
     ]);
 
     // Transactional-outbox publisher (M1): tails unpublished CaseEvents and
@@ -176,7 +177,8 @@ const start = async () => {
           stopOutbox();
           const { analysisWorker } = await import('./workers/analysis.worker');
           const { ingestionWorker } = await import('./workers/ingestion.worker');
-          await Promise.allSettled([analysisWorker.close(), ingestionWorker.close()]);
+          const { zipWorker } = await import('./workers/zip.worker');
+          await Promise.allSettled([analysisWorker.close(), ingestionWorker.close(), zipWorker.close()]);
           await fastify.close();
         } finally {
           process.exit(0);
