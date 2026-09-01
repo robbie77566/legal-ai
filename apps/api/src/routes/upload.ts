@@ -1,26 +1,15 @@
 import { FastifyInstance } from 'fastify';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent } from '@hg/database';
 import crypto from 'crypto';
-
-const s3Config: any = {
-  region: process.env.AWS_REGION || 'us-east-1',
-  endpoint: process.env.S3_ENDPOINT || undefined,
-  forcePathStyle: true
-};
-
-// Only explicitly pass credentials if they are provided in .env
-// Otherwise, allow the AWS SDK to resolve via ~/.aws/credentials or IAM roles
-if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-  s3Config.credentials = {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  };
-}
-
-const s3 = new S3Client(s3Config);
+// The SHARED lazy client (storage.service), never a module-level one: import
+// hoisting runs this module before index.ts's dotenv.config(), so a client
+// built here reads an EMPTY env — that exact bug presigned us-east-1 URLs
+// for a us-east-2 bucket and 301'd every browser upload (found live,
+// 2026-09-01, by the bulk-ZIP E2E).
+import { s3, bucket } from '../services/storage.service';
 
 const URLRequestSchema = z.object({
   filename: z.string(),
@@ -60,13 +49,13 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
     const s3Key = `cases/${caseId}/${crypto.randomUUID()}-${filename}`;
     
     const command = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET || 'legal-ai-transcripts',
+      Bucket: bucket(),
       Key: s3Key,
     });
-    
+
     try {
       // Pre-signed URL valid for 1 hour allows 5GB uploads directly to S3
-      const url = await getSignedUrl(s3, command, { expiresIn: 3600 });
+      const url = await getSignedUrl(s3(), command, { expiresIn: 3600 });
       return { url, s3Key };
     } catch (err: any) {
       if (err.name === 'CredentialsProviderError') {

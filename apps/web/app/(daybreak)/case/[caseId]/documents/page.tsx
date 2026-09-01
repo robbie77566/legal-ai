@@ -144,15 +144,16 @@ export default function CaseDocuments() {
       if (!presign.ok) throw new Error('Could not start the upload — please try again.')
       const { url, s3Key } = await presign.json()
 
-      try {
-        await fetch(url, {
-          method: 'PUT',
-          body: file,
-          headers: { 'Content-Type': file.type || 'application/octet-stream' },
-        })
-      } catch {
-        /* local dev without S3: registration still records the document */
-      }
+      // Honest failure: a swallowed S3 error here once registered documents
+      // with NO object behind them (the presign-region 301, 2026-09-01) —
+      // the file "arrived" on screen and the pipeline starved. If storage
+      // says no, the customer must hear it.
+      const put = await fetch(url, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      })
+      if (!put.ok) throw new Error('The upload didn’t reach our storage — please try again.')
 
       const complete = await apiFetch('/upload/complete', {
         method: 'POST',
