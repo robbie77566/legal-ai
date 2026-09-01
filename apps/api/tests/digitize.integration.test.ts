@@ -11,7 +11,7 @@ import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { fastify } from '../src/index';
 import prisma from '@hg/database';
 import { encodeSessionToken } from '@hg/auth';
-import { digitizeDocument, buildDefaultExtractor, type Extractor } from '../src/services/digitize.service';
+import { digitizeDocument, buildDefaultExtractor, type Extractor, type DocClassifier } from '../src/services/digitize.service';
 
 const run = `dig_${Date.now()}`;
 let tenantId: string;
@@ -65,6 +65,80 @@ afterAll(async () => {
   await prisma.user.deleteMany({ where: { id: userId } });
   await prisma.tenant.deleteMany({ where: { id: tenantId } });
   await prisma.$disconnect();
+});
+
+describe('Tier-1 classifier confidence policy (upload_page_ux_review.md)', () => {
+  const stub = (kind: string | null, confidence: 'high' | 'medium' | 'low'): DocClassifier => ({
+    classify: async () => ({ kind, confidence }),
+  });
+  const uniqueExtractor = (tag: string): Extractor => ({
+    extract: async () => [{ text: `classifier-policy fixture ${tag} ${Date.now()}`, confidence: 1 }],
+  });
+  // Own case: the born-digital suite asserts exact event/page counts on the
+  // shared case, so this suite must not write into it.
+  let polCaseId: string;
+  const polDoc = (filename: string) => prisma.document.create({ data: { filename, caseId: polCaseId } });
+  beforeAll(async () => {
+    const c = await prisma.case.create({
+      data: {
+        title: `${run}_pol`, tenantId, status: 'AWAITING_DOCS', lane: 'TRIAL',
+        accessList: { create: { userId, role: 'ADMIN' } },
+      },
+    });
+    polCaseId = c.id;
+    await prisma.checklistItem.create({ data: { caseId: polCaseId, kind: 'judgment', label: 'Judgment and sentence', howToKey: 'howto.judgment' } });
+    await prisma.checklistItem.create({ data: { caseId: polCaseId, kind: 'indictment', label: 'Indictment', howToKey: 'howto.indictment' } });
+  });
+  afterAll(async () => {
+    await prisma.checklistItem.deleteMany({ where: { caseId: polCaseId } });
+    await prisma.documentPage.deleteMany({ where: { document: { caseId: polCaseId } } });
+    await prisma.documentChunk.deleteMany({ where: { document: { caseId: polCaseId } } });
+    await prisma.document.deleteMany({ where: { caseId: polCaseId } });
+    await prisma.caseAccess.deleteMany({ where: { caseId: polCaseId } });
+    await prisma.case.deleteMany({ where: { id: polCaseId } });
+  });
+
+  it('HIGH confidence files silently: item checked, no echo-back card (classificationConfirmed)', async () => {
+    const doc = await polDoc('judgment-scan.pdf');
+    await digitizeDocument(doc.id, {
+      bytes: pdfBytes,
+      s3Key: `cases/${polCaseId}/judgment-scan.pdf`,
+      extractor: uniqueExtractor('high'),
+      classifier: stub('judgment', 'high'),
+    });
+    const updated = await prisma.document.findUniqueOrThrow({ where: { id: doc.id } });
+    const item = await prisma.checklistItem.findFirstOrThrow({ where: { caseId: polCaseId, kind: 'judgment' } });
+    expect(updated.suggestedChecklistItemId).toBe(item.id);
+    expect(updated.classificationConfirmed).toBe(true); // the card never shows
+    expect(item.state).toBe('UPLOADED');
+  });
+
+  it('LOW confidence proposes nothing — a wrong guess is worse than none', async () => {
+    const doc = await polDoc('mystery.pdf');
+    const summary = await digitizeDocument(doc.id, {
+      bytes: pdfBytes,
+      s3Key: `cases/${polCaseId}/mystery.pdf`,
+      extractor: uniqueExtractor('low'),
+      classifier: stub('indictment', 'low'),
+    });
+    expect(summary.suggestedKind).toBeNull();
+    const updated = await prisma.document.findUniqueOrThrow({ where: { id: doc.id } });
+    expect(updated.suggestedChecklistItemId).toBeNull();
+    expect(updated.classificationConfirmed).toBe(false);
+  });
+
+  it('MEDIUM confidence keeps the confirm/correct contract (suggested, unconfirmed)', async () => {
+    const doc = await polDoc('maybe-indictment.pdf');
+    await digitizeDocument(doc.id, {
+      bytes: pdfBytes,
+      s3Key: `cases/${polCaseId}/maybe-indictment.pdf`,
+      extractor: uniqueExtractor('medium'),
+      classifier: stub('indictment', 'medium'),
+    });
+    const updated = await prisma.document.findUniqueOrThrow({ where: { id: doc.id } });
+    expect(updated.suggestedChecklistItemId).not.toBeNull();
+    expect(updated.classificationConfirmed).toBe(false); // card shows
+  });
 });
 
 describe('born-digital PDF digitization (pdf-parse, no network)', () => {

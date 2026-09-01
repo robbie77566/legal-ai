@@ -38,6 +38,16 @@ The checklist needs *many* documents; round 1 left each as a padded card (~80px 
 | F13 | Add-zone copy restated what the picker already communicates. | Fixed: two lines + the collapsed ZIP explainer. |
 | F14 | **The cost consequence lived only inside the confirm modal** — the $99-per-later-run fact arrived at the last click instead of shaping the iterate-then-run behavior. | Fixed: the Step 2 card states it always: "Your purchase includes one analysis run… a later run with new documents costs $99. Take your time — uploading more documents never costs anything." The modal remains the final gate when items are missing. |
 
-## 4. Out of scope, tracked
+## 4. Round 3 — the "quick check" audited (2026-09-01, PO question)
+
+The PO asked what the echo-back quick check actually accomplishes. Honest answer: it delegated quality control of a crude regex classifier to the person least equipped to audit legal document types — most users tap "That's right" to dismiss it, producing noise, not signal. **Shipped fix (option 1): the Tier-1 model classifier** (Haiku, ~fraction of a cent per document, cost-recorded) replaces the regex as the primary classifier with a confidence policy:
+
+- **high** → filed silently; the item checks off and no card ever shows
+- **medium** → the old contract: suggestion + confirm/correct card
+- **low / no match** → no suggestion at all (a wrong guess is worse than none)
+
+Any model failure (no key, network, unparseable output) falls back to the regex at medium confidence — the pipeline never depends on the model being up, and tests stay hermetic (no injected classifier = regex only). Env knobs: `DOC_CLASSIFIER_MODEL` (default claude-haiku-4-5), `DOC_CLASSIFIER_USD_FACTOR` (Haiku-vs-analysis-model price ratio for the cost estimate, default 0.2). Deferred from that discussion: the "I don't know / none of these" option in the correction picker.
+
+## 5. Out of scope, tracked
 
 F8/F9 above; Spanish for both surfaces (the recorded i18n P1 gap); replaying missed activity-feed lines on reconnect (needs a customer-safe events endpoint — today a mid-analysis page load gets the panel, new lines from the next event on).

@@ -1,6 +1,6 @@
 import { Worker, Job } from 'bullmq';
 import { createConnection } from '../lib/redis';
-import { digitizeDocument, buildDefaultExtractor, buildDefaultScanner } from '../services/digitize.service';
+import { digitizeDocument, buildDefaultExtractor, buildDefaultScanner, buildDefaultClassifier } from '../services/digitize.service';
 import { getObjectBytes } from '../services/storage.service';
 
 /**
@@ -27,6 +27,7 @@ export const ingestionWorker = new Worker(
       s3Key,
       extractor: buildDefaultExtractor(),
       scanner: buildDefaultScanner(),
+      classifier: buildDefaultClassifier(),
     });
 
     // M1 exit criterion: the SSE channel is fed by the outbox EXCLUSIVELY —

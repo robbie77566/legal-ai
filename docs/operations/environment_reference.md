@@ -29,6 +29,8 @@ In production (Render) there are no files: every value is a service env var (blu
 
 | Var | 🔑 | Purpose | Where to get it |
 |---|---|---|---|
+| `DOC_CLASSIFIER_MODEL` | | Tier-1 document classifier model (checklist filing) | Default `claude-haiku-4-5-20251001`; falls back to regex heuristics on any failure |
+| `DOC_CLASSIFIER_USD_FACTOR` | | Price ratio of the classifier model vs the MODEL_USD_* rates, for cost estimates | Default 0.2 (Haiku vs Opus) |
 | `ANTHROPIC_API_KEY` | 🔑 | Claude analysis engine | console.anthropic.com → API Keys (rotated for prod — dev key transited chat) |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | 🔑 | S3 + Textract | AWS IAM → the least-privilege prod user (S3 rw on the two buckets + Textract Start/Get only) |
 | `AWS_REGION` | | Bucket/Textract region | `us-east-2` |
