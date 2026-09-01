@@ -70,7 +70,7 @@ export function SignInForm() {
       <div className="space-y-4">
         {/* Email */}
         <div className="space-y-1">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-400">
+          <label htmlFor="email" className="block text-sm font-semibold">
             Email address
           </label>
           <input
@@ -80,13 +80,13 @@ export function SignInForm() {
             placeholder="you@yourfirm.com"
             aria-describedby={errors.email ? 'email-error' : undefined}
             aria-invalid={!!errors.email}
-            className="w-full bg-[#0B0E14] border border-gray-700 rounded-lg px-3 py-2
-                       text-white focus:outline-none focus:ring-1 focus:ring-[#D4AF37]
-                       focus:border-[#D4AF37] aria-[invalid=true]:border-red-500"
+            className="w-full rounded-lg border border-db-line bg-db-surface p-3
+                       focus:outline-none focus:ring-2 focus:ring-db-accent
+                       aria-[invalid=true]:border-[var(--db-urgent)]"
             {...register('email')}
           />
           {errors.email && (
-            <p id="email-error" role="alert" className="text-red-400 text-xs mt-1">
+            <p id="email-error" role="alert" className="mt-1 text-xs" style={{ color: 'var(--db-urgent)' }}>
               {errors.email.message}
             </p>
           )}
@@ -106,17 +106,17 @@ export function SignInForm() {
           <input
             id="rememberMe"
             type="checkbox"
-            className="w-4 h-4 rounded border-gray-700 bg-[#0B0E14] accent-[#D4AF37]"
+            className="h-4 w-4 rounded border-db-line accent-[var(--db-accent)]"
             {...register('rememberMe')}
           />
-          <label htmlFor="rememberMe" className="text-sm text-gray-400">
+          <label htmlFor="rememberMe" className="text-sm text-db-muted">
             Remember me for 30 days
           </label>
         </div>
 
         {/* Server error */}
         {serverError && (
-          <div role="alert" className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+          <div role="alert" className="rounded-lg border px-4 py-3 text-sm" style={{ color: 'var(--db-urgent)', borderColor: 'var(--db-urgent)' }}>
             {serverError}
           </div>
         )}
@@ -125,17 +125,16 @@ export function SignInForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-[#D4AF37] hover:bg-[#F2D675] disabled:opacity-50
-                     text-[#0B0E14] font-semibold py-2.5 rounded-lg transition-colors
-                     focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:ring-offset-2
-                     focus:ring-offset-[#161B22]"
+          className="w-full rounded-xl bg-db-accent px-6 py-3 text-lg font-semibold text-db-surface disabled:opacity-50
+                     transition-colors focus:outline-none focus:ring-2 focus:ring-db-accent
+                     focus:ring-offset-2"
         >
           {isLoading ? 'Signing in…' : 'Sign in'}
         </button>
 
         <a
           href="/auth/forgot-password"
-          className="block text-center text-sm text-gray-500 underline hover:text-gray-300"
+          className="block text-center text-sm text-db-muted underline"
         >
           Forgot your password?
         </a>

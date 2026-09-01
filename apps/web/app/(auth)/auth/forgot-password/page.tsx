@@ -24,11 +24,11 @@ export default function ForgotPassword() {
   if (sent) {
     return (
       <div>
-        <h1 className="text-xl font-semibold text-white">Check your email</h1>
-        <p className="mt-3 text-sm text-gray-400">
+        <h1 className="text-xl font-semibold ">Check your email</h1>
+        <p className="mt-3 text-sm text-db-muted">
           If an account exists for {email}, a reset link is on its way. It works for one hour.
         </p>
-        <Link href="/auth/signin" className="mt-6 inline-block text-sm text-[#D4AF37] underline">
+        <Link href="/auth/signin" className="mt-6 inline-block text-sm text-db-accent underline">
           Back to sign in
         </Link>
       </div>
@@ -37,28 +37,28 @@ export default function ForgotPassword() {
 
   return (
     <form onSubmit={submit}>
-      <h1 className="text-xl font-semibold text-white">Reset your password</h1>
-      <p className="mt-2 text-sm text-gray-400">
+      <h1 className="text-xl font-semibold ">Reset your password</h1>
+      <p className="mt-2 text-sm text-db-muted">
         Enter your email and we&rsquo;ll send a reset link.
       </p>
       <label className="mt-5 block">
-        <span className="text-sm font-medium text-gray-400">Email</span>
+        <span className="text-sm font-semibold">Email</span>
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-gray-700 bg-[#0B0E14] px-3 py-2 text-white focus:border-[#D4AF37] focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+          className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 focus:outline-none focus:ring-2 focus:ring-db-accent"
         />
       </label>
       <button
         type="submit"
         disabled={busy}
-        className="mt-5 w-full rounded-lg bg-[#D4AF37] px-4 py-2 font-semibold text-[#0B0E14] disabled:opacity-40"
+        className="mt-5 w-full rounded-xl bg-db-accent px-4 py-3 font-semibold text-db-surface disabled:opacity-40"
       >
         {busy ? 'Sending…' : 'Send reset link'}
       </button>
-      <Link href="/auth/signin" className="mt-4 block text-center text-sm text-gray-500 underline">
+      <Link href="/auth/signin" className="mt-4 block text-center text-sm text-db-muted underline">
         Back to sign in
       </Link>
     </form>

@@ -40,11 +40,11 @@ function ResetForm() {
   if (!token || !userId) {
     return (
       <div>
-        <h1 className="text-xl font-semibold text-white">This link isn&rsquo;t complete</h1>
-        <p className="mt-3 text-sm text-gray-400">
+        <h1 className="text-xl font-semibold ">This link isn&rsquo;t complete</h1>
+        <p className="mt-3 text-sm text-db-muted">
           Use the full link from your email, or request a new one.
         </p>
-        <Link href="/auth/forgot-password" className="mt-5 inline-block text-sm text-[#D4AF37] underline">
+        <Link href="/auth/forgot-password" className="mt-5 inline-block text-sm text-db-accent underline">
           Request a new link
         </Link>
       </div>
@@ -53,40 +53,40 @@ function ResetForm() {
 
   return (
     <form onSubmit={submit}>
-      <h1 className="text-xl font-semibold text-white">Choose a new password</h1>
+      <h1 className="text-xl font-semibold ">Choose a new password</h1>
       {error && (
         <p role="alert" className="mt-3 text-sm text-red-400">
           {error}
         </p>
       )}
       <label className="mt-5 block">
-        <span className="text-sm font-medium text-gray-400">New password</span>
+        <span className="text-sm font-semibold">New password</span>
         <input
           type="password"
           required
           minLength={12}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-gray-700 bg-[#0B0E14] px-3 py-2 text-white focus:border-[#D4AF37] focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+          className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 focus:outline-none focus:ring-2 focus:ring-db-accent"
         />
-        <span className="mt-1 block text-xs text-gray-500">
+        <span className="mt-1 block text-xs text-db-muted">
           At least 12 characters, with an uppercase letter and a number or symbol.
         </span>
       </label>
       <label className="mt-4 block">
-        <span className="text-sm font-medium text-gray-400">Confirm password</span>
+        <span className="text-sm font-semibold">Confirm password</span>
         <input
           type="password"
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-gray-700 bg-[#0B0E14] px-3 py-2 text-white focus:border-[#D4AF37] focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+          className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 focus:outline-none focus:ring-2 focus:ring-db-accent"
         />
       </label>
       <button
         type="submit"
         disabled={busy}
-        className="mt-5 w-full rounded-lg bg-[#D4AF37] px-4 py-2 font-semibold text-[#0B0E14] disabled:opacity-40"
+        className="mt-5 w-full rounded-xl bg-db-accent px-4 py-3 font-semibold text-db-surface disabled:opacity-40"
       >
         {busy ? 'Saving…' : 'Set new password'}
       </button>
