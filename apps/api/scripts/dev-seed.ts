@@ -27,6 +27,7 @@ while (!fs.existsSync(path.join(dir, '.env')) && dir !== path.dirname(dir)) {
 dotenv.config({ path: path.join(dir, '.env') });
 
 import bcrypt from 'bcryptjs';
+import { DISCLOSURE_SET_VERSION } from '@hg/case-lifecycle';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import {
   S3Client,
@@ -56,7 +57,7 @@ async function main() {
       },
     });
     await prisma.disclosureAck.create({
-      data: { userId: user.id, tenantId: tenant.id, disclosureSetVersion: '2026-08-29.1', ip: '127.0.0.1' },
+      data: { userId: user.id, tenantId: tenant.id, disclosureSetVersion: DISCLOSURE_SET_VERSION, ip: '127.0.0.1' },
     });
   }
   const { id: userId, tenantId } = user;

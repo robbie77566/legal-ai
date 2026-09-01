@@ -37,7 +37,7 @@ const DISCLOSURES: [string, string][] = [
   ],
   [
     'Privacy and records',
-    "Your records are encrypted, seen only by our review team, never used to train AI, kept 12 months, and deleted sooner on request. You confirm you're entitled to possess the records you upload.",
+    "Your records are encrypted, seen only by our review team, kept 12 months, and deleted sooner on request. You confirm you're entitled to possess the records you upload.",
   ],
   [
     'Deadline reality',

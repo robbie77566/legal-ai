@@ -41,7 +41,7 @@ const FAQ: [string, string][] = [
   ],
   [
     'Who sees our records?',
-    'Your records are encrypted, seen only by our review team, never used to train AI, kept 12 months, and deleted sooner on request.',
+    'Your records are encrypted, seen only by our review team, kept 12 months, and deleted sooner on request.',
   ],
   [
     'How long does it take?',

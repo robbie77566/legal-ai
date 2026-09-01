@@ -25,9 +25,8 @@ export default function PrivacyPolicy() {
 
       <h2 className="mt-6 font-db-serif text-xl font-semibold">How your documents are used</h2>
       <p className="mt-2">
-        Documents are used only to produce your case review. Our AI providers process them under
-        zero-retention controls — your family&rsquo;s records are never used to train anyone&rsquo;s
-        models.
+        Documents are used to produce your case review. Our AI providers process them under
+        zero-retention controls — they do not keep your documents after processing.
       </p>
 
       <h2 className="mt-6 font-db-serif text-xl font-semibold">How long we keep things</h2>
