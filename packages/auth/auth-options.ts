@@ -100,6 +100,13 @@ export const authOptions: NextAuthOptions = {
         if (token.rememberMe) {
           token.exp = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
         }
+        // authorize() just verified the CURRENT password, so this session's
+        // staleness baseline is now. Without this, token.iat doesn't exist yet
+        // on the initial call and the invalidation check below reads a baseline
+        // of 0 — permanently locking out any account that has ever changed its
+        // password (500 at the encode step, since the callback returned null).
+        token.passwordAcknowledgedAt = Math.floor(Date.now() / 1000);
+        return token;
       }
 
       // session.update() from client — handle name change and post-password-change refresh.
@@ -132,7 +139,11 @@ export const authOptions: NextAuthOptions = {
               (token.passwordAcknowledgedAt as number) ?? 0
             );
             if (changedAtSec > baselineSec) {
-              return null as any; // Force re-authentication for stale sessions
+              // Strip identity instead of returning null: null makes next-auth
+              // encode() throw ("JWT Claims Set MUST be an object") and turns
+              // every request into an empty 500. An identity-less token flows to
+              // the session callback, which expires the session cleanly.
+              return {} as any;
             }
           }
 
@@ -148,6 +159,12 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      // Invalidated token (password changed elsewhere): hand the client an
+      // already-expired, identity-less session so useSession flips to
+      // unauthenticated and the user is prompted to sign in again.
+      if (!token.id) {
+        return { ...session, user: {}, expires: new Date(0).toISOString() } as any;
+      }
       if (session.user) {
         session.user.id = token.id as string;
         (session.user as any).tenantId = token.tenantId as string;
