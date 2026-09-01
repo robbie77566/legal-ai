@@ -27,7 +27,7 @@ describe('tracker view-model (UI spec §5.6)', () => {
 
   it('names the quality reviewer role and task concretely', () => {
     expect(trackerModel(customerView('QA_REVIEW', [])).qualityReviewCopy).toMatch(
-      /trained legal reviewer.*every citation/
+      /trained legal reviewer.*every citation.*24 hours/
     )
   })
 })

@@ -346,6 +346,45 @@ describe('auto-QA (AUTO_APPROVE)', () => {
   });
 });
 
+describe('auto-QA holds: customer notice + admin queue (auto_qa_hold_workflow.md)', () => {
+  it('emails the family ONCE per hold episode, lists the hold with reasons, and 409s rerun on wrong status', async () => {
+    const { autoApproveCase } = await import('../src/services/auto-qa.service');
+    const { __setEmailProviderForTests } = await import('@hg/email');
+    const sent: { subject: string }[] = [];
+    __setEmailProviderForTests({ send: async (m) => { sent.push(m); return { delivered: true }; } });
+
+    process.env.AUTO_APPROVE = '1';
+    const c = await prisma.case.create({
+      data: {
+        title: `${run}_hold`, tenantId, status: 'QA_REVIEW', lane: 'TRIAL', vehicle: '11.07',
+        slaStartedAt: new Date(), accessList: { create: { userId, role: 'ADMIN' } },
+      },
+    });
+    const bad = { runId: 'x', screensRun: 3, findingsPersisted: 0, droppedUngrounded: 9, screensExpected: 5 };
+    const h1 = await autoApproveCase(c.id, tenantId, bad);
+    expect(h1.outcome).toBe('held');
+    expect(h1.reasons?.length).toBeGreaterThan(1);
+    const h2 = await autoApproveCase(c.id, tenantId, bad); // re-run failed again
+    expect(h2.outcome).toBe('held');
+    expect(sent.filter((m) => /closer look/.test(m.subject))).toHaveLength(1); // once per episode
+
+    const holdsRes = await fastify.inject({ method: 'GET', url: '/qa/holds', headers: { cookie: qaCookie } });
+    expect(holdsRes.statusCode).toBe(200);
+    const row = (holdsRes.json() as { caseId: string; reasons: string[]; slaRemainingHours: number }[]).find((x) => x.caseId === c.id);
+    expect(row?.reasons.join()).toContain('screens');
+    expect(row!.slaRemainingHours).toBeLessThanOrEqual(24);
+
+    const rerunOk = await fastify.inject({ method: 'POST', url: `/qa/cases/${c.id}/rerun`, headers: { cookie: qaCookie } });
+    expect(rerunOk.statusCode).toBe(200);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: c.id } })).status).toMatch(/QA_REJECTED|ANALYZING/);
+    const rerunBad = await fastify.inject({ method: 'POST', url: `/qa/cases/${c.id}/rerun`, headers: { cookie: qaCookie } });
+    expect(rerunBad.statusCode).toBe(409);
+
+    __setEmailProviderForTests(undefined);
+    delete process.env.AUTO_APPROVE;
+  });
+});
+
 describe('multi-engine union', () => {
   it('unions engines into one QA set, tags engine, counts cross-engine agreements', async () => {
     const c3 = await prisma.case.create({

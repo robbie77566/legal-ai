@@ -66,13 +66,31 @@ export async function autoApproveCase(
 
   if (reasons.length > 0) {
     console.warn(`[auto-qa] case ${caseId} HELD for human review: ${reasons.join('; ')}`);
+
+    // Once-per-episode customer notice (auto_qa_hold_workflow.md R2/§4.1):
+    // a re-run failing again must not re-email the family.
+    const priorHolds = await prisma.auditLog.findMany({ where: { caseId, action: 'QA_DECISION' } });
+    const firstHold = !priorHolds.some((r) => (r.details as { decision?: string })?.decision === 'auto_hold');
+
     await AuditService.log({
       tenantId,
       caseId,
       action: LogAction.QA_DECISION,
       userId: 'auto_qa',
-      details: { decision: 'auto_hold', reasons },
+      details: { decision: 'auto_hold', reasons, heldAt: new Date().toISOString() },
     });
+
+    if (firstHold) {
+      const { capture } = await import('./analytics.service');
+      capture('snl.qa_hold', tenantId, { reasons: reasons.join(';') });
+      const ownerAccess = await prisma.caseAccess.findFirst({ where: { caseId, role: 'ADMIN' } });
+      const owner = ownerAccess ? await prisma.user.findUnique({ where: { id: ownerAccess.userId } }) : null;
+      if (owner?.email) {
+        const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+        const { sendQualityHold } = await import('@hg/email');
+        void sendQualityHold(owner.email, { caseUrl: `${origin}/case/${caseId}/status` });
+      }
+    }
     return { outcome: 'held', reasons };
   }
 

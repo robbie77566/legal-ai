@@ -38,8 +38,10 @@ export default function QaConsole() {
   const [editing, setEditing] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [notice, setNotice] = useState('')
+  const [holds, setHolds] = useState<{ caseId: string; title: string; reasons: string[]; slaRemainingHours: number }[]>([])
 
   const loadQueue = useCallback(async () => {
+    void apiFetch('/qa/holds').then(async (r) => r.ok && setHolds(await r.json()))
     const res = await apiFetch('/qa/queue')
     if (res.ok) setQueue(await res.json())
   }, [])
@@ -95,6 +97,45 @@ export default function QaConsole() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[320px_1fr]">
         <div>
+          {holds.length > 0 && (
+            <div className="mb-5 rounded border border-[#D29922] p-3">
+              <h2 className="text-xs uppercase tracking-wider text-[#D29922]">
+                Held by automated QA — 24h promise
+              </h2>
+              <ul className="mt-2 space-y-2">
+                {holds.map((h) => (
+                  <li key={h.caseId} data-testid="hold-row" className="text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <button onClick={() => setSelected(h.caseId)} className="truncate text-left underline">
+                        {h.title}
+                      </button>
+                      <span className={h.slaRemainingHours < 6 ? 'font-bold text-[#F85149]' : 'text-[#8B949E]'}>
+                        {h.slaRemainingHours}h left
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {h.reasons.map((r) => (
+                        <span key={r} className="rounded bg-[#21262D] px-2 py-0.5 font-mono text-[10px] text-[#D29922]">
+                          {r}
+                        </span>
+                      ))}
+                      <button
+                        onClick={() => {
+                          void apiFetch(`/qa/cases/${h.caseId}/rerun`, { method: 'POST' }).then((r) => {
+                            setNotice(r.ok ? 'Re-run started — the case auto-delivers if it passes.' : 'Re-run failed to start')
+                            setHolds((prev) => prev.filter((x) => x.caseId !== h.caseId))
+                          })
+                        }}
+                        className="ml-auto rounded border border-[#30363D] px-2 py-0.5 text-[10px] text-[#8B949E] hover:border-[#D29922]"
+                      >
+                        Re-run analysis
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <h2 className="text-xs uppercase tracking-wider text-[#8B949E]">Queue</h2>
           <ul className="mt-2 space-y-1">
             {queue.length === 0 && <li className="text-sm text-[#8B949E]">Nothing awaiting review.</li>}

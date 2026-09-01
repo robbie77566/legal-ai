@@ -103,6 +103,18 @@ Whatever it says, there is a next step, and the report walks you through it.`,
   });
 }
 
+export function sendQualityHold(to: string, opts: { caseUrl: string }) {
+  return getProvider().send({
+    to,
+    subject: 'A specialist is giving your review a closer look',
+    text:
+      "Good news and a small pause: our automated quality check flagged something in your review that we want a person to verify before you see it. Nothing is wrong with your case — this is the system being careful.\n\n" +
+      'A trained legal reviewer is checking it personally. Expect your report within 24 hours.\n\n' +
+      `You can watch progress any time: ${opts.caseUrl}` +
+      FOOTER,
+  });
+}
+
 export function sendPasswordReset(to: string, opts: { resetUrl: string }) {
   return send({
     to,

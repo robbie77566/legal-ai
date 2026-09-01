@@ -46,6 +46,6 @@ export function trackerModel(view: CustomerView): TrackerModel {
     overlayCopy: view.overlay ? OVERLAY_COPY[view.overlay] : null,
     // Named role + concrete task (US-3: vague "human-reviewed" tests worse)
     qualityReviewCopy:
-      'A trained legal reviewer is checking every citation in your report against your documents.',
+      'A trained legal reviewer is personally checking every citation in your report against your documents — expect it within 24 hours.',
   }
 }

@@ -149,6 +149,64 @@ export default async function qaRoutes(fastify: FastifyInstance) {
     })).sort((x, y) => Number(y.spotcheck) - Number(x.spotcheck));
   });
 
+  // Hold queue (auto_qa_hold_workflow.md R3): held cases with reasons and
+  // the 24-hour countdown, most urgent first.
+  fastify.get('/holds', async () => {
+    const held = await prisma.case.findMany({ where: { status: 'QA_REVIEW' }, select: { id: true, title: true, tenantId: true } });
+    const out: { caseId: string; title: string; reasons: string[]; heldAt: string; slaRemainingHours: number }[] = [];
+    for (const c of held) {
+      const audits = await prisma.auditLog.findMany({
+        where: { caseId: c.id, action: 'QA_DECISION' },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+      const hold = audits.find((a) => (a.details as { decision?: string })?.decision === 'auto_hold');
+      if (!hold) continue; // in QA_REVIEW but not via an auto-hold (manual-mode case)
+      const heldAt = hold.createdAt;
+      out.push({
+        caseId: c.id,
+        title: c.title,
+        reasons: ((hold.details as { reasons?: string[] })?.reasons) ?? [],
+        heldAt: heldAt.toISOString(),
+        slaRemainingHours: Math.round(((heldAt.getTime() + 24 * 3600_000) - Date.now()) / 3600_000 * 10) / 10,
+      });
+    }
+    return out.sort((a, b) => a.slaRemainingHours - b.slaRemainingHours);
+  });
+
+  // One-click corrective action (R4): the same reject(quality)->re-enqueue
+  // loop the ops scripts use — one re-run path everywhere.
+  fastify.post('/cases/:id/rerun', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const kase = await prisma.case.findUnique({ where: { id } });
+    if (!kase || kase.status !== 'QA_REVIEW') {
+      return reply.status(409).send({ error: 'Case is not in quality review' });
+    }
+    await withTenant(kase.tenantId, async (tx) => {
+      await appendCaseEvent(tx, {
+        caseId: id, tenantId: kase.tenantId, type: 'qa.rejected',
+        payload: { reason: 'quality' }, actor: request.auth.userId, transition: 'QA_REJECTED',
+      });
+    });
+    try {
+      const { enqueueAnalysis } = await import('../services/queue');
+      const { Queue } = await import('bullmq');
+      const { createConnection } = await import('../lib/redis');
+      const q = new Queue('analysis', { connection: createConnection() });
+      const existing = await q.getJob(`analysis-${id}`);
+      if (existing) await existing.remove().catch(() => {});
+      await q.close();
+      await enqueueAnalysis(id, kase.tenantId);
+    } catch (e) {
+      request.log.error({ err: e }, 're-run enqueue failed — case parked at QA_REJECTED');
+    }
+    await AuditService.log({
+      tenantId: kase.tenantId, caseId: id, action: LogAction.QA_DECISION,
+      userId: request.auth.userId, details: { decision: 'hold_rerun' },
+    });
+    return { ok: true };
+  });
+
   fastify.post('/cases/:id/approve', async (request, reply) => {
     const { id } = request.params as { id: string };
     const kase = await prisma.case.findUnique({ where: { id } });
