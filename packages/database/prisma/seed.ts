@@ -29,10 +29,11 @@ async function main() {
   // Create initial admin user
   await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { passwordHash },
+    update: { passwordHash, role: 'ADMIN' },
     create: {
       email: adminEmail,
       name: 'System Administrator',
+      role: 'ADMIN', // without this the schema default applies and /ops rejects the account
       passwordHash,
       tenantId: tenant.id,
     },
