@@ -219,6 +219,22 @@ export const analysisWorker = new Worker(
     }
     const summary = await runAnalysis(caseId, tenantId, models);
     console.log(`[analysis] case ${caseId}:`, summary);
+
+    // PO decision (2026-09-01): auto-delivery so a human is never the
+    // turnaround bottleneck; quality gates + spot-checks in auto-qa.
+    // OFF unless AUTO_APPROVE=1 (go-live gated on validation + counsel).
+    try {
+      const { autoApproveCase, autoApproveEnabled } = await import('../services/auto-qa.service');
+      if (autoApproveEnabled()) {
+        const { SCREENS_BY_LANE } = await import('../services/analysis.service');
+        const kase = await (await import('@hg/database')).default.case.findUniqueOrThrow({ where: { id: caseId } });
+        const lane = (kase.lane === 'PLEA' ? 'PLEA' : 'TRIAL') as 'TRIAL' | 'PLEA';
+        await autoApproveCase(caseId, tenantId, { ...summary, screensExpected: SCREENS_BY_LANE[lane].length });
+      }
+    } catch (e) {
+      // Auto-QA failure leaves the case safely in QA_REVIEW for a human.
+      console.warn(`[auto-qa] case ${caseId}: ${(e as Error).message.slice(0, 160)}`);
+    }
     return summary;
   },
   { connection: createConnection(), concurrency: 2 }

@@ -52,6 +52,12 @@
 - No local psql needed: `docker compose exec -T postgres psql '<External Connection String>'` uses the compose container's client.
 - Migrations/seed can run from the dev box against prod: prefix the command with `DATABASE_URL='<prod external URL>'` (e.g. `… npx prisma migrate deploy`, or the admin seed per environment_reference).
 
+### Auto-delivery (AUTO_APPROVE) — PO decision 2026-09-01
+- The founder spot-checks; a human is never the turnaround bottleneck. `AUTO_APPROVE=1` auto-approves each completed run to READY + report + customer email, THROUGH the identical FR-7 verification the human gate uses.
+- Runtime quality gates route suspicious runs to human QA_REVIEW instead: incomplete screens, findings below `AUTO_APPROVE_MIN_FINDINGS`, grounding drop-ratio above `AUTO_APPROVE_MAX_DROP_RATIO` (0.5; the RED regression run measured 0.40 vs healthy 0.125).
+- `AUTO_APPROVE_SPOTCHECK_PERCENT` (10) of auto-approved cases are flagged; review them AFTER delivery at `GET /qa/auto-approved` (flagged first).
+- **GO-LIVE GATE: keep AUTO_APPROVE=0 in production until (a) validation testing passes and (b) counsel signs off on the founder's rewritten disclosures/policy copy** (the current pages still describe human review of every report — the founder owns that rewrite).
+
 ### Admin bootstrap & the Sentry drill
 - Admin account: seeded as `admin@snotnoselegal.com` (ADMIN role — the seed sets it explicitly; the schema default is ATTORNEY and would be rejected by /ops).
 - Alert drill: **"Fire Sentry alert drill"** button on the ops console (or GET `/ops/sentry-test` as ADMIN; script pattern in the session scratchpad). A 500 response proves the throw; **delivery additionally requires SENTRY_DSN on that instance** — dev without a DSN shows the same 500 and sends nothing. Verified end-to-end 2026-09-01 (2 events in Issues). Remaining: the Sentry alert RULE (Alerts → new issue → email) is what actually pages a human.

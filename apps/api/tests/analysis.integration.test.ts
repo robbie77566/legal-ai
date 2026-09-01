@@ -288,6 +288,64 @@ describe('batch path (invokeMany seam)', () => {
   });
 });
 
+describe('auto-QA (AUTO_APPROVE)', () => {
+  it('auto-approves a healthy run to READY with report + audit; disabled flag is a no-op', async () => {
+    const { autoApproveCase } = await import('../src/services/auto-qa.service');
+    const mk = async (title: string) => {
+      const c = await prisma.case.create({
+        data: {
+          title, tenantId, status: 'QA_REVIEW', lane: 'TRIAL', vehicle: '11.07',
+          slaStartedAt: new Date(), accessList: { create: { userId, role: 'ADMIN' } },
+        },
+      });
+      const r = await prisma.analysisRun.create({ data: { caseId: c.id, tenantId, runNo: 1, modelConfig: {}, completedAt: new Date() } });
+      const doc = await prisma.document.create({ data: { filename: 'a.pdf', caseId: c.id } });
+      const chunk = await prisma.documentChunk.create({ data: { documentId: doc.id, content: `${run} auto qa chunk text`, metadata: {} } });
+      const crypto = await import('crypto');
+      await prisma.finding.create({
+        data: {
+          runId: r.id, caseId: c.id, tenantId, stableKey: `${run}_${title}`, category: 'sentencing',
+          severity: 'supportive', confidence: 0.6, partAText: 'a', partBText: 'b',
+          citations: { create: { documentId: doc.id, chunkId: chunk.id, excerpt: 'auto qa chunk', excerptHash: crypto.createHash('sha256').update(chunk.content).digest('hex') } },
+        },
+      });
+      return c;
+    };
+
+    // Disabled → no-op
+    delete process.env.AUTO_APPROVE;
+    const c1 = await mk('auto_off');
+    expect((await autoApproveCase(c1.id, tenantId, { runId: 'x', screensRun: 5, findingsPersisted: 1, droppedUngrounded: 0, screensExpected: 5 })).outcome).toBe('disabled');
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: c1.id } })).status).toBe('QA_REVIEW');
+
+    // Enabled, healthy → READY + report + audit + spotcheck(100%)
+    process.env.AUTO_APPROVE = '1';
+    process.env.AUTO_APPROVE_SPOTCHECK_PERCENT = '100';
+    const c2 = await mk('auto_on');
+    const res = await autoApproveCase(c2.id, tenantId, { runId: 'x', screensRun: 5, findingsPersisted: 1, droppedUngrounded: 0, screensExpected: 5 });
+    expect(res.outcome).toBe('approved');
+    expect(res.spotcheck).toBe(true);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: c2.id } })).status).toBe('READY');
+    expect(await prisma.report.count({ where: { caseId: c2.id } })).toBe(1);
+
+    // Quality gate: runaway drop ratio → HELD in QA_REVIEW
+    const c3 = await mk('auto_held');
+    const held = await autoApproveCase(c3.id, tenantId, { runId: 'x', screensRun: 5, findingsPersisted: 2, droppedUngrounded: 10, screensExpected: 5 });
+    expect(held.outcome).toBe('held');
+    expect(held.reasons?.join()).toContain('drop ratio');
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: c3.id } })).status).toBe('QA_REVIEW');
+
+    // Spot-check feed lists the auto-approved case, flagged first
+    const feed = await fastify.inject({ method: 'GET', url: '/qa/auto-approved', headers: { cookie: qaCookie } });
+    expect(feed.statusCode).toBe(200);
+    const row = (feed.json() as { caseId: string; spotcheck: boolean }[]).find((x) => x.caseId === c2.id);
+    expect(row?.spotcheck).toBe(true);
+
+    delete process.env.AUTO_APPROVE;
+    delete process.env.AUTO_APPROVE_SPOTCHECK_PERCENT;
+  });
+});
+
 describe('multi-engine union', () => {
   it('unions engines into one QA set, tags engine, counts cross-engine agreements', async () => {
     const c3 = await prisma.case.create({

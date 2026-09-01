@@ -126,6 +126,29 @@ export default async function qaRoutes(fastify: FastifyInstance) {
     return { ...updated, readability: lint };
   });
 
+  // Spot-check feed: recently auto-approved cases (flagged first) so the
+  // founder reviews AFTER delivery — never blocking it.
+  fastify.get('/auto-approved', async () => {
+    const rows = await prisma.auditLog.findMany({
+      where: { action: 'QA_DECISION' },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    const auto = rows.filter((r) => (r.details as { decision?: string })?.decision === 'auto_approved');
+    const cases = await prisma.case.findMany({
+      where: { id: { in: auto.map((a) => a.caseId!).filter(Boolean) } },
+      select: { id: true, title: true, status: true },
+    });
+    const byId = new Map(cases.map((c) => [c.id, c]));
+    return auto.map((a) => ({
+      caseId: a.caseId,
+      title: byId.get(a.caseId!)?.title ?? a.caseId,
+      status: byId.get(a.caseId!)?.status,
+      approvedAt: a.createdAt,
+      spotcheck: Boolean((a.details as { spotcheck?: boolean })?.spotcheck),
+    })).sort((x, y) => Number(y.spotcheck) - Number(x.spotcheck));
+  });
+
   fastify.post('/cases/:id/approve', async (request, reply) => {
     const { id } = request.params as { id: string };
     const kase = await prisma.case.findUnique({ where: { id } });
@@ -207,7 +230,7 @@ export default async function qaRoutes(fastify: FastifyInstance) {
       const { capture } = await import('../services/analytics.service');
       capture('snl.report_approved', kase.tenantId, {});
       if (owner?.email) {
-        const origin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
+        const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
         const { sendReportReady } = await import('@hg/email');
         void sendReportReady(owner.email, { caseUrl: `${origin}/case/${id}/report` });
       }
