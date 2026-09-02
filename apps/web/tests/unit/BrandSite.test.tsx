@@ -13,6 +13,7 @@ describe('brand site (P1)', () => {
     render(<BrandHome />)
     expect(screen.getByRole('heading', { name: /what.s really in it/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Pricing' })).toHaveAttribute('href', '/pricing')
+    expect(screen.getByTestId('nav-signin')).toHaveAttribute('href', '/auth/signin')
     expect(screen.getByText(/re-checked against your documents/)).toBeInTheDocument()
     expect(screen.getByText(/This is not for every case/)).toBeInTheDocument()
     expect(screen.getByText(/don.t sell hope/)).toBeInTheDocument()

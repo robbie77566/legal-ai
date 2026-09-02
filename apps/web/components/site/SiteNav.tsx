@@ -17,6 +17,7 @@ const NAV = {
     pricing: 'Pricing',
     about: 'About',
     faq: 'FAQ',
+    signIn: 'Sign in',
     guide: 'Get your documents',
     cta: 'Start the free check',
   },
@@ -26,6 +27,7 @@ const NAV = {
     pricing: 'Precio',
     about: 'Quiénes somos',
     faq: 'Preguntas',
+    signIn: 'Iniciar sesión',
     guide: 'Consiga sus documentos',
     cta: 'Empiece la revisión gratis',
   },
@@ -53,6 +55,9 @@ export default function SiteNav() {
         </Link>
         <Link href="/faq" className="hover:underline">
           {t.faq}
+        </Link>
+        <Link href="/auth/signin" className="text-db-muted underline" data-testid="nav-signin">
+          {t.signIn}
         </Link>
         <LangSwitch />
         <Link

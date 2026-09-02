@@ -35,6 +35,9 @@ export default function DaybreakLanding() {
       <nav className="flex items-center justify-between gap-2 py-5">
         <span className="font-db-serif text-lg font-bold text-db-accent">Family Case Review</span>
         <div className="flex items-center gap-2">
+          <Link href="/auth/signin" className="text-sm text-db-muted underline" data-testid="nav-signin">
+            {t.signIn}
+          </Link>
           <LangSwitch />
           <CtaLink
             href="/check"

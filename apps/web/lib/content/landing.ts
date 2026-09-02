@@ -4,6 +4,7 @@ export const LANDING_CONTENT = {
   en: {
     cta: 'See if this fits your case — free, 2 minutes',
     ctaNav: 'See if this fits — free',
+    signIn: 'Sign in',
     ctaSticky: 'Free 2-minute check',
     heroTitle: 'Find out what’s really in the court record — before you spend thousands.',
     heroBody:
@@ -96,6 +97,7 @@ export const LANDING_CONTENT = {
   es: {
     cta: 'Vea si aplica a su caso — gratis, 2 minutos',
     ctaNav: 'Vea si aplica — gratis',
+    signIn: 'Iniciar sesión',
     ctaSticky: 'Revisión gratis de 2 minutos',
     heroTitle: 'Descubra lo que realmente dice el expediente — antes de gastar miles de dólares.',
     heroBody:

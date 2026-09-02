@@ -25,6 +25,12 @@ describe('Daybreak landing (landing_page_spec §2 canon)', () => {
     for (const cta of ctas) expect(cta).toHaveAttribute('href', '/check')
   })
 
+  it('returning customers get a visible Sign in link in the nav', () => {
+    render(<DaybreakLanding />)
+    expect(screen.getByTestId('nav-signin')).toHaveAttribute('href', '/auth/signin')
+    expect(screen.getByTestId('nav-signin')).toHaveTextContent('Sign in')
+  })
+
   it('carries the site-wide legal footer and no urgency theater', () => {
     render(<DaybreakLanding />)
     expect(screen.getByText(/not a law firm and does not provide legal advice/i)).toBeInTheDocument()
