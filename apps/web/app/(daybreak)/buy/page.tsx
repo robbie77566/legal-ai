@@ -87,7 +87,14 @@ export default function BuyPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ disclosureSetVersion: DISCLOSURE_SET_VERSION }),
     })
-    if (!ackRes.ok) throw new Error('Could not record your acknowledgment — please try again.')
+    if (!ackRes.ok) {
+      // The generic message sent a signed-in ADMIN down a dead end twice
+      // (2026-09-01/02): staff accounts cannot buy, and the page should say so.
+      if (ackRes.status === 403)
+        throw new Error('This account can’t make purchases — staff accounts can’t buy. Sign out and use a customer account.')
+      if (ackRes.status === 401) throw new Error('Your session expired — please sign in again.')
+      throw new Error('Could not record your acknowledgment — please try again.')
+    }
 
     const draftToken = sessionStorage.getItem('snl_draft_token') ?? undefined
     const res = await apiFetch('/checkout/session', {
