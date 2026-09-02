@@ -21,7 +21,7 @@ export default function Disclosures() {
       <ul className="mt-2 list-disc space-y-2 pl-5">
         <li>
           We are <strong>not a law firm</strong>, and no one here acts as your attorney. Family Case
-          Review is an information service operated by Tangent Software LLC.
+          Review is an information service operated by Tangent Solutions LLC.
         </li>
         <li>
           Buying a review does <strong>not</strong> create an attorney-client relationship, and what

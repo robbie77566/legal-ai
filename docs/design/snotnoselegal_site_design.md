@@ -25,7 +25,7 @@ Timing is right: DNS isn't live yet, so moving the conversion page from `/` to `
   /learn/<article>     P2 articles (below)
 /how-to-get-documents  (exists — becomes a /learn feature, URL kept)
 /sample-report         Redacted synthetic sample of Part A (new, P2, counsel-gated)
-/about                 Who we are: Tangent Software LLC, why this exists (new)
+/about                 Who we are: Tangent Solutions LLC, why this exists (new)
 /faq                   Expanded FAQ (landing keeps its short accordion) (new)
 /contact               admin@snotnoselegal.com + response expectation (new)
 /disclosures /privacy /accessibility   (exist)
@@ -38,14 +38,14 @@ Timing is right: DNS isn't live yet, so moving the conversion page from `/` to `
 - **Pricing (`/pricing`)** — the $299 anatomy (what's included, the 5,000-page cap, +$49 overage blocks, $99 re-run with new documents), the two-phase upload/run model (uploading is free, iterate as long as you like), payment options (installments), and the anchor comparison ($3,000 attorney file review) stated factually. No dark patterns, no countdowns — pricing honesty IS the brand.
 - **Learn (`/learn`)** — P2 article set chosen for search intent + persona need, each bilingual, 8th-grade level, UPL-safe (information about the law, never advice about their case): *What is an 11.07 writ, in plain words* · *The one-year federal deadline (AEDPA) explained* · *Why the first writ matters so much (the subsequent-writ bar)* · *What "ineffective assistance of counsel" actually means* · *What is Brady evidence* · *The junk-science law (11.073)* · *Glossary of court words*. The existing documents guide joins the hub with its URL preserved.
 - **Sample report (`/sample-report`)** — a redacted Part A built from a SYNTHETIC case (the JOHN FIXTURE corpus, extended), so a family sees exactly what $299 buys before paying. Highest-leverage trust artifact on the site; **built 2026-09-02 (PO: proceed; counsel reviews the whole site batch at once)** — the fictional-case banner leads the page; it demonstrates output claims, so it stays high on the review batch.
-- **About (`/about`)** — operated by Tangent Software LLC; why a software company built this (the access gap: $3,000 to have someone read a file); the human+AI method stated the way the landing already frames it; what we are not (not a law firm, no legal advice — linked to /disclosures). No stock-photo team pages, no invented credentials.
+- **About (`/about`)** — operated by Tangent Solutions LLC; why a software company built this (the access gap: $3,000 to have someone read a file); the human+AI method stated the way the landing already frames it; what we are not (not a law firm, no legal advice — linked to /disclosures). No stock-photo team pages, no invented credentials.
 - **FAQ (`/faq`)** — superset of the landing accordion + operational questions (how long, what formats, refunds, Spanish, data handling/retention, what if you find nothing).
 - **Contact (`/contact`)** — email, expected response time, and what support can/can't discuss (no legal advice — UPL guardrail restated gently).
 
 ## 4. Shared chrome
 
 - **Site nav** (brand pages): How it works · Pricing · Learn · About · FAQ + the persistent "Start the free check" button. **The conversion landing keeps its minimal nav** (logo + CTA + language switch only) — its job is focus.
-- **Footer** (all pages, exists today): legal line, Tangent Software LLC, admin@, © , links to disclosures/privacy/accessibility + new pages.
+- **Footer** (all pages, exists today): legal line, Tangent Solutions LLC, admin@, © , links to disclosures/privacy/accessibility + new pages.
 - **Bilingual everywhere** (i18n R1–R7): every new page ships as an `{en, es}` content object with parity-test coverage; text-labeled language switch in nav; English governs legal copy pending counsel.
 - **Design language:** the existing Daybreak token system as-is. The palette A/B experiment stays **confined to `/review` + `/check`** (conversion surfaces) so brand pages render stable.
 

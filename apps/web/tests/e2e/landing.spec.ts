@@ -49,7 +49,7 @@ test.describe('public site smoke', () => {
   test('footer carries the operator and the no-legal-advice line', async ({ page }) => {
     await page.goto('/')
     const footer = page.locator('footer')
-    await expect(footer).toContainText('Tangent Software LLC')
+    await expect(footer).toContainText('Tangent Solutions LLC')
     await expect(footer).toContainText('not a law firm')
   })
 })

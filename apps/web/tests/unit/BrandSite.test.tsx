@@ -33,7 +33,7 @@ describe('brand site (P1)', () => {
   it('about keeps the UPL line front and center', () => {
     render(<About />)
     expect(screen.getByText(/not a law firm, we do not give legal advice/)).toBeInTheDocument()
-    expect(screen.getByText(/Tangent Software LLC/)).toBeInTheDocument()
+    expect(screen.getByText(/Tangent Solutions LLC/)).toBeInTheDocument()
   })
 })
 

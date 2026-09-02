@@ -14,7 +14,11 @@ export default function SiteFooter() {
       <div className="mx-auto max-w-2xl space-y-3 px-5 text-sm text-db-muted">
         <p>
           <span className="font-db-serif font-semibold text-db-ink">Family Case Review</span> — a
-          service of Snot Nose Legal, operated by Tangent Software LLC.
+          service of Snot Nose Legal, operated by{' '}
+          <a href="https://tangentsolutionz.com" className="underline" rel="noopener">
+            Tangent Solutions LLC
+          </a>
+          .
         </p>
         <p>
           We are not a law firm and do not provide legal advice. Our reports are information about
@@ -46,7 +50,7 @@ export default function SiteFooter() {
             Accessibility
           </Link>
         </p>
-        <p>© {year} Tangent Software LLC. All rights reserved.</p>
+        <p>© {year} Tangent Solutions LLC. All rights reserved.</p>
       </div>
     </footer>
   )

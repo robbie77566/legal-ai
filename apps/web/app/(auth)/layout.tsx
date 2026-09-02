@@ -32,7 +32,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </div>
           <div className="rounded-xl border border-db-line bg-db-surface p-8">{children}</div>
           <p className="mt-6 text-center text-xs leading-relaxed text-db-muted">
-            A service of Snot Nose Legal, operated by Tangent Software LLC. Not a law firm — we
+            A service of Snot Nose Legal, operated by Tangent Solutions LLC. Not a law firm — we
             provide information about court records, not legal advice.
           </p>
         </div>

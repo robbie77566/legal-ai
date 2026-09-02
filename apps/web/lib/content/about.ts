@@ -5,7 +5,7 @@ export const ABOUT_CONTENT = {
     title: 'About Family Case Review',
     whoTitle: 'Who we are',
     whoBody:
-      'Family Case Review is a service of Snot Nose Legal, operated by Tangent Software LLC — a software company, not a law firm. We build technology that reads Texas criminal court records for the people the legal system prices out.',
+      'Family Case Review is a service of Snot Nose Legal, operated by Tangent Solutions LLC (tangentsolutionz.com) — a software company, not a law firm. We build technology that reads Texas criminal court records for the people the legal system prices out.',
     whyTitle: 'Why this exists',
     whyBody:
       'When a Texas conviction becomes final, families face an impossible menu: pay around $3,000 for an attorney just to read the file, pay far more for representation on faith, or let their loved one file alone — where one weak filing can burn the single real chance Texas law allows. The information gap is the injustice we work on. For $299, we close it: every page read, every finding quoted from the record, in words the whole family can understand.',
@@ -21,7 +21,7 @@ export const ABOUT_CONTENT = {
     title: 'Sobre Family Case Review',
     whoTitle: 'Quiénes somos',
     whoBody:
-      'Family Case Review es un servicio de Snot Nose Legal, operado por Tangent Software LLC — una empresa de software, no un bufete de abogados. Construimos tecnología que lee expedientes penales de Texas para las personas que el sistema legal deja fuera por el precio.',
+      'Family Case Review es un servicio de Snot Nose Legal, operado por Tangent Solutions LLC (tangentsolutionz.com) — una empresa de software, no un bufete de abogados. Construimos tecnología que lee expedientes penales de Texas para las personas que el sistema legal deja fuera por el precio.',
     whyTitle: 'Por qué existe esto',
     whyBody:
       'Cuando una condena en Texas queda firme, las familias enfrentan un menú imposible: pagar unos $3,000 para que un abogado apenas lea el expediente, pagar mucho más por representación a ciegas, o dejar que su ser querido presente solo — donde una petición débil puede quemar la única oportunidad real que permite la ley de Texas. La falta de información es la injusticia en la que trabajamos. Por $299, la cerramos: cada página leída, cada hallazgo citado del expediente, en palabras que toda la familia puede entender.',
