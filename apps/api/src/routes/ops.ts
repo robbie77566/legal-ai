@@ -241,73 +241,58 @@ export default async function opsRoutes(fastify: FastifyInstance) {
    */
   fastify.post('/cases/:id/delete', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const kase = await prisma.case.findUnique({ where: { id } });
-    if (!kase) return reply.status(404).send({ error: 'Not found' });
-
-    const tenantId = kase.tenantId;
-
-    // Deletion request + terminal transition land in the surviving stream
-    // BEFORE content removal (the certificate trail).
-    await withTenant(tenantId, async (tx) => {
-      await appendCaseEvent(tx, {
-        caseId: id, tenantId, type: 'deletion.requested', payload: {},
-        actor: request.auth.userId,
-      });
-      await appendCaseEvent(tx, {
-        caseId: id, tenantId, type: 'stage.entered', payload: { status: 'DELETED' },
-        actor: request.auth.userId, transition: 'DELETED',
-      });
-    });
-
-    const deleted = await prisma.$transaction(async (tx) => {
-      const docs = await tx.document.findMany({ where: { caseId: id }, select: { id: true } });
-      const docIds = docs.map((d) => d.id);
-      const findings = await tx.finding.findMany({ where: { caseId: id }, select: { id: true } });
-      const findingIds = findings.map((f) => f.id);
-
-      const counts = {
-        citations: (await tx.findingCitation.deleteMany({ where: { findingId: { in: findingIds } } })).count,
-        findings: (await tx.finding.deleteMany({ where: { caseId: id } })).count,
-        reports: (await tx.report.deleteMany({ where: { caseId: id } })).count,
-        runs: (await tx.analysisRun.deleteMany({ where: { caseId: id } })).count,
-        chunks: (await tx.documentChunk.deleteMany({ where: { documentId: { in: docIds } } })).count,
-        pages: (await tx.documentPage.deleteMany({ where: { documentId: { in: docIds } } })).count,
-        documents: (await tx.document.deleteMany({ where: { caseId: id } })).count,
-        checklist: (await tx.checklistItem.deleteMany({ where: { caseId: id } })).count,
-        uploadSessions: (await tx.uploadSession.deleteMany({ where: { caseId: id } })).count,
-        access: (await tx.caseAccess.deleteMany({ where: { caseId: id } })).count,
-      };
-      await tx.case.delete({ where: { id } });
-      return counts;
-    });
-
-    // S3: every object AND version under cases/{id}/ (bucket is versioned);
-    // failure is loud — a missed S3 pass is an Ops follow-up, and the ≤35-day
-    // version expiry bounds full propagation either way (§11a.2).
-    let s3ObjectsRemoved = 0;
-    try {
-      const { deleteCasePrefix } = await import('../services/storage.service');
-      s3ObjectsRemoved = await deleteCasePrefix(id);
-    } catch (e) {
-      request.log.error({ err: e, caseId: id }, 'OPS-4: S3 deletion failed — follow up required');
-    }
-
-    // The completion certificate — written AFTER the Case row is gone, into
-    // the surviving stream (CaseEvent has no FK by design).
-    await prisma.caseEvent.create({
-      data: {
-        caseId: id, tenantId, type: 'deletion.completed', version: 1,
-        payload: {}, actor: request.auth.userId,
-      },
-    });
-    await AuditService.log({
-      tenantId, caseId: id, action: LogAction.CASE_ACCESS,
-      userId: request.auth.userId, details: { op: 'scoped_deletion', deleted, s3ObjectsRemoved },
-    });
-
+    const { deleteCaseScoped } = await import('../services/deletion.service');
+    const deleted = await deleteCaseScoped(id, request.auth.userId);
+    if (!deleted) return reply.status(404).send({ error: 'Not found' });
     return {
-      deleted: { ...deleted, s3ObjectsRemoved },
+      deleted,
       retainedByDesign: ['payment ledger (7y)', 'disclosure-ack archive (24mo)', 'event/audit skeleton (24mo)'],
     };
+  });
+
+  // Account admin (2026-09-02): find a consumer account, delete it — cases
+  // through the OPS-4 machinery, then the user row anonymized (ledger FKs
+  // survive; the email is freed for reuse; live sessions die).
+  fastify.get('/accounts', async (request) => {
+    const { q } = request.query as { q?: string };
+    if (!q || q.length < 3) return [];
+    const users = await prisma.user.findMany({
+      where: { email: { contains: q, mode: 'insensitive' }, role: 'CLIENT' },
+      select: { id: true, email: true, name: true, createdAt: true, deletedAt: true, tenantId: true },
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+    });
+    return Promise.all(
+      users.map(async (u) => ({
+        ...u,
+        cases: await prisma.case.count({ where: { tenantId: u.tenantId, accessList: { some: { userId: u.id } } } }),
+      }))
+    );
+  });
+
+  fastify.post('/accounts/:id/delete', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { confirmEmail } = z.object({ confirmEmail: z.string() }).parse(request.body);
+    const target = await prisma.user.findUnique({ where: { id }, select: { email: true } });
+    if (!target) return reply.status(404).send({ error: 'Not found' });
+    // The admin must type the exact email — account deletion is never a
+    // one-misclick action.
+    if (target.email.toLowerCase() !== confirmEmail.trim().toLowerCase()) {
+      return reply.status(400).send({ error: 'Confirmation email does not match the account' });
+    }
+    const { deleteAccount } = await import('../services/deletion.service');
+    const result = await deleteAccount(id, request.auth.userId);
+    if ('error' in result) {
+      const status = result.error === 'not_found' ? 404 : 409;
+      const msg =
+        result.error === 'staff_account'
+          ? 'Staff accounts cannot be deleted here'
+          : result.error === 'already_deleted'
+            ? 'Account is already deleted'
+            : 'Not found';
+      return reply.status(status).send({ error: msg });
+    }
+    request.log.info({ deletedUser: id, by: request.auth.userId, cases: result.casesDeleted.length }, 'account deleted');
+    return result;
   });
 }

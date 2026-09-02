@@ -78,6 +78,11 @@ export default function OpsConsole() {
     <div className="min-h-screen bg-[#0B0E14] p-6 font-sans text-[#E6EDF3]">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-xl font-bold text-[#D4AF37]">Operations Console</h1>
+        <nav className="flex gap-3 text-xs text-[#8B949E]">
+          <a href="/ops/promos" className="underline hover:text-[#D4AF37]">Promos</a>
+          <a href="/ops/accounts" className="underline hover:text-[#D4AF37]">Accounts</a>
+          <a href="/qa/holds" className="underline hover:text-[#D4AF37]">QA holds</a>
+        </nav>
         <button
           data-testid="sentry-drill"
           onClick={() => {

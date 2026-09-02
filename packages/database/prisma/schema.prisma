@@ -254,6 +254,7 @@ model User {
   caseAccess          CaseAccess[]
 
   passwordChangedAt   DateTime?
+  deletedAt           DateTime? // account deletion (anonymized row; ledger FKs survive)
   inviteToken         String?
   inviteExpires       DateTime?
   resetToken          String?
