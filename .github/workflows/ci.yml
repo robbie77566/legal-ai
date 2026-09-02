@@ -79,6 +79,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Generate Prisma client
+        # Before Build: web and api compile against the generated client
+        # (Render's buildCommand does the same). Running this only in the
+        # migrations step below left Build without Prisma types (2026-09-02).
+        run: pnpm --filter @hg/database db:generate
+
       - name: Build
         run: pnpm build
 
@@ -86,9 +92,7 @@ jobs:
         # migrate deploy, NOT db push: push syncs the Prisma schema but skips
         # the raw SQL migrations that create the RLS policies, the append-only
         # trigger, and the hg_app role — the integration tests verify those.
-        run: |
-          pnpm --filter @hg/database db:generate
-          pnpm --filter @hg/database db:migrate:deploy
+        run: pnpm --filter @hg/database db:migrate:deploy
 
       - name: Typecheck (strict)
         run: pnpm typecheck
