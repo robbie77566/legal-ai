@@ -8,15 +8,17 @@ export const LANDING_CONTENT = {
     ctaSticky: 'Free 2-minute check',
     heroTitle: 'Find out what’s really in the court record — before you spend thousands.',
     heroBody:
-      'AI built for one job: Texas convictions after the trial is over. It reads every page of your loved one’s record — not a summary, not a sample — runs six checks built around Texas writ law (a writ is a formal request asking the court to take another look), and is forbidden from showing you anything it can’t back with an exact quote from your documents. Then every quote is re-checked against the record before you see it. Explained in plain English. ',
+      'AI built for one job: Texas convictions after the trial is over. It reads every page of your loved one’s record, asks the questions a post-conviction lawyer asks, and shows you only what it can prove with the exact words from the record — page and line. If a quote isn’t really there, it never reaches you. Explained in plain English. ',
     heroPrice: '$299. One price, no per-page fees.',
     heroSub: 'Free 2-minute check · Not a law firm · Information, not legal advice',
     sampleLink: 'See a sample report first',
-    whyTitle: 'Why not just paste it into ChatGPT?',
+    whyTitle: 'Why not just upload it to ChatGPT?',
+    whyIntro: 'You can. Here is what you would be missing.',
     why: [
-      ['A chatbot reads what fits in one message.', 'We read all 2,000 pages, every time.'],
-      ['A chatbot guesses when unsure — and sounds confident.', 'Anything without a page-and-line quote from your record is thrown out before you see it.'],
-      ['A chatbot knows a little about all law.', 'This system runs six checks built specifically around Texas post-conviction law.'],
+      ['ChatGPT reads your files and gives you an answer.', 'We check every answer against your record. If a quote isn’t really there, it’s thrown out before you see it.'],
+      ['ChatGPT answers the questions you know to ask.', 'We ask the questions a Texas post-conviction lawyer asks — six checks, run on every page.'],
+      ['ChatGPT can sound sure when it’s wrong — and you can’t tell.', 'Every finding shows the page and the exact words, so you and your lawyer can see it for yourselves.'],
+      ['ChatGPT gives you a chat.', 'We give you a report a lawyer can work from — and the deadline math that says how much time is left.'],
     ],
     proof: [
       'Every quote is re-verified word-for-word against your documents before delivery.',
@@ -43,7 +45,7 @@ export const LANDING_CONTENT = {
       'Jury selection problems',
     ],
     checksCite: 'Backed by page-and-line citations you can verify.',
-    checksNote: 'AI built for this job, with quality gates on every report — anything that looks off is held for human review before it reaches you.',
+    checksNote: 'AI built for this job. Quality gates check every report, and anything that looks off goes to a person before it reaches you.',
     reportTitle: 'Your report, two parts',
     reportBody1a: 'Part A is for you:',
     reportBody1b:
@@ -79,8 +81,8 @@ export const LANDING_CONTENT = {
         'No. This is a detailed review of court records — information to help you and a lawyer decide what to do next. We are not a law firm, and no attorney-client relationship is created. We never recommend filing anything on your own; a report is something to take to a lawyer.',
       ],
       [
-        "Couldn't I just paste the record into ChatGPT?",
-        "You could — and for a decision this final, you shouldn't. A general chatbot wasn't built for this: a trial record runs hundreds or thousands of pages (most tools can't even hold it all), and when a chatbot is unsure, it can confidently make things up — with no way for you to tell. Our system is engineered for exactly this job: it analyzes your complete record in multiple specialized passes built around Texas post-conviction law, and it is forbidden by design from showing you anything it can't back with an exact quote from your documents. In Texas, the first writ is effectively the only writ. That's not a job for a general-purpose chatbot.",
+        "Couldn't I just upload the record to ChatGPT?",
+        "You can upload the files — the problem is what happens next. Nothing checks the chatbot's answer against the record, so a made-up quote or a wrong page number looks exactly like a real one, and it only looks for the problems you already know to ask about. Our system runs six checks a Texas post-conviction lawyer would run, on every page, and every finding must carry the exact words from your record — then each quote is re-checked against the document before you see it. Anything that fails is removed. In Texas, the first writ is effectively the only writ; that's why the checking matters more than the reading.",
       ],
       [
         'What if the news is bad?',
@@ -114,16 +116,18 @@ export const LANDING_CONTENT = {
     ctaSticky: 'Revisión gratis de 2 minutos',
     heroTitle: 'Descubra lo que realmente dice el expediente — antes de gastar miles de dólares.',
     heroBody:
-      'Inteligencia artificial creada para una sola tarea: condenas de Texas después del juicio. Lee cada página del expediente de su ser querido — no un resumen, no una muestra — hace seis verificaciones basadas en la ley de recursos de Texas (un "writ" es una petición formal para que la corte revise el caso de nuevo), y tiene prohibido mostrarle cualquier cosa que no pueda respaldar con una cita exacta de sus documentos. Después, cada cita se verifica de nuevo contra el expediente antes de que usted la vea. Explicado en palabras sencillas. ',
+      'Inteligencia artificial creada para una sola tarea: condenas de Texas después del juicio. Lee cada página del expediente de su ser querido, hace las preguntas que haría un abogado de post-condena, y le muestra solo lo que puede probar con las palabras exactas del expediente — página y línea. Si una cita no está realmente ahí, nunca le llega. Explicado en palabras sencillas. ',
     heroPrice: '$299. Un solo precio, sin cargos por página.',
     heroSub:
       'Revisión gratis de 2 minutos · No somos un bufete de abogados · Información, no consejo legal',
     sampleLink: 'Vea primero un reporte de muestra',
-    whyTitle: '¿Por qué no simplemente pegarlo en ChatGPT?',
+    whyTitle: '¿Por qué no simplemente subirlo a ChatGPT?',
+    whyIntro: 'Puede hacerlo. Esto es lo que le faltaría.',
     why: [
-      ['Un chatbot lee lo que cabe en un mensaje.', 'Nosotros leemos las 2,000 páginas completas, siempre.'],
-      ['Un chatbot adivina cuando no está seguro — y suena convencido.', 'Cualquier cosa sin una cita de página y línea de su expediente se descarta antes de que usted la vea.'],
-      ['Un chatbot sabe un poco de todas las leyes.', 'Este sistema hace seis verificaciones creadas específicamente para la ley post-condena de Texas.'],
+      ['ChatGPT lee sus archivos y le da una respuesta.', 'Nosotros verificamos cada respuesta contra su expediente. Si una cita no está realmente ahí, se descarta antes de que usted la vea.'],
+      ['ChatGPT responde las preguntas que usted sabe hacer.', 'Nosotros hacemos las preguntas que hace un abogado de post-condena en Texas — seis verificaciones, en cada página.'],
+      ['ChatGPT puede sonar seguro cuando está equivocado — y usted no puede notarlo.', 'Cada hallazgo muestra la página y las palabras exactas, para que usted y su abogado lo vean con sus propios ojos.'],
+      ['ChatGPT le da una conversación.', 'Nosotros le damos un reporte con el que un abogado puede trabajar — y el cálculo de plazos que dice cuánto tiempo queda.'],
     ],
     proof: [
       'Cada cita se verifica de nuevo palabra por palabra contra sus documentos antes de la entrega.',
@@ -152,7 +156,7 @@ export const LANDING_CONTENT = {
     ],
     checksCite: 'Respaldado con citas de página y línea que usted puede verificar.',
     checksNote:
-      'Inteligencia artificial creada para esta tarea, con controles de calidad en cada reporte — cualquier cosa que parezca dudosa se detiene para revisión humana antes de llegarle.',
+      'Inteligencia artificial creada para esta tarea. Controles de calidad revisan cada reporte, y cualquier cosa dudosa pasa por una persona antes de llegarle.',
     reportTitle: 'Su reporte, en dos partes',
     reportBody1a: 'La Parte A es para usted:',
     reportBody1b:
@@ -188,8 +192,8 @@ export const LANDING_CONTENT = {
         'No. Es una revisión detallada de documentos de la corte — información para que usted y un abogado decidan qué hacer. No somos un bufete y no se crea una relación abogado-cliente. Nunca recomendamos presentar nada por su cuenta; el reporte es para llevárselo a un abogado.',
       ],
       [
-        '¿No podría simplemente pegar el expediente en ChatGPT?',
-        'Podría — y para una decisión tan definitiva, no debería. Un chatbot general no fue creado para esto: un expediente tiene cientos o miles de páginas (la mayoría de esas herramientas ni siquiera pueden leerlo completo), y cuando un chatbot no está seguro, puede inventar cosas con total confianza — sin que usted pueda darse cuenta. Nuestro sistema fue diseñado exactamente para esta tarea: analiza su expediente completo en varias pasadas especializadas en la ley de Texas, y tiene prohibido por diseño mostrarle algo que no pueda respaldar con una cita exacta de sus documentos. En Texas, el primer recurso es prácticamente el único. Eso no es trabajo para un chatbot de uso general.',
+        '¿No podría simplemente subir el expediente a ChatGPT?',
+        'Puede subir los archivos — el problema es lo que pasa después. Nada verifica la respuesta del chatbot contra el expediente, así que una cita inventada o un número de página equivocado se ve igual que uno real, y solo busca los problemas que usted ya sabe preguntar. Nuestro sistema hace seis verificaciones que haría un abogado de post-condena en Texas, en cada página, y cada hallazgo debe llevar las palabras exactas de su expediente — después, cada cita se verifica de nuevo contra el documento antes de que usted la vea. Lo que falla se elimina. En Texas, el primer recurso es prácticamente el único; por eso la verificación importa más que la lectura.',
       ],
       [
         '¿Y si las noticias son malas?',

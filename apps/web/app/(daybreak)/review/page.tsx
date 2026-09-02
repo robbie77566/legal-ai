@@ -77,6 +77,7 @@ export default function DaybreakLanding() {
           superlatives. */}
       <section className="py-8" data-testid="why-not-chatgpt">
         <h2 className="font-db-serif text-2xl font-semibold">{t.whyTitle}</h2>
+        <p className="mt-2 text-db-muted">{t.whyIntro}</p>
         <ul className="mt-4 space-y-3">
           {t.why.map(([chat, us]) => (
             <li key={us} className="rounded-xl border border-db-line bg-db-surface p-4">

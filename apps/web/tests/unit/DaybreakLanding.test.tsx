@@ -28,8 +28,13 @@ describe('Daybreak landing (landing_page_spec §2 canon)', () => {
   it('answers the ChatGPT objection above the fold with mechanism, not superlatives', () => {
     render(<DaybreakLanding />)
     const block = screen.getByTestId('why-not-chatgpt')
+    // Concedes the true thing (uploads work) and argues what happens AFTER
+    expect(block).toHaveTextContent(/upload it to ChatGPT/)
+    expect(block).toHaveTextContent(/You can\. Here is what you would be missing/)
     expect(block).toHaveTextContent(/thrown out before you see it/)
-    expect(block).toHaveTextContent(/six checks/)
+    expect(block).toHaveTextContent(/questions a Texas post-conviction lawyer asks/)
+    expect(block).toHaveTextContent(/can sound sure when it’s wrong/)
+    expect(block).not.toHaveTextContent(/fits in one message/) // the weak claim is gone
     expect(screen.getByTestId('hero-sample-link')).toHaveAttribute('href', '/sample-report')
     expect(screen.queryByText(/world-class/i)).toBeNull()
   })
