@@ -11,7 +11,9 @@ test.describe('public site smoke', () => {
     await page.goto('/')
     await expect(page.locator('h1')).toContainText('court record')
     await expect(page.getByText('This is not for every case')).toBeVisible()
-    const ctas = page.getByRole('link', { name: /free/i })
+    // CTAs are the "free check" buttons — NOT the learn card whose blurb
+    // happens to end in "free" (that one routes to the documents guide).
+    const ctas = page.getByRole('link', { name: /free check|case fits — free/i })
     expect(await ctas.count()).toBeGreaterThanOrEqual(2)
     for (const href of await ctas.evaluateAll((els) => els.map((e) => e.getAttribute('href')))) {
       expect(href).toBe('/check')
