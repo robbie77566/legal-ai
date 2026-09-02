@@ -39,6 +39,31 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 24 * 60 * 60, // default: 1 day; extended to 30 days per-token when rememberMe=true
   },
+  // Cross-subdomain session (prod): www sets the cookie, api.snotnoselegal.com
+  // must RECEIVE it — NextAuth's default host-only cookie never reaches a
+  // sibling subdomain, which would 401 every API call in production (dev
+  // hides this: localhost ports share one cookie jar). COOKIE_DOMAIN is set
+  // ONLY in prod (".snotnoselegal.com"); unset in dev, where a domain
+  // attribute on localhost/LAN-IP hosts would break the cookie instead.
+  ...(process.env.COOKIE_DOMAIN
+    ? {
+        cookies: {
+          sessionToken: {
+            // __Secure- prefix requires Secure (fine over HTTPS) and, unlike
+            // __Host-, PERMITS a Domain attribute. The API's extractToken
+            // already checks this name first.
+            name: "__Secure-next-auth.session-token",
+            options: {
+              httpOnly: true,
+              sameSite: "lax" as const,
+              path: "/",
+              secure: true,
+              domain: process.env.COOKIE_DOMAIN,
+            },
+          },
+        },
+      }
+    : {}),
   pages: {
     signIn: '/auth/signin',
   },

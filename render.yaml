@@ -103,4 +103,5 @@ services:
       - key: NEXTAUTH_URL
         value: https://www.snotnoselegal.com
       - { key: NEXTAUTH_SECRET, sync: false }
+      - { key: COOKIE_DOMAIN, value: .snotnoselegal.com }
       - { key: NEXT_PUBLIC_POSTHOG_KEY, sync: false }

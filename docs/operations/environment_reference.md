@@ -71,6 +71,7 @@ In production (Render) there are no files: every value is a service env var (blu
 |---|---|---|---|
 | `NEXTAUTH_SECRET` | 🔑 | **Same value as the api's** | see above |
 | `NEXTAUTH_URL` | | Canonical site URL | Prod `https://www.snotnoselegal.com`; dev the address you browse (localhost or LAN) |
+| `COOKIE_DOMAIN` | | Session-cookie Domain attribute so www's cookie reaches api.snotnoselegal.com | Prod ONLY: `.snotnoselegal.com` (blueprint sets it). NEVER set in dev — a domain attribute breaks localhost/LAN cookies. Unset = NextAuth default host-only cookie |
 | `NEXT_PUBLIC_API_URL` | | Where the browser calls the API | Prod `https://api.snotnoselegal.com`; dev `http://localhost:3001` or the LAN address for device testing |
 | `NEXT_PUBLIC_POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_HOST` | | Palette A/B + landing events (same `phc_` token as the api's) | as above |
 
