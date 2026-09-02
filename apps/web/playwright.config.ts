@@ -39,7 +39,10 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // Local runs use the system Google Chrome (channel 'chrome') — the
+      // Playwright browser CDN download stalls on the dev box. CI installs
+      // its own Chromium (`playwright install chromium`) and uses the default.
+      use: { ...devices['Desktop Chrome'], ...(process.env.CI ? {} : { channel: 'chrome' }) },
     },
     // We only test chromium locally to save time, full matrix runs in CI
   ],

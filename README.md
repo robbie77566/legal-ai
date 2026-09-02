@@ -106,9 +106,9 @@ npx vitest run apps/api/tests/payments.test.ts       # one file — ALWAYS from 
 npx vitest run apps/api/tests -t "grounding"         # by test-name pattern
 npx vitest --project api                             # watch mode for one workspace
 pnpm test:coverage                                   # coverage report
-pnpm --filter web test:e2e                           # Playwright e2e (needs `pnpm dev` running
-                                                     #   in another terminal; landing.spec is current,
-                                                     #   triage/workspace specs cover legacy surfaces)
+pnpm --filter web test:e2e                           # Playwright public-surface smoke (uses the running
+                                                     #   dev server on :3000 and the system Google Chrome
+                                                     #   locally; CI installs its own Chromium)
 ```
 
 What the suites cover (~190 tests): RLS isolation both directions + a superuser-bypass canary, the event spine/outbox, Stripe webhook idempotency and replay, the analysis pipeline (FR-6 grounding, salvage/truncation/control-char regressions, sampling union, batch seam), QA approve/reject + FR-7 tamper detection, report PDF rendering, FR-5 deadline vectors, the eval scorer, auth/recovery, and web unit tests (eligibility wizard, landing, documents, QA console, tracker, palette A/B).
