@@ -32,6 +32,12 @@ export default function HowItWorks() {
         ))}
       </div>
 
+      <p className="mt-4 text-center">
+        <Link href="/sample-report" className="font-semibold text-db-accent underline">
+          {t.sampleLink}
+        </Link>
+      </p>
+
       <section className="mt-8">
         <h2 className="font-db-serif text-xl font-semibold">{t.afterTitle}</h2>
         <p className="mt-2 text-db-muted">{t.afterBody}</p>

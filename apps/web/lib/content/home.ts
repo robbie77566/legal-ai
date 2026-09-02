@@ -27,6 +27,7 @@ export const HOME_CONTENT = {
       ['How to get the court documents', 'Who to call, what to say, and what each paper looks like — free.', '/how-to-get-documents'],
       ['What the review costs', 'The full $299 anatomy — no per-page fees, no surprises.', '/pricing'],
       ['Your questions, answered', 'How long it takes, what formats work, what happens if we find nothing.', '/faq'],
+      ['See a sample report', 'A full Part A from a fictional case — exactly what $299 delivers.', '/sample-report'],
     ],
     honestTitle: 'This is not for every case',
     honestBody:
@@ -58,6 +59,7 @@ export const HOME_CONTENT = {
       ['Cómo conseguir los documentos del tribunal', 'A quién llamar, qué decir y cómo se ve cada documento — gratis.', '/how-to-get-documents'],
       ['Cuánto cuesta la revisión', 'El desglose completo de los $299 — sin cargos por página, sin sorpresas.', '/pricing'],
       ['Sus preguntas, respondidas', 'Cuánto tarda, qué formatos sirven, qué pasa si no encontramos nada.', '/faq'],
+      ['Vea un informe de muestra', 'Una Parte A completa de un caso ficticio — exactamente lo que entregan los $299.', '/sample-report'],
     ],
     honestTitle: 'No es para todos los casos',
     honestBody:

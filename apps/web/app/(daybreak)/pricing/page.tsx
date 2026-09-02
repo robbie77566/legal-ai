@@ -48,6 +48,12 @@ export default function Pricing() {
         <p className="mt-2 text-db-muted">{t.anchorBody}</p>
       </section>
 
+      <p className="mt-6 text-center">
+        <Link href="/sample-report" className="font-semibold text-db-accent underline">
+          {t.sampleLink}
+        </Link>
+      </p>
+
       <section className="mt-6">
         <h2 className="font-db-serif text-xl font-semibold">{t.payTitle}</h2>
         <p className="mt-2 text-db-muted">{t.payBody}</p>

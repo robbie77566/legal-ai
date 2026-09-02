@@ -74,3 +74,19 @@ describe('learn article', () => {
     expect(ctas.every((l) => l.getAttribute('href') === '/check')).toBe(true)
   })
 })
+
+
+import SampleReport from '@/app/(daybreak)/sample-report/page'
+
+describe('sample report', () => {
+  it('leads with the fictional banner and mirrors the real report anatomy', () => {
+    render(<SampleReport />)
+    const banner = screen.getByTestId('sample-banner')
+    expect(banner).toHaveTextContent(/fictional case/)
+    expect(banner).toHaveTextContent(/invented/)
+    expect(screen.getByText(/never contacted her/)).toBeInTheDocument() // Part A voice
+    expect(screen.getByText(/RR4:212/)).toBeInTheDocument() // Part B cites
+    expect(screen.getAllByText(/For your lawyer \(Part B\)/).length).toBe(3)
+    expect(screen.getByText(/And when we find nothing\?/)).toBeInTheDocument()
+  })
+})

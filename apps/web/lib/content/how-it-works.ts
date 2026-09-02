@@ -38,6 +38,7 @@ export const HOW_CONTENT = {
         'The same findings in attorney form: every claim tied to page and line, ready to hand over so the lawyer you hire starts informed instead of starting over.',
       ],
     ],
+    sampleLink: 'See a full sample report',
     afterTitle: 'After the report',
     afterBody:
       'Your documents and report stay in your account to read, download, and share. If you find new documents later, a fresh analysis that includes them is $99. And what to do next — choosing and briefing an attorney — is exactly what the report was built to make easier.',
@@ -80,6 +81,7 @@ export const HOW_CONTENT = {
         'Los mismos hallazgos en forma de abogado: cada reclamo ligado a página y línea, listo para entregarse, para que el abogado que usted contrate empiece informado en vez de empezar de cero.',
       ],
     ],
+    sampleLink: 'Vea un informe de muestra completo',
     afterTitle: 'Después del informe',
     afterBody:
       'Sus documentos y su informe quedan en su cuenta para leer, descargar y compartir. Si encuentra documentos nuevos después, un análisis fresco que los incluya cuesta $99. Y el siguiente paso — elegir e informar a un abogado — es exactamente lo que el informe existe para facilitar.',

@@ -27,6 +27,7 @@ export const PRICING_CONTENT = {
     anchorTitle: 'What this usually costs',
     anchorBody:
       'Having an attorney read a trial record typically runs around $3,000 before any advice is given. We are not a substitute for a lawyer — the report exists to make the lawyer you do hire faster and better informed.',
+    sampleLink: 'See a sample report before you decide',
     payTitle: 'Paying',
     payBody: 'Card, or installments through Affirm/Klarna at checkout. If you have a promo code, it applies before payment.',
     cta: 'Start the free check',
@@ -57,6 +58,7 @@ export const PRICING_CONTENT = {
     anchorTitle: 'Lo que esto normalmente cuesta',
     anchorBody:
       'Que un abogado lea un expediente de juicio normalmente cuesta alrededor de $3,000 antes de recibir cualquier consejo. No somos un sustituto de un abogado — el informe existe para que el abogado que usted contrate trabaje más rápido y mejor informado.',
+    sampleLink: 'Vea un informe de muestra antes de decidir',
     payTitle: 'Formas de pago',
     payBody: 'Tarjeta, o pagos a plazos con Affirm/Klarna al pagar. Si tiene un código promocional, se aplica antes del pago.',
     cta: 'Empiece la revisión gratis',

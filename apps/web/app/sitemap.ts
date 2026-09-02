@@ -8,7 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '', '/review', '/how-it-works', '/pricing', '/about', '/faq', '/contact', '/learn',
     '/learn/what-is-an-11-07-writ', '/learn/the-federal-one-year-deadline',
     '/learn/why-the-first-writ-matters-most', '/learn/what-ineffective-assistance-means',
-    '/how-to-get-documents', '/disclosures', '/privacy', '/accessibility',
+    '/sample-report', '/how-to-get-documents', '/disclosures', '/privacy', '/accessibility',
   ].map(
     (path) => ({ url: `${BASE}${path}`, changeFrequency: 'weekly' as const })
   )
