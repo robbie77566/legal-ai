@@ -1,14 +1,17 @@
 /* Daybreak tokens (mvp_ui_design_spec.md §3.1) — light-first, calm dark via
    prefers-color-scheme. "Nothing found" is NEUTRAL, never red; red is
-   reserved exclusively for deadline urgency. */
+   reserved exclusively for deadline urgency.
+   Brand hues: "Steady Harbor" (trust blue / grey / black) — adopted as THE
+   theme by PO decision 2026-09-02; the amber/harbor A/B is retired
+   (color_research_landing.md §7). */
 .daybreak {
-  --db-bg: #faf7f0;
+  --db-bg: #f6f8fb;
   --db-surface: #ffffff;
-  --db-ink: #1f2937;
-  --db-muted: #5b6472;
-  --db-line: #e5dfd2;
-  --db-accent: #7a5f15; /* deepened from #8a6d1d: white-on-accent ~5.6:1 (mobile/CTA contrast) */
-  --db-accent-soft: #f4ecd6;
+  --db-ink: #1a2433;
+  --db-muted: #55637a;
+  --db-line: #dbe2ec;
+  --db-accent: #1f5c99; /* white-on-accent ≥ 5.5:1 (mobile/CTA contrast) */
+  --db-accent-soft: #e3edf8;
   --db-signal: #1e7a3d;
   --db-review: #8a6206;
   --db-none: #5b6472;
@@ -22,37 +25,8 @@
   min-height: 100dvh; /* mobile URL-bar-proof where supported */
 }
 
-/* A/B Scheme B — "Steady Harbor" (trust blue; color_research_landing.md §3).
-   Semantic colors (signal/review/urgent) are canon and identical in both
-   schemes; only brand hues change. Applied via data-palette on the root. */
-.daybreak[data-palette='harbor'] {
-  --db-bg: #f6f8fb;
-  --db-surface: #ffffff;
-  --db-ink: #1a2433;
-  --db-muted: #55637a;
-  --db-line: #dbe2ec;
-  --db-accent: #1f5c99;
-  --db-accent-soft: #e3edf8;
-}
-
 @media (prefers-color-scheme: dark) {
   .daybreak {
-    --db-bg: #12151c;
-    --db-surface: #1a1f29;
-    --db-ink: #e8ebf0;
-    --db-muted: #96a0ae;
-    --db-line: #2b323e;
-    --db-accent: #d4af37;
-    --db-accent-soft: #2a2410;
-    --db-signal: #3fb950;
-    --db-review: #d29922;
-    --db-none: #96a0ae;
-    --db-urgent: #f85149;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .daybreak[data-palette='harbor'] {
     --db-bg: #0f141c;
     --db-surface: #171e2a;
     --db-ink: #e6ebf2;
@@ -60,6 +34,10 @@
     --db-line: #28323f;
     --db-accent: #5b9bd5;
     --db-accent-soft: #14263c;
+    --db-signal: #3fb950;
+    --db-review: #d29922;
+    --db-none: #96a0ae;
+    --db-urgent: #f85149;
   }
 }
 

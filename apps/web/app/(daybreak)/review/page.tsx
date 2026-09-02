@@ -63,10 +63,28 @@ export default function DaybreakLanding() {
           {t.cta}
         </CtaLink>
         <p className="mt-3 text-sm text-db-muted">{t.heroSub}</p>
+        <Link href="/sample-report" className="mt-2 inline-block text-sm font-semibold text-db-accent underline" data-testid="hero-sample-link">
+          {t.sampleLink}
+        </Link>
       </header>
 
       <section className="rounded-xl border border-db-line bg-db-surface p-6">
         <p>{t.problem}</p>
+      </section>
+
+      {/* The objection that arrives in the first five seconds, answered
+          where it arrives (conversion review 2026-09-02) — proof, not
+          superlatives. */}
+      <section className="py-8" data-testid="why-not-chatgpt">
+        <h2 className="font-db-serif text-2xl font-semibold">{t.whyTitle}</h2>
+        <ul className="mt-4 space-y-3">
+          {t.why.map(([chat, us]) => (
+            <li key={us} className="rounded-xl border border-db-line bg-db-surface p-4">
+              <span className="block text-sm text-db-muted">{chat}</span>
+              <span className="mt-1 block font-semibold">{us}</span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="py-10">
@@ -103,6 +121,14 @@ export default function DaybreakLanding() {
           ))}
         </ul>
         <p className="mt-4 text-sm text-db-muted">{t.checksNote}</p>
+        <ul className="mt-4 space-y-2" data-testid="proof">
+          {t.proof.map((line) => (
+            <li key={line} className="flex gap-3 text-sm">
+              <span aria-hidden className="font-db-mono text-db-accent">✓</span>
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="py-10">

@@ -1,10 +1,6 @@
 /**
- * Palette A/B experiment (color_research_landing.md §5-6).
- *
- * Assignment: 50/50 at first visit, persisted in localStorage so the
- * palette never flips mid-funnel. Storage can throw (private mode,
- * blocked site data) — every access is guarded and the default is the
- * incumbent 'amber'.
+ * Funnel analytics (color_research_landing.md §5-6). The palette A/B that
+ * lived here is retired — see getPaletteVariant.
  *
  * Capture: PostHog /capture with the public project key; silent no-op
  * without NEXT_PUBLIC_POSTHOG_KEY. distinct_id is the anonymous variant
@@ -13,27 +9,15 @@
 
 export type PaletteVariant = 'amber' | 'harbor'
 
-const KEY = 'snl_palette'
 const SEED_KEY = 'snl_anon_id'
 
+/**
+ * The palette experiment is RETIRED (PO decision 2026-09-02): harbor is the
+ * theme. Kept as a function so analytics properties and the PDF theming
+ * call sites stay stable — it simply always answers 'harbor'.
+ */
 export function getPaletteVariant(): PaletteVariant {
-  try {
-    // Explicit preview/demo override: ?palette=amber|harbor wins and
-    // persists (so a support link or device test shows one scheme
-    // consistently through the whole funnel).
-    const forced = new URLSearchParams(window.location.search).get('palette')
-    if (forced === 'amber' || forced === 'harbor') {
-      window.localStorage.setItem(KEY, forced)
-      return forced
-    }
-    const existing = window.localStorage.getItem(KEY)
-    if (existing === 'amber' || existing === 'harbor') return existing
-    const assigned: PaletteVariant = Math.random() < 0.5 ? 'amber' : 'harbor'
-    window.localStorage.setItem(KEY, assigned)
-    return assigned
-  } catch {
-    return 'amber'
-  }
+  return 'harbor'
 }
 
 function anonId(): string {

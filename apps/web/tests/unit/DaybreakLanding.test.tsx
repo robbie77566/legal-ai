@@ -25,6 +25,23 @@ describe('Daybreak landing (landing_page_spec §2 canon)', () => {
     for (const cta of ctas) expect(cta).toHaveAttribute('href', '/check')
   })
 
+  it('answers the ChatGPT objection above the fold with mechanism, not superlatives', () => {
+    render(<DaybreakLanding />)
+    const block = screen.getByTestId('why-not-chatgpt')
+    expect(block).toHaveTextContent(/thrown out before you see it/)
+    expect(block).toHaveTextContent(/six checks/)
+    expect(screen.getByTestId('hero-sample-link')).toHaveAttribute('href', '/sample-report')
+    expect(screen.queryByText(/world-class/i)).toBeNull()
+  })
+
+  it('makes no claim the pipeline no longer keeps (no per-report human review)', () => {
+    render(<DaybreakLanding />)
+    expect(screen.queryByText(/checked by a person, every time/i)).toBeNull()
+    expect(screen.queryByText(/Human review of every report/i)).toBeNull()
+    expect(screen.getByTestId('proof')).toHaveTextContent(/signed off by a licensed Texas attorney/)
+    expect(screen.getByText('All six checks')).toBeInTheDocument()
+  })
+
   it('returning customers get a visible Sign in link in the nav', () => {
     render(<DaybreakLanding />)
     expect(screen.getByTestId('nav-signin')).toHaveAttribute('href', '/auth/signin')

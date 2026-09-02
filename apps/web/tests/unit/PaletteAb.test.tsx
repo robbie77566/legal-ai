@@ -1,4 +1,4 @@
-/** Palette A/B (color_research_landing.md §5): assignment, persistence, capture. */
+/** Funnel analytics (color_research_landing.md §5) — palette fixed to harbor; capture + CTA events. */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, fireEvent, screen } from '@testing-library/react'
 import { getPaletteVariant, captureAb } from '../../lib/ab'
@@ -6,28 +6,12 @@ import CtaLink from '../../components/ab/CtaLink'
 
 beforeEach(() => window.localStorage.clear())
 
-describe('getPaletteVariant', () => {
-  it('assigns 50/50 and persists the first assignment', () => {
-    vi.spyOn(Math, 'random').mockReturnValueOnce(0.9)
+describe('getPaletteVariant (A/B retired 2026-09-02)', () => {
+  it('is fixed to harbor — no assignment, no storage, no ?palette override', () => {
+    window.history.pushState({}, '', '/?palette=amber')
     expect(getPaletteVariant()).toBe('harbor')
-    vi.spyOn(Math, 'random').mockReturnValueOnce(0.1)
-    expect(getPaletteVariant()).toBe('harbor') // persisted, not re-rolled
-    expect(window.localStorage.getItem('snl_palette')).toBe('harbor')
-  })
-
-  it('?palette= override wins and persists', () => {
-    window.history.pushState({}, '', '/?palette=harbor')
-    expect(getPaletteVariant()).toBe('harbor')
+    expect(window.localStorage.getItem('snl_palette')).toBeNull()
     window.history.pushState({}, '', '/')
-    expect(getPaletteVariant()).toBe('harbor') // persisted after the override
-  })
-
-  it('defaults to the incumbent amber when storage throws', () => {
-    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
-    expect(getPaletteVariant()).toBe('amber')
-    spy.mockRestore()
   })
 })
 

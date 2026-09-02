@@ -529,7 +529,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       const { palette } = request.query as { palette?: string };
       const { renderReportPdf } = await import('@hg/reports');
       const pdf = await renderReportPdf({
-        palette: palette === 'harbor' ? 'harbor' : 'amber',
+        palette: palette === 'amber' ? 'amber' : 'harbor',
         caseTitle: kase.title,
         reportId: loaded.report.id,
         versionNo: loaded.report.versionNo,

@@ -54,7 +54,7 @@ export interface ReportPdfInput {
   strongSignals: ReportFinding[];
   possibleIssues: ReportFinding[];
   droppedByReverification: number;
-  /** Matches the customer's assigned web scheme; default amber. */
+  /** Matches the web theme; harbor is THE theme (A/B retired 2026-09-02). */
   palette?: ReportPalette;
 }
 
@@ -80,7 +80,7 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
         Subject: `Report ${input.reportId} v${input.versionNo} (template ${input.templateVersion})`,
       },
     });
-    const pal = PALETTES[input.palette ?? 'amber'];
+    const pal = PALETTES[input.palette ?? 'harbor'];
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));

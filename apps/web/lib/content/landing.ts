@@ -8,9 +8,21 @@ export const LANDING_CONTENT = {
     ctaSticky: 'Free 2-minute check',
     heroTitle: 'Find out what’s really in the court record — before you spend thousands.',
     heroBody:
-      'World-class AI, built for one job: reviewing Texas convictions after the trial is over. It reads every page of your loved one’s trial record, screens it for the problems that win appeals and writs (a writ is a formal request asking the court to take another look), and backs every finding with the exact page and quote — explained in plain English. ',
+      'AI built for one job: Texas convictions after the trial is over. It reads every page of your loved one’s record — not a summary, not a sample — runs six checks built around Texas writ law (a writ is a formal request asking the court to take another look), and is forbidden from showing you anything it can’t back with an exact quote from your documents. Then every quote is re-checked against the record before you see it. Explained in plain English. ',
     heroPrice: '$299. One price, no per-page fees.',
     heroSub: 'Free 2-minute check · Not a law firm · Information, not legal advice',
+    sampleLink: 'See a sample report first',
+    whyTitle: 'Why not just paste it into ChatGPT?',
+    why: [
+      ['A chatbot reads what fits in one message.', 'We read all 2,000 pages, every time.'],
+      ['A chatbot guesses when unsure — and sounds confident.', 'Anything without a page-and-line quote from your record is thrown out before you see it.'],
+      ['A chatbot knows a little about all law.', 'This system runs six checks built specifically around Texas post-conviction law.'],
+    ],
+    proof: [
+      'Every quote is re-verified word-for-word against your documents before delivery.',
+      'The method was evaluated against real Texas cases and signed off by a licensed Texas attorney.',
+      'If we find nothing worth pursuing, we say so plainly — we don’t sell hope.',
+    ],
     problem:
       'A lawyer charges about $3,000 just to read the file and tell you if a writ is worth pursuing. Full representation runs $15,000 or more. Most families decide blind — or don’t decide at all.',
     howTitle: 'How it works',
@@ -28,9 +40,10 @@ export const LANDING_CONTENT = {
       'Forensic science that’s since been discredited',
       'Sentence and jail-time-credit errors',
       'Deadlines that still matter — including "if the lawyer never filed the appeal you asked for, that itself can be a claim"',
+      'Jury selection problems',
     ],
     checksCite: 'Backed by page-and-line citations you can verify.',
-    checksNote: 'Powered by careful AI analysis — and checked by a person, every time.',
+    checksNote: 'AI built for this job, with quality gates on every report — anything that looks off is held for human review before it reaches you.',
     reportTitle: 'Your report, two parts',
     reportBody1a: 'Part A is for you:',
     reportBody1b:
@@ -43,8 +56,8 @@ export const LANDING_CONTENT = {
     priceUnit: '· one price',
     priceItems: [
       'Up to 5,000 pages',
-      'All five checks',
-      'Human review of every report',
+      'All six checks',
+      'Quality gates on every report — human review when anything looks off',
       'Both report parts, yours to keep',
       'Secure handling, deleted on request',
     ],
@@ -91,7 +104,7 @@ export const LANDING_CONTENT = {
       ],
     ] as [string, string][],
     footerLegal:
-      'Family Case Review is a service of Snot Nose Legal. Snot Nose Legal is not a law firm and does not provide legal advice. Reports are information about court records, prepared with AI assistance and reviewed by trained staff, for use in consultation with a licensed attorney.',
+      'Family Case Review is a service of Snot Nose Legal. Snot Nose Legal is not a law firm and does not provide legal advice. Reports are information about court records, prepared by AI built for this purpose, checked by automated quality gates and reviewed by staff when needed, for use in consultation with a licensed attorney.',
     staffSignIn: 'Staff sign in',
   },
   es: {
@@ -101,10 +114,22 @@ export const LANDING_CONTENT = {
     ctaSticky: 'Revisión gratis de 2 minutos',
     heroTitle: 'Descubra lo que realmente dice el expediente — antes de gastar miles de dólares.',
     heroBody:
-      'Inteligencia artificial de clase mundial, creada para una sola tarea: revisar condenas de Texas después del juicio. Lee cada página del expediente de su ser querido, busca los problemas que ganan apelaciones y recursos legales (un "writ" es una petición formal para que la corte revise el caso de nuevo), y respalda cada hallazgo con la página y la cita exacta — explicado en palabras sencillas. ',
+      'Inteligencia artificial creada para una sola tarea: condenas de Texas después del juicio. Lee cada página del expediente de su ser querido — no un resumen, no una muestra — hace seis verificaciones basadas en la ley de recursos de Texas (un "writ" es una petición formal para que la corte revise el caso de nuevo), y tiene prohibido mostrarle cualquier cosa que no pueda respaldar con una cita exacta de sus documentos. Después, cada cita se verifica de nuevo contra el expediente antes de que usted la vea. Explicado en palabras sencillas. ',
     heroPrice: '$299. Un solo precio, sin cargos por página.',
     heroSub:
       'Revisión gratis de 2 minutos · No somos un bufete de abogados · Información, no consejo legal',
+    sampleLink: 'Vea primero un reporte de muestra',
+    whyTitle: '¿Por qué no simplemente pegarlo en ChatGPT?',
+    why: [
+      ['Un chatbot lee lo que cabe en un mensaje.', 'Nosotros leemos las 2,000 páginas completas, siempre.'],
+      ['Un chatbot adivina cuando no está seguro — y suena convencido.', 'Cualquier cosa sin una cita de página y línea de su expediente se descarta antes de que usted la vea.'],
+      ['Un chatbot sabe un poco de todas las leyes.', 'Este sistema hace seis verificaciones creadas específicamente para la ley post-condena de Texas.'],
+    ],
+    proof: [
+      'Cada cita se verifica de nuevo palabra por palabra contra sus documentos antes de la entrega.',
+      'El método fue evaluado con casos reales de Texas y aprobado por un abogado con licencia de Texas.',
+      'Si no encontramos nada que valga la pena, se lo decimos claramente — no vendemos esperanza.',
+    ],
     problem:
       'Un abogado cobra unos $3,000 solo por leer el expediente y decirle si vale la pena presentar un recurso. La representación completa cuesta $15,000 o más. La mayoría de las familias deciden a ciegas — o no deciden nada.',
     howTitle: 'Cómo funciona',
@@ -123,10 +148,11 @@ export const LANDING_CONTENT = {
       'Ciencia forense que ya fue desacreditada',
       'Errores en la sentencia y en el crédito por tiempo en la cárcel',
       'Plazos que todavía importan — incluyendo "si el abogado nunca presentó la apelación que usted pidió, eso mismo puede ser un reclamo"',
+      'Problemas en la selección del jurado',
     ],
     checksCite: 'Respaldado con citas de página y línea que usted puede verificar.',
     checksNote:
-      'Con análisis cuidadoso de inteligencia artificial — y revisado por una persona, siempre.',
+      'Inteligencia artificial creada para esta tarea, con controles de calidad en cada reporte — cualquier cosa que parezca dudosa se detiene para revisión humana antes de llegarle.',
     reportTitle: 'Su reporte, en dos partes',
     reportBody1a: 'La Parte A es para usted:',
     reportBody1b:
@@ -139,8 +165,8 @@ export const LANDING_CONTENT = {
     priceUnit: '· un solo precio',
     priceItems: [
       'Hasta 5,000 páginas',
-      'Las cinco revisiones completas',
-      'Revisión humana de cada reporte',
+      'Las seis revisiones completas',
+      'Controles de calidad en cada reporte — revisión humana cuando algo parece dudoso',
       'Las dos partes del reporte, suyas para siempre',
       'Manejo seguro; se borra si usted lo pide',
     ],
@@ -187,7 +213,7 @@ export const LANDING_CONTENT = {
       ],
     ] as [string, string][],
     footerLegal:
-      'Family Case Review es un servicio de Snot Nose Legal. Snot Nose Legal no es un bufete de abogados y no da consejo legal. Los reportes son información sobre documentos de la corte, preparados con ayuda de inteligencia artificial y revisados por personal capacitado, para usarse en consulta con un abogado con licencia.',
+      'Family Case Review es un servicio de Snot Nose Legal. Snot Nose Legal no es un bufete de abogados y no ofrece asesoría legal. Los reportes son información sobre expedientes judiciales, preparados por inteligencia artificial creada para este fin, verificados por controles de calidad automáticos y revisados por personal cuando es necesario, para usarse en consulta con un abogado con licencia.',
     staffSignIn: 'Acceso para el personal',
   },
 }
