@@ -35,6 +35,7 @@
 ## Server & process discipline (dev)
 
 - **tsx watch does NOT reliably reload.** After ANY worker/service change: kill the PID on port 3001 (`ss -tlnp | grep 3001`) and restart `pnpm --filter api dev`. Never `pkill -f "tsx watch"` — the pattern self-matches the calling shell.
+- **pnpm on this dev box (snap VS Code):** the snap's pnpm store path changes with every VS Code snap revision (`~/snap/code/<rev>/.local/share/pnpm/store`), after which any install fails with `ERR_PNPM_UNEXPECTED_STORE`. Fix: pass `--store-dir <the path printed in the error's "currently linked from" line>` to that install, or `pnpm install` once to relink. Also: never run `corepack pnpm lint/typecheck` at the root — turbo's child processes inherit corepack and refuse the `packageManager` pin ("configured to use 11.1.0, current is 11.5.2"); plain `pnpm` from PATH is what the gate uses and it works. pnpm 11 also auto-writes `<pkg>: set this to true or false` placeholders into `pnpm-workspace.yaml` `allowBuilds` — replace with `true` (this exact placeholder broke a Render build on Aug 31 and a local install on Sep 2).
 - **The gate is the law:** `./scripts/gate.sh` and branch on ITS exit code. Never pipe it (`| tail` eats the failure — this shipped two broken commits before the rule).
 - **Every model call costs real money.** The prompt cache TTL is ~5 min; consecutive runs on the same case within it ride cache reads at 0.1×. Batch mode makes cache economics automatic.
 

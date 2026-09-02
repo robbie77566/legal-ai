@@ -1,42 +1,53 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test'
 
-test.describe('HabeasGraph Landing Page', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-  });
+/**
+ * Public-surface smoke (CI E2E): the brand site + conversion landing render
+ * in a real browser with no API behind them. Catches broken pages, dead
+ * CTAs, and the language switch — not business logic (that's vitest).
+ * Replaced the pre-pivot HabeasGraph specs 2026-09-02.
+ */
+test.describe('public site smoke', () => {
+  test('brand home renders and every free-check CTA routes to /check', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('h1')).toContainText('court record')
+    await expect(page.getByText('This is not for every case')).toBeVisible()
+    const ctas = page.getByRole('link', { name: /free/i })
+    expect(await ctas.count()).toBeGreaterThanOrEqual(2)
+    for (const href of await ctas.evaluateAll((els) => els.map((e) => e.getAttribute('href')))) {
+      expect(href).toBe('/check')
+    }
+  })
 
-  test('should render the Hero section with dynamic typography', async ({ page }) => {
-    // Assert the main header exists
-    await expect(page.locator('h1')).toContainText('Texas Post-Conviction');
-    await expect(page.locator('h1')).toContainText('Advocacy, Untangled.');
+  test('conversion landing at /review keeps its hero and price framing', async ({ page }) => {
+    await page.goto('/review')
+    await expect(page.locator('h1')).toContainText(/really in the court record/i)
+    await expect(page.getByText(/\$299\. One price/)).toBeVisible()
+  })
 
-    // Assert the CTA button exists and is visible
-    const ctaButton = page.getByRole('button', { name: /Initialize Workspace/i });
-    await expect(ctaButton).toBeVisible();
-  });
+  test('language switch flips the landing to Spanish and persists across pages', async ({ page }) => {
+    await page.goto('/review')
+    await page.getByTestId('lang-switch').click()
+    await expect(page.locator('h1')).toContainText(/expediente/i)
+    await page.goto('/pricing')
+    await expect(page.locator('h1')).toContainText('Un solo precio')
+  })
 
-  test('should navigate to the dashboard when CTA is clicked', async ({ page }) => {
-    const ctaButton = page.getByRole('button', { name: /Initialize Workspace/i });
-    await ctaButton.click();
+  test('pricing, faq, sample report, and the documents guide all render', async ({ page }) => {
+    for (const [path, text] of [
+      ['/pricing', 'One price: $299'],
+      ['/faq', 'Your questions, answered'],
+      ['/sample-report', 'fictional case'],
+      ['/how-to-get-documents', /documents/i],
+    ] as const) {
+      await page.goto(path)
+      await expect(page.locator('main')).toContainText(text)
+    }
+  })
 
-    // After clicking, it should route to /dashboard
-    await expect(page).toHaveURL(/.*\/dashboard/);
-  });
-
-  test('should display the Bento Grid features', async ({ page }) => {
-    // Scroll to the features section
-    await expect(page.locator('h2', { hasText: 'Institutional-Grade Workflows' })).toBeVisible();
-
-    // Verify all 3 persona cards exist
-    await expect(page.locator('h3', { hasText: 'Triage Engine' })).toBeVisible();
-    await expect(page.locator('h3', { hasText: 'Chronological Web' })).toBeVisible();
-    await expect(page.locator('h3', { hasText: 'Parchment Drafting' })).toBeVisible();
-  });
-
-  test('should display the institutional security footer', async ({ page }) => {
-    const footer = page.locator('footer');
-    await expect(footer).toContainText('Zero-Retention AI');
-    await expect(footer).toContainText('Immutable Audit Logs');
-    await expect(footer).toContainText('RLS Tenant Isolation');
-  });
-});
+  test('footer carries the operator and the no-legal-advice line', async ({ page }) => {
+    await page.goto('/')
+    const footer = page.locator('footer')
+    await expect(footer).toContainText('Tangent Software LLC')
+    await expect(footer).toContainText('not a law firm')
+  })
+})

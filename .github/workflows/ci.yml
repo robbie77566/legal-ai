@@ -98,7 +98,12 @@ jobs:
         # and silently ran nothing. Includes the live-Postgres RLS suite.
         run: pnpm exec vitest run
 
-      - name: E2E tests
+      - name: Install Playwright browser
+        # CI never had a browser installed — the E2E step could not have
+        # passed even before the pre-pivot specs went stale (2026-09-02).
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: E2E tests (public-surface smoke)
         run: pnpm --filter web exec playwright test
         env:
           CI: true

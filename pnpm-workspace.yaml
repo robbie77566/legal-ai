@@ -8,6 +8,7 @@ allowBuilds:
   esbuild: true
   msgpackr-extract: true
   prisma: true
+  unrs-resolver: true
 
 # pnpm v11: build-script allowlist lives here (was package.json "pnpm" field)
 onlyBuiltDependencies:
