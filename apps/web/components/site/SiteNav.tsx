@@ -12,6 +12,8 @@ import { useContent, LangSwitch } from '../../lib/i18n'
 
 const NAV = {
   en: {
+    how: 'How it works',
+    learn: 'Learn',
     pricing: 'Pricing',
     about: 'About',
     faq: 'FAQ',
@@ -19,6 +21,8 @@ const NAV = {
     cta: 'Start the free check',
   },
   es: {
+    how: 'Cómo funciona',
+    learn: 'Aprenda',
     pricing: 'Precio',
     about: 'Quiénes somos',
     faq: 'Preguntas',
@@ -35,6 +39,12 @@ export default function SiteNav() {
         Family Case Review
       </Link>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <Link href="/how-it-works" className="hover:underline">
+          {t.how}
+        </Link>
+        <Link href="/learn" className="hover:underline">
+          {t.learn}
+        </Link>
         <Link href="/pricing" className="hover:underline">
           {t.pricing}
         </Link>
@@ -43,9 +53,6 @@ export default function SiteNav() {
         </Link>
         <Link href="/faq" className="hover:underline">
           {t.faq}
-        </Link>
-        <Link href="/how-to-get-documents" className="hover:underline">
-          {t.guide}
         </Link>
         <LangSwitch />
         <Link

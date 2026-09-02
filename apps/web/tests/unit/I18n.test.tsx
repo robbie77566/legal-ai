@@ -10,6 +10,8 @@ import { PRICING_CONTENT } from '@/lib/content/pricing'
 import { ABOUT_CONTENT } from '@/lib/content/about'
 import { SITE_FAQ_CONTENT } from '@/lib/content/site-faq'
 import { CONTACT_CONTENT } from '@/lib/content/contact'
+import { LEARN_CONTENT } from '@/lib/content/learn'
+import { HOW_CONTENT } from '@/lib/content/how-it-works'
 
 beforeEach(() => window.localStorage.clear())
 
@@ -37,6 +39,8 @@ describe('i18n (i18n_localization.md)', () => {
     assertParity(ABOUT_CONTENT.en, ABOUT_CONTENT.es, 'about')
     assertParity(SITE_FAQ_CONTENT.en, SITE_FAQ_CONTENT.es, 'site-faq')
     assertParity(CONTACT_CONTENT.en, CONTACT_CONTENT.es, 'contact')
+    assertParity(LEARN_CONTENT.en, LEARN_CONTENT.es, 'learn')
+    assertParity(HOW_CONTENT.en, HOW_CONTENT.es, 'how-it-works')
   })
 
   it('the switcher flips the landing to Spanish and persists', () => {

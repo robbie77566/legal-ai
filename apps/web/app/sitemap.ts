@@ -4,7 +4,12 @@ import type { MetadataRoute } from 'next'
 const BASE = 'https://www.snotnoselegal.com'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return ['', '/review', '/pricing', '/about', '/faq', '/contact', '/how-to-get-documents', '/disclosures', '/privacy', '/accessibility'].map(
+  return [
+    '', '/review', '/how-it-works', '/pricing', '/about', '/faq', '/contact', '/learn',
+    '/learn/what-is-an-11-07-writ', '/learn/the-federal-one-year-deadline',
+    '/learn/why-the-first-writ-matters-most', '/learn/what-ineffective-assistance-means',
+    '/how-to-get-documents', '/disclosures', '/privacy', '/accessibility',
+  ].map(
     (path) => ({ url: `${BASE}${path}`, changeFrequency: 'weekly' as const })
   )
 }
