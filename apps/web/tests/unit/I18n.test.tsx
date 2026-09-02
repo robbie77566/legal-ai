@@ -2,9 +2,14 @@ import React from 'react'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { LangProvider } from '@/lib/i18n'
-import DaybreakLanding from '@/app/(daybreak)/page'
+import DaybreakLanding from '@/app/(daybreak)/review/page'
 import { LANDING_CONTENT } from '@/lib/content/landing'
 import { GUIDE_CONTENT } from '@/lib/content/guide'
+import { HOME_CONTENT } from '@/lib/content/home'
+import { PRICING_CONTENT } from '@/lib/content/pricing'
+import { ABOUT_CONTENT } from '@/lib/content/about'
+import { SITE_FAQ_CONTENT } from '@/lib/content/site-faq'
+import { CONTACT_CONTENT } from '@/lib/content/contact'
 
 beforeEach(() => window.localStorage.clear())
 
@@ -27,6 +32,11 @@ describe('i18n (i18n_localization.md)', () => {
   it('dictionary parity: landing and guide content match structurally across languages', () => {
     assertParity(LANDING_CONTENT.en, LANDING_CONTENT.es, 'landing')
     assertParity(GUIDE_CONTENT.en, GUIDE_CONTENT.es, 'guide')
+    assertParity(HOME_CONTENT.en, HOME_CONTENT.es, 'home')
+    assertParity(PRICING_CONTENT.en, PRICING_CONTENT.es, 'pricing')
+    assertParity(ABOUT_CONTENT.en, ABOUT_CONTENT.es, 'about')
+    assertParity(SITE_FAQ_CONTENT.en, SITE_FAQ_CONTENT.es, 'site-faq')
+    assertParity(CONTACT_CONTENT.en, CONTACT_CONTENT.es, 'contact')
   })
 
   it('the switcher flips the landing to Spanish and persists', () => {

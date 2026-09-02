@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import DaybreakLanding from '@/app/(daybreak)/page'
+import DaybreakLanding from '@/app/(daybreak)/review/page'
 
 describe('Daybreak landing (landing_page_spec §2 canon)', () => {
   it('renders the canonical hero, price framing, and honesty filter', () => {
