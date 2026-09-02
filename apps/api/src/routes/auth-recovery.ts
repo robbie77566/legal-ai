@@ -39,7 +39,10 @@ export default async function authRecoveryRoutes(fastify: FastifyInstance) {
         where: { id: user.id },
         data: { resetToken: hash, resetExpires: new Date(Date.now() + RESET_WINDOW_MS) },
       });
-      const origin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
+      // WEB_ORIGIN is a comma-separated list (CORS allowlist); links use the
+      // FIRST entry — same rule as checkout redirects. Raw use produced
+      // 'http://a,http://b/auth/reset-password' links in dev (2026-09-02).
+      const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
       await sendPasswordReset(email, {
         resetUrl: `${origin}/auth/reset-password?token=${raw}&id=${user.id}`,
       });

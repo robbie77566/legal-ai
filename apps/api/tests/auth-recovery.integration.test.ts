@@ -72,6 +72,21 @@ describe('POST /auth/forgot', () => {
     expect(u.resetExpires!.getTime()).toBeGreaterThan(Date.now());
   });
 
+  it('builds the link from the FIRST WEB_ORIGIN entry (the var is a comma list)', async () => {
+    const prev = process.env.WEB_ORIGIN;
+    process.env.WEB_ORIGIN = 'https://first.example,https://second.example';
+    try {
+      sent.length = 0;
+      await fastify.inject({ method: 'POST', url: '/auth/forgot', payload: { email: `${run}@example.com` } });
+      expect(sent).toHaveLength(1);
+      expect(sent[0].text).toContain('https://first.example/auth/reset-password?token=');
+      expect(sent[0].text).not.toContain('https://first.example,'); // the raw-list bug (2026-09-02)
+    } finally {
+      if (prev !== undefined) process.env.WEB_ORIGIN = prev; else delete process.env.WEB_ORIGIN;
+      sent.length = 0;
+    }
+  });
+
   it('is enumeration-safe: unknown emails get the same answer and NO email', async () => {
     const res = await fastify.inject({
       method: 'POST',

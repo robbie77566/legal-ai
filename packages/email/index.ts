@@ -25,7 +25,10 @@ function buildProvider(): EmailProvider {
   if (!key) {
     return {
       async send(msg) {
-        console.warn(`[email] RESEND_API_KEY not set — NOT delivered: "${msg.subject}" → ${msg.to}`);
+        // Honest console transport: print the BODY too — a reset link that
+        // exists only inside an unsent email is useless to the operator
+        // reading the log (bit us 2026-09-02).
+        console.warn(`[email] RESEND_API_KEY not set — NOT delivered: "${msg.subject}" → ${msg.to}\n${msg.text}`);
         return { delivered: false, error: 'RESEND_API_KEY is not set on this service — logging only' };
       },
     };
