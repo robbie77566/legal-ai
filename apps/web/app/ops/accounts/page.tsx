@@ -4,7 +4,7 @@
  *  only; deletion routes cases through OPS-4 and anonymizes the user row
  *  (ledger survives, email freed). The exact email must be retyped —
  *  never a one-misclick action. */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
 
@@ -24,11 +24,18 @@ export default function AccountAdmin() {
   const [confirmEmail, setConfirmEmail] = useState('')
   const [notice, setNotice] = useState('')
 
+  const load = async (term: string) => {
+    const r = await apiFetch(`/ops/accounts${term ? `?q=${encodeURIComponent(term)}` : ''}`)
+    if (r.ok) setResults(await r.json())
+  }
+  useEffect(() => {
+    void load('')
+  }, [])
+
   const search = async (e: React.FormEvent) => {
     e.preventDefault()
     setNotice('')
-    const r = await apiFetch(`/ops/accounts?q=${encodeURIComponent(q)}`)
-    if (r.ok) setResults(await r.json())
+    await load(q)
   }
 
   const doDelete = async () => {
@@ -65,13 +72,18 @@ export default function AccountAdmin() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by email (3+ characters)"
+          placeholder="Filter by email (leave empty to list all)"
           className="w-96 rounded border border-[#30363D] bg-[#0D1117] px-3 py-2 text-sm"
         />
         <button className="rounded border border-[#30363D] px-4 py-2 text-sm hover:border-[#D4AF37]">Search</button>
       </form>
 
       {notice && <p className="mt-3 text-sm text-[#D29922]">{notice}</p>}
+
+      <p className="mt-4 text-xs text-[#8B949E]" data-testid="accounts-count">
+        {results.length} customer account{results.length === 1 ? '' : 's'}{q ? ` matching “${q}”` : ''}
+        {results.length === 0 && !q ? ' — none exist yet on this environment' : ''}
+      </p>
 
       {results.length > 0 && (
         <table className="mt-6 w-full border-collapse text-sm">

@@ -52,6 +52,18 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+describe('GET /ops/accounts', () => {
+  it('lists customer accounts without a search term, and filters with one', async () => {
+    const all = await fastify.inject({ method: 'GET', url: '/ops/accounts', headers: { cookie: adminCookie } });
+    expect(all.statusCode).toBe(200);
+    expect(all.json().some((a: { email: string }) => a.email === EMAIL)).toBe(true);
+    const filtered = await fastify.inject({ method: 'GET', url: `/ops/accounts?q=${run}`, headers: { cookie: adminCookie } });
+    expect(filtered.json().map((a: { email: string }) => a.email)).toEqual([EMAIL]);
+    const none = await fastify.inject({ method: 'GET', url: '/ops/accounts?q=zzz-no-such-account', headers: { cookie: adminCookie } });
+    expect(none.json()).toEqual([]);
+  });
+});
+
 describe('POST /ops/accounts/:id/delete', () => {
   it('refuses a mismatched confirmation email', async () => {
     const res = await fastify.inject({

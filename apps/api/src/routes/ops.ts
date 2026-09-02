@@ -254,12 +254,14 @@ export default async function opsRoutes(fastify: FastifyInstance) {
   // through the OPS-4 machinery, then the user row anonymized (ledger FKs
   // survive; the email is freed for reuse; live sessions die).
   fastify.get('/accounts', async (request) => {
+    // No term → the whole (small) customer list, newest first; a term
+    // filters it. Demanding a search term first left the admin guessing at
+    // emails that might not exist (2026-09-02).
     const { q } = request.query as { q?: string };
-    if (!q || q.length < 3) return [];
     const users = await prisma.user.findMany({
-      where: { email: { contains: q, mode: 'insensitive' }, role: 'CLIENT' },
+      where: { role: 'CLIENT', ...(q ? { email: { contains: q, mode: 'insensitive' } } : {}) },
       select: { id: true, email: true, name: true, createdAt: true, deletedAt: true, tenantId: true },
-      take: 20,
+      take: 100,
       orderBy: { createdAt: 'desc' },
     });
     return Promise.all(
