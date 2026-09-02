@@ -297,4 +297,36 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     request.log.info({ deletedUser: id, by: request.auth.userId, cases: result.casesDeleted.length }, 'account deleted');
     return result;
   });
+
+  // J2 (ops_console_redesign.md): "is the system healthy / configured?"
+  // Presence only — never a secret value. Stripe mode is derived from the
+  // key prefix; pipeline counts are one groupBy.
+  fastify.get('/status', async () => {
+    const stripeKey = process.env.STRIPE_SECRET_KEY ?? '';
+    const byStatus = await prisma.case.groupBy({ by: ['status'], _count: { _all: true } });
+    const count = (st: string) => byStatus.find((b) => b.status === st)?._count._all ?? 0;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 12);
+    const retentionCandidates = await prisma.case.count({
+      where: { status: { in: ['READY', 'DELIVERED', 'REFUNDED'] }, updatedAt: { lt: cutoff } },
+    });
+    return {
+      email: process.env.RESEND_API_KEY
+        ? { configured: true, from: process.env.EMAIL_FROM ?? 'Family Case Review <noreply@snotnoselegal.com>' }
+        : { configured: false, from: null },
+      stripe: !stripeKey ? 'unset' : stripeKey.startsWith('sk_live_') ? 'live' : 'test',
+      autoApprove: process.env.AUTO_APPROVE === '1',
+      malwareScan: !!process.env.CLAMD_HOST,
+      sentry: !!process.env.SENTRY_DSN,
+      posthog: !!process.env.POSTHOG_API_KEY,
+      pipeline: {
+        awaitingDocs: count('AWAITING_DOCS'),
+        digitizing: count('DOCS_COMPLETE') + count('DIGITIZING'),
+        analyzing: count('ANALYZING'),
+        held: count('QA_REVIEW'),
+        ready: count('READY') + count('DELIVERED'),
+      },
+      retentionCandidates,
+    };
+  });
 }

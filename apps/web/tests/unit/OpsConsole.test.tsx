@@ -19,7 +19,16 @@ beforeEach(() => {
     'fetch',
     vi.fn(async (url: RequestInfo | URL) => {
       const u = String(url)
-      const body = u.endsWith('/ops/queue') ? QUEUE : u.includes('/timeline') ? TIMELINE : {}
+      // The redesigned overview also loads /ops/status, /qa/holds and /cogs.
+      const body = u.endsWith('/ops/queue') ? QUEUE
+        : u.includes('/timeline') ? TIMELINE
+        : u.endsWith('/ops/status') ? {
+            email: { configured: true, from: 'x@y' }, stripe: 'test', autoApprove: true, malwareScan: true,
+            sentry: false, posthog: false, pipeline: { awaitingDocs: 1, digitizing: 0, analyzing: 0, held: 0, ready: 0 }, retentionCandidates: 0,
+          }
+        : u.endsWith('/qa/holds') ? []
+        : u.endsWith('/cogs') ? { totalUsd: 0 }
+        : {}
       return { ok: true, json: async () => body } as Response
     })
   )
@@ -32,8 +41,9 @@ describe('Ops console (US-9)', () => {
     expect(screen.getByText('DELAY-OURS')).toBeInTheDocument()
     expect(screen.getByText('§4')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Family Case Review'))
-    await waitFor(() => expect(screen.getByText('delay.ours_marked')).toBeInTheDocument())
+    // The stalled case appears in "Needs you now" AND the table — open via the table row.
+    fireEvent.click(screen.getAllByText('Family Case Review').at(-1)!)
+    await waitFor(() => expect(screen.getByText('delay ours marked')).toBeInTheDocument()) // de-snaked
     expect(screen.getByRole('button', { name: /Delete \(OPS-4\)/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /E-6 disclosure archive/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Refund/ })).toBeInTheDocument()

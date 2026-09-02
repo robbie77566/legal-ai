@@ -57,7 +57,7 @@ export default function PromoAdmin() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0E14] p-6 font-sans text-[#E6EDF3]">
+    <div>
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-xl font-bold text-[#D4AF37]">Promo Codes</h1>
         <Link href="/ops" className="text-sm text-[#8B949E] underline">

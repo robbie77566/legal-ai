@@ -5,7 +5,6 @@
  *  (ledger survives, email freed). The exact email must be retyped —
  *  never a one-misclick action. */
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
 
 interface Account {
@@ -60,12 +59,9 @@ export default function AccountAdmin() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0E14] p-6 font-sans text-[#E6EDF3]">
+    <div>
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-xl font-bold text-[#D4AF37]">Accounts</h1>
-        <Link href="/ops" className="text-xs text-[#8B949E] underline">
-          ← Operations Console
-        </Link>
       </div>
 
       <form onSubmit={search} className="mt-6 flex gap-2">
