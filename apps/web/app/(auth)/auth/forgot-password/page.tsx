@@ -9,15 +9,25 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [limited, setLimited] = useState(false)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
-    await apiFetch('/auth/forgot', {
+    setLimited(false)
+    // Enumeration-safe: every outcome reads "check your email" EXCEPT the
+    // rate limit — silently swallowing a 429 left people re-clicking for an
+    // email that was never going to come (2026-09-02).
+    const res = await apiFetch('/auth/forgot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
-    }).catch(() => {})
+    }).catch(() => null)
+    if (res?.status === 429) {
+      setLimited(true)
+      setBusy(false)
+      return
+    }
     setSent(true)
   }
 
@@ -36,7 +46,13 @@ export default function ForgotPassword() {
   }
 
   return (
-    <form onSubmit={submit}>
+    <>
+      {limited && (
+        <p role="alert" className="mb-3 text-sm" style={{ color: 'var(--db-urgent)' }}>
+          Too many reset requests in a row — please wait 15 minutes and try once more.
+        </p>
+      )}
+      <form onSubmit={submit}>
       <h1 className="text-xl font-semibold ">Reset your password</h1>
       <p className="mt-2 text-sm text-db-muted">
         Enter your email and we&rsquo;ll send a reset link.
@@ -62,5 +78,6 @@ export default function ForgotPassword() {
         Back to sign in
       </Link>
     </form>
+    </>
   )
 }
