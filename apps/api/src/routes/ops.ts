@@ -329,4 +329,15 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       retentionCandidates,
     };
   });
+
+  // J2 diagnostic: send a real message to the calling admin and return the
+  // provider's verdict verbatim — replaces log spelunking with one click.
+  fastify.post('/email-test', async (request) => {
+    const me = await prisma.user.findUnique({ where: { id: request.auth.userId }, select: { email: true } });
+    if (!me) return { delivered: false, error: 'caller not found' };
+    const { sendTestEmail } = await import('@hg/email');
+    const result = await sendTestEmail(me.email);
+    request.log.info({ to: me.email, ...result }, 'ops email test');
+    return { to: me.email, ...result };
+  });
 }

@@ -15,7 +15,7 @@ export interface EmailMessage {
 }
 
 export interface EmailProvider {
-  send(msg: EmailMessage): Promise<{ delivered: boolean; id?: string }>;
+  send(msg: EmailMessage): Promise<{ delivered: boolean; id?: string; error?: string }>;
 }
 
 const FROM = () => process.env.EMAIL_FROM ?? 'Family Case Review <noreply@snotnoselegal.com>';
@@ -26,7 +26,7 @@ function buildProvider(): EmailProvider {
     return {
       async send(msg) {
         console.warn(`[email] RESEND_API_KEY not set — NOT delivered: "${msg.subject}" → ${msg.to}`);
-        return { delivered: false };
+        return { delivered: false, error: 'RESEND_API_KEY is not set on this service — logging only' };
       },
     };
   }
@@ -59,14 +59,25 @@ export function __setEmailProviderForTests(p: EmailProvider | undefined) {
 const FOOTER =
   '\n\n—\nFamily Case Review is a service of Snot Nose Legal. We are not a law firm and this is not legal advice. Questions? Just reply to this email.';
 
-async function send(msg: EmailMessage) {
+async function send(msg: EmailMessage): Promise<{ delivered: boolean; id?: string; error?: string }> {
   try {
     return await getProvider().send({ ...msg, text: msg.text + FOOTER });
   } catch (e) {
     // ENG-9: a failed send is an operational event, never a crashed request.
+    // The provider's message is returned so the ops console can show it —
+    // Resend error text is diagnostic, never a secret.
     console.error('[email] send failed:', (e as Error).message);
-    return { delivered: false };
+    return { delivered: false, error: (e as Error).message };
   }
+}
+
+/** Ops diagnostic (ops_console_redesign.md J2): prove the transport end to end. */
+export function sendTestEmail(to: string) {
+  return send({
+    to,
+    subject: 'Family Case Review — email transport test',
+    text: `This is a test message from the operations console, sent ${new Date().toISOString()}. If you are reading it, transactional email is working.`,
+  });
 }
 
 export function sendReceipt(to: string, opts: { amountCents: number }) {

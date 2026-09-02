@@ -71,6 +71,24 @@ describe('GET /ops/status', () => {
     }
   });
 
+  it('POST /ops/email-test returns the transport verdict — reason text when no key is loaded', async () => {
+    const prev = process.env.RESEND_API_KEY;
+    delete process.env.RESEND_API_KEY;
+    try {
+      const { __setEmailProviderForTests } = await import('@hg/email');
+      __setEmailProviderForTests(undefined); // rebuild the provider from the (now absent) key
+      const res = await fastify.inject({ method: 'POST', url: '/ops/email-test', headers: { cookie: adminCookie } });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.to).toBe(`${run}_admin@x.com`);
+      expect(body.delivered).toBe(false);
+      expect(body.error).toMatch(/RESEND_API_KEY is not set/);
+      __setEmailProviderForTests(undefined);
+    } finally {
+      if (prev !== undefined) process.env.RESEND_API_KEY = prev;
+    }
+  });
+
   it('is ADMIN-only', async () => {
     const res = await fastify.inject({ method: 'GET', url: '/ops/status', headers: { cookie: clientCookie } });
     expect(res.statusCode).toBe(403);

@@ -145,7 +145,19 @@ export default function OpsOverview() {
           <p className="mt-2 text-sm text-[#8B949E]">Loading…</p>
         ) : (
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Tile label="Email" value={status.email.configured ? 'Resend configured' : 'NOT SENDING — logging only'} tone={status.email.configured ? 'ok' : 'bad'} hint={status.email.from ?? 'set RESEND_API_KEY on api'} />
+            <div>
+              <Tile label="Email" value={status.email.configured ? 'Resend configured' : 'NOT SENDING — logging only'} tone={status.email.configured ? 'ok' : 'bad'} hint={status.email.from ?? 'set RESEND_API_KEY on api'} />
+              <button
+                data-testid="email-test"
+                onClick={() => void apiFetch('/ops/email-test', { method: 'POST' }).then(async (r) => {
+                  const d = await r.json().catch(() => ({}))
+                  setNotice(d.delivered ? `Test email delivered to ${d.to} (Resend id ${d.id}). Check the inbox.` : `Email test FAILED: ${d.error ?? r.status}`)
+                })}
+                className="mt-1 text-xs text-[#8B949E] underline hover:text-[#D4AF37]"
+              >
+                Send test email to me
+              </button>
+            </div>
             <Tile label="Stripe" value={status.stripe === 'live' ? 'LIVE — real money' : status.stripe === 'test' ? 'Test mode' : 'NOT CONFIGURED'} tone={status.stripe === 'live' ? 'ok' : status.stripe === 'test' ? 'warn' : 'bad'} />
             <Tile label="Auto-approve" value={status.autoApprove ? 'On — reports auto-deliver' : 'Off — every report waits for QA'} tone={status.autoApprove ? 'ok' : 'warn'} />
             <Tile label="Malware scan" value={status.malwareScan ? 'Armed' : 'NOT ARMED'} tone={status.malwareScan ? 'ok' : 'bad'} />
