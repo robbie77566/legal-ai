@@ -65,7 +65,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # pnpm 11 requires Node >=22.13 — on Node 20 the pnpm cache probe
+          # (`pnpm store path`) fails this step before install even starts.
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies

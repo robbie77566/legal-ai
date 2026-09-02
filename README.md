@@ -27,7 +27,7 @@ Language: **TypeScript, strict, everywhere** (shared `@hg/tsconfig`; `pnpm typec
 
 ## Prerequisites
 
-- Node 20+ (dev box runs 24), **pnpm 11** (`corepack enable`)
+- **Node 22.13+** (pnpm 11 requires it; dev box runs 24), **pnpm 11** (`corepack enable`)
 - Docker (Postgres + Redis; optional clamav)
 - Accounts/keys for full functionality: Anthropic API, AWS (S3 + Textract), Stripe (test), Resend (optional — email logs to console without it)
 
