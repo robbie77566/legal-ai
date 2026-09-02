@@ -70,6 +70,7 @@ In production (Render) there are no files: every value is a service env var (blu
 | Var | 🔑 | Purpose | Where to get it |
 |---|---|---|---|
 | `NEXTAUTH_SECRET` | 🔑 | **Same value as the api's** | see above |
+| `DATABASE_URL` | 🔑 | **Required on web too** — NextAuth's `authorize()` and the session callbacks query Prisma from the Next.js server; missing = every sign-in shows "The service is temporarily unavailable" (`ServiceUnavailable`) | Blueprint auto-wires `fromDatabase`; if the dashboard shows it missing, paste hg-postgres → Info → Internal Connection String |
 | `NEXTAUTH_URL` | | Canonical site URL | Prod `https://www.snotnoselegal.com`; dev the address you browse (localhost or LAN) |
 | `COOKIE_DOMAIN` | | Session-cookie Domain attribute so www's cookie reaches api.snotnoselegal.com | Prod ONLY: `.snotnoselegal.com` (blueprint sets it). NEVER set in dev — a domain attribute breaks localhost/LAN cookies. Unset = NextAuth default host-only cookie |
 | `NEXT_PUBLIC_API_URL` | | Where the browser calls the API | Prod `https://api.snotnoselegal.com`; dev `http://localhost:3001` or the LAN address for device testing |
