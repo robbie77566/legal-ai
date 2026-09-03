@@ -93,6 +93,12 @@ describe('ops overview', () => {
 })
 
 describe('ops shell', () => {
+  it('shouts when the API rejects the session instead of rendering empty pages', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) }) as Response))
+    render(<OpsLayout><div>child</div></OpsLayout>)
+    expect(await screen.findByTestId('api-auth-banner')).toHaveTextContent(/rejecting your session/)
+  })
+
   it('every ops page carries the same nav — no dead /qa/holds link', () => {
     render(<OpsLayout><div>child</div></OpsLayout>)
     const nav = screen.getByTestId('ops-nav')
