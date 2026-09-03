@@ -80,9 +80,11 @@ export default function BuyPage() {
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [phase, setPhase] = useState('')  // live narration during the paying step
 
   const startCheckout = async () => {
     // Ack is recorded with identity, then the session opens Stripe Checkout.
+    setPhase('Confirming your acknowledgment…')
     const ackRes = await apiFetch('/buy/disclosure-ack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -100,6 +102,7 @@ export default function BuyPage() {
       throw new Error(body.error ?? `Could not record your acknowledgment (error ${ackRes.status}) — please try again.`)
     }
 
+    setPhase('Preparing secure checkout…')
     const draftToken = sessionStorage.getItem('snl_draft_token') ?? undefined
     const res = await apiFetch('/checkout/session', {
       method: 'POST',
@@ -117,6 +120,7 @@ export default function BuyPage() {
     }
     if (!res.ok) throw new Error('Could not start checkout — please try again.')
     const { url } = await res.json()
+    setPhase('Redirecting to secure payment…')
     window.location.href = url
   }
 
@@ -129,6 +133,7 @@ export default function BuyPage() {
       startCheckout().catch((e) => {
         setError(e.message)
         setBusy(false)
+        setPhase('')
         setStep('disclosures')
       })
     }
@@ -138,6 +143,7 @@ export default function BuyPage() {
     e.preventDefault()
     setError('')
     setBusy(true)
+    setPhase('Creating your account…')
     try {
       const res = await apiFetch('/buy/account', {
         method: 'POST',
@@ -146,6 +152,7 @@ export default function BuyPage() {
       })
       if (!res.ok) throw new Error('Could not create the account — check the password rules below.')
 
+      setPhase('Signing you in…')
       const signed = await signIn('credentials', { email, password, redirect: false })
       if (signed?.error) {
         throw new Error(
@@ -157,6 +164,7 @@ export default function BuyPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong — please try again.')
       setBusy(false)
+      setPhase('')
     }
   }
 
@@ -307,9 +315,20 @@ export default function BuyPage() {
       )}
 
       {step === 'paying' && (
-        <p className="rounded-xl border border-db-line bg-db-surface p-6">
-          Taking you to secure payment…
-        </p>
+        <div className="rounded-xl border border-db-line bg-db-surface p-6" data-testid="paying-progress" aria-live="polite">
+          <div className="flex items-center gap-3">
+            <span className="db-spin inline-block h-4 w-4 rounded-full border-2 border-db-line border-t-db-accent" aria-hidden />
+            <span className="font-semibold">{phase || 'Setting things up…'}</span>
+          </div>
+          <p className="mt-2 text-sm text-db-muted">
+            This takes a few seconds. Please don’t close this window — we’ll send you to secure payment automatically.
+          </p>
+          <style>{`
+            .db-spin { animation: db-spin 0.8s linear infinite; }
+            @keyframes db-spin { to { transform: rotate(360deg) } }
+            @media (prefers-reduced-motion: reduce) { .db-spin { animation-duration: 2s } }
+          `}</style>
+        </div>
       )}
     </main>
   )
