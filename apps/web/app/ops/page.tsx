@@ -15,6 +15,7 @@ import { apiFetch } from '@/lib/api'
 interface Status {
   email: { configured: boolean; from: string | null }
   stripe: 'unset' | 'test' | 'live'
+  stripeWebhook?: boolean
   autoApprove: boolean
   malwareScan: boolean
   sentry: boolean
@@ -159,7 +160,7 @@ export default function OpsOverview() {
                 Send test email to me
               </button>
             </div>
-            <Tile label="Stripe" value={status.stripe === 'live' ? 'LIVE — real money' : status.stripe === 'test' ? 'Test mode' : 'NOT CONFIGURED'} tone={status.stripe === 'live' ? 'ok' : status.stripe === 'test' ? 'warn' : 'bad'} />
+            <Tile label="Stripe" value={status.stripe === 'live' ? 'LIVE — real money' : status.stripe === 'test' ? 'Test mode' : 'NOT CONFIGURED'} tone={status.stripe === 'live' ? 'ok' : status.stripe === 'test' ? 'warn' : 'bad'} hint={status.stripeWebhook ? 'webhook secret set' : 'NO webhook secret — purchases need manual reconcile'} />
             <Tile label="Auto-approve" value={status.autoApprove ? 'On — reports auto-deliver' : 'Off — every report waits for QA'} tone={status.autoApprove ? 'ok' : 'warn'} />
             <Tile label="File storage" value={status.storage?.ok ? 'S3 reachable' : 'UPLOADS WILL FAIL'} tone={status.storage?.ok ? 'ok' : 'bad'} hint={status.storage?.detail} />
             <Tile label="Malware scan" value={status.malwareScan ? 'Armed' : 'NOT ARMED'} tone={status.malwareScan ? 'ok' : 'bad'} />

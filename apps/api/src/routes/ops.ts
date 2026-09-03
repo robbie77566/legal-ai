@@ -330,6 +330,7 @@ export default async function opsRoutes(fastify: FastifyInstance) {
         ? { configured: true, from: process.env.EMAIL_FROM ?? 'Family Case Review <noreply@snotnoselegal.com>' }
         : { configured: false, from: null },
       stripe: !stripeKey ? 'unset' : stripeKey.startsWith('sk_live_') ? 'live' : 'test',
+      stripeWebhook: !!process.env.STRIPE_WEBHOOK_SECRET,
       autoApprove: process.env.AUTO_APPROVE === '1',
       malwareScan: !!process.env.CLAMD_HOST,
       sentry: !!process.env.SENTRY_DSN,
