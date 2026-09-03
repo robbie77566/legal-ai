@@ -330,6 +330,16 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     };
   });
 
+  // Fulfillment safety net on demand (ops_console): the hourly reconcile
+  // sweep, triggerable now — creates cases for paid Stripe sessions whose
+  // webhook never landed (e.g. before STRIPE_WEBHOOK_SECRET is configured).
+  fastify.post('/reconcile-payments', async (request) => {
+    const { reconcilePayments } = await import('../services/payments.service');
+    const result = await reconcilePayments();
+    request.log.info(result, 'manual payment reconciliation');
+    return result;
+  });
+
   // J2 diagnostic: send a real message to the calling admin and return the
   // provider's verdict verbatim — replaces log spelunking with one click.
   fastify.post('/email-test', async (request) => {

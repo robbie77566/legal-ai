@@ -173,6 +173,13 @@ export default function OpsOverview() {
               >
                 Fire Sentry alert drill
               </button>
+              <button
+                data-testid="reconcile-now"
+                onClick={() => void apiFetch('/ops/reconcile-payments', { method: 'POST' }).then(async (r) => { const d = await r.json().catch(() => ({})); setNotice(r.ok ? `Reconciliation: ${d.checked} paid session(s) checked, ${d.healed} case(s) created.` : `Reconcile failed: ${r.status}`); await loadAll() })}
+                className="mt-2 block text-xs text-[#8B949E] underline hover:text-[#D4AF37]"
+              >
+                Run payment reconciliation now
+              </button>
             </div>
           </div>
         )}
