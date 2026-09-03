@@ -94,7 +94,10 @@ export default function BuyPage() {
       if (ackRes.status === 403)
         throw new Error('This account can’t make purchases — staff accounts can’t buy. Sign out and use a customer account.')
       if (ackRes.status === 401) throw new Error('Your session expired — please sign in again.')
-      throw new Error('Could not record your acknowledgment — please try again.')
+      // Any other failure: show the server's own reason instead of a dead-end
+      // generic (2026-09-02) — a blank retry loop hides real config problems.
+      const body = (await ackRes.json().catch(() => ({}))) as { error?: string }
+      throw new Error(body.error ?? `Could not record your acknowledgment (error ${ackRes.status}) — please try again.`)
     }
 
     const draftToken = sessionStorage.getItem('snl_draft_token') ?? undefined
