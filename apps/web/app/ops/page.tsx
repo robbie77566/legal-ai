@@ -21,6 +21,7 @@ interface Status {
   posthog: boolean
   pipeline: { awaitingDocs: number; digitizing: number; analyzing: number; held: number; ready: number }
   retentionCandidates: number
+  storage?: { ok: boolean; detail: string }
 }
 interface Hold { caseId: string; title: string; reasons: string[]; heldAt: string; slaRemainingHours: number }
 interface QueueRow {
@@ -160,6 +161,7 @@ export default function OpsOverview() {
             </div>
             <Tile label="Stripe" value={status.stripe === 'live' ? 'LIVE — real money' : status.stripe === 'test' ? 'Test mode' : 'NOT CONFIGURED'} tone={status.stripe === 'live' ? 'ok' : status.stripe === 'test' ? 'warn' : 'bad'} />
             <Tile label="Auto-approve" value={status.autoApprove ? 'On — reports auto-deliver' : 'Off — every report waits for QA'} tone={status.autoApprove ? 'ok' : 'warn'} />
+            <Tile label="File storage" value={status.storage?.ok ? 'S3 reachable' : 'UPLOADS WILL FAIL'} tone={status.storage?.ok ? 'ok' : 'bad'} hint={status.storage?.detail} />
             <Tile label="Malware scan" value={status.malwareScan ? 'Armed' : 'NOT ARMED'} tone={status.malwareScan ? 'ok' : 'bad'} />
             <Tile label="Sentry" value={status.sentry ? 'Wired' : 'Off'} tone={status.sentry ? 'ok' : 'warn'} />
             <Tile label="PostHog" value={status.posthog ? 'Wired' : 'Off'} tone={status.posthog ? 'ok' : 'neutral'} />

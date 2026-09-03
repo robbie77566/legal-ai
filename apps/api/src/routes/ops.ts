@@ -310,7 +310,22 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     const retentionCandidates = await prisma.case.count({
       where: { status: { in: ['READY', 'DELIVERED', 'REFUNDED'] }, updatedAt: { lt: cutoff } },
     });
+    // Live storage check: HeadBucket actually exercises the AWS credentials,
+    // so a missing/wrong key on the api shows red (uploads fail at presign
+    // otherwise — 2026-09-03). Cheap and read-only.
+    let storage: { ok: boolean; detail: string };
+    try {
+      const { s3, bucket } = await import('../services/storage.service');
+      const { HeadBucketCommand } = await import('@aws-sdk/client-s3');
+      if (!process.env.AWS_ACCESS_KEY_ID) throw new Error('AWS_ACCESS_KEY_ID not set');
+      await s3().send(new HeadBucketCommand({ Bucket: bucket() }));
+      storage = { ok: true, detail: bucket() };
+    } catch (e) {
+      storage = { ok: false, detail: (e as Error).message.slice(0, 80) };
+    }
+
     return {
+      storage,
       email: process.env.RESEND_API_KEY
         ? { configured: true, from: process.env.EMAIL_FROM ?? 'Family Case Review <noreply@snotnoselegal.com>' }
         : { configured: false, from: null },
