@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSession, signIn } from 'next-auth/react'
 import { apiFetch } from '@/lib/api'
 import { useLang } from '@/lib/i18n'
+import PasswordField from '@/components/daybreak/PasswordField'
 import { DISCLOSURE_SET_VERSION } from '@hg/case-lifecycle/disclosures'
 
 /**
@@ -281,20 +282,7 @@ export default function BuyPage() {
                 className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3"
               />
             </label>
-            <label className="block">
-              <span className="text-sm font-semibold">Password</span>
-              <input
-                type="password"
-                required
-                minLength={12}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3"
-              />
-              <span className="mt-1 block text-sm text-db-muted">
-                At least 12 characters, with an uppercase letter and a number or symbol.
-              </span>
-            </label>
+            <PasswordField label="Password" value={password} onChange={setPassword} />
             <label className="block">
               <span className="text-sm font-semibold">Your name (optional)</span>
               <input
