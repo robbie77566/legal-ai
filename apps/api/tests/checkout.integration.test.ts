@@ -74,7 +74,7 @@ describe('POST /buy/account', () => {
       url: '/buy/account',
       payload: { email: `${run}_weak@example.com`, password: 'short' },
     });
-    expect(res.statusCode).toBe(500 /* zod parse throws */);
+    expect(res.statusCode).toBe(400 /* validation → clean 400, not a 500 (2026-09-03) */);
     expect(await prisma.user.findUnique({ where: { email: `${run}_weak@example.com` } })).toBeNull();
   });
 });
@@ -132,6 +132,6 @@ describe('disclosure acknowledgment gate (W-2)', () => {
       headers: { cookie: clientCookie },
       payload: { disclosureSetVersion: '2020-01-01.0' },
     });
-    expect(res.statusCode).toBe(500 /* zod literal mismatch */);
+    expect(res.statusCode).toBe(400 /* validation → clean 400 (2026-09-03) */);
   });
 });

@@ -6,6 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import * as Sentry from '@sentry/node'
+import { ZodError } from 'zod'
 import uploadRoutes from './routes/upload'
 import casesRoutes from './routes/cases'
 import permissionsRoutes from './routes/permissions'
@@ -50,6 +51,10 @@ export const fastify = Fastify({
 })
 
 fastify.addHook('onError', async (_request, _reply, error) => {
+  // Client input errors (ZodError, any 4xx) are not server faults — don't
+  // page Sentry for a mistyped password (the escalating-noise fix, 2026-09-03).
+  const status = (error as { statusCode?: number }).statusCode
+  if (error instanceof ZodError || (status && status < 500)) return
   if (process.env.SENTRY_DSN) Sentry.captureException(error)
 })
 
@@ -59,6 +64,24 @@ fastify.register(cors, {
   // LAN address so a phone/laptop on the network can use the full app.
   origin: (process.env.WEB_ORIGIN ?? 'http://localhost:3000,http://192.168.154.213:3000').split(','),
   credentials: true
+})
+
+// Global error handler: a ZodError is a client input problem (400), NOT a
+// server fault — throwing it unhandled returned 500s to customers (opaque
+// "please try again") AND escalating Sentry noise (37 events from password
+// typos, found 2026-09-03). Turn validation errors into a clean 400 with the
+// first human-readable message; everything else stays a real 500 + Sentry.
+fastify.setErrorHandler((err, request, reply) => {
+  if (err instanceof ZodError) {
+    const first = err.issues[0]
+    return reply.status(400).send({ error: first?.message ?? 'Invalid request', field: first?.path?.join('.') })
+  }
+  const status = (err as { statusCode?: number }).statusCode
+  if (status && status < 500) {
+    return reply.status(status).send({ error: (err as { message?: string }).message ?? 'Invalid request' })
+  }
+  request.log.error({ err }, 'unhandled error')
+  return reply.status(500).send({ error: 'Something went wrong on our end.' })
 })
 
 // Every route below requires a verified NextAuth session (plugins/auth.ts).
