@@ -321,7 +321,13 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       await s3().send(new HeadBucketCommand({ Bucket: bucket() }));
       storage = { ok: true, detail: bucket() };
     } catch (e) {
-      storage = { ok: false, detail: (e as Error).message.slice(0, 80) };
+      // Which of the four the process actually sees (name + length only,
+      // never a value) — settles "I set it" vs "the process has it" in one
+      // glance (2026-09-05: key id present, secret invisible to the SDK).
+      const seen = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'S3_BUCKET']
+        .map((k) => `${k.replace('AWS_', '').replace('_ACCESS', '')}:${(process.env[k] ?? '').length}`)
+        .join(' ');
+      storage = { ok: false, detail: `${(e as Error).message.slice(0, 60)} [${seen}]` };
     }
 
     return {
