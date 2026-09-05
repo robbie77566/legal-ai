@@ -225,6 +225,14 @@ export default async function casesRoutes(fastify: FastifyInstance) {
     );
     if (!access) return reply.status(403).send({ error: 'Forbidden' });
 
+    // Hijacking the raw response skips Fastify's send, so headers the CORS
+    // plugin set on the reply (Access-Control-Allow-Origin/-Credentials,
+    // Vary) never reached the wire — the browser killed the stream with a
+    // CORS error in production (2026-09-05). Forward them; the plugin's
+    // origin allowlist still decides what they contain.
+    for (const [k, v] of Object.entries(reply.getHeaders())) {
+      if (v !== undefined) reply.raw.setHeader(k, v as string | number | string[]);
+    }
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache');
     reply.raw.setHeader('Connection', 'keep-alive');
