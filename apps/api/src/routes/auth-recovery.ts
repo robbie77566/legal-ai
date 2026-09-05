@@ -32,7 +32,11 @@ export default async function authRecoveryRoutes(fastify: FastifyInstance) {
   fastify.post('/forgot', tightLimit, async (request) => {
     const { email } = z.object({ email: z.string().email().max(254) }).parse(request.body);
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Case-insensitive, trimmed (2026-09-05): a capitalized first letter
+    // must not make a real account look nonexistent.
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email.trim().toLowerCase(), mode: 'insensitive' } },
+    });
     if (user) {
       const { raw, hash } = generateToken();
       await prisma.user.update({

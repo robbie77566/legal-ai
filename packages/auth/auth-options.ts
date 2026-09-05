@@ -78,14 +78,18 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        if (!checkRateLimit(credentials.email)) {
+        // Case-insensitive, trimmed: phone keyboards capitalize the first
+        // letter, and an exact-match lookup then rejected a correct password
+        // as "invalid email" (2026-09-05). Existing mixed-case rows still match.
+        const email = credentials.email.trim().toLowerCase();
+        if (!checkRateLimit(email)) {
           throw new Error('RateLimit');
         }
 
         let user;
         try {
-          user = await prisma.user.findUnique({
-            where: { email: credentials.email }
+          user = await prisma.user.findFirst({
+            where: { email: { equals: email, mode: 'insensitive' } }
           });
         } catch (err) {
           // DB unreachable or Prisma error — do not leak details to the client
@@ -101,7 +105,7 @@ export const authOptions: NextAuthOptions = {
         const passwordValid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!passwordValid) return null;
 
-        clearRateLimit(credentials.email);
+        clearRateLimit(email);
 
         return {
           id: user.id,

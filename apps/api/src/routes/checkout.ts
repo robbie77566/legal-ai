@@ -38,9 +38,16 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
   const accountLimit = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
 
   fastify.post('/buy/account', accountLimit, async (request, reply) => {
-    const { email, password, name } = AccountSchema.parse(request.body);
+    const parsed = AccountSchema.parse(request.body);
+    const { password, name } = parsed;
+    // Store lowercase + trimmed and check duplicates case-insensitively
+    // (2026-09-05): a phone-capitalized email created an account that an
+    // exact-match sign-in could never find.
+    const email = parsed.email.trim().toLowerCase();
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    });
     if (existing) {
       // Enumeration-safe: same shape as success; the sign-in path is where
       // an existing owner proceeds.
