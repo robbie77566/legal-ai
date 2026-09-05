@@ -23,8 +23,15 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   default: 'Something went wrong. Please try again in a moment.',
 };
 
-function mapAuthError(error: string | undefined): string {
+export function mapAuthError(error: string | undefined): string {
   if (!error) return AUTH_ERROR_MESSAGES.default;
+  // "RateLimit:12" carries the minutes left on the lock (auth-options.ts),
+  // so the person is told exactly how long to wait rather than a fixed 15.
+  const lock = /^RateLimit(?::(\d+))?$/.exec(error);
+  if (lock) {
+    const m = Number(lock[1] ?? 15);
+    return `Too many failed attempts. For your security, sign-in is paused — please wait ${m} minute${m === 1 ? '' : 's'} and try again, or use “Forgot password”.`;
+  }
   return AUTH_ERROR_MESSAGES[error] ?? AUTH_ERROR_MESSAGES.default;
 }
 

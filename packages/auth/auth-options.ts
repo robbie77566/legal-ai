@@ -17,16 +17,17 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
-function checkRateLimit(email: string): boolean {
+/** Returns 0 when the attempt is allowed, else whole minutes until the lock lifts. */
+export function checkRateLimit(email: string): number {
   const now = Date.now();
   const entry = rateLimitMap.get(email);
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(email, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
+    return 0;
   }
-  if (entry.count >= RATE_LIMIT_MAX) return false;
+  if (entry.count >= RATE_LIMIT_MAX) return Math.max(1, Math.ceil((entry.resetAt - now) / 60_000));
   entry.count++;
-  return true;
+  return 0;
 }
 
 function clearRateLimit(email: string): void {
@@ -82,8 +83,11 @@ export const authOptions: NextAuthOptions = {
         // letter, and an exact-match lookup then rejected a correct password
         // as "invalid email" (2026-09-05). Existing mixed-case rows still match.
         const email = credentials.email.trim().toLowerCase();
-        if (!checkRateLimit(email)) {
-          throw new Error('RateLimit');
+        // NextAuth v4 surfaces a thrown message as result.error, so the
+        // minutes remaining ride along: "RateLimit:12" → the form says so.
+        const waitMinutes = checkRateLimit(email);
+        if (waitMinutes > 0) {
+          throw new Error(`RateLimit:${waitMinutes}`);
         }
 
         let user;

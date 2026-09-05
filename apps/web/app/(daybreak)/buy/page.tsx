@@ -155,6 +155,15 @@ export default function BuyPage() {
       setPhase('Signing you in…')
       const signed = await signIn('credentials', { email, password, redirect: false })
       if (signed?.error) {
+        // A lockout or outage must not masquerade as "account already
+        // exists" (2026-09-05) — say what actually happened.
+        const lock = /^RateLimit(?::(\d+))?$/.exec(signed.error)
+        if (lock) {
+          const m = Number(lock[1] ?? 15)
+          throw new Error(`Too many sign-in attempts — please wait ${m} minute${m === 1 ? '' : 's'} and try again, or use “Forgot password”.`)
+        }
+        if (signed.error === 'ServiceUnavailable')
+          throw new Error('The service is temporarily unavailable — please try again shortly. Nothing was charged.')
         throw new Error(
           'An account with this email may already exist — try signing in with your usual password.'
         )
