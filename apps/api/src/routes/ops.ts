@@ -318,7 +318,13 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       const { s3, bucket } = await import('../services/storage.service');
       const { HeadBucketCommand } = await import('@aws-sdk/client-s3');
       if (!process.env.AWS_ACCESS_KEY_ID) throw new Error('AWS_ACCESS_KEY_ID not set');
-      await s3().send(new HeadBucketCommand({ Bucket: bucket() }));
+      // Hard 5s cap: with no env credentials the SDK chain falls through to
+      // probing EC2 metadata (absent on Render) and retries — that froze the
+      // whole ops console on 2026-09-05 because the shell probes this route.
+      await Promise.race([
+        s3().send(new HeadBucketCommand({ Bucket: bucket() })),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('S3 check timed out (5s)')), 5000)),
+      ]);
       storage = { ok: true, detail: bucket() };
     } catch (e) {
       // Which of the four the process actually sees (name + length only,
