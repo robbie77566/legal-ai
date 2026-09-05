@@ -30,7 +30,23 @@ export default function CaseInterview() {
           hadAppeal: hadAppeal === 'yes',
         }),
       })
-      if (!res.ok) throw new Error('Could not save the answers — please try again.')
+      if (res.status === 409) {
+        // The case has already moved past intake (records marked complete,
+        // pipeline running) — the interview no longer applies. Go to the
+        // case instead of dead-ending on an error (2026-09-05).
+        router.push(`/case/${caseId}/documents`)
+        return
+      }
+      if (!res.ok) {
+        // Show the server's reason (a validation rule) instead of a dead-end
+        // generic (2026-09-05).
+        const body = (await res.json().catch(() => ({}))) as { error?: string; field?: string }
+        throw new Error(
+          body.error
+            ? `${body.error}${body.field ? ` (${body.field})` : ''}`
+            : `Could not save the answers (error ${res.status}) — please try again.`
+        )
+      }
       router.push(`/case/${caseId}/documents`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
