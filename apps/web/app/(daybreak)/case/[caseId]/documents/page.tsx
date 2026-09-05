@@ -183,7 +183,13 @@ export default function CaseDocuments() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename: file.name, caseId }),
       })
-      if (!presign.ok) throw new Error('Could not start the upload — please try again.')
+      if (!presign.ok) {
+        // Show the server's reason (e.g. "AWS credentials not configured")
+        // instead of a dead-end generic — a config fault must be diagnosable
+        // from the page (2026-09-05).
+        const body = (await presign.json().catch(() => ({}))) as { error?: string }
+        throw new Error(body.error ?? `Could not start the upload (error ${presign.status}) — please try again.`)
+      }
       const { url, s3Key } = await presign.json()
 
       // Honest failure: a swallowed S3 error here once registered documents

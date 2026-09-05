@@ -8,7 +8,13 @@ import {
 /** The one S3 client + case-storage operations (system design §3.3, OPS-4). */
 
 const region = () => (process.env.AWS_REGION ?? 'us-east-2').replace(/"/g, '');
-export const bucket = () => (process.env.S3_BUCKET ?? 'legal-ai-transcripts').replace(/"/g, '');
+export const bucket = () => {
+  const b = process.env.S3_BUCKET?.replace(/"/g, '');
+  // A silent fallback to a stale bucket name uploaded into the void in
+  // production (2026-09-05). Fail loudly there; keep the dev/test default.
+  if (!b && process.env.NODE_ENV === 'production') throw new Error('S3_BUCKET is not set on this service');
+  return b || 'legal-ai-transcripts';
+};
 
 let clientSingleton: S3Client | undefined;
 export function s3(): S3Client {
