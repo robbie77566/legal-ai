@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { apiFetch, apiEventSource } from '@/lib/api'
-import { trackerModel, describeActivity, ago, type TrackerModel } from '@/lib/tracker'
+import { trackerModel, describeActivity, ago, formatCivilDate, type TrackerModel } from '@/lib/tracker'
 import type { CustomerView } from '@hg/case-lifecycle'
 
 /**
@@ -139,7 +139,7 @@ export default function CaseStatus() {
           {dates.started && <>Started {new Date(dates.started).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>}
           {dates.started && dates.readyBy && ' · '}
           {dates.readyBy && (
-            <>Expect your report by <strong className="text-db-ink">{new Date(dates.readyBy).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</strong></>
+            <>Expect your report by <strong className="text-db-ink">{formatCivilDate(dates.readyBy)}</strong></>
           )}
         </p>
       )}

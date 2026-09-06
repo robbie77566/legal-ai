@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import { formatCivilDate } from '@/lib/tracker'
 
 /**
  * S2/S3 checklist home (UI spec §5.4–5.5): per-item upload embedded in the
@@ -259,7 +260,7 @@ export default function CaseDocuments() {
             Your documents are complete. Your review has started.
           </h1>
           <p className="mt-4 text-db-muted">
-            The clock starts now{readyBy ? ` — expect your report by ${readyBy}` : ''}. We&rsquo;ll email you at every step, and you can watch progress any time.
+            The clock starts now{readyBy ? ` — expect your report by ${formatCivilDate(readyBy)}` : ''}. We&rsquo;ll email you at every step, and you can watch progress any time.
           </p>
           <Link
             href={`/case/${caseId}/status`}

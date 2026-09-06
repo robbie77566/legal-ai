@@ -90,7 +90,9 @@ describe('status page — what the system is doing during analysis', () => {
     expect(feed).toHaveTextContent(/evidence the State may not have turned over/)
     const anchors = screen.getByTestId('date-anchors')
     expect(anchors).toHaveTextContent(/Started September 1/)
-    expect(anchors).toHaveTextContent(/Expect your report by September 1[45]/) // tz-safe
+    // Civil date rendered WITHOUT timezone conversion (§11a.4): exactly the
+    // 15th everywhere — it used to roll back to the 14th west of UTC.
+    expect(anchors).toHaveTextContent('Expect your report by September 15')
   })
 
   it('cold load during digitizing shows page/document facts', async () => {

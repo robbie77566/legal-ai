@@ -85,3 +85,15 @@ export function ago(iso: string | null | undefined, now = Date.now()): string {
   const h = Math.round(m / 60)
   return `${h} hour${h === 1 ? '' : 's'} ago`
 }
+
+/**
+ * Render a stored civil DATE (YYYY-MM-DD, or an ISO timestamp at 00:00Z that
+ * encodes one) WITHOUT timezone conversion — §11a.4. Converting to local time
+ * rolled "September 21" back to "September 20" for everyone west of UTC.
+ */
+export function formatCivilDate(value: string | null | undefined, withYear = false): string {
+  if (!value) return ''
+  const civil = value.slice(0, 10)
+  const d = new Date(`${civil}T00:00:00Z`)
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', ...(withYear ? { year: 'numeric' } : {}), timeZone: 'UTC' })
+}
