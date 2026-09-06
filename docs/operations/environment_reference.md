@@ -30,6 +30,10 @@ In production (Render) there are no files: every value is a service env var (blu
 | Var | 🔑 | Purpose | Where to get it |
 |---|---|---|---|
 | `DOC_CLASSIFIER_MODEL` | | Tier-1 document classifier model (checklist filing) | Default `claude-haiku-4-5-20251001`; falls back to regex heuristics on any failure |
+| `NODE_OPTIONS` | | Node heap cap for the api process (`--max-old-space-size=<MB>`) | Every queue worker runs inside the api process; cap the heap below the plan's RAM so it trims itself instead of being OOM-killed mid-document. **Starter 512 MB → `400`; Standard 2 GB → `1536`.** Blueprint sets 400. |
+| `INGESTION_CONCURRENCY` | | Documents digitized at once (per instance) | Default 2 in code; blueprint sets **1** for the starter plan. Each document is parsed whole in memory (several × file size). Raise to 2–3 on Standard. Integer 1–16; nonsense is ignored with a warning. |
+| `ANALYSIS_CONCURRENCY` | | Analysis runs at once (per instance) | Default 2; blueprint sets **1** on starter. Raise with the plan. |
+| `ZIP_CONCURRENCY` | | ZIP archives unpacked at once | Default 1. Leave at 1 unless the plan is generous — an unpack holds the archive in memory. |
 | `DOC_CLASSIFIER_USD_FACTOR` | | Price ratio of the classifier model vs the MODEL_USD_* rates, for cost estimates | Default 0.2 (Haiku vs Opus) |
 | `ANTHROPIC_API_KEY` | 🔑 | Claude analysis engine | console.anthropic.com → API Keys (rotated for prod — dev key transited chat) |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | 🔑 | S3 + Textract | AWS IAM → the least-privilege prod user (S3 rw on the two buckets + Textract Start/Get only) |

@@ -77,6 +77,15 @@ services:
       - { key: HG_APP_PASSWORD, sync: false }
       - { key: NEXTAUTH_SECRET, sync: false }
       - { key: ANTHROPIC_API_KEY, sync: false }
+      # Memory safety on a small instance (2026-09-06): every queue worker
+      # runs inside this one process. Cap Node's heap below the plan's RAM so
+      # the process trims itself instead of being OOM-killed mid-document
+      # (starter 512 MB → 400; standard 2 GB → 1536), and run one document
+      # at a time per queue. Raise both when the plan grows — no rebuild.
+      - { key: NODE_OPTIONS, value: --max-old-space-size=400 }
+      - { key: INGESTION_CONCURRENCY, value: "1" }
+      - { key: ANALYSIS_CONCURRENCY, value: "1" }
+      - { key: ZIP_CONCURRENCY, value: "1" }
       - { key: AWS_ACCESS_KEY_ID, sync: false }
       - { key: AWS_SECRET_ACCESS_KEY, sync: false }
       - { key: AWS_REGION, sync: false }

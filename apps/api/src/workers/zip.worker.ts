@@ -1,5 +1,6 @@
 import { Worker, Job } from 'bullmq';
 import { createConnection } from '../lib/redis';
+import { concurrencyFromEnv } from '../lib/concurrency';
 import { ingestZip } from '../services/zip-ingest.service';
 
 /**
@@ -20,5 +21,5 @@ export const zipWorker = new Worker(
     console.log(`[zip] ${caseId}:`, result);
     return result;
   },
-  { connection: createConnection(), concurrency: 1 }
+  { connection: createConnection(), concurrency: concurrencyFromEnv('ZIP_CONCURRENCY', 1) }
 );

@@ -1,5 +1,6 @@
 import { Worker, Job } from 'bullmq';
 import { createConnection } from '../lib/redis';
+import { concurrencyFromEnv } from '../lib/concurrency';
 import { digitizeDocument, buildDefaultExtractor, buildDefaultScanner, buildDefaultClassifier } from '../services/digitize.service';
 import { getObjectBytes } from '../services/storage.service';
 
@@ -35,5 +36,5 @@ export const ingestionWorker = new Worker(
     console.log(`[digitize] doc ${documentId}:`, summary);
     return summary;
   },
-  { connection: createConnection(), concurrency: 2 }
+  { connection: createConnection(), concurrency: concurrencyFromEnv('INGESTION_CONCURRENCY', 2) }
 );

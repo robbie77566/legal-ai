@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import Anthropic from '@anthropic-ai/sdk';
 import { createConnection } from '../lib/redis';
+import { concurrencyFromEnv } from '../lib/concurrency';
 import { runAnalysis, type AnalysisModel } from '../services/analysis.service';
 import { recordModelCost } from '../services/costs.service';
 
@@ -237,5 +238,5 @@ export const analysisWorker = new Worker(
     }
     return summary;
   },
-  { connection: createConnection(), concurrency: 2 }
+  { connection: createConnection(), concurrency: concurrencyFromEnv('ANALYSIS_CONCURRENCY', 2) }
 );
