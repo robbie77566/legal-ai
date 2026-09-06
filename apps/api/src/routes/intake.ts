@@ -215,6 +215,15 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       const pagesDigitized = await tx.documentPage.count({ where: { document: { caseId: id } } });
       const documentsTotal = await tx.document.count({ where: { caseId: id, quarantined: false } });
       const processedDocs = await tx.documentPage.groupBy({ by: ['documentId'], where: { document: { caseId: id } } });
+      // "Is anything happening?" — the single most reassuring fact during a
+      // long stage (2026-09-06: a 2 GB record looked locked up). The newest
+      // pipeline event, so the page can say "last activity 3 minutes ago:
+      // finished reading a document" even when the live stream is silent.
+      const lastEvent = await tx.caseEvent.findFirst({
+        where: { caseId: id },
+        orderBy: { createdAt: 'desc' },
+        select: { type: true, createdAt: true },
+      });
 
       return {
         status: kase.status,
@@ -231,6 +240,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
           documentsTotal,
           checksDone,
           analysisStartedAt: latestRun?.startedAt ?? null,
+          lastActivityAt: lastEvent?.createdAt ?? null,
+          lastActivityType: lastEvent?.type ?? null,
         },
       };
     });

@@ -49,3 +49,39 @@ export function trackerModel(view: CustomerView): TrackerModel {
       'A trained legal reviewer is personally checking every citation in your report against your documents — expect it within 24 hours.',
   }
 }
+
+/** What the newest pipeline event means, in the family's words (status page). */
+const ACTIVITY_WORDS: Record<string, string> = {
+  'doc.uploaded': 'received one of your documents',
+  'zip.ingested': 'unpacked your ZIP file',
+  'doc.ocr_done': 'finished reading a document',
+  'doc.classified': 'worked out what kind of document one of them is',
+  'doc.confirmed': 'confirmed a document',
+  'doc.corrected': 'updated a document label',
+  'docs.complete': 'started your review',
+  'stage.entered': 'moved on to the next step',
+  'ocr.halted': 'paused to check reading quality',
+  'ocr.resumed': 'resumed reading',
+  'screen.completed': 'finished one of the checks',
+  'adjudication.completed': 'finished comparing results',
+  'hold.set': 'sent the report for a closer look',
+  'hold.cleared': 'cleared the closer look',
+  'interview.completed': 'saved your answers',
+  'case.created': 'set up your case',
+}
+
+export function describeActivity(type: string | null | undefined): string {
+  if (!type) return 'started'
+  return ACTIVITY_WORDS[type] ?? 'made progress'
+}
+
+/** "just now" / "4 minutes ago" / "2 hours ago" — honest, coarse. */
+export function ago(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return ''
+  const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000))
+  if (s < 60) return 'just now'
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m} minute${m === 1 ? '' : 's'} ago`
+  const h = Math.round(m / 60)
+  return `${h} hour${h === 1 ? '' : 's'} ago`
+}

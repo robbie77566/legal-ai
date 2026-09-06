@@ -2,6 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import CaseStatus from '@/app/(daybreak)/case/[caseId]/status/page'
+import { ago, describeActivity } from '@/lib/tracker'
 
 /**
  * Analysis-progress feedback (upload_page_ux_review.md §2): a long silent
@@ -12,6 +13,9 @@ import CaseStatus from '@/app/(daybreak)/case/[caseId]/status/page'
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ caseId: 'case_1' }),
+}))
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({ data: { user: { email: 'family@example.com' } }, status: 'authenticated' }),
 }))
 
 let sseInstance: FakeEventSource | null = null
@@ -115,5 +119,84 @@ describe('status page — what the system is doing during analysis', () => {
     })
     const feed = await screen.findByTestId('checks-feed')
     expect(feed).toHaveTextContent('1 of 6 checks finished')
+  })
+})
+
+describe('status page — proof of life and "safe to leave" (round 4, 2026-09-06)', () => {
+  it('ago() and describeActivity() speak plainly', () => {
+    const now = Date.parse('2026-09-06T12:00:00Z')
+    expect(ago('2026-09-06T11:59:40Z', now)).toBe('just now')
+    expect(ago('2026-09-06T11:56:00Z', now)).toBe('4 minutes ago')
+    expect(ago('2026-09-06T11:59:00Z', now)).toBe('1 minute ago')
+    expect(ago('2026-09-06T09:00:00Z', now)).toBe('3 hours ago')
+    expect(describeActivity('doc.ocr_done')).toBe('finished reading a document')
+    expect(describeActivity('screen.completed')).toBe('finished one of the checks')
+    expect(describeActivity('something.new')).toBe('made progress')
+  })
+
+  it('while working: says it is safe to leave, names the email, and shows the newest activity', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          customer: { stage: 'analyzing', overlay: null },
+          progressFacts: {
+            pagesDigitized: 20000, documentsProcessed: 95, documentsTotal: 95, checksDone: [],
+            analysisStartedAt: '2026-09-06T10:00:00Z',
+            lastActivityAt: new Date(Date.now() - 4 * 60_000).toISOString(),
+            lastActivityType: 'doc.ocr_done',
+          },
+        }),
+      }) as Response)
+    )
+    render(<CaseStatus />)
+    const safe = await screen.findByTestId('safe-to-leave')
+    expect(safe).toHaveTextContent(/don’t need to stay on this page/)
+    expect(safe).toHaveTextContent(/safe to close/)
+    expect(safe).toHaveTextContent('family@example.com')
+    expect(safe).toHaveTextContent(/email .* with a link/)
+    const life = screen.getByTestId('last-activity')
+    expect(life).toHaveTextContent(/Still working — 4 minutes ago it finished reading a document/)
+    // Analysis with no check finished yet still reads as motion, not silence.
+    expect(screen.getByTestId('checks-feed')).toHaveTextContent('Check 1 of 6 in progress')
+  })
+
+  it('polls the facts every 20s so a silent stream never looks locked up', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ customer: { stage: 'digitizing', overlay: null }, progressFacts: { pagesDigitized: 1, documentsProcessed: 1, documentsTotal: 95, checksDone: [] } }),
+      }) as Response)
+      vi.stubGlobal('fetch', fetchMock)
+      render(<CaseStatus />)
+      await act(async () => { await Promise.resolve() })
+      const before = fetchMock.mock.calls.length
+      await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(before)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a live event refreshes the activity line immediately', async () => {
+    render(<CaseStatus />)
+    await screen.findByTestId('stage-explainer')
+    act(() => {
+      sseInstance!.onmessage!({ data: JSON.stringify({ type: 'screen.completed', payload: { screen: 'brady', findingCount: 2 } }) })
+    })
+    const life = await screen.findByTestId('last-activity')
+    expect(life).toHaveTextContent(/just now it finished one of the checks/)
+  })
+
+  it('delivered: no "safe to leave" nag — the report is ready', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ customer: { stage: 'delivered', overlay: null }, progressFacts: { pagesDigitized: 1, documentsProcessed: 1, documentsTotal: 1, checksDone: [] } }) }) as Response)
+    )
+    render(<CaseStatus />)
+    await screen.findByText(/Your report is ready/)
+    expect(screen.queryByTestId('safe-to-leave')).toBeNull()
   })
 })

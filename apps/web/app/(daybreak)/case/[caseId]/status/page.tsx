@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { apiFetch, apiEventSource } from '@/lib/api'
-import { trackerModel, type TrackerModel } from '@/lib/tracker'
+import { trackerModel, describeActivity, ago, type TrackerModel } from '@/lib/tracker'
 import type { CustomerView } from '@hg/case-lifecycle'
 
 /**
@@ -11,6 +12,11 @@ import type { CustomerView } from '@hg/case-lifecycle'
  * hold overlays, zero legal content pre-QA. Live updates ride the CaseEvent
  * outbox channel — the customer view arrives pre-mapped; raw state never
  * reaches this page.
+ *
+ * 2026-09-06 (a 2 GB record "looked locked up"): the page must never go
+ * silent. It polls the checklist facts every 20s as a floor under the live
+ * stream, always shows the newest thing the system did and how long ago,
+ * and says plainly that it is safe to leave — an email with a link follows.
  */
 /**
  * Plain-language names for the analysis checks (upload_page_ux_review.md §2).
@@ -29,6 +35,7 @@ const SCREEN_NAMES: Record<string, string> = {
   voir_dire: 'jury selection problems',
 }
 const TOTAL_CHECKS = 6 // the running screen set (ANALYSIS_* config)
+const POLL_MS = 20_000
 
 /** The always-available "what's happening right now" copy per active stage —
  * a cold page load mid-analysis must explain itself without waiting for the
@@ -42,38 +49,61 @@ const STAGE_EXPLAINERS: Record<string, string> = {
     'The analysis is done. The report is now going through its quality checks before it’s released to you.',
 }
 
+type Facts = {
+  pagesDigitized: number
+  documentsProcessed: number
+  documentsTotal: number
+  checksDone?: string[]
+  lastActivityAt?: string | null
+  lastActivityType?: string | null
+}
+
 export default function CaseStatus() {
   const { caseId } = useParams<{ caseId: string }>()
+  const { data: session } = useSession()
   const [view, setView] = useState<CustomerView | null>(null)
   const [lastDetail, setLastDetail] = useState<string | null>(null)
   const [checksDone, setChecksDone] = useState<string[]>([])
   const [dates, setDates] = useState<{ started: string | null; readyBy: string | null }>({ started: null, readyBy: null })
-  const [facts, setFacts] = useState<{ pagesDigitized: number; documentsProcessed: number; documentsTotal: number } | null>(null)
+  const [facts, setFacts] = useState<Facts | null>(null)
+  const [tick, setTick] = useState(Date.now()) // re-renders the "N minutes ago" line
 
   useEffect(() => {
-    // Base state + COLD-LOAD progress facts from the checklist endpoint,
-    // then live via SSE — a mid-run page open must not start empty.
-    void apiFetch(`/cases/${caseId}/checklist`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d) return
-        if (d.customer) setView(d.customer)
-        setDates({ started: d.slaStartedAt ?? null, readyBy: d.expectedReadyAt ?? null })
-        if (d.progressFacts) {
-          setFacts(d.progressFacts)
-          const seeded = (d.progressFacts.checksDone as string[])
-            .map((k) => SCREEN_NAMES[k])
-            .filter(Boolean)
-          if (seeded.length) setChecksDone((prev) => [...new Set([...seeded, ...prev])])
-        }
-      })
-      .catch(() => {})
+    // Base state + progress facts from the checklist endpoint — on load AND
+    // every 20s. The poll is the floor: a silent live stream (a long check
+    // on a big record) must never look like a locked-up system.
+    let cancelled = false
+    const load = () =>
+      apiFetch(`/cases/${caseId}/checklist`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!d || cancelled) return
+          if (d.customer) setView(d.customer)
+          setDates({ started: d.slaStartedAt ?? null, readyBy: d.expectedReadyAt ?? null })
+          if (d.progressFacts) {
+            setFacts(d.progressFacts)
+            const seeded = ((d.progressFacts.checksDone ?? []) as string[])
+              .map((k) => SCREEN_NAMES[k])
+              .filter(Boolean)
+            if (seeded.length) setChecksDone((prev) => [...new Set([...seeded, ...prev])])
+          }
+          setTick(Date.now())
+        })
+        .catch(() => {})
+    void load()
+    const poll = setInterval(() => void load(), POLL_MS)
+    const clock = setInterval(() => setTick(Date.now()), 30_000)
 
     const es = apiEventSource(`/cases/${caseId}/progress`)
     es.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data)
         if (msg.customer) setView(msg.customer)
+        // Any live event IS activity — reflect it immediately.
+        if (typeof msg.type === 'string') {
+          setFacts((prev) => ({ ...(prev ?? { pagesDigitized: 0, documentsProcessed: 0, documentsTotal: 0 }), lastActivityAt: new Date().toISOString(), lastActivityType: msg.type }))
+          setTick(Date.now())
+        }
         // Honest sub-detail: counts only, from the registry-validated payload
         if (msg.type === 'screen.completed') {
           if (msg.payload?.volumesTotal) {
@@ -83,15 +113,23 @@ export default function CaseStatus() {
           if (name) setChecksDone((prev) => (prev.includes(name) ? prev : [...prev, name]))
         } else if (msg.type === 'doc.ocr_done' && typeof msg.payload?.pages === 'number') {
           setLastDetail(`${msg.payload.pages} pages digitized`)
+          void load() // refresh the running totals right away
         }
       } catch {
         /* legacy worker messages — ignored; the outbox is the contract */
       }
     }
-    return () => es.close()
+    return () => {
+      cancelled = true
+      clearInterval(poll)
+      clearInterval(clock)
+      es.close()
+    }
   }, [caseId])
 
   const model: TrackerModel | null = view ? trackerModel(view) : null
+  const working = !!model && model.activeIndex >= 0 && !model.delivered
+  const email = session?.user?.email ?? null
 
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
@@ -112,6 +150,27 @@ export default function CaseStatus() {
           style={{ borderColor: 'var(--db-review)', color: 'var(--db-review)' }}
         >
           {model.overlayCopy}
+        </p>
+      )}
+
+      {/* Safe to leave — the most important sentence on a long run. */}
+      {working && (
+        <div data-testid="safe-to-leave" className="mt-4 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4 text-sm">
+          <p className="font-semibold">You don&rsquo;t need to stay on this page.</p>
+          <p className="mt-1">
+            A full review can take a while — for a large record, several hours. It&rsquo;s safe to close this
+            page or put your phone away. We&rsquo;ll email{' '}
+            {email ? <strong className="text-db-ink">{email}</strong> : 'you'} with a link to your report
+            the moment it&rsquo;s ready, and again if anything needs your attention.
+          </p>
+        </div>
+      )}
+
+      {/* Proof of life — the newest thing the system did, in plain words. */}
+      {working && facts?.lastActivityAt && (
+        <p data-testid="last-activity" className="mt-3 text-sm text-db-muted">
+          <span aria-hidden className="db-breathe mr-2 inline-block h-2 w-2 rounded-full align-middle" style={{ background: 'var(--db-accent)' }} />
+          Still working — {ago(facts.lastActivityAt, tick)} it {describeActivity(facts.lastActivityType)}.
         </p>
       )}
 
@@ -148,7 +207,9 @@ export default function CaseStatus() {
                   {isActive && stage.id !== 'quality_review' && lastDetail && (
                     <span className="mt-1 block text-sm text-db-muted">{lastDetail}</span>
                   )}
-                  {isActive && stage.id === 'digitizing' && !lastDetail && facts && facts.pagesDigitized > 0 && (
+                  {/* Running totals — always shown while digitizing, refreshed
+                      by the poll, so a big record visibly moves. */}
+                  {isActive && stage.id === 'digitizing' && facts && facts.documentsTotal > 0 && (
                     <span className="mt-1 block text-sm text-db-muted" data-testid="digitize-facts">
                       {facts.pagesDigitized.toLocaleString()} pages read so far, across {facts.documentsProcessed} of {facts.documentsTotal} documents
                     </span>
@@ -161,10 +222,14 @@ export default function CaseStatus() {
                       {STAGE_EXPLAINERS[stage.id]}
                     </span>
                   )}
-                  {isActive && stage.id === 'analyzing' && checksDone.length > 0 && (
+                  {isActive && stage.id === 'analyzing' && (
                     <span data-testid="checks-feed" className="mt-2 block text-sm">
                       <span className="font-semibold">
-                        {Math.min(checksDone.length, TOTAL_CHECKS)} of {TOTAL_CHECKS} checks finished
+                        {checksDone.length === 0
+                          ? `Check 1 of ${TOTAL_CHECKS} in progress`
+                          : checksDone.length >= TOTAL_CHECKS
+                            ? `All ${TOTAL_CHECKS} checks finished`
+                            : `${checksDone.length} of ${TOTAL_CHECKS} checks finished · check ${checksDone.length + 1} in progress`}
                       </span>
                       {checksDone.map((c) => (
                         <span key={c} className="mt-1 block text-db-muted">

@@ -26,6 +26,18 @@
 2. **A live activity feed**: each `screen.completed` event appends "✓ Finished checking — {plain-language name}" (e.g. *how well the defense lawyer did their job*, *evidence the State may not have turned over*), with a "check X of 6" counter; `doc.ocr_done` streams page counts during digitization.
 3. **Honesty rule kept:** finding **counts are deliberately not shown pre-QA** (§5.6's zero-legal-content-pre-QA rule) — raw screen output shrinks under grounding/verification, and a number shown here that shrinks later is a broken promise. Completed *checks* are facts; counts wait for the report.
 
+## 2b. Round 4 — proof of life and "safe to leave" (2026-09-06, PO request)
+
+A 2 GB, 95-document record (Brian) sat on the status page with nothing changing and the PO's verdict was "seems to have locked up." Two root causes, both on the page rather than in the pipeline:
+
+| # | Finding | Decision |
+|---|---|---|
+| F15 | **The live stream is silent between events.** During analysis each check reads the whole record before its one `screen.completed` event — on a large record that is tens of minutes of nothing; the SSE heartbeat is a comment the page never shows. | The checklist facts are now **polled every 20s as a floor** under the stream, and the server returns the case's newest event (`lastActivityAt`, `lastActivityType`). The page always shows **"Still working — 4 minutes ago it finished reading a document"** in the family's words (a small plain-language map from event type → phrase lives in `lib/tracker.ts`). A live event updates that line instantly. |
+| F16 | **Nobody told the family they could leave.** The page implied watching was required, and never said an email with a link was coming — though the pipeline has always sent one at report-ready (and at records-complete and quality-hold). | A "**You don't need to stay on this page**" panel, shown whenever the run is active: a full review can take hours for a large record; it is safe to close the page; **we'll email `<their address>` with a link** the moment the report is ready, and again if anything needs their attention. |
+| F17 | Digitizing facts hid behind the last live detail; analysis showed nothing until the first check finished. | Running totals ("N pages read so far, across X of Y documents") always show while digitizing; analysis reads "Check 1 of 6 in progress" from the start, then "2 of 6 finished · check 3 in progress." |
+
+Not done (tracked): a per-volume event **inside** a check (the registry would gain an `analysis.progress` type) so the analyzing stage moves between checks too; an honest "this is taking longer than usual" line keyed to the record's size rather than a fixed SLA; and an instance-size review — the api runs on a 512 MB starter, which is the real ceiling for a 2 GB record.
+
 ## 3. Round 2 — density & phase separation (2026-09-01, PO request)
 
 The checklist needs *many* documents; round 1 left each as a padded card (~80px × 12 items) and mixed the "collect documents" work with the "run the review" decision. Because **every analysis run is charged** (one included, $99 after), collect-vs-run is not presentation — it's a billing boundary the layout must teach.
