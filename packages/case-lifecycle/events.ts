@@ -108,6 +108,11 @@ export const CASE_EVENT_SCHEMAS = {
   'email.bounced': { 1: z.object({ emailKind: z.string().max(64) }).strict() },
   'delay.ours_marked': { 1: z.object({ extendedToDate: z.string().date() }).strict() },
   'delay.ours_cleared': { 1: z.object({}).strict() },
+  // Ops "Resume stuck pipeline" (2026-09-07): a job that died twice leaves
+  // the case's status claiming it is running — this records the restart.
+  'pipeline.resumed': {
+    1: z.object({ redigitized: count, analysisEnqueued: z.boolean(), priorJobState: z.string().max(40).optional() }).strict(),
+  },
   'consent.granted': { 1: z.object({ consentId: id, recipientClass: z.enum(['clinic', 'attorney']) }).strict() },
   'consent.revoked': { 1: z.object({ consentId: id }).strict() },
   'deletion.requested': { 1: z.object({}).strict() },

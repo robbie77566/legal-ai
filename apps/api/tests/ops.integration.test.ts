@@ -7,7 +7,32 @@ process.env.NEXTAUTH_SECRET = 'test-secret-at-least-32-characters!!';
 // Asserts the unconfigured-refund wall; a real key in .env must not leak in.
 process.env.STRIPE_SECRET_KEY = '';
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+
+// Resume-stuck-pipeline tests (2026-09-07): the queue module is real except
+// for the pieces that would need a live Redis job to exist. `state` is what
+// the dead/live analysis job reports; the enqueue functions are spies.
+const resumeMock = vi.hoisted(() => ({
+  state: 'failed' as string,
+  removed: 0,
+  enqueueAnalysis: vi.fn(async () => {}),
+  enqueueDocument: vi.fn(async () => {}),
+}));
+vi.mock('../src/services/queue', async (orig) => {
+  const real = (await orig()) as Record<string, unknown>;
+  return {
+    ...real,
+    enqueueAnalysis: resumeMock.enqueueAnalysis,
+    enqueueDocument: resumeMock.enqueueDocument,
+    analysisQueue: {
+      getJob: async (id: string) =>
+        id.startsWith('analysis-')
+          ? { getState: async () => resumeMock.state, remove: async () => { resumeMock.removed++; } }
+          : null,
+    },
+    ingestionQueue: { getJobs: async () => [] },
+  };
+});
 import { fastify } from '../src/index';
 import prisma from '@hg/database';
 import { encodeSessionToken } from '@hg/auth';
@@ -134,5 +159,72 @@ describe('OPS-4 scoped deletion — the retention matrix by assertion', () => {
     expect(types).toContain('deletion.requested');
     expect(types[types.length - 1]).toBe('deletion.completed'); // the certificate
     expect(await prisma.auditLog.count({ where: { caseId } })).toBeGreaterThan(0);
+  });
+});
+
+describe('OPS: resume a stuck pipeline (2026-09-07)', () => {
+  let stuckId: string;
+  beforeAll(async () => {
+    const c = await prisma.case.create({
+      data: { title: `${run}_stuck`, tenantId, status: 'ANALYZING', lane: 'TRIAL', accessList: { create: { userId, role: 'ADMIN' } } },
+    });
+    stuckId = c.id;
+    // One document that never produced pages (its digitize job died).
+    await prisma.document.create({ data: { filename: 'vol1.pdf', caseId: stuckId, s3Key: `cases/${stuckId}/vol1.pdf` } });
+  });
+  afterAll(async () => {
+    // The file-level afterAll deletes cases by tenant; these rows would
+    // otherwise violate Document/CaseEvent → Case foreign keys.
+    const mine = await prisma.case.findMany({ where: { tenantId, title: { in: [`${run}_stuck`, `${run}_idle`] } }, select: { id: true } });
+    const ids = mine.map((c) => c.id);
+    await prisma.document.deleteMany({ where: { caseId: { in: ids } } });
+    // CaseEvent is append-only (DB trigger) and survives case deletion by design.
+    await prisma.caseAccess.deleteMany({ where: { caseId: { in: ids } } });
+    await prisma.case.deleteMany({ where: { id: { in: ids } } });
+  });
+
+  it('refuses when the analysis job is genuinely live', async () => {
+    resumeMock.state = 'active';
+    const res = await fastify.inject({ method: 'POST', url: `/ops/cases/${stuckId}/resume`, headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toMatch(/active/);
+    expect(resumeMock.enqueueAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('dead job + undigitized document: clears the job, re-queues the document, holds the analysis', async () => {
+    resumeMock.state = 'failed';
+    const res = await fastify.inject({ method: 'POST', url: `/ops/cases/${stuckId}/resume`, headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body).toMatchObject({ ok: true, redigitized: 1, analysisEnqueued: false, priorJobState: 'failed', undigitized: 1 });
+    expect(resumeMock.removed).toBeGreaterThan(0);
+    expect(resumeMock.enqueueDocument).toHaveBeenCalledTimes(1);
+    expect(resumeMock.enqueueAnalysis).not.toHaveBeenCalled();
+    const ev = await prisma.caseEvent.findFirst({ where: { caseId: stuckId, type: 'pipeline.resumed' } });
+    expect(ev).not.toBeNull();
+  });
+
+  it('every document has text: re-queues the analysis', async () => {
+    await prisma.document.updateMany({ where: { caseId: stuckId }, data: { quarantined: true } }); // no undigitized docs remain
+    resumeMock.state = 'completed';
+    const res = await fastify.inject({ method: 'POST', url: `/ops/cases/${stuckId}/resume`, headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ analysisEnqueued: true, redigitized: 0 });
+    expect(resumeMock.enqueueAnalysis).toHaveBeenCalledWith(stuckId, tenantId);
+  });
+
+  it('a CLIENT cannot resume', async () => {
+    const res = await fastify.inject({ method: 'POST', url: `/ops/cases/${stuckId}/resume`, headers: { cookie: clientCookie } });
+    expect([401, 403]).toContain(res.statusCode);
+  });
+
+  it('nothing to resume on a case that is not running', async () => {
+    // Own case: the suite's shared one is deleted by the retention test above.
+    const idle = await prisma.case.create({
+      data: { title: `${run}_idle`, tenantId, status: 'AWAITING_DOCS', lane: 'TRIAL', accessList: { create: { userId, role: 'ADMIN' } } },
+    });
+    const res = await fastify.inject({ method: 'POST', url: `/ops/cases/${idle.id}/resume`, headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toMatch(/Nothing to resume/);
   });
 });

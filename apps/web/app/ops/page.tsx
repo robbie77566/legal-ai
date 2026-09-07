@@ -239,6 +239,26 @@ export default function OpsOverview() {
                   <input type="date" value={delayDate} onChange={(e) => setDelayDate(e.target.value)} className="rounded border border-[#30363D] bg-[#0B0E14] p-1.5 text-xs" />
                   <button onClick={() => void act('delay-ours', { extendedToDate: delayDate })} disabled={!delayDate} className="rounded border border-[#3B82F6] px-2 py-1 text-xs text-[#3B82F6] disabled:opacity-40">Mark delay ours</button>
                   {selected.delayOurs && <button onClick={() => void act('delay-cleared')} className="rounded border border-[#30363D] px-2 py-1 text-xs">Clear delay</button>}
+                  {['DIGITIZING', 'DOCS_COMPLETE', 'ANALYZING', 'ADJUDICATING'].includes(selected.status) && (
+                    <button
+                      data-testid="resume-pipeline"
+                      title="For a case whose status says it is running but nothing has happened for hours: clears the dead job, re-reads documents with no text, re-queues the analysis. Refuses if a job is genuinely live."
+                      onClick={() => void apiFetch(`/ops/cases/${selected.id}/resume`, { method: 'POST' }).then(async (r) => {
+                        const d = await r.json().catch(() => ({}))
+                        setNotice(
+                          r.ok
+                            ? d.analysisEnqueued
+                              ? `Resumed: analysis re-queued (previous job: ${d.priorJobState}).`
+                              : `Resumed: ${d.redigitized} document(s) re-queued for reading (${d.undigitized} had no text). Press Resume again once they finish.`
+                            : d.error ?? `Resume failed: ${r.status}`
+                        )
+                        await loadAll()
+                      })}
+                      className="rounded border border-[#3B82F6] px-2 py-1 text-xs text-[#3B82F6]"
+                    >
+                      Resume stuck pipeline
+                    </button>
+                  )}
                   <button
                     onClick={() => void apiFetch(`/ops/cases/${selected.id}/disclosure-archive`).then(async (r) => { const d = await r.json().catch(() => ({})); setNotice(r.ok ? `Archive: ${d.acknowledgments?.length ?? 0} acknowledgment(s) — see console.` : d.error ?? 'export failed'); if (r.ok) console.log('E-6 disclosure archive', d) })}
                     className="rounded border border-[#30363D] px-2 py-1 text-xs"

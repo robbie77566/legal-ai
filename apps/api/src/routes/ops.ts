@@ -195,6 +195,66 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     return { ok: true };
   });
 
+  // Resume a stuck pipeline (2026-09-07). A case whose status says it is
+  // running but whose job died (an api restart mid-run counts; BullMQ gives
+  // up after the attempts) sits in limbo: nothing marks the case, and the
+  // fixed job id `analysis-<caseId>` makes any plain re-enqueue a silent
+  // no-op while the dead job is still in Redis. This removes the dead job,
+  // re-digitizes documents that never produced pages, and re-queues the
+  // analysis — refusing (409) if a job is genuinely live.
+  fastify.post('/cases/:id/resume', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const kase = await prisma.case.findUnique({ where: { id } });
+    if (!kase) return reply.status(404).send({ error: 'Not found' });
+    const RUNNING = ['DIGITIZING', 'DOCS_COMPLETE', 'ANALYZING', 'ADJUDICATING'];
+    if (!RUNNING.includes(kase.status)) {
+      return reply.status(409).send({ error: `Nothing to resume — case is ${kase.status}` });
+    }
+    const q = await import('../services/queue');
+
+    const job = await q.analysisQueue.getJob(`analysis-${id}`);
+    const priorJobState = job ? await job.getState() : 'none';
+    if (['active', 'waiting', 'delayed', 'prioritized', 'waiting-children'].includes(priorJobState)) {
+      return reply.status(409).send({ error: `Analysis job is ${priorJobState} — not stuck. Give it time.`, jobState: priorJobState });
+    }
+    if (job) await job.remove().catch(() => {}); // failed/completed/unknown: clear the id
+
+    // Documents with no digitized pages, not already in flight.
+    const docs = await prisma.document.findMany({
+      where: { caseId: id, quarantined: false, pages: { none: {} } },
+      select: { id: true, s3Key: true },
+    });
+    const inFlight = new Set(
+      (await q.ingestionQueue.getJobs(['waiting', 'active', 'delayed', 'prioritized']))
+        .map((j) => (j.data as { documentId?: string }).documentId)
+        .filter(Boolean)
+    );
+    let redigitized = 0;
+    for (const d of docs) {
+      if (!d.s3Key || inFlight.has(d.id)) continue;
+      await q.enqueueDocument(d.id, d.s3Key, id);
+      redigitized++;
+    }
+
+    // Analysis only once every document has text — otherwise it would run on
+    // a partial record. The operator presses Resume again after digitizing.
+    const analysisEnqueued = docs.length === 0;
+    if (analysisEnqueued) await q.enqueueAnalysis(id, kase.tenantId);
+
+    await withTenant(kase.tenantId, (tx) =>
+      appendCaseEvent(tx, {
+        caseId: id, tenantId: kase.tenantId, type: 'pipeline.resumed',
+        payload: { redigitized, analysisEnqueued, priorJobState }, actor: request.auth.userId,
+      })
+    );
+    await AuditService.log({
+      tenantId: kase.tenantId, caseId: id, action: LogAction.CASE_ACCESS,
+      userId: request.auth.userId, details: { op: 'pipeline_resumed', redigitized, analysisEnqueued, priorJobState },
+    });
+    request.log.info({ caseId: id, redigitized, analysisEnqueued, priorJobState }, 'pipeline resumed by ops');
+    return { ok: true, redigitized, analysisEnqueued, priorJobState, undigitized: docs.length };
+  });
+
   // OPS-2: audited, Stripe-linked refund. The ledger flip is confirmed by the
   // charge.refunded webhook; the case transition happens here.
   fastify.post('/cases/:id/refund', async (request, reply) => {
