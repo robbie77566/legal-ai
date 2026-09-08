@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { withTenant, appendCaseEvent } from '@hg/database';
-import { computeDeadlinePosture, checklistTemplate, customerView, expectedReadyDate, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
+import { withTenant, appendCaseEvent, Prisma } from '@hg/database';
+import { computeDeadlinePosture, checklistTemplate, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
 import { verifyFindings } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 
@@ -16,7 +16,12 @@ const InterviewSchema = z.object({
   county: z.string().min(1).max(64),
   convictionYear: z.number().int().min(1950).max(2100),
   trialDays: z.number().int().min(0).max(365).optional(),
-  hadAppeal: z.boolean(),
+  // Optional: the free check already recorded the appeal history for cases
+  // bought since facts landed; the interview re-asks only when it is unknown.
+  hadAppeal: z.boolean().optional(),
+  // FR-5: the one date that unlocks the time-limits section. From the
+  // judgment paper; skippable, addable later.
+  judgmentDate: civilDate.optional(),
   // FR-5 deadline facts — all optional; families rarely know every date,
   // and a partial posture ("as of what we know") beats none.
   deadlineFacts: z
@@ -122,12 +127,31 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         return reply.status(409).send({ error: 'Interview is only available while awaiting documents' });
       }
 
+      // Merge into the case facts (never re-ask).
+      const prior = (CaseFactsSchema.safeParse(kase.facts ?? {}).success ? (kase.facts as CaseFacts) : {}) ?? {};
+      const facts: CaseFacts = {
+        ...prior,
+        county: answers.county,
+        convictionYear: answers.convictionYear,
+        ...(answers.trialDays != null ? { trialDays: answers.trialDays } : {}),
+        // An explicit answer wins (the page only asks when it is unknown); otherwise keep what the check said.
+        ...(answers.hadAppeal != null ? { appeal: answers.hadAppeal ? 'decided' : 'none' } : {}),
+        ...(answers.judgmentDate ? { judgmentDate: answers.judgmentDate } : {}),
+        source: { ...(prior.source ?? {}), interviewAt: new Date().toISOString() },
+      };
+      const hadAppeal = facts.appeal ? facts.appeal !== 'none' : answers.hadAppeal ?? true;
+      const priorDeadline = (kase.deadlineFacts as Record<string, unknown> | null) ?? null;
+      const deadlineFacts =
+        answers.deadlineFacts ??
+        (answers.judgmentDate ? { ...(priorDeadline ?? {}), judgmentDate: answers.judgmentDate } : priorDeadline);
+
       await tx.case.update({
         where: { id },
         data: {
           county: answers.county,
           convictionYear: answers.convictionYear,
-          ...(answers.deadlineFacts ? { deadlineFacts: answers.deadlineFacts } : {}),
+          facts: facts as Prisma.InputJsonValue,
+          ...(deadlineFacts ? { deadlineFacts: deadlineFacts as Prisma.InputJsonValue } : {}),
         },
       });
 
@@ -139,7 +163,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       const items = checklistTemplate({
         lane: (kase.lane ?? 'TRIAL') as 'TRIAL' | 'PLEA',
         subsequentWrit: kase.subsequentWrit,
-        hadAppeal: answers.hadAppeal,
+        hadAppeal,
       }).filter((i) => !have.has(i.kind));
 
       await tx.checklistItem.createMany({
@@ -225,8 +249,20 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         select: { type: true, createdAt: true },
       });
 
+      // What the family told us (customer_journey_ux_review §3) and whether
+      // this is a paid re-run of a finished review (US-6).
+      const factsRaw = CaseFactsSchema.safeParse(kase.facts ?? {});
+      const facts: CaseFacts = factsRaw.success ? factsRaw.data : {};
+      const reportCount = await tx.report.count({ where: { caseId: id } });
+      const lastReport = reportCount
+        ? await tx.report.findFirst({ where: { caseId: id }, orderBy: { versionNo: 'desc' }, select: { renderedAt: true } })
+        : null;
+
       return {
         status: kase.status,
+        facts,
+        factLines: describeFacts(facts, kase),
+        rerun: reportCount > 0 && kase.status === 'AWAITING_DOCS' ? { reportCount, lastReportAt: lastReport?.renderedAt ?? null } : null,
         customer: customerView(kase.status as Parameters<typeof customerView>[0], holds),
         lane: kase.lane,
         slaStartedAt: kase.slaStartedAt,

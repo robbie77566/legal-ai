@@ -39,6 +39,8 @@ interface ChecklistData {
   documents: CaseDocument[]
   slaStartedAt: string | null
   lastZip: ZipSummary | null
+  factLines?: Array<{ key: string; label: string; value: string | null; derived?: boolean; shapesReview?: boolean }>
+  rerun?: { reportCount: number; lastReportAt: string | null } | null
 }
 interface Meter {
   billable: number
@@ -276,6 +278,15 @@ export default function CaseDocuments() {
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
       <h1 className="font-db-serif text-2xl font-semibold">Your documents</h1>
+      {data?.rerun && (
+        <div data-testid="rerun-banner" className="mt-3 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4 text-sm">
+          <p className="font-semibold">This is a re-run.</p>
+          <p className="mt-1">
+            Your report{data.rerun.lastReportAt ? ` from ${new Date(data.rerun.lastReportAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}` : ''} still stands and stays available.
+            Add the new documents below, then start the re-run. Everything you told us about the case is already saved.
+          </p>
+        </div>
+      )}
       {/* F11: the phase model, always visible — collecting is free and
           iterative; running the review is the (charged) commitment. */}
       <p className="mt-2 text-sm" data-testid="phase-steps">
@@ -303,6 +314,31 @@ export default function CaseDocuments() {
             Any order, your own pace — we recognize each document and check it off for you.
           </p>
         </div>
+      )}
+      {data?.factLines?.some((l) => l.value) && (
+        <details data-testid="about-case" className="mt-4 rounded-xl border border-db-line bg-db-surface p-4 text-sm">
+          <summary className="cursor-pointer font-semibold">
+            About this case
+            <span className="ml-2 font-normal text-db-muted">
+              {data.factLines.find((l) => l.key === 'conviction')?.value ?? ''}
+              {data.factLines.find((l) => l.key === 'trialOrPlea')?.value ? ` · ${data.factLines.find((l) => l.key === 'trialOrPlea')!.value}` : ''}
+            </span>
+          </summary>
+          <p className="mt-2 text-xs text-db-muted">Your checklist is built from these answers.</p>
+          <dl className="mt-2 grid grid-cols-[minmax(0,40%)_1fr] gap-x-4 gap-y-1.5">
+            {data.factLines.filter((l) => l.value).map((l) => (
+              <div key={l.key} className="contents">
+                <dt className="text-db-muted">{l.label}</dt>
+                <dd>{l.value}{l.derived && <span className="ml-1 text-xs text-db-muted">(chosen from your answers)</span>}</dd>
+              </div>
+            ))}
+          </dl>
+          {data.status === 'AWAITING_DOCS' ? (
+            <Link href={`/case/${caseId}/interview`} className="mt-3 inline-block text-db-accent underline">Not right? Change the details</Link>
+          ) : (
+            <p className="mt-3 text-xs text-db-muted">Locked — this review was built on these answers. A re-run is where they can change.</p>
+          )}
+        </details>
       )}
       {error && (
         <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--db-urgent)' }}>
@@ -598,7 +634,7 @@ export default function CaseDocuments() {
             disabled={!data || data.documents.length === 0}
             className="mt-3 w-full rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface disabled:opacity-40"
           >
-            That&rsquo;s everything I could get — start the review
+            {data?.rerun ? 'That\u2019s everything new I could get — start the re-run' : 'That\u2019s everything I could get — start the review'}
           </button>
         ) : (
           <button
@@ -606,7 +642,7 @@ export default function CaseDocuments() {
             disabled={!data || data.documents.length === 0}
             className="mt-3 w-full rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface disabled:opacity-40"
           >
-            My records are complete — start the review
+            {data?.rerun ? 'My new documents are in — start the re-run' : 'My records are complete — start the review'}
           </button>
         )}
       </section>

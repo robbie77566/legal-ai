@@ -45,8 +45,9 @@ const FORWARD: Record<CaseStatus, readonly CaseStatus[]> = {
   ADJUDICATING: ['QA_REVIEW'],
   QA_REVIEW: ['QA_REJECTED', 'READY'],
   QA_REJECTED: ['ANALYZING', 'QA_REVIEW'],
-  READY: ['DELIVERED'],
-  DELIVERED: [],
+  // A paid re-run (US-6) reopens a finished case for new documents.
+  READY: ['DELIVERED', 'AWAITING_DOCS'],
+  DELIVERED: ['AWAITING_DOCS'],
   REFUNDED: [],
   DELETED: [],
 }

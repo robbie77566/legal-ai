@@ -115,6 +115,19 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
     return { code: normalizeCode(code), amountOffCents: check.amountOffCents, newTotalCents: newTotal };
   });
 
+  // Post-checkout landing (customer_journey_ux_review G-B3): which case did
+  // THIS session create? Polled by /buy/success until the webhook or the
+  // reconciliation sweep has fulfilled it. Owner-only.
+  fastify.get('/checkout/fulfillment', async (request, reply) => {
+    const { session_id } = request.query as { session_id?: string };
+    if (!session_id) return reply.status(400).send({ error: 'session_id required' });
+    const payment = await prisma.payment.findUnique({ where: { stripeId: session_id } });
+    if (!payment || payment.userId !== request.auth.userId || !payment.caseId) {
+      return reply.status(404).send({ pending: true });
+    }
+    return { caseId: payment.caseId, kind: payment.kind.toLowerCase() };
+  });
+
   fastify.post('/checkout/session', async (request, reply) => {
     const { userId, tenantId, role } = request.auth;
     if (role !== 'CLIENT') {
@@ -206,7 +219,11 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
           },
         },
       ],
-      success_url: `${origin}/buy/success?session_id={CHECKOUT_SESSION_ID}`,
+      // A re-run lands back on ITS case, not the first-purchase success page.
+      success_url:
+        kind === 'rerun' && caseId
+          ? `${origin}/case/${caseId}/documents?rerun=1`
+          : `${origin}/buy/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/buy?canceled=1`,
       // Managed Payments (Stripe as merchant of record) is default-on for new
       // accounts but its eligible-category list excludes this product; we are

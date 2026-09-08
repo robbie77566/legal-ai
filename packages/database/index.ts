@@ -48,6 +48,7 @@ const appPrisma = globalThis.appPrismaGlobal ?? appPrismaClientSingleton()
 
 export default prisma
 export { prisma, appPrisma }
+export { Prisma }
 export * from './events'
 
 if (process.env.NODE_ENV !== 'production') {

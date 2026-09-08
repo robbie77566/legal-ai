@@ -225,4 +225,22 @@ describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
     expect(await screen.findByRole('button', { name: /My records are complete/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /everything I could get/ })).toBeNull()
   })
+
+  it('re-run mode: says the earlier report still stands, shows the saved facts, and relabels the run button', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url)
+      const body = u.endsWith('/checklist')
+        ? { ...CHECKLIST, rerun: { reportCount: 1, lastReportAt: '2026-09-05T10:00:00Z' }, factLines: [
+            { key: 'conviction', label: 'Conviction', value: 'Travis County · 2019' },
+            { key: 'trialOrPlea', label: 'How it was decided', value: 'A trial', shapesReview: true },
+          ] }
+        : u.endsWith('/pages') ? METER : { ok: true }
+      return { ok: true, status: 200, json: async () => body } as Response
+    }))
+    render(<CaseDocuments />)
+    expect(await screen.findByTestId('rerun-banner')).toHaveTextContent(/report from September 5 still stands/)
+    expect(screen.getByTestId('about-case')).toHaveTextContent(/Travis County · 2019 · A trial/)
+    expect(screen.getByTestId('about-case')).toHaveTextContent(/Not right\? Change the details/)
+    expect(screen.getByRole('button', { name: /start the re-run/ })).toBeInTheDocument()
+  })
 })

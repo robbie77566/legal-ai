@@ -172,6 +172,20 @@ If the link has expired, ask the person who added you to resend it. If you were 
   });
 }
 
+/** US-6: a paid re-run reopened the case for documents. */
+export function sendRerunPurchased(to: string, opts: { documentsUrl: string }) {
+  return send({
+    to,
+    subject: 'Your re-run is paid for — add your new documents',
+    text: `Thank you. Your case is open again for documents.
+
+Your earlier report still stands. Add the new documents here, then press "Start the re-run":
+${opts.documentsUrl}
+
+Everything you told us about the case is already saved — you will not be asked those questions again.`,
+  });
+}
+
 /** Staff notification (staff_console_access_model §6): one email per request. */
 export function sendStaffRequest(
   to: string,

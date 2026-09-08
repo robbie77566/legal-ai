@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
-import prisma, { withTenant, appendCaseEvent } from '@hg/database';
+import prisma, { withTenant, appendCaseEvent, Prisma } from '@hg/database';
+import { factsFromCheckAnswers, vehicleForCustody } from '@hg/case-lifecycle';
 
 /**
  * Commerce core (ENG-5, landing spec §3, system design §7).
@@ -31,6 +32,9 @@ export function getStripe(): Stripe | null {
   return stripeSingleton;
 }
 
+const custodyOf = (answers: Record<string, unknown>) =>
+  factsFromCheckAnswers(answers).custody;
+
 /** Maps an S0 outcome to the case's lane/vehicle/mode (workflow §S0). */
 export function caseSetupFromOutcome(
   outcome: string,
@@ -38,12 +42,12 @@ export function caseSetupFromOutcome(
 ): { lane: 'TRIAL' | 'PLEA' | null; vehicle: string | null; subsequentWrit: boolean } {
   switch (outcome) {
     case 'fit_trial':
-      return { lane: 'TRIAL', vehicle: '11.07', subsequentWrit: false };
+      return { lane: 'TRIAL', vehicle: vehicleForCustody(custodyOf(answers)), subsequentWrit: false };
     case 'fit_plea':
-      return { lane: 'PLEA', vehicle: '11.07', subsequentWrit: false };
+      return { lane: 'PLEA', vehicle: vehicleForCustody(custodyOf(answers)), subsequentWrit: false };
     case 'prior_writ_warned': {
       const lane = answers['trialOrPlea'] === 'plea' ? 'PLEA' : answers['trialOrPlea'] === 'trial' ? 'TRIAL' : null;
-      return { lane, vehicle: '11.07', subsequentWrit: true };
+      return { lane, vehicle: vehicleForCustody(custodyOf(answers)), subsequentWrit: true };
     }
     default:
       // Defensive: non-fit outcomes shouldn't reach purchase (S0 routing).
@@ -104,12 +108,17 @@ export async function fulfillCheckoutSession(session: {
       });
       if (kind === 'rerun') {
         const runNo = (await tx.analysisRun.count({ where: { caseId: meta.caseId } })) + 1;
+        // US-6: a finished case reopens for documents; the facts and the
+        // checklist stay, so nothing is asked twice. Mid-pipeline purchases
+        // just record the payment — the run in flight will pick up the docs.
+        const reopens = target.status === 'READY' || target.status === 'DELIVERED';
         await appendCaseEvent(tx, {
           caseId: meta.caseId!,
           tenantId,
           type: 'rerun.purchased',
           payload: { paymentId: session.id, runNo },
           actor: 'system',
+          ...(reopens ? { transition: 'AWAITING_DOCS' as const } : {}),
         });
       } else {
         await appendCaseEvent(tx, {
@@ -121,6 +130,14 @@ export async function fulfillCheckoutSession(session: {
         });
       }
     });
+    if (kind === 'rerun') {
+      const buyer = await prisma.user.findUnique({ where: { id: userId } });
+      if (buyer?.email) {
+        const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+        const { sendRerunPurchased } = await import('@hg/email');
+        void sendRerunPurchased(buyer.email, { documentsUrl: `${origin}/case/${meta.caseId}/documents` });
+      }
+    }
     return { caseId: meta.caseId };
   }
 
@@ -139,6 +156,9 @@ export async function fulfillCheckoutSession(session: {
         lane: setup.lane ?? undefined,
         vehicle: setup.vehicle ?? undefined,
         subsequentWrit: setup.subsequentWrit,
+        // Keep what the family told us in the free check — the draft row is
+        // deleted below, and nothing should ask these questions again.
+        facts: draft ? (factsFromCheckAnswers((draft.answers ?? {}) as Record<string, unknown>) as Prisma.InputJsonValue) : undefined,
         accessList: { create: { userId, role: 'ADMIN' } },
       },
     });

@@ -1,27 +1,31 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 
 /**
  * Post-checkout landing: the case is created by the Stripe webhook, which can
  * lag by a few seconds (and reconciliation covers a lost webhook within the
- * hour) — poll briefly, honestly.
+ * hour) — poll briefly, honestly, and for THIS session's case (a family with
+ * two reviews must never be sent into the other one).
  */
-export default function BuySuccess() {
+function Success() {
+  const sessionId = useSearchParams().get('session_id')
   const [caseId, setCaseId] = useState<string | null>(null)
   const [slow, setSlow] = useState(false)
 
   useEffect(() => {
+    if (!sessionId) return
     let tries = 0
     const poll = async () => {
       try {
-        const res = await apiFetch('/cases')
+        const res = await apiFetch(`/checkout/fulfillment?session_id=${encodeURIComponent(sessionId)}`)
         if (res.ok) {
-          const cases = await res.json()
-          if (Array.isArray(cases) && cases.length > 0) {
-            setCaseId(cases[0].id)
+          const d = await res.json()
+          if (d?.caseId) {
+            setCaseId(d.caseId)
             return
           }
         }
@@ -33,7 +37,7 @@ export default function BuySuccess() {
       if (tries < 60) setTimeout(poll, 2000)
     }
     void poll()
-  }, [])
+  }, [sessionId])
 
   return (
     <main className="mx-auto max-w-xl px-5 py-12">
@@ -42,16 +46,21 @@ export default function BuySuccess() {
         {caseId ? (
           <>
             <p className="mt-3">
-              Your case is set up. Next: a few short questions build your personal document
-              checklist.
+              Your case is set up. Next: confirm a few details about the case — most are already
+              filled in from your free check — and we build your personal document checklist.
             </p>
             <Link
               href={`/case/${caseId}/interview`}
+              data-testid="continue"
               className="mt-5 inline-block rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface"
             >
-              Start the case questions
+              Continue to your case
             </Link>
           </>
+        ) : !sessionId ? (
+          <p className="mt-3 text-db-muted">
+            Your payment went through. <Link href="/cases" className="underline">Open your reviews</Link> to continue.
+          </p>
         ) : (
           <p className="mt-3 text-db-muted" aria-live="polite">
             Setting up your case — this usually takes a few seconds…
@@ -65,5 +74,13 @@ export default function BuySuccess() {
         )}
       </div>
     </main>
+  )
+}
+
+export default function BuySuccess() {
+  return (
+    <Suspense>
+      <Success />
+    </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 
@@ -12,8 +12,30 @@ export default function CaseInterview() {
   const [year, setYear] = useState('')
   const [trialDays, setTrialDays] = useState('')
   const [hadAppeal, setHadAppeal] = useState<'yes' | 'no' | ''>('')
+  const [judgmentDate, setJudgmentDate] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [known, setKnown] = useState<Record<string, unknown> | null>(null)
+  const [factLines, setFactLines] = useState<Array<{ key: string; label: string; value: string | null; derived?: boolean }>>([])
+
+  // Never ask twice: prefill from what the case already knows (the free
+  // check at purchase, or an earlier visit here).
+  useEffect(() => {
+    void apiFetch(`/cases/${caseId}/checklist`).then(async (r) => {
+      if (!r.ok) return
+      const d = await r.json()
+      const f = (d.facts ?? {}) as Record<string, unknown>
+      setKnown(f)
+      setFactLines(d.factLines ?? [])
+      if (typeof f.county === 'string') setCounty(f.county)
+      if (typeof f.convictionYear === 'number') setYear(String(f.convictionYear))
+      if (typeof f.trialDays === 'number') setTrialDays(String(f.trialDays))
+      if (typeof f.judgmentDate === 'string') setJudgmentDate(f.judgmentDate)
+      if (f.appeal) setHadAppeal(f.appeal === 'none' ? 'no' : 'yes')
+    })
+  }, [caseId])
+  const appealKnown = !!known?.appeal
+  const returning = !!(known && (known.county || known.convictionYear))
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,7 +49,8 @@ export default function CaseInterview() {
           county,
           convictionYear: Number(year),
           ...(trialDays ? { trialDays: Number(trialDays) } : {}),
-          hadAppeal: hadAppeal === 'yes',
+          ...(appealKnown ? {} : { hadAppeal: hadAppeal === 'yes' }),
+          ...(judgmentDate ? { judgmentDate } : {}),
         }),
       })
       if (res.status === 409) {
@@ -56,10 +79,26 @@ export default function CaseInterview() {
 
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
-      <h1 className="font-db-serif text-2xl font-semibold">A few questions about the case</h1>
+      <h1 className="font-db-serif text-2xl font-semibold">{returning ? 'Confirm the details' : 'A few questions about the case'}</h1>
       <p className="mt-2 text-sm text-db-muted">
         These build your personal document checklist — with how-to-get-it help for every item.
       </p>
+      {factLines.some((l) => l.value && !['conviction', 'trialDays', 'judgmentDate'].includes(l.key)) && (
+        <section data-testid="known-facts" className="mt-5 rounded-xl border border-db-line bg-db-surface p-4">
+          <h2 className="text-sm font-semibold">From your free check</h2>
+          <p className="mt-1 text-xs text-db-muted">Already saved — you won&rsquo;t be asked these again.</p>
+          <dl className="mt-3 grid grid-cols-[minmax(0,40%)_1fr] gap-x-4 gap-y-1.5 text-sm">
+            {factLines
+              .filter((l) => l.value && !['conviction', 'trialDays', 'judgmentDate'].includes(l.key))
+              .map((l) => (
+                <div key={l.key} className="contents">
+                  <dt className="text-db-muted">{l.label}</dt>
+                  <dd>{l.value}{l.derived && <span className="ml-1 text-xs text-db-muted">(we chose this from your answers)</span>}</dd>
+                </div>
+              ))}
+          </dl>
+        </section>
+      )}
       {error && (
         <p role="alert" className="mt-4 text-sm" style={{ color: 'var(--db-urgent)' }}>
           {error}
@@ -105,7 +144,21 @@ export default function CaseInterview() {
             className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 font-db-mono"
           />
         </label>
-        <fieldset>
+        <label className="block">
+          <span className="text-sm font-semibold">Judgment date (skip if you don&rsquo;t have it)</span>
+          <input
+            type="date"
+            value={judgmentDate}
+            onChange={(e) => setJudgmentDate(e.target.value)}
+            aria-label="Judgment date"
+            className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 font-db-mono"
+          />
+          <span className="mt-1 block text-xs text-db-muted">
+            It&rsquo;s on the judgment paper. Adding it unlocks the time-limits section of your report; you can add it later.
+          </span>
+        </label>
+        {!appealKnown && (
+        <fieldset data-testid="appeal-question">
           <legend className="text-sm font-semibold">Was there a direct appeal?</legend>
           <div className="mt-2 space-y-2">
             {(['yes', 'no'] as const).map((v) => (
@@ -122,12 +175,13 @@ export default function CaseInterview() {
             ))}
           </div>
         </fieldset>
+        )}
         <button
           type="submit"
           disabled={busy}
           className="w-full rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface disabled:opacity-40"
         >
-          {busy ? 'Building your checklist…' : 'Build my document checklist'}
+          {busy ? 'Building your checklist…' : returning ? 'Save and continue to documents' : 'Build my document checklist'}
         </button>
       </form>
     </main>

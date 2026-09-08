@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -247,7 +249,7 @@ export default function CaseStatus() {
 
       {model?.delivered && (
         <p className="mt-6 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4">
-          Your report is ready — check your email for the link.
+          Your report is ready — <Link href={`/case/${caseId}/report`} className="underline">open it here</Link>. We&rsquo;ve emailed you the link too.
         </p>
       )}
 

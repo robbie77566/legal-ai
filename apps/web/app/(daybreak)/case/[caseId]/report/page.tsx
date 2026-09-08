@@ -109,7 +109,7 @@ export default function CaseReport() {
     return (
       <main className="mx-auto max-w-xl px-5 py-12">
         <p className="rounded-xl border border-db-line bg-db-surface p-6">
-          Your report isn&rsquo;t ready yet — the tracker has the latest, and we&rsquo;ll email you
+          Your report isn&rsquo;t ready yet — <Link href={`/case/${caseId}/status`} className="underline">the tracker has the latest</Link>, and we&rsquo;ll email you
           the moment it is.
         </p>
       </main>
@@ -152,6 +152,13 @@ export default function CaseReport() {
             className="block rounded-xl border-2 border-db-accent px-5 py-3 text-center font-semibold text-db-accent"
           >
             Download the court documents you uploaded
+          </Link>
+          <Link
+            href={`/case/${caseId}/next-steps`}
+            data-testid="next-steps-link"
+            className="block rounded-xl border-2 border-db-accent px-5 py-3 text-center font-semibold text-db-accent"
+          >
+            Send your lawyer a secure link
           </Link>
           <button
             onClick={() => {
