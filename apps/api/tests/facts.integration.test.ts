@@ -134,6 +134,12 @@ describe('a paid re-run reopens a finished case', () => {
     const checklist = (await get(`/cases/${caseId}/checklist`)).json();
     expect(checklist.rerun).toMatchObject({ reportCount: 1 });
 
+    // Decision 3: a re-run with nothing new is refused, never charged a run.
+    const nothingNew = await post(`/cases/${caseId}/records-complete`, {});
+    expect(nothingNew.statusCode).toBe(409);
+    expect(nothingNew.json().code).toBe('nothing_new');
+    await prisma.document.create({ data: { filename: 'rr2.pdf', caseId } });
+
     // The interview is not required again; records-complete is open again.
     const done = await post(`/cases/${caseId}/records-complete`, {});
     expect(done.statusCode).toBe(200);
@@ -173,6 +179,29 @@ describe('a paid re-run reopens a finished case', () => {
     expect(changes).toMatchObject({ fromVersion: 1, toVersion: 2, keptCount: 1 });
     expect(changes.added.map((f: { partAText: string }) => f.partAText)).toEqual(['A lab report the defense never received']);
     expect(changes.removed.map((f: { partAText: string }) => f.partAText)).toEqual(['Old finding that no longer holds']);
+  });
+});
+
+describe('lock semantics (decision 1)', () => {
+  it('after records-complete, county/year/dates can still be corrected; the shaping facts cannot', async () => {
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).status).not.toBe('AWAITING_DOCS');
+    // The interview route (which reseeds the checklist) is closed…
+    expect((await post(`/cases/${caseId}/interview`, { county: 'Bexar', convictionYear: 2018 })).statusCode).toBe(409);
+    // …the facts route accepts the contact-style facts…
+    const res = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { county: 'Bexar', judgmentDate: '2019-07-01' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().facts).toMatchObject({ county: 'Bexar', judgmentDate: '2019-07-01', appeal: 'decided', custody: 'probation' });
+    const kase = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    expect(kase.county).toBe('Bexar');
+    expect(kase.deadlineFacts).toMatchObject({ judgmentDate: '2019-07-01' });
+    expect(await prisma.caseEvent.count({ where: { caseId, type: 'facts.updated' } })).toBe(1);
+    // …and refuses anything that shapes the review.
+    const shaping = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { trialOrPlea: 'plea' } });
+    expect(shaping.statusCode).toBe(400);
+    // Clearing the judgment date removes it from both places.
+    const cleared = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { judgmentDate: null } });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json().facts.judgmentDate).toBeUndefined();
   });
 });
 

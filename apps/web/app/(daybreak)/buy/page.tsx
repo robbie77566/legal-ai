@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession, signIn } from 'next-auth/react'
 import { apiFetch } from '@/lib/api'
@@ -53,6 +53,15 @@ export default function BuyPage() {
   const { data: session } = useSession()
   const [step, setStep] = useState<Step>('disclosures')
   const [acked, setAcked] = useState(false)
+  // G-B5: a returning family who acknowledged THIS version of the terms sees
+  // them collapsed, with the one checkbox still required (counsel: one ack
+  // per purchase). Read again is one tap.
+  const [priorAck, setPriorAck] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  useEffect(() => {
+    if (!session?.user) return
+    void apiFetch('/buy/disclosure-ack').then(async (r) => { if (r.ok) { const d = await r.json(); if (d?.ackedAt) setPriorAck(d.ackedAt) } }).catch(() => {})
+  }, [session?.user])
   const { lang } = useLang()
   // Promo (promo_codes.md §1): collapsed by default, validated server-side,
   // explicit applied state; $0 renders as Free and skips payment entirely.
@@ -204,14 +213,25 @@ export default function BuyPage() {
               antes de comprar.
             </p>
           )}
-          <div className="mt-6 space-y-3">
-            {DISCLOSURES.map(([title, body]) => (
-              <div key={title} className="rounded-xl border border-db-line bg-db-surface p-4">
-                <h2 className="font-semibold">{title}</h2>
-                <p className="mt-1 text-sm text-db-muted">{body}</p>
-              </div>
-            ))}
-          </div>
+          {priorAck && !showAll ? (
+            <div className="mt-6 rounded-xl border border-db-line bg-db-surface p-4 text-sm" data-testid="disclosures-collapsed">
+              <p>
+                You read and acknowledged these same terms on{' '}
+                <strong>{new Date(priorAck).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>. They haven&rsquo;t changed.
+              </p>
+              <ul className="mt-2 list-disc pl-5 text-db-muted">{DISCLOSURES.map(([title]) => <li key={title}>{title}</li>)}</ul>
+              <button type="button" onClick={() => setShowAll(true)} className="mt-3 text-db-accent underline">Read them again</button>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-3">
+              {DISCLOSURES.map(([title, body]) => (
+                <div key={title} className="rounded-xl border border-db-line bg-db-surface p-4">
+                  <h2 className="font-semibold">{title}</h2>
+                  <p className="mt-1 text-sm text-db-muted">{body}</p>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
             <div className="flex items-center justify-between">
               <span className="font-semibold">Family Case Review</span>

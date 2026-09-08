@@ -16,6 +16,7 @@ export default function CaseInterview() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [known, setKnown] = useState<Record<string, unknown> | null>(null)
+  const [locked, setLocked] = useState(false)
   const [factLines, setFactLines] = useState<Array<{ key: string; label: string; value: string | null; derived?: boolean }>>([])
 
   // Never ask twice: prefill from what the case already knows (the free
@@ -26,6 +27,7 @@ export default function CaseInterview() {
       const d = await r.json()
       const f = (d.facts ?? {}) as Record<string, unknown>
       setKnown(f)
+      setLocked(d.status !== 'AWAITING_DOCS')
       setFactLines(d.factLines ?? [])
       if (typeof f.county === 'string') setCounty(f.county)
       if (typeof f.convictionYear === 'number') setYear(String(f.convictionYear))
@@ -42,6 +44,26 @@ export default function CaseInterview() {
     setError('')
     setBusy(true)
     try {
+      if (locked) {
+        // Lock semantics: after records-complete only the contact-style
+        // facts change; the checklist and analysis are not touched.
+        const res = await apiFetch(`/cases/${caseId}/facts`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            county,
+            convictionYear: Number(year),
+            trialDays: trialDays ? Number(trialDays) : null,
+            judgmentDate: judgmentDate || null,
+          }),
+        })
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string }
+          throw new Error(body.error ?? `Could not save (error ${res.status}) — please try again.`)
+        }
+        router.push(`/case/${caseId}`)
+        return
+      }
       const res = await apiFetch(`/cases/${caseId}/interview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,10 +101,13 @@ export default function CaseInterview() {
 
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
-      <h1 className="font-db-serif text-2xl font-semibold">{returning ? 'Confirm the details' : 'A few questions about the case'}</h1>
+      <h1 className="font-db-serif text-2xl font-semibold">{locked ? 'Case details' : returning ? 'Confirm the details' : 'A few questions about the case'}</h1>
       <p className="mt-2 text-sm text-db-muted">
-        These build your personal document checklist — with how-to-get-it help for every item.
+        {locked
+          ? 'Your review was built on these answers, so the ones that shape it are locked — a re-run is where they can change. County, year, and dates can still be corrected here.'
+          : 'These build your personal document checklist — with how-to-get-it help for every item.'}
       </p>
+      {locked && <p className="mt-1 text-xs text-db-muted" data-testid="locked-note">Locked: how it was decided, direct appeal, prior writ.</p>}
       {factLines.some((l) => l.value && !['conviction', 'trialDays', 'judgmentDate'].includes(l.key)) && (
         <section data-testid="known-facts" className="mt-5 rounded-xl border border-db-line bg-db-surface p-4">
           <h2 className="text-sm font-semibold">From your free check</h2>
@@ -181,7 +206,7 @@ export default function CaseInterview() {
           disabled={busy}
           className="w-full rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface disabled:opacity-40"
         >
-          {busy ? 'Building your checklist…' : returning ? 'Save and continue to documents' : 'Build my document checklist'}
+          {busy ? 'Saving…' : locked ? 'Save changes' : returning ? 'Save and continue to documents' : 'Build my document checklist'}
         </button>
       </form>
     </main>

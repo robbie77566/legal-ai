@@ -51,6 +51,14 @@ export default async function eligibilityRoutes(fastify: FastifyInstance) {
     return { token };
   });
 
+  // G-E1: the pending-appeal outcome is the one not-fit that becomes a fit
+  // later. Email only; a confirmation now and one reminder in ~3 months.
+  fastify.post('/lead', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (request) => {
+    const { email, outcome } = z.object({ email: z.string().email().max(254), outcome: z.enum(['pending_appeal']) }).parse(request.body);
+    const lead = await createEligibilityLead(email, outcome);
+    return { ok: true, remindAt: lead.remindAt };
+  });
+
   fastify.get('/draft/:token', draftLimit, async (request, reply) => {
     const { token } = request.params as { token: string };
     const draft = await prisma.eligibilityDraft.findUnique({ where: { token } });
@@ -59,6 +67,33 @@ export default async function eligibilityRoutes(fastify: FastifyInstance) {
     }
     return { answers: draft.answers, outcome: draft.outcome };
   });
+}
+
+const REMIND_MONTHS = 3;
+
+/** G-E1: pending-appeal families leave an email; one reminder ~90 days on. */
+export async function createEligibilityLead(email: string, outcome: string) {
+  const remindAt = new Date();
+  remindAt.setMonth(remindAt.getMonth() + REMIND_MONTHS);
+  const lead = await prisma.eligibilityLead.create({ data: { email: email.trim().toLowerCase(), outcome, remindAt } });
+  const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+  const { sendCheckBackLater } = await import('@hg/email');
+  void sendCheckBackLater(lead.email, { checkUrl: `${origin}/check`, months: REMIND_MONTHS });
+  return lead;
+}
+
+/** Daily sweep: the one reminder, stamped idempotently. */
+export async function sendPendingAppealReminders(now = new Date()): Promise<number> {
+  const due = await prisma.eligibilityLead.findMany({ where: { remindAt: { lte: now }, remindedAt: null }, take: 200 });
+  const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+  const { sendPendingAppealReminder } = await import('@hg/email');
+  let sent = 0;
+  for (const lead of due) {
+    await sendPendingAppealReminder(lead.email, { checkUrl: `${origin}/check` });
+    await prisma.eligibilityLead.update({ where: { id: lead.id }, data: { remindedAt: now } });
+    sent++;
+  }
+  return sent;
 }
 
 /** Hard-delete expired drafts (called at boot + on an interval). */

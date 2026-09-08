@@ -87,11 +87,9 @@ export default function CaseHome() {
       <section data-testid="about-case" className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="font-db-serif text-lg font-semibold">About this case</h2>
-          {editable
-            ? <Link href={`/case/${caseId}/interview`} className="text-sm text-db-accent underline">Change</Link>
-            : <span className="text-xs text-db-muted">Locked — a re-run is where these can change</span>}
+          <Link href={`/case/${caseId}/interview`} className="text-sm text-db-accent underline">{editable ? 'Change' : 'Correct county, year, or dates'}</Link>
         </div>
-        <p className="mt-1 text-xs text-db-muted">What you told us. Your checklist and review are built from these answers — you won&rsquo;t be asked them again.</p>
+        <p className="mt-1 text-xs text-db-muted">What you told us. Your checklist and review are built from these answers — you won&rsquo;t be asked them again.{!editable && ' How it was decided, the appeal, and any prior writ are locked now — a re-run is where they can change.'}</p>
         {lines.length ? (
           <dl className="mt-3 grid grid-cols-[minmax(0,40%)_1fr] gap-x-4 gap-y-1.5 text-sm">
             {lines.map((l) => (
@@ -102,7 +100,7 @@ export default function CaseHome() {
             ))}
           </dl>
         ) : <p className="mt-3 text-sm text-db-muted">Nothing recorded yet.</p>}
-        {needsJudgmentDate && editable && (
+        {needsJudgmentDate && (
           <p className="mt-3 rounded-lg border border-db-line p-3 text-sm" data-testid="unlock-deadlines">
             <strong>Add the judgment date</strong> to unlock the time-limits section of your report. It&rsquo;s on the judgment paper.{' '}
             <Link href={`/case/${caseId}/interview`} className="text-db-accent underline">Add it</Link>

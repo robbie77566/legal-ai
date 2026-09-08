@@ -421,6 +421,19 @@ model CaseEvent {
 
 // Anonymous S0 eligibility drafts (ENG-7): opaque token key, 30-day TTL then
 // hard delete, promoted-then-deleted on purchase. Pre-tenant: no RLS.
+// Pending-appeal families (customer_journey_ux_review G-E1): the one not-fit
+// outcome that becomes a fit later. Email only, one reminder, never marketing.
+model EligibilityLead {
+  id         String    @id @default(cuid())
+  email      String
+  outcome    String
+  remindAt   DateTime
+  remindedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([remindAt])
+}
+
 model EligibilityDraft {
   token     String   @id
   answers   Json

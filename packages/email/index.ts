@@ -162,27 +162,25 @@ Whatever it says, there is a next step, and the report walks you through it.`,
 }
 
 export function sendQualityHold(to: string, opts: { caseUrl: string }) {
-  return getProvider().send({
+  return send({
     to,
     subject: 'A specialist is giving your review a closer look',
     text:
       "Good news and a small pause: our automated quality check flagged something in your review that we want a person to verify before you see it. Nothing is wrong with your case — this is the system being careful.\n\n" +
       'A trained legal reviewer is checking it personally. Expect your report within 24 hours.\n\n' +
-      `You can watch progress any time: ${opts.caseUrl}` +
-      FOOTER,
+      `You can watch progress any time: ${opts.caseUrl}`,
   });
 }
 
 export function sendFeedbackFollowup(to: string, opts: { surveyUrl: string }) {
-  return getProvider().send({
+  return send({
     to,
     subject: 'One quick question about your report',
     text:
       "It's been about a week since your Family Case Review report was ready. However it turned out, we want to know if we did our job well.\n\n" +
       'Two quick questions (30 seconds, no sign-in tricks — the link opens your report page):\n' +
       `${opts.surveyUrl}\n\n` +
-      'Thank you — every answer is read personally.' +
-      FOOTER,
+      'Thank you — every answer is read personally.',
   });
 }
 
@@ -227,6 +225,34 @@ Your earlier report still stands. Add the new documents here, then press "Start 
 ${opts.documentsUrl}
 
 Everything you told us about the case is already saved — you will not be asked those questions again.`,
+  });
+}
+
+/** G-E1: a pending-appeal family asked us to check back. Sent right away. */
+export function sendCheckBackLater(to: string, opts: { checkUrl: string; months: number }) {
+  return send({
+    to,
+    subject: "We'll check back when the appeal is decided",
+    text: `Thanks for checking. While a direct appeal is still being decided, a writ filed now would be dismissed — so this isn't the moment, and we won't take your money for a review that can't help yet.
+
+We'll email you once, in about ${opts.months} months, to ask whether the appeal has been decided. If it is decided sooner, come back any time:
+${opts.checkUrl}
+
+That's the only email you'll get from this. Reply to this message if you'd rather we didn't send it.`,
+  });
+}
+
+/** G-E1: the one reminder, ~90 days on. */
+export function sendPendingAppealReminder(to: string, opts: { checkUrl: string }) {
+  return send({
+    to,
+    subject: 'Has the appeal been decided?',
+    text: `A few months ago you told us a direct appeal was still being decided. If it has been decided since — denied or affirmed — the conviction is final and a review can help now.
+
+Take the free two-minute check again (your earlier answers are not stored):
+${opts.checkUrl}
+
+If the appeal is still pending, nothing to do. This is the only reminder we send.`,
   });
 }
 

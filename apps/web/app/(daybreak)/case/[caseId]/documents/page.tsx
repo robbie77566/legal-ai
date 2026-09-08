@@ -521,6 +521,17 @@ export default function CaseDocuments() {
             <h2 className="font-db-serif text-lg font-semibold">
               Still needed ({data.items.filter((i) => i.state === 'NEEDED').length})
             </h2>
+            {(() => {
+              const line = (k: string) => data.factLines?.find((l) => l.key === k)?.value ?? null
+              const how = line('trialOrPlea'); const where = line('conviction')?.split(' · ')[0]; const prior = line('priorWrit')
+              if (!how && !where) return null
+              return (
+                <p className="mt-1 text-sm" data-testid="checklist-why">
+                  Built for {how === 'A trial' ? 'a trial' : how ? 'a plea' : 'a conviction'}{where ? ` in ${where}` : ''}{prior?.startsWith('Yes') ? ', with a prior writ' : ''}.
+                  {data.status === 'AWAITING_DOCS' && <> <Link href={`/case/${caseId}/interview`} className="text-db-accent underline">Not right?</Link></>}
+                </p>
+              )
+            })()}
             <p className="mt-1 text-sm text-db-muted">
               {data.items.filter((i) => i.state === 'NEEDED').length <= 2
                 ? 'If you can get these, upload each one on its own — a single PDF or a few photos is perfect.'

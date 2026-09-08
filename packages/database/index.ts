@@ -19,19 +19,34 @@ import { PrismaClient, Prisma } from '@prisma/client'
  * production MUST set both).
  */
 
+/**
+ * Under vitest every test file is its own worker with its own two clients,
+ * and Prisma's default pool is 2×CPUs+1 per client — on a 20-core box that
+ * is 41 × 2 × ~20 files against Postgres's 100-connection cap ("too many
+ * clients already", 2026-09-08). Tests need 1–3 connections each; cap it.
+ */
+const withTestPoolCap = (url: string) => {
+  if (process.env.NODE_ENV !== 'test') return url
+  const u = new URL(url)
+  if (!u.searchParams.has('connection_limit')) u.searchParams.set('connection_limit', '3')
+  return u.toString()
+}
+
+const baseUrl = () =>
+  process.env.DATABASE_URL ?? 'postgresql://user:password@localhost:5433/legal_ai?schema=public'
+
 const prismaClientSingleton = () => {
-  return new PrismaClient()
+  return process.env.NODE_ENV === 'test'
+    ? new PrismaClient({ datasources: { db: { url: withTestPoolCap(baseUrl()) } } })
+    : new PrismaClient()
 }
 
 const appUrl = () => {
-  if (process.env.APP_DATABASE_URL) return process.env.APP_DATABASE_URL
-  const base =
-    process.env.DATABASE_URL ??
-    'postgresql://user:password@localhost:5433/legal_ai?schema=public'
-  const u = new URL(base)
+  if (process.env.APP_DATABASE_URL) return withTestPoolCap(process.env.APP_DATABASE_URL)
+  const u = new URL(baseUrl())
   u.username = 'hg_app'
   u.password = process.env.HG_APP_PASSWORD ?? 'hg_app_dev_password'
-  return u.toString()
+  return withTestPoolCap(u.toString())
 }
 
 const appPrismaClientSingleton = () => {

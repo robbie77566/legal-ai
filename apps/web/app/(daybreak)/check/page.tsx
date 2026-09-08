@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
 import {
@@ -140,6 +140,7 @@ function OutcomeScreen({ result }: { result: EligibilityResult }) {
             The right moment is after the appeal is decided — come back then and we&rsquo;ll be
             ready.
           </p>
+          <CheckBackLater />
         </div>
       )
     case 'misdemeanor':
@@ -202,9 +203,56 @@ function OutcomeScreen({ result }: { result: EligibilityResult }) {
   }
 }
 
+/** G-E1: the one not-fit outcome that becomes a fit later — leave an email, get one reminder. */
+function CheckBackLater() {
+  const [email, setEmail] = useState('')
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
+  if (state === 'done') {
+    return <p className="mt-4 rounded-xl border border-db-line p-3 text-sm" data-testid="lead-done">Thank you — we&rsquo;ll check back in about 3 months, once. If the appeal is decided sooner, just take the check again.</p>
+  }
+  return (
+    <form
+      className="mt-4 rounded-xl border border-db-line p-3"
+      data-testid="lead-form"
+      onSubmit={(e) => {
+        e.preventDefault(); setState('busy')
+        void apiFetch('/eligibility/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, outcome: 'pending_appeal' }) })
+          .then((r) => setState(r.ok ? 'done' : 'error')).catch(() => setState('error'))
+      }}
+    >
+      <p className="text-sm font-semibold">Want us to check back?</p>
+      <p className="mt-1 text-xs text-db-muted">Leave an email and we&rsquo;ll ask once, in about 3 months, whether the appeal has been decided. Nothing else, ever.</p>
+      <div className="mt-2 flex gap-2">
+        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" aria-label="Email" className="w-full rounded-lg border border-db-line bg-db-surface p-2 text-sm" />
+        <button disabled={state === 'busy'} className="rounded-lg bg-db-accent px-4 text-sm font-semibold text-db-surface disabled:opacity-40">Remind me</button>
+      </div>
+      {state === 'error' && <p className="mt-2 text-xs" style={{ color: 'var(--db-urgent)' }}>That didn&rsquo;t save — please try again.</p>}
+    </form>
+  )
+}
+
+const OUTCOME_WORDS: Record<string, string> = {
+  fit_trial: 'a fit — a trial conviction', fit_plea: 'a fit — a plea conviction', prior_writ_warned: 'a fit, in subsequent-writ mode',
+  capital: 'not a fit (death-penalty case)', pending_appeal: 'not yet — the appeal is still pending', misdemeanor: 'not a fit (misdemeanor)',
+  discharged: 'not a fit (sentence finished)', not_fit_other: 'not a fit',
+}
+
 export default function EligibilityCheck() {
   const [answers, setAnswers] = useState<EligibilityAnswers>({})
   const [history, setHistory] = useState<QuestionId[]>([])
+  const [resume, setResume] = useState<{ answers: EligibilityAnswers; outcome: string } | null>(null)
+
+  // G-E2: a finished check is resumable from the same browser (the token
+  // lives 30 days server-side). Offered, never forced.
+  useEffect(() => {
+    let token: string | null = null
+    try { token = window.localStorage.getItem('snl_draft_token') } catch { token = null }
+    if (!token) return
+    void apiFetch(`/eligibility/draft/${encodeURIComponent(token)}`)
+      .then(async (r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.answers && d?.outcome) setResume({ answers: d.answers as EligibilityAnswers, outcome: d.outcome }) })
+      .catch(() => {})
+  }, [])
 
   const current = nextQuestion(answers)
   const result = routeEligibility(answers)
@@ -224,7 +272,10 @@ export default function EligibilityCheck() {
       })
         .then((r) => r.json())
         .then((d) => {
-          if (d?.token) sessionStorage.setItem('snl_draft_token', d.token)
+          if (d?.token) {
+            sessionStorage.setItem('snl_draft_token', d.token)
+            try { window.localStorage.setItem('snl_draft_token', d.token) } catch { /* private mode */ }
+          }
         })
         .catch(() => {})
     }
@@ -253,6 +304,16 @@ export default function EligibilityCheck() {
         )}
       </nav>
 
+      {resume && !result && history.length === 0 && (
+        <div className="mb-6 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4 text-sm" data-testid="resume-check">
+          <p className="font-semibold">You finished this check before.</p>
+          <p className="mt-1">Your answers came out as <strong>{OUTCOME_WORDS[resume.outcome] ?? resume.outcome}</strong>. Pick up where you left off, or start fresh.</p>
+          <div className="mt-3 flex gap-2">
+            <button onClick={() => { setAnswers(resume.answers); try { sessionStorage.setItem('snl_draft_token', window.localStorage.getItem('snl_draft_token') ?? '') } catch { /* ignore */ } setResume(null) }} className="rounded-lg bg-db-accent px-4 py-2 font-semibold text-db-surface" data-testid="resume-yes">Pick up where I left off</button>
+            <button onClick={() => { try { window.localStorage.removeItem('snl_draft_token') } catch { /* ignore */ } setResume(null) }} className="rounded-lg border border-db-line px-4 py-2" data-testid="resume-no">Start over</button>
+          </div>
+        </div>
+      )}
       {result ? (
         <OutcomeScreen result={result} />
       ) : current ? (

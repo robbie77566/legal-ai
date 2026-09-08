@@ -246,6 +246,13 @@ const start = async () => {
     );
   }, 6 * 60 * 60 * 1000).unref();
 
+  // Pending-appeal reminders (G-E1): daily sweep, one email per lead, ever.
+  setInterval(() => {
+    void import('./routes/eligibility').then(({ sendPendingAppealReminders }) =>
+      sendPendingAppealReminders().catch((e) => fastify.log.warn({ err: e }, 'pending-appeal reminder sweep failed'))
+    );
+  }, 24 * 3600 * 1000).unref();
+
   // Feedback +7d follow-ups: daily sweep (customer_feedback_program.md §2)
   // — independent of Stripe configuration.
   setInterval(() => {

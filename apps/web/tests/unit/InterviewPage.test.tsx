@@ -56,4 +56,24 @@ describe('interview', () => {
     expect(await screen.findByTestId('appeal-question')).toBeInTheDocument()
     expect(screen.queryByTestId('known-facts')).toBeNull()
   })
+
+  it('after records-complete the page becomes "Case details": shaping facts locked, county/year/dates saved via PATCH', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      calls.push({ url: u, init })
+      return { ok: true, status: 200, json: async () => (u.endsWith('/checklist') ? { ...CHECKLIST, status: 'ANALYZING' } : { facts: {} }) } as Response
+    }))
+    render(<CaseInterview />)
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Case details')
+    expect(screen.getByTestId('locked-note')).toHaveTextContent(/how it was decided, direct appeal, prior writ/i)
+    expect(screen.queryByTestId('appeal-question')).toBeNull()
+    fireEvent.change(screen.getByDisplayValue('Travis'), { target: { value: 'Bexar' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => {
+      const patch = calls.find((c) => c.url.endsWith('/cases/case_1/facts') && c.init?.method === 'PATCH')
+      expect(patch).toBeTruthy()
+      expect(JSON.parse(String(patch!.init!.body))).toMatchObject({ county: 'Bexar', convictionYear: 2019 })
+    })
+    expect(calls.some((c) => c.url.endsWith('/cases/case_1/interview') && c.init?.method === 'POST')).toBe(false)
+  })
 })

@@ -72,6 +72,21 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
    * BEFORE payment. The full set version + timestamp + IP/UA is archived
    * per §11a.2 (24 mo, survives case deletion) — the E-6 dispute packet.
    */
+  // G-B5: has this family already acknowledged the CURRENT disclosure set?
+  // The buy page collapses the cards for them; the per-purchase ack is still
+  // required (counsel: one acknowledgment per purchase).
+  fastify.get('/buy/disclosure-ack', async (request) => {
+    const { userId, tenantId } = request.auth;
+    const prior = await withTenant(tenantId, (tx) =>
+      tx.disclosureAck.findFirst({
+        where: { userId, disclosureSetVersion: DISCLOSURE_SET_VERSION },
+        orderBy: { ackAt: 'desc' },
+        select: { ackAt: true },
+      })
+    );
+    return { version: DISCLOSURE_SET_VERSION, ackedAt: prior?.ackAt ?? null };
+  });
+
   fastify.post('/buy/disclosure-ack', async (request, reply) => {
     const { userId, tenantId, role } = request.auth;
     if (role !== 'CLIENT') {

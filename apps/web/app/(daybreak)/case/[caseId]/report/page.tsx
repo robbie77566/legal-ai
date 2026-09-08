@@ -80,7 +80,17 @@ export default function CaseReport() {
   const params = useSearchParams()
   const variant = (params.get('survey') === 'share' ? 'share' : 'report') as 'report' | 'share'
   const requestedVersion = params.get('version')
-  const [opened, setOpened] = useState(false)
+  // The interstitial is remembered per case (UI spec §5.7): once a family
+  // has chosen to read, later visits show a one-line reminder instead.
+  const rememberKey = `snl:report-opened:${caseId}`
+  const [opened, setOpenedState] = useState(() => {
+    try { return typeof window !== 'undefined' && window.localStorage.getItem(rememberKey) === '1' } catch { return false }
+  })
+  const setOpened = (v: boolean) => {
+    setOpenedState(v)
+    try { if (v) window.localStorage.setItem(rememberKey, '1') } catch { /* private mode etc. */ }
+  }
+  const [remembered] = useState(opened)
   const [data, setData] = useState<ReportData | null>(null)
   const [notReady, setNotReady] = useState(false)
   const [versions, setVersions] = useState<Version[]>([])
@@ -142,6 +152,11 @@ export default function CaseReport() {
     <main className="mx-auto max-w-xl px-5 py-8">
       <CaseNav caseId={caseId} current="report" />
       <h1 className="font-db-serif text-3xl font-semibold">Your case review</h1>
+      {remembered && (
+        <p className="mt-2 text-sm text-db-muted" data-testid="gentle-reminder">
+          Whatever this says, there is a next step — and you don&rsquo;t have to read it alone.
+        </p>
+      )}
       {versions.length > 1 && (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm" data-testid="version-switcher">
           <span className="text-db-muted">Version:</span>
@@ -315,8 +330,10 @@ export default function CaseReport() {
       <section className="mt-8 rounded-xl border-2 border-db-accent bg-db-accent-soft p-5">
         <h2 className="font-db-serif text-xl font-semibold">What to do next</h2>
         <p className="mt-2">
-          Take this report to a licensed Texas attorney — that is always the next step. The State
-          Bar of Texas Lawyer Referral &amp; Information Service can help you find one, and TIFA
+          Take this report to a licensed Texas attorney — that is always the next step. The{' '}
+          <a href="https://www.texasbar.com" rel="noopener noreferrer" className="underline" data-testid="lris-link">State Bar of Texas Lawyer Referral &amp; Information Service</a>{' '}
+          can help you find one, and{' '}
+          <a href="https://www.tifa.org" rel="noopener noreferrer" className="underline" data-testid="tifa-link">TIFA</a>{' '}
           offers family support along the way.
         </p>
         <p className="mt-3 text-sm text-db-muted">

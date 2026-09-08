@@ -283,6 +283,59 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     });
   });
 
+  // Lock semantics (customer_journey_ux_review §8 decision 1): facts that
+  // shape the checklist or the analysis (trial/plea, appeal, prior writ)
+  // freeze at records-complete and thaw only inside a paid re-run. The
+  // contact-style facts below stay editable for the life of the case — they
+  // re-title the case, unlock the time-limits section, never re-run anything.
+  fastify.patch('/:id/facts', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { tenantId, userId } = request.auth;
+    const body = z
+      .object({
+        county: z.string().min(1).max(64).optional(),
+        convictionYear: z.number().int().min(1950).max(2100).optional(),
+        trialDays: z.number().int().min(0).max(365).nullable().optional(),
+        judgmentDate: civilDate.nullable().optional(),
+      })
+      .strict()
+      .parse(request.body);
+    const keys = (Object.keys(body) as Array<keyof typeof body>).filter((k) => body[k] !== undefined);
+    if (keys.length === 0) return reply.status(400).send({ error: 'Nothing to change' });
+
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      if (kase.status === 'DELETED') return reply.status(409).send({ error: 'This case has been deleted' });
+
+      const prior = (CaseFactsSchema.safeParse(kase.facts ?? {}).success ? (kase.facts as CaseFacts) : {}) ?? {};
+      const facts: CaseFacts = { ...prior, source: { ...(prior.source ?? {}), editedAt: new Date().toISOString() } };
+      if (body.county !== undefined) facts.county = body.county;
+      if (body.convictionYear !== undefined) facts.convictionYear = body.convictionYear;
+      if (body.trialDays !== undefined) { if (body.trialDays === null) delete facts.trialDays; else facts.trialDays = body.trialDays; }
+      if (body.judgmentDate !== undefined) { if (body.judgmentDate === null) delete facts.judgmentDate; else facts.judgmentDate = body.judgmentDate; }
+      const priorDeadline = (kase.deadlineFacts as Record<string, unknown> | null) ?? {};
+      const deadlineFacts =
+        body.judgmentDate === undefined
+          ? kase.deadlineFacts
+          : body.judgmentDate === null
+            ? (() => { const d = { ...priorDeadline }; delete d.judgmentDate; return Object.keys(d).length ? d : null; })()
+            : { ...priorDeadline, judgmentDate: body.judgmentDate };
+
+      await tx.case.update({
+        where: { id },
+        data: {
+          ...(body.county !== undefined ? { county: body.county } : {}),
+          ...(body.convictionYear !== undefined ? { convictionYear: body.convictionYear } : {}),
+          facts: facts as Prisma.InputJsonValue,
+          deadlineFacts: deadlineFacts === null ? Prisma.DbNull : (deadlineFacts as Prisma.InputJsonValue),
+        },
+      });
+      await appendCaseEvent(tx, { caseId: id, tenantId, type: 'facts.updated', payload: { keys }, actor: userId });
+      return { facts, factLines: describeFacts(facts, { ...kase, county: facts.county ?? kase.county, convictionYear: facts.convictionYear ?? kase.convictionYear }) };
+    });
+  });
+
   // "Records complete" — explicit, celebrated, and it starts the clock
   // exactly once (US-3; the appendCaseEvent SLA stamp is once-only).
   fastify.post('/:id/records-complete', async (request, reply) => {
@@ -299,6 +352,18 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       const docCount = await tx.document.count({ where: { caseId: id } });
       if (docCount === 0) {
         return reply.status(400).send({ error: 'Upload at least one document first' });
+      }
+      // Re-run with nothing new (customer_journey_ux_review §8 decision 3):
+      // never charge a run to re-read the same record.
+      const lastReport = await tx.report.findFirst({ where: { caseId: id }, orderBy: { versionNo: 'desc' }, select: { renderedAt: true } });
+      if (lastReport) {
+        const newDocs = await tx.document.count({ where: { caseId: id, createdAt: { gt: lastReport.renderedAt }, quarantined: false } });
+        if (newDocs === 0) {
+          return reply.status(409).send({
+            error: 'Nothing new to run — your last report already covers these documents. Add a new document first, or ask us for a refund of the re-run.',
+            code: 'nothing_new',
+          });
+        }
       }
 
       // Real counts from the DocumentPage authority (ENG-3).

@@ -21,6 +21,7 @@ const PUBLIC_PATHS = new Set(['/', '/health', '/healthz', '/buy/account'])
 // (signature-verified in-route).
 const PUBLIC_PREFIXES = [
   '/eligibility/draft',
+  '/eligibility/lead', // pending-appeal email capture (rate-limited in-route)
   '/webhooks/stripe',
   '/shared/',
   '/auth/forgot', // enumeration-safe + rate-limited in-route

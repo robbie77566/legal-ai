@@ -39,3 +39,20 @@ Report → next steps ("Send your lawyer a secure link"); report not-ready → t
 ## Tests
 
 `apps/api/tests/facts.integration.test.ts` (facts survive purchase, 11.072, interview merge, checklist read-back, re-run reopen + records-complete), `apps/web/tests/unit/BuySuccess.test.tsx`, `InterviewPage.test.tsx`, and a re-run case in `DocumentsPage.test.tsx`.
+
+## Smaller customer-journey items (P2s, 2026-09-08)
+
+- **Resumable check:** the draft token is also kept in `localStorage`; `/check` offers to pick up a finished check (lands on its outcome) or start over.
+- **Pending appeal → check back later:** `EligibilityLead` + `POST /eligibility/lead` (public, rate-limited). Confirmation email now; one reminder at ~3 months via a daily sweep (`sendPendingAppealReminders`), stamped so it never repeats.
+- **Returning purchaser disclosures:** `GET /buy/disclosure-ack` reports a prior ack at the current version; the buy page collapses the cards with "Read them again"; the per-purchase ack is unchanged. Counsel to confirm the presentation.
+- **Checklist explains itself:** "Built for a trial in Travis County, with a prior writ — Not right?" above Still needed.
+- **Report:** the interstitial is remembered per case (`localStorage`); LRIS and TIFA are links.
+- **Email:** `sendQualityHold` and `sendFeedbackFollowup` use the guarded sender.
+
+## Decisions (2026-09-08)
+
+- **Lock semantics.** Facts that shape the checklist or the analysis (trial/plea, direct appeal, prior writ) freeze at records-complete and thaw only inside a paid re-run (which puts the case back in `AWAITING_DOCS`). Contact-style facts (county, year, trial length, judgment date) stay editable for the life of the case via `PATCH /cases/:id/facts` — re-titles the case, updates the deadline inputs, never re-seeds the checklist or touches a run; `facts.updated` records which keys changed. The interview page becomes "Case details" after lock.
+- **Judgment date** is optional with a visible unlock prompt on the case home (shown whether or not the case is locked).
+- **Re-run with nothing new.** `records-complete` on a case with a released report refuses (409 `nothing_new`) unless a non-quarantined document was uploaded after the last report. The re-run fee is refunded through the normal console path.
+- **Backfilled cases** show only what can be derived from case columns; the check answers are gone and are never guessed.
+- **Returning-purchaser disclosures** collapse in presentation only; the per-purchase acknowledgment is unchanged. Pending counsel confirmation.
