@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
+import { useStaffRole } from '@/lib/staff-role'
 
 /**
  * Ops overview (ops_console_redesign.md): answers J1 "is anything on fire?"
@@ -31,6 +32,12 @@ interface QueueRow {
 }
 interface TimelineEvent { id: string; type: string; payload: Record<string, unknown>; actor: string; createdAt: string }
 interface Cogs { totalUsd?: number; total?: number; [k: string]: unknown }
+interface StaffRequest {
+  id: string; caseId: string; caseTitle: string; type: 'REFUND' | 'CASE_DELETE' | 'ACCOUNT_DELETE'; reason: string; note: string | null
+  amountCents: number | null; requestedByEmail: string; decision: 'APPROVED' | 'DECLINED' | null; decidedByEmail: string | null
+  decisionNote: string | null; createdAt: string; decidedAt: string | null
+}
+const REQUEST_LABEL: Record<StaffRequest['type'], string> = { REFUND: 'Refund', CASE_DELETE: 'Case deletion', ACCOUNT_DELETE: 'Account deletion' }
 
 function Tile({ label, value, tone = 'ok', hint }: { label: string; value: string; tone?: 'ok' | 'warn' | 'bad' | 'neutral'; hint?: string }) {
   const color = tone === 'bad' ? '#F85149' : tone === 'warn' ? '#D29922' : tone === 'ok' ? '#3FB950' : '#8B949E'
@@ -56,13 +63,25 @@ export default function OpsOverview() {
   const [delayDate, setDelayDate] = useState('')
   const [deleteTyped, setDeleteTyped] = useState('')
   const [filter, setFilter] = useState<'all' | 'attention'>('all')
+  const [requests, setRequests] = useState<{ open: StaffRequest[]; decided: StaffRequest[] }>({ open: [], decided: [] })
+  const [declining, setDeclining] = useState<{ id: string; note: string } | null>(null)
+  const role = useStaffRole()
 
   const loadAll = useCallback(async () => {
-    const [s, h, q] = await Promise.all([apiFetch('/ops/status'), apiFetch('/qa/holds'), apiFetch('/ops/queue')])
+    const [s, h, q, r] = await Promise.all([apiFetch('/ops/status'), apiFetch('/qa/holds'), apiFetch('/ops/queue'), apiFetch('/ops/requests')])
     if (s.ok) setStatus(await s.json())
     if (h.ok) setHolds(await h.json())
     if (q.ok) setQueue(await q.json())
+    if (r.ok) { const d = await r.json().catch(() => ({})); setRequests({ open: d.open ?? [], decided: d.decided ?? [] }) }
   }, [])
+
+  const decide = async (id: string, decision: 'APPROVED' | 'DECLINED', decisionNote?: string) => {
+    const res = await apiFetch(`/ops/requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision, ...(decisionNote ? { decisionNote } : {}) }) })
+    const d = await res.json().catch(() => ({}))
+    setNotice(res.ok ? (decision === 'APPROVED' ? 'Approved — done under your name.' : 'Declined; the requester can see why.') : d.error ?? `Decision failed (${res.status})`)
+    setDeclining(null)
+    await loadAll()
+  }
   useEffect(() => { void loadAll() }, [loadAll])
 
   const open = async (row: QueueRow) => {
@@ -91,7 +110,7 @@ export default function OpsOverview() {
   }
 
   const stalled = queue.filter((c) => c.stalled || c.ocrHalt)
-  const attention = holds.length + stalled.length + (status?.retentionCandidates ?? 0)
+  const attention = holds.length + stalled.length + (status?.retentionCandidates ?? 0) + (role === 'ADMIN' ? requests.open.length : 0)
   const rows = filter === 'attention' ? queue.filter((c) => c.stalled || c.ocrHalt || c.delayOurs || c.status === 'QA_REVIEW') : queue
   const cogsUsd = cogs ? Number((cogs.totalUsd ?? cogs.total ?? 0) as number) : null
 
@@ -106,6 +125,25 @@ export default function OpsOverview() {
         </h2>
         {attention === 0 && <p className="mt-2 text-sm text-[#8B949E]">Nothing is waiting on you — no holds, no stalls, no retention decisions.</p>}
         <div className="mt-3 grid gap-3 lg:grid-cols-3">
+          {role === 'ADMIN' && requests.open.map((r) => (
+            <div key={r.id} className="rounded border border-[#D4AF37]/60 bg-[#0D1117] p-3" data-testid={`approval-${r.id}`}>
+              <div className="text-[11px] uppercase tracking-wider text-[#D4AF37]">Approval · from support</div>
+              <div className="mt-1 text-sm font-semibold">{REQUEST_LABEL[r.type]} — {r.caseTitle}{r.amountCents ? ` · $${(r.amountCents / 100).toFixed(2)}` : ''}</div>
+              <div className="mt-1 text-xs text-[#8B949E]">{r.requestedByEmail} · {r.reason.replace(/_/g, ' ')}{r.note ? ` · “${r.note}”` : ''}</div>
+              {declining?.id === r.id ? (
+                <div className="mt-2 flex gap-2">
+                  <input value={declining.note} onChange={(e) => setDeclining({ id: r.id, note: e.target.value })} placeholder="Say why — the requester reads this" aria-label="Decline reason" className="flex-1 rounded border border-[#30363D] bg-[#161B22] p-1.5 text-xs" />
+                  <button onClick={() => void decide(r.id, 'DECLINED', declining.note)} disabled={!declining.note.trim()} className="rounded border border-[#30363D] px-2 py-1 text-xs disabled:opacity-40">Decline</button>
+                </div>
+              ) : (
+                <div className="mt-2 flex gap-2">
+                  <button onClick={() => setDeclining({ id: r.id, note: '' })} className="rounded border border-[#30363D] px-2 py-1 text-xs">Decline…</button>
+                  <button onClick={() => { if (window.confirm(`Approve this ${REQUEST_LABEL[r.type].toLowerCase()}? It runs now, under your name.`)) void decide(r.id, 'APPROVED') }} className="rounded border border-[#F85149] px-2 py-1 text-xs text-[#F85149]" data-testid={`approve-${r.id}`}>Approve {REQUEST_LABEL[r.type].toLowerCase()}</button>
+                  <Link href={`/ops/cases/${r.caseId}`} className="rounded border border-[#30363D] px-2 py-1 text-xs text-[#8B949E]">Case file</Link>
+                </div>
+              )}
+            </div>
+          ))}
           {holds.map((h) => (
             <div key={h.caseId} className="rounded border border-[#D29922]/60 bg-[#0D1117] p-3">
               <div className="flex items-start justify-between gap-2">
@@ -140,6 +178,29 @@ export default function OpsOverview() {
         </div>
       </section>
 
+      {role === 'SUPPORT' && (requests.open.length > 0 || requests.decided.length > 0) && (
+        <section className="mt-8" data-testid="waiting-on-admin">
+          <h2 className="font-serif text-lg font-bold text-[#D4AF37]">Waiting on an admin</h2>
+          <p className="mt-1 text-xs text-[#8B949E]">Your requests, and what happened to them.</p>
+          <div className="mt-3 space-y-2 text-sm">
+            {requests.open.map((r) => (
+              <div key={r.id} className="flex items-center gap-3 rounded border border-[#D29922]/60 bg-[#0D1117] p-3">
+                <span className="rounded bg-[#21262D] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-[#D29922]">PENDING</span>
+                <span className="min-w-0 flex-1 truncate"><strong>{REQUEST_LABEL[r.type]}</strong> — {r.caseTitle} · {r.reason.replace(/_/g, ' ')}</span>
+                <Link href={`/ops/cases/${r.caseId}`} className="text-xs text-[#8B949E] underline">Case file</Link>
+              </div>
+            ))}
+            {requests.decided.slice(0, 5).map((r) => (
+              <div key={r.id} className="flex items-center gap-3 rounded border border-[#30363D] bg-[#0D1117] p-3">
+                <span className={`rounded bg-[#21262D] px-1.5 py-0.5 font-mono text-[11px] font-semibold ${r.decision === 'APPROVED' ? 'text-[#3FB950]' : 'text-[#8B949E]'}`}>{r.decision}</span>
+                <span className="min-w-0 flex-1 truncate"><strong>{REQUEST_LABEL[r.type]}</strong> — {r.caseTitle} · by {r.decidedByEmail?.split('@')[0]}{r.decisionNote ? ` — “${r.decisionNote}”` : ''}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {role !== 'SUPPORT' && (<>
       {/* J2 — system health */}
       <section className="mt-8" data-testid="health">
         <h2 className="font-serif text-lg font-bold text-[#D4AF37]">System health</h2>
@@ -187,6 +248,7 @@ export default function OpsOverview() {
           </div>
         )}
       </section>
+      </>)}
 
       {/* J3 — the queue + case drawer */}
       <section className="mt-8">
@@ -228,7 +290,10 @@ export default function OpsOverview() {
           <div>
             {selected ? (
               <div className="rounded border border-[#30363D] bg-[#161B22] p-4" data-testid="case-drawer">
-                <h3 className="font-semibold">{selected.title}</h3>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-semibold">{selected.title}</h3>
+                  <Link href={`/ops/cases/${selected.id}`} className="shrink-0 text-xs text-[#3B82F6] underline" data-testid="open-case-file">Open case file →</Link>
+                </div>
                 <p className="mt-1 text-xs text-[#8B949E]">
                   {selected.status} · {selected.lane ?? 'lane —'} · {selected.daysInStage}d in stage
                   {cogsUsd !== null && <> · COGS <span className="font-mono">${cogsUsd.toFixed(2)}</span></>}
@@ -269,7 +334,7 @@ export default function OpsOverview() {
 
                 <div className="mt-4 text-[11px] uppercase tracking-wider text-[#F85149]">Irreversible</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <button onClick={() => { if (window.confirm('Issue a FULL refund for this case?')) void act('refund', { reason: 'customer_request' }) }} className="rounded border border-[#D29922] px-2 py-1 text-xs text-[#D29922]">Refund</button>
+                  <Link href={`/ops/money?case=${selected.id}`} className="rounded border border-[#D29922] px-2 py-1 text-xs text-[#D29922]">Refund…</Link>
                   <input value={deleteTyped} onChange={(e) => setDeleteTyped(e.target.value)} placeholder="type the case title to enable delete" className="w-56 rounded border border-[#30363D] bg-[#0B0E14] p-1.5 font-mono text-xs" data-testid="delete-typed" />
                   <button
                     onClick={() => void act('delete')}

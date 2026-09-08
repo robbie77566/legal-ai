@@ -14,6 +14,7 @@ enum Role {
   ATTORNEY
   INVESTIGATOR
   VIEWER
+  SUPPORT // staff: customer-facing reads + safe unblocking actions, never money or deletion
   CLIENT // consumer purchaser in a single-member tenant (ENG-7, auth design §12)
 }
 
@@ -27,6 +28,7 @@ enum PaymentKind {
 enum PaymentStatus {
   PENDING
   SUCCEEDED
+  PARTIALLY_REFUNDED
   REFUNDED
   FAILED
 }
@@ -34,20 +36,97 @@ enum PaymentStatus {
 // Financial ledger (ENG-5). Retained 7 years — survives case deletion
 // (retention matrix §11a.2); caseId/userId are plain references, no FK.
 model Payment {
-  id          String        @id @default(cuid())
-  stripeId    String        @unique // checkout session or refund id
-  caseId      String?
-  userId      String
-  tenantId    String
-  kind        PaymentKind
-  status      PaymentStatus @default(PENDING)
-  amountCents Int
-  promoCode   String? // attribution (promo_codes.md §5)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  stripeId        String        @unique // checkout session id (or promo_… for a free purchase)
+  paymentIntentId String? // what Stripe keys refunds and disputes by
+  chargeId        String?
+  caseId          String?
+  userId          String
+  tenantId        String
+  kind            PaymentKind
+  status          PaymentStatus @default(PENDING)
+  amountCents     Int
+  refundedCents   Int           @default(0) // rollup of Refund rows
+  refundedAt      DateTime?
+  disputedAt      DateTime?
+  disputeStatus   String? // open | won | lost
+  promoCode       String? // attribution (promo_codes.md §5)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([caseId])
   @@index([tenantId])
+  @@index([paymentIntentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Support contact log (OPS-6). Free text lives HERE, not in the event
+// stream (events are PII-minimal by construction); the matching
+// support.contacted event carries only the note id and channel.
+model SupportNote {
+  id        String   @id @default(cuid())
+  caseId    String
+  tenantId  String
+  channel   String // email | phone | chat | internal
+  body      String
+  authorId  String
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+}
+
+enum StaffRequestType {
+  REFUND
+  CASE_DELETE
+  ACCOUNT_DELETE
+}
+
+enum StaffRequestDecision {
+  APPROVED
+  DECLINED
+}
+
+// Request-to-Admin (staff_console_access_model §6): Support records the
+// reason once; an Admin decides with it in front of them. One open request
+// per case + type (partial unique index in the migration).
+model StaffRequest {
+  id           String                @id @default(cuid())
+  caseId       String
+  tenantId     String
+  type         StaffRequestType
+  reason       String
+  note         String?
+  amountCents  Int? // REFUND only; null = full
+  requestedBy  String
+  decision     StaffRequestDecision?
+  decidedBy    String?
+  decisionNote String?
+  createdAt    DateTime              @default(now())
+  decidedAt    DateTime?
+
+  @@index([caseId])
+  @@index([decision])
+}
+
+// Refund ledger (OPS-2): one row per refund actually issued, so partial
+// refunds stack and the weekly refund total is a sum, not a guess. Same
+// retention and plain-reference rules as Payment.
+model Refund {
+  id             String   @id @default(cuid())
+  paymentId      String
+  stripeRefundId String   @unique
+  caseId         String?
+  tenantId       String
+  amountCents    Int
+  reason         String // unreadable_record | customer_request | chargeback | other
+  note           String?
+  issuedBy       String // staff userId, or "stripe" when first seen via webhook
+  createdAt      DateTime @default(now())
+
+  @@index([paymentId])
+  @@index([tenantId])
+  @@index([createdAt])
 }
 
 // Stripe webhook idempotency ledger (ENG-5): one row per processed event id.

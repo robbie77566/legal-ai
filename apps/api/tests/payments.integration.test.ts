@@ -34,6 +34,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prisma.disclosureAck.deleteMany({ where: { tenantId } });
+  await prisma.refund.deleteMany({ where: { tenantId } });
   await prisma.payment.deleteMany({ where: { tenantId } });
   await prisma.paymentEvent.deleteMany({ where: { stripeEventId: { contains: run } } });
   await prisma.caseAccess.deleteMany({ where: { userId } });
@@ -119,14 +120,20 @@ describe('checkout fulfillment', () => {
     expect(holdEvents).toHaveLength(1);
   });
 
-  it('charge.refunded flips the ledger row', async () => {
+  it('charge.refunded flips the ledger row and records the refund under "stripe"', async () => {
+    // Legacy rows have no paymentIntentId; the matcher falls back to the
+    // session id so a refund on a pre-ledger payment still lands.
     await handleStripeEvent({
       id: `evt_${run}_4`,
       type: 'charge.refunded',
-      data: { object: { id: 'ch_x', payment_intent: `cs_${run}_2` } },
+      data: { object: { id: 'ch_x', payment_intent: `cs_${run}_2`, amount_refunded: 29900 } },
     });
     const p = await prisma.payment.findUniqueOrThrow({ where: { stripeId: `cs_${run}_2` } });
     expect(p.status).toBe('REFUNDED');
+    expect(p.refundedCents).toBe(29900);
+    const refund = await prisma.refund.findFirstOrThrow({ where: { paymentId: p.id } });
+    expect(refund.issuedBy).toBe('stripe');
+    expect(refund.amountCents).toBe(29900);
   });
 
   it('an OVERAGE purchase attaches to the existing case — never creates a new one', async () => {

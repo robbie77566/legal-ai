@@ -55,6 +55,27 @@ export default async function authRecoveryRoutes(fastify: FastifyInstance) {
     return { ok: true };
   });
 
+  // Invite acceptance (auth design §4.6): a staff account created by an
+  // Admin has no password until its owner sets one through this link.
+  fastify.post('/setup', tightLimit, async (request, reply) => {
+    const { userId, token, password } = z
+      .object({ userId: z.string().max(64), token: z.string().max(128), password: PasswordSchema })
+      .parse(request.body);
+    const fail = () =>
+      reply.status(400).send({ error: 'This invite link is invalid or has expired — ask the person who added you to resend it.' });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.inviteToken || !user.inviteExpires || user.inviteExpires < new Date()) return fail();
+    if (!verifyToken(token, user.inviteToken)) return fail();
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, passwordChangedAt: new Date(), inviteToken: null, inviteExpires: null },
+    });
+    return { ok: true, email: user.email };
+  });
+
   fastify.post('/reset', tightLimit, async (request, reply) => {
     const { userId, token, password } = z
       .object({ userId: z.string().max(64), token: z.string().max(128), password: PasswordSchema })

@@ -37,6 +37,17 @@ export const CASE_EVENT_SCHEMAS = {
   },
   'payment.refunded': {
     1: z.object({ paymentId: id, reason: z.enum(['unreadable_record', 'customer_request', 'chargeback', 'other']) }).strict(),
+    // v2 (OPS-2 refund ledger): the Stripe refund id and amount ride along so
+    // partial refunds are distinguishable in the case file.
+    2: z
+      .object({
+        paymentId: id,
+        reason: z.enum(['unreadable_record', 'customer_request', 'chargeback', 'other']),
+        refundId: id,
+        amountCents: count,
+        partial: z.boolean(),
+      })
+      .strict(),
   },
   'interview.completed': {
     1: z.object({ checklistItemCount: count }).strict(),
@@ -112,6 +123,25 @@ export const CASE_EVENT_SCHEMAS = {
   // the case's status claiming it is running — this records the restart.
   'pipeline.resumed': {
     1: z.object({ redigitized: count, analysisEnqueued: z.boolean(), priorJobState: z.string().max(40).optional() }).strict(),
+  },
+  // OPS-6 support contact log: the note body lives in SupportNote; the
+  // event carries only its id and channel (PII-minimal by construction).
+  'support.contacted': {
+    1: z.object({ noteId: id, channel: z.enum(['email', 'phone', 'chat', 'internal']) }).strict(),
+  },
+  // Request-to-Admin (staff_console_access_model §6): Support asks, an Admin
+  // decides; both land in the case file so the family's story stays whole.
+  'request.opened': {
+    1: z.object({ requestId: id, kind: z.enum(['REFUND', 'CASE_DELETE', 'ACCOUNT_DELETE']) }).strict(),
+  },
+  'request.decided': {
+    1: z
+      .object({
+        requestId: id,
+        kind: z.enum(['REFUND', 'CASE_DELETE', 'ACCOUNT_DELETE']),
+        decision: z.enum(['APPROVED', 'DECLINED']),
+      })
+      .strict(),
   },
   'consent.granted': { 1: z.object({ consentId: id, recipientClass: z.enum(['clinic', 'attorney']) }).strict() },
   'consent.revoked': { 1: z.object({ consentId: id }).strict() },

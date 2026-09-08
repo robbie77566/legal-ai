@@ -50,7 +50,11 @@ export function SignInForm() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<SignInValues>({ resolver: zodResolver(signInSchema) });
+  } = useForm<SignInValues>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: { email: searchParams.get('email') ?? '' },
+  });
+  const welcome = searchParams.get('welcome') === '1';
 
   async function onSubmit(data: SignInValues) {
     setServerError(null);
@@ -80,6 +84,11 @@ export function SignInForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate aria-busy={isLoading}>
+      {welcome && (
+        <p role="status" data-testid="welcome" className="mb-4 rounded-lg border border-db-line bg-db-accent-soft p-3 text-sm">
+          Your password is set. Sign in below with your email address.
+        </p>
+      )}
       <div className="space-y-4">
         {/* Email */}
         <div className="space-y-1">

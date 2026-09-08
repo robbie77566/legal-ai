@@ -8,6 +8,8 @@ import OpsLayout from '@/app/ops/layout'
  *  tiles from /ops/status, grouped drawer actions with typed-title delete. */
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/ops' }))
+const session = vi.hoisted(() => ({ role: 'ADMIN' }))
+vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { role: session.role } }, status: 'authenticated' }) }))
 
 const STATUS = {
   email: { configured: false, from: null },
@@ -24,6 +26,7 @@ const QUEUE = [
   { id: 'c_1', title: 'Travis County · 2020', status: 'AWAITING_DOCS', lane: 'TRIAL', daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: false, subsequentWrit: false },
   { id: 'c_2', title: 'Bexar County · 2018', status: 'ANALYZING', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: false },
 ]
+const REQUESTS = { open: [{ id: 'q_1', caseId: 'c_2', caseTitle: 'Bexar County · 2018', type: 'REFUND', reason: 'unreadable_record', note: '3 of 9 scans unusable', amountCents: 14900, requestedByEmail: 'dana@snotnoselegal.com', decision: null, decidedByEmail: null, decisionNote: null, createdAt: new Date().toISOString(), decidedAt: null }], decided: [] }
 const calls: string[] = []
 
 beforeEach(() => {
@@ -34,6 +37,7 @@ beforeEach(() => {
     const body = u.endsWith('/ops/status') ? STATUS
       : u.endsWith('/qa/holds') ? HOLDS
       : u.endsWith('/ops/queue') ? QUEUE
+      : u.endsWith('/ops/requests') ? REQUESTS
       : u.endsWith('/timeline') ? [{ id: 'e1', type: 'payment.succeeded', payload: {}, actor: 'stripe', createdAt: new Date().toISOString() }]
       : u.endsWith('/cogs') ? { totalUsd: 4.66 }
       : { ok: true }
@@ -56,7 +60,31 @@ describe('ops overview', () => {
     await waitFor(() => expect(needs).toHaveTextContent(/Harris County · 2019/))
     expect(needs).toHaveTextContent(/3\.5h left/)
     expect(needs).toHaveTextContent(/Stalled 9 days awaiting documents/)
-    expect(needs).toHaveTextContent(/2/) // attention badge
+    expect(needs).toHaveTextContent(/3/) // attention badge: hold + stall + approval
+  })
+
+  it('an Admin sees a support request as an approval card; declining needs a reason, approving posts the decision', async () => {
+    render(<OpsOverview />)
+    const card = await screen.findByTestId('approval-q_1')
+    expect(card).toHaveTextContent(/Refund — Bexar County · 2018 · \$149\.00/)
+    expect(card).toHaveTextContent(/dana@snotnoselegal.com · unreadable record/)
+    fireEvent.click(screen.getByRole('button', { name: 'Decline…' }))
+    const declineBtn = screen.getByRole('button', { name: 'Decline' })
+    expect(declineBtn).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Decline reason'), { target: { value: 'Ask the clerk first.' } })
+    fireEvent.click(declineBtn)
+    await waitFor(() => expect(calls).toContain('POST http://localhost:3001/ops/requests/q_1/decide'))
+  })
+
+  it('a Support sign-in sees its own requests under "Waiting on an admin", never the approvals', async () => {
+    session.role = 'SUPPORT'
+    render(<OpsOverview />)
+    const waiting = await screen.findByTestId('waiting-on-admin')
+    expect(waiting).toHaveTextContent(/PENDING/)
+    expect(waiting).toHaveTextContent(/Refund — Bexar County · 2018/)
+    expect(screen.queryByTestId('approval-q_1')).toBeNull()
+    expect(screen.queryByTestId('health')).toBeNull()
+    session.role = 'ADMIN'
   })
 
   it('one-click re-run on a hold hits the existing QA rerun path', async () => {
@@ -83,7 +111,7 @@ describe('ops overview', () => {
   it('empty state says so when nothing needs attention', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
       const u = String(url)
-      const body = u.endsWith('/ops/status') ? { ...STATUS, email: { configured: true, from: 'x@y' }, retentionCandidates: 0 } : u.endsWith('/qa/holds') ? [] : []
+      const body = u.endsWith('/ops/status') ? { ...STATUS, email: { configured: true, from: 'x@y' }, retentionCandidates: 0 } : u.endsWith('/ops/requests') ? { open: [], decided: [] } : []
       return { ok: true, status: 200, json: async () => body } as Response
     }))
     render(<OpsOverview />)
@@ -102,10 +130,20 @@ describe('ops shell', () => {
   it('every ops page carries the same nav — no dead /qa/holds link', () => {
     render(<OpsLayout><div>child</div></OpsLayout>)
     const nav = screen.getByTestId('ops-nav')
-    for (const label of ['Overview', 'Holds', 'Accounts', 'Promos', 'Feedback', 'Retention']) {
+    for (const label of ['Overview', 'Holds', 'Cases', 'Accounts', 'Promos', 'Money', 'Feedback', 'Retention', 'Team']) {
       expect(nav).toHaveTextContent(label)
     }
     expect(screen.getByRole('link', { name: 'Holds' })).toHaveAttribute('href', '/ops/holds')
+    expect(screen.getByRole('link', { name: 'Team' })).toHaveAttribute('href', '/dashboard/permissions')
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('a SUPPORT sign-in sees only the customer-facing doors — no Money, Promos, Holds, or Retention', () => {
+    session.role = 'SUPPORT'
+    render(<OpsLayout><div>child</div></OpsLayout>)
+    const nav = screen.getByTestId('ops-nav')
+    for (const label of ['Overview', 'Cases', 'Accounts', 'Feedback']) expect(nav).toHaveTextContent(label)
+    for (const label of ['Money', 'Promos', 'Holds', 'Retention', 'Team']) expect(nav).not.toHaveTextContent(label)
+    session.role = 'ADMIN'
   })
 })

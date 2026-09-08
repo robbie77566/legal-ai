@@ -7,6 +7,7 @@ export enum LogAction {
   WRIT_EXPORT = 'WRIT_EXPORT',
   QA_EDIT = 'QA_EDIT',
   QA_DECISION = 'QA_DECISION',
+  REFUND = 'REFUND',
 }
 
 export class AuditService {

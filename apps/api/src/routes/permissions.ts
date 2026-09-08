@@ -2,20 +2,64 @@ import { FastifyInstance } from 'fastify';
 import prisma, { withTenant } from '@hg/database';
 import { z } from 'zod';
 import { AuditService, LogAction } from '../services/audit.service';
+import { generateToken } from '@hg/auth';
+
+const INVITE_HOURS = 24;
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'an Ops administrator',
+  ATTORNEY: 'a quality reviewer',
+  SUPPORT: 'a support team member',
+  INVESTIGATOR: 'an investigator',
+  VIEWER: 'a viewer',
+};
+const WHAT_YOU_SEE: Record<string, string> = {
+  ADMIN: 'the whole operations console — cases, customers, money, holds, and system health.',
+  ATTORNEY: 'the quality-review queue, where reports are checked against the record and released to families.',
+  SUPPORT: 'every case file (uploads, analysis, what the family received), customer accounts, and feedback. Refunds and deletions go to an admin as requests.',
+  INVESTIGATOR: 'the case workspaces you are given access to.',
+  VIEWER: 'the case workspaces you are given access to, read-only.',
+};
+
+/**
+ * Issue (or re-issue) the invite: a fresh 24-hour token and the email that
+ * explains how to get in. Returns the setup link only when the email could
+ * not be delivered, so an admin can hand it over another way.
+ */
+async function sendInviteFor(user: { id: string; email: string; name: string | null; role: string }, invitedById: string) {
+  const { raw, hash } = generateToken();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { inviteToken: hash, inviteExpires: new Date(Date.now() + INVITE_HOURS * 3_600_000) },
+  });
+  const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+  const setupUrl = `${origin}/auth/setup-password?token=${raw}&id=${user.id}`;
+  const inviter = await prisma.user.findUnique({ where: { id: invitedById }, select: { name: true, email: true } });
+  const { sendInvite } = await import('@hg/email');
+  const result = await sendInvite(user.email, {
+    name: user.name,
+    roleLabel: ROLE_LABEL[user.role] ?? user.role.toLowerCase(),
+    whatYouSee: WHAT_YOU_SEE[user.role] ?? 'the pages your role allows.',
+    setupUrl,
+    signInUrl: `${origin}/auth/signin`,
+    invitedBy: inviter?.name || inviter?.email || 'An administrator',
+    hours: INVITE_HOURS,
+  });
+  return { delivered: result.delivered, error: result.error, ...(result.delivered ? {} : { setupUrl }) };
+}
 
 const GrantAccessSchema = z.object({
   userId: z.string(),
-  role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER']).default('VIEWER')
+  role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER', 'SUPPORT']).default('VIEWER')
 });
 
 const CreateUserSchema = z.object({
   email: z.string().email(),
   name: z.string().optional(),
-  role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER']).default('ATTORNEY')
+  role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER', 'SUPPORT']).default('ATTORNEY')
 });
 
 const UpdateUserSchema = z.object({
-  role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER'])
+  role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER', 'SUPPORT'])
 });
 
 export default async function permissionsRoutes(fastify: FastifyInstance) {
@@ -43,10 +87,16 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
 
     const users = await prisma.user.findMany({
       where: { tenantId },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, passwordHash: true, inviteExpires: true },
       orderBy: { createdAt: 'desc' }
     });
-    return users;
+    return users.map(({ passwordHash, inviteExpires, ...u }) => ({
+      ...u,
+      // Invite state for the team list: nothing is active until a password is set.
+      active: !!passwordHash,
+      invitePending: !passwordHash && !!inviteExpires && inviteExpires > new Date(),
+      inviteExpired: !passwordHash && !!inviteExpires && inviteExpires <= new Date(),
+    }));
   });
 
   // Create a new user in the tenant
@@ -73,7 +123,35 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
       }
     });
 
-    return { success: true, user };
+    // The account exists but cannot sign in until its owner sets a password
+    // from the invite email (auth design §4.6).
+    const invite = await sendInviteFor(user, callerId);
+    await AuditService.log({
+      tenantId, caseId: `user:${user.id}`, action: LogAction.CASE_ACCESS, userId: callerId,
+      details: { op: 'staff_invited', targetUserId: user.id, role, delivered: invite.delivered },
+    });
+    return { success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role }, invite };
+  });
+
+  // Resend the invite (rotates the token). Accounts that already have a
+  // password use the normal "forgot password" flow instead.
+  fastify.post('/users/:userId/invite', async (request, reply) => {
+    const { tenantId, userId: callerId } = request.auth;
+    if (!(await ensureAdmin(callerId, tenantId))) {
+      return reply.status(403).send({ error: 'Requires ADMIN privileges' });
+    }
+    const { userId } = request.params as { userId: string };
+    const target = await prisma.user.findFirst({ where: { id: userId, tenantId } });
+    if (!target) return reply.status(404).send({ error: 'User not found' });
+    if (target.passwordHash) {
+      return reply.status(409).send({ error: 'This account already has a password — they can use "Forgot password" to reset it' });
+    }
+    const invite = await sendInviteFor(target, callerId);
+    await AuditService.log({
+      tenantId, caseId: `user:${target.id}`, action: LogAction.CASE_ACCESS, userId: callerId,
+      details: { op: 'staff_invite_resent', targetUserId: target.id, delivered: invite.delivered },
+    });
+    return { success: true, invite };
   });
 
   // Update a user's system role

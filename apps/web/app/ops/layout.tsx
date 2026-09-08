@@ -9,18 +9,29 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { useStaffRole } from '@/lib/staff-role'
 
 const NAV: [string, string][] = [
   ['/ops', 'Overview'],
   ['/ops/holds', 'Holds'],
+  ['/ops/cases', 'Cases'],
   ['/ops/accounts', 'Accounts'],
   ['/ops/promos', 'Promos'],
+  ['/ops/money', 'Money'],
   ['/ops/feedback', 'Feedback'],
   ['/ops/retention', 'Retention'],
+  // Staff accounts live on the legacy permissions page until the Team page
+  // (staff_console_access_model §7) replaces it — but it needs a door.
+  ['/dashboard/permissions', 'Team'],
 ]
+// What a SUPPORT sign-in can open (staff_console_access_model §3): the
+// customer-facing surfaces. Everything else isn't greyed out — it isn't there.
+const SUPPORT_NAV = new Set(['/ops', '/ops/cases', '/ops/accounts', '/ops/feedback'])
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? ''
+  const role = useStaffRole()
+  const nav = role === 'SUPPORT' ? NAV.filter(([href]) => SUPPORT_NAV.has(href)) : NAV
   // The API rejecting the browser's session (cookie not reaching api.* or a
   // NEXTAUTH_SECRET mismatch between services) made every ops page render
   // EMPTY instead of saying so — an hour lost on 2026-09-02. Probe once.
@@ -34,7 +45,7 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="font-serif text-lg font-bold text-[#D4AF37]">Operations</span>
           <nav data-testid="ops-nav" className="flex flex-wrap gap-1 text-sm">
-            {NAV.map(([href, label]) => {
+            {nav.map(([href, label]) => {
               const active = href === '/ops' ? path === '/ops' : path.startsWith(href)
               return (
                 <Link

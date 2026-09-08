@@ -142,6 +142,53 @@ export function sendFeedbackFollowup(to: string, opts: { surveyUrl: string }) {
   });
 }
 
+/**
+ * Staff invite (auth design §4.6, staff_console_access_model §7.2): sent when
+ * an Admin creates an account. The link sets the first password; the copy
+ * explains how sign-in works from then on and what they will see.
+ */
+export function sendInvite(
+  to: string,
+  opts: { name?: string | null; roleLabel: string; whatYouSee: string; setupUrl: string; signInUrl: string; invitedBy: string; hours: number }
+) {
+  return send({
+    to,
+    subject: 'You have been added to the Family Case Review console',
+    text: `${opts.name ? `Hi ${opts.name},` : 'Hello,'}
+
+${opts.invitedBy} added you to the Family Case Review console as ${opts.roleLabel}.
+
+To get in:
+
+1. Set your password (this link works for ${opts.hours} hours):
+   ${opts.setupUrl}
+
+2. From then on, sign in with this email address at:
+   ${opts.signInUrl}
+
+What you will see: ${opts.whatYouSee}
+
+If the link has expired, ask the person who added you to resend it. If you were not expecting this, you can ignore this email — nothing is active until a password is set.`,
+  });
+}
+
+/** Staff notification (staff_console_access_model §6): one email per request. */
+export function sendStaffRequest(
+  to: string,
+  opts: { kind: string; caseTitle: string; requestedBy: string; reason: string; note?: string | null; consoleUrl: string }
+) {
+  const what = opts.kind === 'REFUND' ? 'a refund' : opts.kind === 'CASE_DELETE' ? 'a case deletion' : 'an account deletion';
+  return send({
+    to,
+    subject: `Approval needed — ${what} for ${opts.caseTitle}`,
+    text: `${opts.requestedBy} is asking for ${what} on "${opts.caseTitle}".
+
+Reason: ${opts.reason.replace(/_/g, ' ')}${opts.note ? `\n"${opts.note}"` : ''}
+
+Decide in the console: ${opts.consoleUrl}`,
+  });
+}
+
 export function sendPasswordReset(to: string, opts: { resetUrl: string }) {
   return send({
     to,

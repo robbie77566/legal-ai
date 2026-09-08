@@ -1,8 +1,14 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { AuditService, LogAction } from '../services/audit.service';
 import { getStripe } from '../services/payments.service';
+import {
+  REFUND_REASONS, issueRefund, listPayments, listRefunds, paymentsSummary, type RefundOutcome,
+} from '../services/refunds.service';
+import {
+  NOTE_CHANNELS, REQUEST_TYPES, addSupportNote, openRequest, listRequests, decideRequest,
+} from '../services/staff-requests.service';
 
 /**
  * Ops console API (US-9, OPS-1..7) — ADMIN-only staff surface. Reads use the
@@ -13,11 +19,110 @@ import { getStripe } from '../services/payments.service';
 
 const STALL_DAYS = 7;
 
+// SUPPORT (staff_console_access_model §5): every customer-facing read, plus
+// the actions that unblock a family. Money, deletion, promos, drills, and
+// per-case cost stay ADMIN. Enforced here, not in the browser.
+const SUPPORT_WRITES = new Set(['delay-ours', 'delay-cleared', 'resume', 'contact', 'requests']);
+const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /\/cogs$/];
+
 export default async function opsRoutes(fastify: FastifyInstance) {
   fastify.addHook('onRequest', async (request, reply) => {
-    if (request.auth?.role !== 'ADMIN') {
-      return reply.status(403).send({ error: 'Ops administrators only' });
+    const role = request.auth?.role;
+    if (role === 'ADMIN') return;
+    if (role === 'SUPPORT') {
+      const path = request.url.split('?')[0];
+      if (request.method === 'GET' && !SUPPORT_DENIED_READS.some((re) => re.test(path))) return;
+      const action = path.match(/^\/ops\/cases\/[^/]+\/([a-z-]+)$/)?.[1];
+      if (request.method === 'POST' && action && SUPPORT_WRITES.has(action)) return;
+      return reply.status(403).send({ error: 'Support can view cases and unblock them — money, deletion, and settings need an Ops administrator' });
     }
+    return reply.status(403).send({ error: 'Ops administrators only' });
+  });
+
+  // OPS-6 contact log: what Support said to the family, on the case file.
+  fastify.post('/cases/:id/contact', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { channel, body } = z
+      .object({ channel: z.enum(NOTE_CHANNELS), body: z.string().trim().min(1).max(2000) })
+      .parse(request.body);
+    const note = await addSupportNote({ caseId: id, channel, body, authorId: request.auth.userId });
+    if (!note) return reply.status(404).send({ error: 'Not found' });
+    return note;
+  });
+
+  // Request-to-Admin (staff_console_access_model §6). Support raises;
+  // anyone on staff can see; only an Admin decides (the hook keeps SUPPORT
+  // off /requests/:id/decide).
+  fastify.post('/cases/:id/requests', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = z
+      .object({
+        type: z.enum(REQUEST_TYPES),
+        reason: z.string().min(1).max(40),
+        note: z.string().trim().max(1000).optional(),
+        amountCents: z.number().int().positive().optional(),
+      })
+      .parse(request.body);
+    const out = await openRequest({ caseId: id, ...body, requestedBy: request.auth.userId });
+    if (out.ok) return out.request;
+    switch (out.error) {
+      case 'not_found': return reply.status(404).send({ error: 'Not found' });
+      case 'bad_reason': return reply.status(400).send({ error: 'Pick a reason from the list' });
+      case 'nothing_to_refund': return reply.status(409).send({ error: 'This case has no refundable payment' });
+      case 'already_open': return reply.status(409).send({ error: 'A request of this kind is already waiting on an admin', openRequestId: out.openRequestId });
+    }
+  });
+
+  fastify.get('/requests', async (request) => {
+    const { mine, caseId } = request.query as { mine?: string; caseId?: string };
+    return listRequests({ mine: mine === '1' || request.auth.role === 'SUPPORT' ? request.auth.userId : undefined, caseId });
+  });
+
+  fastify.post('/requests/:id/decide', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { decision, decisionNote } = z
+      .object({ decision: z.enum(['APPROVED', 'DECLINED']), decisionNote: z.string().trim().max(1000).optional() })
+      .parse(request.body);
+    const out = await decideRequest({ requestId: id, decision, decisionNote, decidedBy: request.auth.userId });
+    if (!out.ok) return reply.status(out.status).send({ error: out.error });
+    return out;
+  });
+
+  // The case file (Support's home turf): uploads, analysis, deliverables.
+  fastify.get('/cases/:id/file', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { getCaseFile } = await import('../services/case-file.service');
+    const file = await getCaseFile(id);
+    if (!file) return reply.status(404).send({ error: 'Not found' });
+    return file;
+  });
+
+  fastify.get('/cases/:id/documents/:docId/download', async (request, reply) => {
+    const { id, docId } = request.params as { id: string; docId: string };
+    const { staffDocumentDownloadUrl } = await import('../services/case-file.service');
+    const link = await staffDocumentDownloadUrl(id, docId);
+    if (!link) return reply.status(404).send({ error: 'Document not available for download' });
+    await AuditService.log({
+      tenantId: link.tenantId, caseId: id, action: LogAction.CASE_ACCESS,
+      userId: request.auth.userId, details: { op: 'document_download', documentId: docId, staff: true },
+    });
+    return { url: link.url, filename: link.filename };
+  });
+
+  fastify.get('/cases/:id/report/pdf', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { version } = request.query as { version?: string };
+    const { staffReportPdf } = await import('../services/case-file.service');
+    const out = await staffReportPdf(id, version ? Number(version) : undefined);
+    if (!out) return reply.status(404).send({ error: 'No report has been released for this case' });
+    await AuditService.log({
+      tenantId: out.tenantId, caseId: id, action: LogAction.CASE_ACCESS,
+      userId: request.auth.userId, details: { op: 'report_pdf_download', versionNo: out.versionNo, staff: true },
+    });
+    return reply
+      .header('content-type', 'application/pdf')
+      .header('content-disposition', `attachment; filename="${out.filename}"`)
+      .send(out.pdf);
   });
 
   // OPS-1: the case queue with stage, holds, days-in-stage, stall flags.
@@ -255,41 +360,73 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     return { ok: true, redigitized, analysisEnqueued, priorJobState, undigitized: docs.length };
   });
 
-  // OPS-2: audited, Stripe-linked refund. The ledger flip is confirmed by the
-  // charge.refunded webhook; the case transition happens here.
+  // OPS-2: audited, Stripe-linked refund — full or partial, any paid kind.
+  // The ledger, case event, and audit row are written by refunds.service in
+  // one transaction after Stripe confirms; the charge.refunded webhook is
+  // then a no-op (Refund.stripeRefundId is unique).
+  const refundBody = z.object({
+    reason: z.enum(REFUND_REASONS),
+    amountCents: z.number().int().positive().optional(),
+    note: z.string().trim().max(1000).optional(),
+  });
+  const sendRefundOutcome = (reply: FastifyReply, outcome: RefundOutcome) => {
+    if (outcome.ok) return outcome;
+    switch (outcome.error) {
+      case 'payments_unconfigured':
+        return reply.status(503).send({ error: 'Payments are not configured' });
+      case 'not_found':
+        return reply.status(404).send({ error: 'Not found' });
+      case 'nothing_to_refund':
+        return reply.status(409).send({ error: 'Nothing to refund on this payment' });
+      case 'disputed':
+        return reply.status(409).send({ error: 'This payment is under dispute — Stripe holds the funds until it closes' });
+      case 'over_refund':
+        return reply.status(409).send({
+          error: `Amount exceeds the remaining balance of $${((outcome.remainingCents ?? 0) / 100).toFixed(2)}`,
+          remainingCents: outcome.remainingCents,
+        });
+      case 'no_payment_intent':
+        return reply.status(409).send({ error: 'No payment intent found for this payment' });
+    }
+  };
+
+  fastify.post('/payments/:id/refund', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = refundBody.parse(request.body);
+    const outcome = await issueRefund({ paymentId: id, ...body, actor: request.auth.userId });
+    return sendRefundOutcome(reply, outcome);
+  });
+
+  // Case-addressed form (the drawer's original path): refunds the case's
+  // review payment. Kept so existing callers and tests keep working.
   fastify.post('/cases/:id/refund', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const { reason } = z
-      .object({ reason: z.enum(['unreadable_record', 'customer_request', 'chargeback', 'other']) })
-      .parse(request.body);
-
-    const stripe = getStripe();
-    if (!stripe) return reply.status(503).send({ error: 'Payments are not configured' });
-
-    const kase = await prisma.case.findUnique({ where: { id } });
+    const body = refundBody.parse(request.body);
+    if (!getStripe()) return reply.status(503).send({ error: 'Payments are not configured' });
+    const kase = await prisma.case.findUnique({ where: { id }, select: { id: true } });
     if (!kase) return reply.status(404).send({ error: 'Not found' });
     const payment = await prisma.payment.findFirst({
-      where: { caseId: id, kind: 'REVIEW', status: 'SUCCEEDED' },
+      where: { caseId: id, kind: 'REVIEW', status: { in: ['SUCCEEDED', 'PARTIALLY_REFUNDED'] }, amountCents: { gt: 0 } },
     });
     if (!payment) return reply.status(409).send({ error: 'No refundable payment on this case' });
-
-    const session = await stripe.checkout.sessions.retrieve(payment.stripeId);
-    if (!session.payment_intent) return reply.status(409).send({ error: 'No payment intent found' });
-    await stripe.refunds.create({ payment_intent: String(session.payment_intent) });
-
-    await withTenant(kase.tenantId, (tx) =>
-      appendCaseEvent(tx, {
-        caseId: id, tenantId: kase.tenantId, type: 'payment.refunded',
-        payload: { paymentId: payment.stripeId, reason }, actor: request.auth.userId,
-        transition: 'REFUNDED',
-      })
-    );
-    await AuditService.log({
-      tenantId: kase.tenantId, caseId: id, action: LogAction.CASE_ACCESS,
-      userId: request.auth.userId, details: { op: 'refund_issued', reason, amountCents: payment.amountCents },
-    });
-    return { ok: true };
+    const outcome = await issueRefund({ paymentId: payment.id, ...body, actor: request.auth.userId });
+    return sendRefundOutcome(reply, outcome);
   });
+
+  // Money page (payments_and_refunds spec §3): the ledger with the customer
+  // and case joined in two queries (no FKs on Payment by design).
+  fastify.get('/payments', async (request) => {
+    const { status, q } = request.query as { status?: string; q?: string };
+    return listPayments({ status, q });
+  });
+
+  fastify.get('/payments/summary', async (request) => {
+    const { days } = request.query as { days?: string };
+    const n = Math.min(Math.max(Number(days) || 30, 1), 3650);
+    return paymentsSummary(n);
+  });
+
+  fastify.get('/refunds', async () => listRefunds(100));
 
   /**
    * OPS-4: SCOPED deletion per the §11a.2 retention matrix. Hard-deletes case
@@ -423,7 +560,7 @@ export default async function opsRoutes(fastify: FastifyInstance) {
   // webhook never landed (e.g. before STRIPE_WEBHOOK_SECRET is configured).
   fastify.post('/reconcile-payments', async (request) => {
     const { reconcilePayments } = await import('../services/payments.service');
-    const result = await reconcilePayments();
+    const result = await reconcilePayments('manual');
     request.log.info(result, 'manual payment reconciliation');
     return result;
   });

@@ -22,6 +22,21 @@ export default function PermissionsPage() {
   const [role, setRole] = useState("ATTORNEY");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; link?: string } | null>(null);
+
+  const describeInvite = (email: string, invite: { delivered: boolean; setupUrl?: string; error?: string }) =>
+    invite.delivered
+      ? { text: `Invite sent to ${email}. The link to set a password works for 24 hours.` }
+      : { text: `Account created, but the invite email could not be sent${invite.error ? ` (${invite.error})` : ""}. Share this link with them directly — it works for 24 hours:`, link: invite.setupUrl };
+
+  const handleResend = async (user: any) => {
+    setNotice(null);
+    const res = await apiFetch(`/permissions/users/${user.id}/invite`, { method: "POST", headers: getHeaders() });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { setNotice({ text: data.error || "Could not resend the invite" }); return; }
+    setNotice(describeInvite(user.email, data.invite));
+    fetchUsers();
+  };
 
   const fetchUsers = useCallback(async () => {
     const tenantId = (session?.user as any)?.tenantId;
@@ -67,6 +82,7 @@ export default function PermissionsPage() {
       if (!res.ok) throw new Error(data.error || "Failed to invite user");
       
       setIsInviteOpen(false);
+      setNotice(describeInvite(email, data.invite ?? { delivered: false }));
       resetForm();
       fetchUsers();
     } catch (err: any) {
@@ -164,7 +180,13 @@ export default function PermissionsPage() {
 
         {loading ? (
           <div className="p-12 text-center text-gray-500 animate-pulse">Loading users...</div>
-        ) : (
+        ) : (<>
+          {notice && (
+            <div className="mb-3 rounded border border-[#30363D] bg-[#161B22] p-3 text-sm text-[#D29922]" data-testid="invite-notice">
+              {notice.text}
+              {notice.link && <div className="mt-1 break-all font-mono text-xs text-[#E6EDF3]">{notice.link}</div>}
+            </div>
+          )}
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#161B22] border-b border-gray-800 text-xs uppercase tracking-wider text-gray-500">
@@ -178,7 +200,14 @@ export default function PermissionsPage() {
               {users.map((user) => (
                 <tr key={user.id} className="border-b border-gray-800/50 hover:bg-[#161B22]/50 transition-colors">
                   <td className="p-4 font-medium text-gray-200">{user.name || "Unknown"}</td>
-                  <td className="p-4 text-gray-400 text-sm">{user.email}</td>
+                  <td className="p-4 text-gray-400 text-sm">
+                    {user.email}
+                    {user.active === false && (
+                      <span className="ml-2 text-xs text-[#D29922]" data-testid={`invite-state-${user.id}`}>
+                        {user.invitePending ? "invite pending" : user.inviteExpired ? "invite expired" : "no password yet"}
+                      </span>
+                    )}
+                  </td>
                   <td className="p-4">
                     <span className={`text-xs px-3 py-1 rounded-full border ${
                       user.role === 'ADMIN' ? 'bg-[#D4AF37]/10 text-[#D4AF37] border-[#D4AF37]/30' : 
@@ -189,6 +218,16 @@ export default function PermissionsPage() {
                     </span>
                   </td>
                   <td className="p-4 text-right flex justify-end gap-3">
+                    {user.active === false && (
+                      <button
+                        onClick={() => handleResend(user)}
+                        className="text-xs text-[#D4AF37] underline"
+                        title="Send a fresh invite link"
+                        data-testid={`resend-${user.id}`}
+                      >
+                        Resend invite
+                      </button>
+                    )}
                     <button 
                       onClick={() => openEdit(user)}
                       className="text-gray-400 hover:text-[#D4AF37] transition-colors p-1"
@@ -216,7 +255,7 @@ export default function PermissionsPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></>
         )}
       </div>
 
@@ -265,6 +304,7 @@ export default function PermissionsPage() {
                     <option value="ATTORNEY">Attorney (Create Cases)</option>
                     <option value="INVESTIGATOR">Investigator</option>
                     <option value="VIEWER">Viewer</option>
+                    <option value="SUPPORT">Support (Case files, no money)</option>
                   </select>
                 </div>
 
@@ -316,6 +356,7 @@ export default function PermissionsPage() {
                     <option value="ATTORNEY">Attorney (Create Cases)</option>
                     <option value="INVESTIGATOR">Investigator</option>
                     <option value="VIEWER">Viewer</option>
+                    <option value="SUPPORT">Support (Case files, no money)</option>
                   </select>
                 </div>
 

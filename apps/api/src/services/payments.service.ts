@@ -65,12 +65,17 @@ export async function fulfillCheckoutSession(session: {
   id: string;
   amount_total: number | null;
   metadata: Partial<CheckoutMetadata> | null;
+  payment_intent?: string | { id: string } | null;
 }): Promise<{ caseId?: string; skipped?: string }> {
   const meta = session.metadata ?? {};
   const { userId, tenantId, kind } = meta;
   if (!userId || !tenantId || !kind) {
     return { skipped: 'missing metadata' };
   }
+  // Refunds and disputes are keyed by the payment intent, not the session —
+  // store it now so the Money page never needs a Stripe round trip to match.
+  const paymentIntentId =
+    typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null;
   const { capture } = await import('./analytics.service');
   capture('snl.purchase_fulfilled', tenantId, { kind });
 
@@ -88,6 +93,7 @@ export async function fulfillCheckoutSession(session: {
       await tx.payment.create({
         data: {
           stripeId: session.id,
+          paymentIntentId,
           caseId: meta.caseId,
           userId,
           tenantId,
@@ -140,6 +146,7 @@ export async function fulfillCheckoutSession(session: {
     await tx.payment.create({
       data: {
         stripeId: session.id,
+        paymentIntentId,
         caseId: created.id,
         userId,
         tenantId,
@@ -239,22 +246,23 @@ export async function handleStripeEvent(event: {
       return { handled: true, detail: res.skipped ?? `case ${res.caseId}` };
     }
     case 'charge.refunded': {
-      const charge = event.data.object as { payment_intent?: string; id: string };
-      // Refunds are issued from the Ops console (OPS-2, M6); the webhook is
-      // the source-of-truth confirmation that updates the ledger.
-      const sessionId = charge.payment_intent ?? charge.id;
-      await prisma.payment.updateMany({
-        where: { stripeId: sessionId },
-        data: { status: 'REFUNDED' },
-      });
-      return { handled: true, detail: 'refund recorded' };
+      // Console refunds are already in the ledger when this arrives (level-2:
+      // Refund.stripeRefundId is unique). Dashboard refunds and conceded
+      // chargebacks are first seen here and recorded under issuer "stripe".
+      const { recordStripeRefunds } = await import('./refunds.service');
+      const detail = await recordStripeRefunds(event.data.object as Parameters<typeof recordStripeRefunds>[0]);
+      return { handled: true, detail };
     }
-    case 'charge.dispute.created': {
-      // E-6 trigger: the dispute-evidence flow (disclosure archive export)
-      // is an Ops console feature (M6); until then this is loudly logged so
-      // the 7-21 day response window is never silently missed.
-      console.warn('[stripe] DISPUTE OPENED — assemble E-6 evidence packet:', event.id);
-      return { handled: true, detail: 'dispute logged' };
+    case 'charge.dispute.created':
+    case 'charge.dispute.closed': {
+      const { recordDispute } = await import('./refunds.service');
+      const detail = await recordDispute(event.type, event.data.object as Parameters<typeof recordDispute>[1]);
+      if (event.type === 'charge.dispute.created') {
+        // The 7–21 day evidence window must never be missed silently; the
+        // Money page shows it under "Needs a decision" and this stays loud.
+        console.warn('[stripe] DISPUTE OPENED — assemble E-6 evidence packet:', event.id);
+      }
+      return { handled: true, detail };
     }
     default:
       return { handled: true, detail: `ignored ${event.type}` };
@@ -265,7 +273,19 @@ export async function handleStripeEvent(event: {
  * Hourly reconciliation (ENG-5): recent completed sessions that never got a
  * webhook are fulfilled here; fulfilled ones are level-2 no-ops.
  */
-export async function reconcilePayments(): Promise<{ checked: number; healed: number }> {
+export interface ReconciliationResult {
+  checked: number;
+  healed: number;
+  ranAt: string;
+  trigger: 'schedule' | 'manual';
+}
+
+/** Most recent sweep in this process — shown on the Money page. */
+export let lastReconciliation: ReconciliationResult | null = null;
+
+export async function reconcilePayments(
+  trigger: 'schedule' | 'manual' = 'schedule'
+): Promise<{ checked: number; healed: number }> {
   const stripe = getStripe();
   if (!stripe) return { checked: 0, healed: 0 };
 
@@ -285,8 +305,10 @@ export async function reconcilePayments(): Promise<{ checked: number; healed: nu
       id: s.id,
       amount_total: s.amount_total,
       metadata: (s.metadata ?? null) as Partial<CheckoutMetadata> | null,
+      payment_intent: typeof s.payment_intent === 'string' ? s.payment_intent : s.payment_intent?.id ?? null,
     });
     if (res.caseId && !res.skipped) healed++;
   }
+  lastReconciliation = { checked: sessions.data.length, healed, ranAt: new Date().toISOString(), trigger };
   return { checked: sessions.data.length, healed };
 }

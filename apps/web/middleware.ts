@@ -7,7 +7,7 @@ import { withAuth } from 'next-auth/middleware';
  *
  *  - /dashboard, /workspace : staff only (never CLIENT)
  *  - /qa                    : ADMIN | ATTORNEY
- *  - /ops                   : ADMIN
+ *  - /ops                   : ADMIN | SUPPORT (the API narrows SUPPORT to reads + unblocking actions)
  *  - /case                  : any authenticated user (CLIENT's home turf)
  *
  * /buy is NOT matched: its entry steps (disclosure review, account creation)
@@ -23,7 +23,7 @@ export default withAuth({
       const role = typeof token.role === 'string' ? token.role : '';
       const path = req.nextUrl.pathname;
 
-      if (path.startsWith('/ops')) return role === 'ADMIN';
+      if (path.startsWith('/ops')) return role === 'ADMIN' || role === 'SUPPORT';
       if (path.startsWith('/qa')) return role === 'ADMIN' || role === 'ATTORNEY';
       if (path.startsWith('/dashboard') || path.startsWith('/workspace')) {
         return STAFF_ROLES.has(role);

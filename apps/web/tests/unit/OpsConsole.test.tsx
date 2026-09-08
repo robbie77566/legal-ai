@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import OpsConsole from '@/app/ops/page'
 
+vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { role: 'ADMIN' } }, status: 'authenticated' }) }))
+
 const QUEUE = [
   {
     id: 'c1', title: 'Family Case Review', status: 'AWAITING_DOCS', lane: 'TRIAL',
@@ -46,6 +48,7 @@ describe('Ops console (US-9)', () => {
     await waitFor(() => expect(screen.getByText('delay ours marked')).toBeInTheDocument()) // de-snaked
     expect(screen.getByRole('button', { name: /Delete \(OPS-4\)/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /E-6 disclosure archive/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Refund/ })).toBeInTheDocument()
+    // Refunds moved to the Money page's dialog (payments_and_refunds spec); the drawer links there.
+    expect(screen.getByRole('link', { name: /Refund/ })).toHaveAttribute('href', '/ops/money?case=c1')
   })
 })
