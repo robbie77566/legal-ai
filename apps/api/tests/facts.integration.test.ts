@@ -12,6 +12,9 @@ import { fastify } from '../src/index';
 import prisma from '@hg/database';
 import { encodeSessionToken } from '@hg/auth';
 import { handleStripeEvent } from '../src/services/payments.service';
+import { __setEmailProviderForTests, type EmailMessage } from '@hg/email';
+
+const sent: EmailMessage[] = [];
 
 const run = `facts_${Date.now()}`;
 let tenantId: string;
@@ -25,8 +28,12 @@ const get = (url: string, c = cookie) => fastify.inject({ method: 'GET', url, he
 const post = (url: string, payload: Record<string, unknown>, c = cookie) =>
   fastify.inject({ method: 'POST', url, headers: { cookie: c }, payload });
 
+let adminCookie: string;
 beforeAll(async () => {
+  __setEmailProviderForTests({ send: async (msg) => { sent.push(msg); return { delivered: true }; } });
   tenantId = (await prisma.tenant.create({ data: { name: `${run}_T` } })).id;
+  const admin = await prisma.user.create({ data: { email: `${run}_admin@x.com`, tenantId, role: 'ADMIN' } });
+  adminCookie = `next-auth.session-token=${await encodeSessionToken({ userId: admin.id, tenantId, role: 'ADMIN' })}`;
   userId = (await prisma.user.create({ data: { email: `${run}@x.com`, tenantId, role: 'CLIENT' } })).id;
   otherId = (await prisma.user.create({ data: { email: `${run}_other@x.com`, tenantId, role: 'CLIENT' } })).id;
   cookie = `next-auth.session-token=${await encodeSessionToken({ userId, tenantId, role: 'CLIENT' })}`;
@@ -34,6 +41,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  __setEmailProviderForTests(undefined);
+  await prisma.findingCitation.deleteMany({ where: { finding: { tenantId } } });
+  await prisma.finding.deleteMany({ where: { tenantId } });
+  await prisma.analysisRun.deleteMany({ where: { tenantId } });
   await prisma.report.deleteMany({ where: { tenantId } });
   await prisma.checklistItem.deleteMany({ where: { case: { tenantId } } });
   await prisma.document.deleteMany({ where: { case: { tenantId } } });
@@ -128,5 +139,53 @@ describe('a paid re-run reopens a finished case', () => {
     expect(done.statusCode).toBe(200);
     expect(done.json().status).toBe('DOCS_COMPLETE');
     expect(await prisma.report.count({ where: { caseId } })).toBe(1); // v1 still there
+
+    // The emails that used to have no link now do (G-D1); the re-run email exists (G-D2).
+    const rerunMail = sent.find((m) => /re-run is paid for/.test(m.subject));
+    expect(rerunMail?.text).toContain(`/case/${caseId}/documents`);
+    const recordsMail = sent.find((m) => /your review has started/.test(m.subject));
+    expect(recordsMail?.text).toContain(`/case/${caseId}/status`);
+  });
+
+  it('v1 stays readable during the re-run, and after v2 the family sees what changed', async () => {
+    // v1 is served even though the case is back in DOCS_COMPLETE.
+    const v1 = await get(`/cases/${caseId}/report`);
+    expect(v1.statusCode).toBe(200);
+    expect(v1.json().versionNo).toBe(1);
+
+    // Simulate run 2 + report v2 with one finding kept, one added, one removed.
+    const run1 = await prisma.analysisRun.findFirstOrThrow({ where: { caseId, runNo: 1 } });
+    const mk = (runId: string, key: string, text: string) =>
+      prisma.finding.create({ data: { runId, caseId, tenantId, stableKey: `${run}_${key}`, category: 'brady', severity: 'supportive', confidence: 0.7, partAText: text, partBText: 'B' } });
+    await mk(run1.id, 'kept', 'Kept finding');
+    await mk(run1.id, 'gone', 'Old finding that no longer holds');
+    const run2 = await prisma.analysisRun.create({ data: { caseId, tenantId, runNo: 2, modelConfig: {}, completedAt: new Date() } });
+    await mk(run2.id, 'kept', 'Kept finding');
+    await mk(run2.id, 'new', 'A lab report the defense never received');
+    await prisma.report.create({ data: { caseId, tenantId, runId: run2.id, versionNo: 2, templateVersion: 'AB-v1', approvedBy: 'auto_qa', findingsSnapshot: { findings: [] } } });
+
+    const versions = (await get(`/cases/${caseId}/report/versions`)).json();
+    expect(versions.map((v: { versionNo: number }) => v.versionNo)).toEqual([2, 1]);
+    expect((await get(`/cases/${caseId}/report`)).json().versionNo).toBe(2);
+    expect((await get(`/cases/${caseId}/report?version=1`)).json().versionNo).toBe(1);
+
+    const changes = (await get(`/cases/${caseId}/report/changes`)).json();
+    expect(changes).toMatchObject({ fromVersion: 1, toVersion: 2, keptCount: 1 });
+    expect(changes.added.map((f: { partAText: string }) => f.partAText)).toEqual(['A lab report the defense never received']);
+    expect(changes.removed.map((f: { partAText: string }) => f.partAText)).toEqual(['Old finding that no longer holds']);
+  });
+});
+
+describe('the emails the tracker promises', () => {
+  it('marking a delay ours emails the family the new date and the progress link', async () => {
+    sent.length = 0;
+    const res = await fastify.inject({ method: 'POST', url: `/ops/cases/${caseId}/delay-ours`, headers: { cookie: adminCookie }, payload: { extendedToDate: '2026-10-01' } });
+    expect(res.statusCode).toBe(200);
+    // fire-and-forget: give the promise a tick
+    await new Promise((r) => setTimeout(r, 50));
+    const mail = sent.find((m) => /delayed on our side/.test(m.subject));
+    expect(mail?.to).toBe(`${run}@x.com`);
+    expect(mail?.text).toContain('2026-10-01');
+    expect(mail?.text).toContain(`/case/${caseId}/status`);
   });
 });

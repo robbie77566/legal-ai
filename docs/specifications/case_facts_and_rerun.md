@@ -16,11 +16,21 @@ Source: [Customer Journey UX Review](https://claude.ai/code/artifact/c658996c-31
 - A `RERUN` payment on a `READY` or `DELIVERED` case appends `rerun.purchased` **with a transition to `AWAITING_DOCS`** (`machine.ts` gained `READY → AWAITING_DOCS`, `DELIVERED → AWAITING_DOCS`). Facts, checklist items and documents stay. The family is emailed `sendRerunPurchased` with the documents link.
 - Stripe's `success_url` for a re-run is `/case/:id/documents?rerun=1`. The documents page shows a re-run banner ("Your report from … still stands") and relabels the run buttons; `records-complete` works again and the pipeline runs as run 2 → QA → Report v2. v1 remains (reports are versioned).
 - Mid-pipeline re-run purchases only record the payment (no transition).
-- Still open: report version switcher and "what changed since v1" on the customer report (P1).
+- `GET /cases/:id/report/versions` lists released versions; `GET /cases/:id/report?version=N` and `/report/pdf?version=N` serve an older one; `GET /cases/:id/report/changes` diffs the two newest reports' runs by `stableKey` (Part A only). The report page shows a version switcher and "New since your last report". Any released version is served regardless of case status, so v1 stays readable while a re-run is in AWAITING_DOCS.
 
 ## Success page
 
 `GET /checkout/fulfillment?session_id=` (owner-only) returns `{ caseId, kind }` once fulfilled, `404 { pending: true }` before. `/buy/success` polls it, so a family with several reviews always lands on the case the payment created.
+
+## Case home and navigation
+
+- `/case/[caseId]` — the case home: title from the facts, stage line, one primary action by status, the facts panel (Change while awaiting documents, Locked afterwards), a judgment-date unlock prompt, report versions.
+- `components/daybreak/CaseNav.tsx` — Overview · Documents · Progress · Report · Next steps, on every case page.
+- The brand nav (`SiteNav`) shows "Your reviews" and "Start another review" when a session exists (reads `SessionContext` directly, so pages without a provider still render).
+
+## Customer emails
+
+`sendReceipt` and `sendRecordsComplete` now carry links (case home, progress). New: `sendNeedsYou` (OCR halt → documents), `sendDelayOurs` (ops marks a delay → progress), `sendRefundIssued` (every console refund), `sendRerunPurchased` (re-run → documents). All fire-and-forget to the case owner; deleted accounts are skipped.
 
 ## Links added
 

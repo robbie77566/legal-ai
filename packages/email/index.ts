@@ -83,17 +83,19 @@ export function sendTestEmail(to: string) {
   });
 }
 
-export function sendReceipt(to: string, opts: { amountCents: number }) {
+export function sendReceipt(to: string, opts: { amountCents: number; caseUrl?: string }) {
   return send({
     to,
     subject: 'Your Family Case Review — payment received',
     text: `Thank you. Your payment of $${(opts.amountCents / 100).toFixed(2)} is received and your case is set up.
 
-What happens next: sign in, answer a few short questions about the case, and we'll build your personal document checklist — with help for getting every document on it. Send documents at your own pace; your review clock only starts when you tell us your records are complete.`,
+What happens next: confirm a few details about the case (most are already filled in from your free check), and we'll build your personal document checklist — with help for getting every document on it. Send documents at your own pace; your review clock only starts when you tell us your records are complete.${
+      opts.caseUrl ? `\n\nYour case: ${opts.caseUrl}` : ''
+    }`,
   });
 }
 
-export function sendRecordsComplete(to: string, opts: { expectedReadyBy?: string }) {
+export function sendRecordsComplete(to: string, opts: { expectedReadyBy?: string; statusUrl?: string }) {
   return send({
     to,
     subject: 'Your documents are complete — your review has started',
@@ -101,7 +103,49 @@ export function sendRecordsComplete(to: string, opts: { expectedReadyBy?: string
       opts.expectedReadyBy ? ` Expect your report by ${opts.expectedReadyBy}.` : ''
     }
 
-We'll email you as your review moves through each step, and you can watch progress on your case page any time. A trained legal reviewer checks every report before it reaches you.`,
+We'll email you as your review moves through each step, and you can watch progress any time${
+      opts.statusUrl ? ` here: ${opts.statusUrl}` : ' on your case page'
+    }. A trained legal reviewer checks every report before it reaches you.`,
+  });
+}
+
+/** E-1: some scans could not be read well enough — the family needs to decide. */
+export function sendNeedsYou(to: string, opts: { documentsUrl: string }) {
+  return send({
+    to,
+    subject: 'We need your help with some pages',
+    text: `Some of the pages you sent were too hard for us to read reliably, so we've paused before spending your review on them. Your review is safe and nothing is lost.
+
+What to do: open your documents page and look for the pages we flagged. If you can get a cleaner copy (the clerk can often reprint), upload it. If not, tell us to go ahead with what we have.
+
+${opts.documentsUrl}`,
+  });
+}
+
+/** OPS-7: a delay on our side, said plainly, with the new date. */
+export function sendDelayOurs(to: string, opts: { newDate: string; statusUrl: string }) {
+  return send({
+    to,
+    subject: `Your review is delayed on our side — new date ${opts.newDate}`,
+    text: `We've hit a delay on our side with your review. This is on us, not on you or your documents.
+
+New expected date: ${opts.newDate}. You don't need to do anything. Your progress page has the latest:
+${opts.statusUrl}`,
+  });
+}
+
+/** OPS-2: a refund was issued — say how much, and when it lands. */
+export function sendRefundIssued(to: string, opts: { amountCents: number; partial: boolean; caseUrl: string }) {
+  return send({
+    to,
+    subject: `Refund issued — $${(opts.amountCents / 100).toFixed(2)}`,
+    text: `We've issued a refund of $${(opts.amountCents / 100).toFixed(2)} to the card you paid with. It usually appears in 5–10 business days depending on your bank.${
+      opts.partial
+        ? ' Your review continues; this refund is for the part we could not deliver.'
+        : ' Your review is closed. Any report you already received stays available to you.'
+    }
+
+Your case: ${opts.caseUrl}`,
   });
 }
 

@@ -7,6 +7,7 @@ import { API_URL } from '../../../../../lib/api'
 import { getPaletteVariant } from '../../../../../lib/ab'
 import FeedbackCard from '../../../../../components/FeedbackCard'
 import { apiFetch } from '@/lib/api'
+import CaseNav from '../../../../../components/daybreak/CaseNav'
 
 /**
  * S6 gated delivery (UI spec §5.7): the interstitial must be dismissed by
@@ -36,7 +37,16 @@ interface DeadlinePosture {
   lachesUrgency: boolean
   asOf: string
 }
+interface Version { versionNo: number; renderedAt: string }
+interface Changes {
+  fromVersion: number | null
+  toVersion: number | null
+  added: Array<{ category: string; severity: string; partAText: string }>
+  removed: Array<{ category: string; severity: string; partAText: string }>
+  keptCount: number | null
+}
 interface ReportData {
+  versionNo?: number
   strongSignals: ReportFinding[]
   possibleIssues: ReportFinding[]
   subsequentWritMode: boolean
@@ -67,17 +77,25 @@ function FindingCard({ f, tone }: { f: ReportFinding; tone: 'signal' | 'review' 
 
 export default function CaseReport() {
   const { caseId } = useParams<{ caseId: string }>()
-  const variant = (useSearchParams().get('survey') === 'share' ? 'share' : 'report') as 'report' | 'share'
+  const params = useSearchParams()
+  const variant = (params.get('survey') === 'share' ? 'share' : 'report') as 'report' | 'share'
+  const requestedVersion = params.get('version')
   const [opened, setOpened] = useState(false)
   const [data, setData] = useState<ReportData | null>(null)
   const [notReady, setNotReady] = useState(false)
+  const [versions, setVersions] = useState<Version[]>([])
+  const [changes, setChanges] = useState<Changes | null>(null)
+  const [version, setVersion] = useState<number | null>(requestedVersion ? Number(requestedVersion) : null)
 
   useEffect(() => {
     if (!opened) return
-    void apiFetch(`/cases/${caseId}/report`)
+    const q = version ? `?version=${version}` : ''
+    void apiFetch(`/cases/${caseId}/report${q}`)
       .then(async (r) => (r.ok ? setData(await r.json()) : setNotReady(true)))
       .catch(() => setNotReady(true))
-  }, [opened, caseId])
+    void apiFetch(`/cases/${caseId}/report/versions`).then(async (r) => r.ok && setVersions(await r.json())).catch(() => {})
+    void apiFetch(`/cases/${caseId}/report/changes`).then(async (r) => r.ok && setChanges(await r.json())).catch(() => {})
+  }, [opened, caseId, version])
 
   if (!opened) {
     return (
@@ -122,7 +140,47 @@ export default function CaseReport() {
 
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
+      <CaseNav caseId={caseId} current="report" />
       <h1 className="font-db-serif text-3xl font-semibold">Your case review</h1>
+      {versions.length > 1 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm" data-testid="version-switcher">
+          <span className="text-db-muted">Version:</span>
+          {versions.map((v, i) => {
+            const active = (version ?? versions[0].versionNo) === v.versionNo
+            return (
+              <button key={v.versionNo} onClick={() => setVersion(v.versionNo)} aria-pressed={active}
+                className={`rounded-full px-3 py-1 ${active ? 'bg-db-accent text-db-surface' : 'border border-db-line text-db-muted'}`}>
+                v{v.versionNo}{i === 0 ? ' (current)' : ''} · {new Date(v.renderedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {changes && changes.fromVersion != null && (version == null || version === changes.toVersion) && (
+        <section className="mt-4 rounded-xl border border-db-line bg-db-surface p-4" data-testid="what-changed">
+          <h2 className="font-db-serif text-lg font-semibold">New since your last report (v{changes.fromVersion} → v{changes.toVersion})</h2>
+          {changes.added.length === 0 && changes.removed.length === 0 ? (
+            <p className="mt-2 text-sm text-db-muted">The new documents did not change what we found. {changes.keptCount} finding{changes.keptCount === 1 ? '' : 's'} carried over.</p>
+          ) : (
+            <>
+              {changes.added.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm font-semibold" style={{ color: 'var(--db-signal)' }}>Newly found ({changes.added.length})</p>
+                  <ul className="mt-1 list-disc pl-5 text-sm">{changes.added.map((f, i) => <li key={i}>{f.partAText}</li>)}</ul>
+                </div>
+              )}
+              {changes.removed.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm font-semibold text-db-muted">No longer found ({changes.removed.length})</p>
+                  <ul className="mt-1 list-disc pl-5 text-sm text-db-muted">{changes.removed.map((f, i) => <li key={i}>{f.partAText}</li>)}</ul>
+                  <p className="mt-1 text-xs text-db-muted">A finding can drop out when a new document answers the question it raised, or when its quote no longer matched the record.</p>
+                </div>
+              )}
+              {changes.keptCount != null && <p className="mt-2 text-xs text-db-muted">{changes.keptCount} finding{changes.keptCount === 1 ? '' : 's'} carried over unchanged.</p>}
+            </>
+          )}
+        </section>
+      )}
       <p className="mt-2">
         {nothingFound
           ? 'In short: we did not find issues in this record that we can point a lawyer to — and we tell you what that does and doesn’t mean below.'
@@ -141,7 +199,7 @@ export default function CaseReport() {
         <h2 className="font-db-serif text-lg font-semibold">Everything for your lawyer</h2>
         <div className="mt-3 space-y-3">
           <a
-            href={`${API_URL}/cases/${caseId}/report/pdf?palette=${getPaletteVariant()}`}
+            href={`${API_URL}/cases/${caseId}/report/pdf?palette=${getPaletteVariant()}${version ? `&version=${version}` : ''}`}
             onClick={() => window.dispatchEvent(new Event('snl:pdf-download'))}
             className="block rounded-xl bg-db-accent px-5 py-3 text-center font-semibold text-db-surface"
           >

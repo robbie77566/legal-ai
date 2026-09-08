@@ -362,8 +362,10 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         const { capture } = await import('../services/analytics.service');
         capture('snl.records_complete', tenantId, { billablePages });
         const { sendRecordsComplete } = await import('@hg/email');
+        const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
         void sendRecordsComplete(owner.email, {
           expectedReadyBy: updated.expectedReadyAt?.toISOString().slice(0, 10),
+          statusUrl: `${origin}/case/${id}/status`,
         });
       }
 
@@ -460,10 +462,16 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
   async function loadVerifiedReport(
     tx: Parameters<Parameters<typeof withTenant>[1]>[0],
     kase: { id: string; status: string; subsequentWrit: boolean; title: string },
-    id: string
+    id: string,
+    versionNo?: number
   ) {
-    if (kase.status !== 'READY' && kase.status !== 'DELIVERED') return null;
-    const report = await tx.report.findFirst({ where: { caseId: id }, orderBy: { versionNo: 'desc' } });
+    // A Report row exists only after QA approval, so any version is safe to
+    // serve — including v1 while a paid re-run has the case back in
+    // AWAITING_DOCS (US-6: "your earlier report still stands").
+    const report = await tx.report.findFirst({
+      where: { caseId: id, ...(versionNo ? { versionNo } : {}) },
+      orderBy: { versionNo: 'desc' },
+    });
     if (!report) return null;
 
     const snapshot = report.findingsSnapshot as unknown as { findings: SnapshotFinding[] };
@@ -493,6 +501,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     return {
       report,
       payload: {
+        versionNo: report.versionNo,
         templateVersion: report.templateVersion,
         renderedAt: report.renderedAt,
         deadlinePosture,
@@ -554,11 +563,55 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     return withTenant(tenantId, async (tx) => {
       const kase = await withCase(tx, id, userId);
       if (!kase) return reply.status(403).send({ error: 'Forbidden' });
-      const loaded = await loadVerifiedReport(tx, kase, id);
+      const { version } = request.query as { version?: string };
+      const loaded = await loadVerifiedReport(tx, kase, id, version ? Number(version) : undefined);
       if (!loaded) return reply.status(404).send({ error: 'No report is ready yet' });
       const { capture } = await import('../services/analytics.service');
       capture('snl.report_viewed', tenantId, { dropped: loaded.payload.droppedByReverification });
       return loaded.payload;
+    });
+  });
+
+  // US-6: every released version, newest first — the report page's switcher.
+  fastify.get('/:id/report/versions', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { tenantId, userId } = request.auth;
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      const reports = await tx.report.findMany({
+        where: { caseId: id }, orderBy: { versionNo: 'desc' }, select: { versionNo: true, renderedAt: true },
+      });
+      return reports;
+    });
+  });
+
+  // US-6: what changed between the two newest released reports, in the
+  // family's words (Part A only). Findings are matched by stableKey.
+  fastify.get('/:id/report/changes', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { tenantId, userId } = request.auth;
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      const reports = await tx.report.findMany({ where: { caseId: id }, orderBy: { versionNo: 'desc' }, take: 2 });
+      if (reports.length < 2) return { fromVersion: null, toVersion: reports[0]?.versionNo ?? null, added: [], removed: [], keptCount: null };
+      const [latest, prior] = reports;
+      const pick = { stableKey: true, category: true, severity: true, partAText: true };
+      const [latestF, priorF] = await Promise.all([
+        tx.finding.findMany({ where: { runId: latest.runId }, select: pick }),
+        tx.finding.findMany({ where: { runId: prior.runId }, select: pick }),
+      ]);
+      const priorKeys = new Set(priorF.map((f) => f.stableKey));
+      const latestKeys = new Set(latestF.map((f) => f.stableKey));
+      const shape = (f: { category: string; severity: string; partAText: string }) => ({ category: f.category, severity: f.severity, partAText: f.partAText });
+      return {
+        fromVersion: prior.versionNo,
+        toVersion: latest.versionNo,
+        added: latestF.filter((f) => !priorKeys.has(f.stableKey)).map(shape),
+        removed: priorF.filter((f) => !latestKeys.has(f.stableKey)).map(shape),
+        keptCount: latestF.filter((f) => priorKeys.has(f.stableKey)).length,
+      };
     });
   });
 
@@ -570,16 +623,15 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     return withTenant(tenantId, async (tx) => {
       const kase = await withCase(tx, id, userId);
       if (!kase) return reply.status(403).send({ error: 'Forbidden' });
-      const loaded = await loadVerifiedReport(tx, kase, id);
+      const { palette, version } = request.query as { palette?: string; version?: string };
+      const loaded = await loadVerifiedReport(tx, kase, id, version ? Number(version) : undefined);
       if (!loaded) return reply.status(404).send({ error: 'No report is ready yet' });
 
-      const { palette } = request.query as { palette?: string };
       const { renderReportPdf } = await import('@hg/reports');
       const pdf = await renderReportPdf({
         palette: palette === 'amber' ? 'amber' : 'harbor',
         caseTitle: kase.title,
         reportId: loaded.report.id,
-        versionNo: loaded.report.versionNo,
         ...loaded.payload,
       });
       return reply

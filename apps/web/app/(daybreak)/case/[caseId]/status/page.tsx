@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { apiFetch, apiEventSource } from '@/lib/api'
+import CaseNav from '../../../../../components/daybreak/CaseNav'
 import { trackerModel, describeActivity, ago, formatCivilDate, type TrackerModel } from '@/lib/tracker'
 import type { CustomerView } from '@hg/case-lifecycle'
 
@@ -135,6 +136,7 @@ export default function CaseStatus() {
 
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
+      <CaseNav caseId={caseId} current="progress" />
       <h1 className="font-db-serif text-2xl font-semibold">Your review&rsquo;s progress</h1>
       {(dates.started || dates.readyBy) && (
         <p className="mt-2 text-sm text-db-muted" data-testid="date-anchors">

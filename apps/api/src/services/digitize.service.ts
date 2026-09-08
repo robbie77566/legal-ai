@@ -491,6 +491,16 @@ export async function digitizeDocument(
         setHold: 'OCR_HALT',
       });
       halted = true;
+      // E-1 is a decision the family has to make — tell them (G-D2), once
+      // per halt (the hold flag guards re-entry above).
+      void (async () => {
+        const owner = await prisma.caseAccess.findFirst({ where: { caseId, role: 'ADMIN' }, select: { userId: true } });
+        const user = owner ? await prisma.user.findUnique({ where: { id: owner.userId }, select: { email: true, deletedAt: true } }) : null;
+        if (!user?.email || user.deletedAt) return;
+        const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+        const { sendNeedsYou } = await import('@hg/email');
+        await sendNeedsYou(user.email, { documentsUrl: `${origin}/case/${caseId}/documents` });
+      })().catch((e) => console.warn('[digitize] needs-you email failed:', (e as Error).message));
     }
 
     return {

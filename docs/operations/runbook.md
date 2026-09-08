@@ -12,6 +12,22 @@
 - **COGS:** `GET /ops/cases/:id/cogs` — tokens/pages are ground truth; dollars are env-rate estimates (`MODEL_USD_PER_MTOK_*`). Alert threshold: $54/case (NFR-4).
 - **Retention:** `GET /ops/retention-candidates` — cases past the 12-month window. Deletion is ALWAYS a deliberate OPS-4 act per case; never bulk.
 
+## Customer emails (what the family receives, and when)
+
+| Email | Sent when | Links to |
+|---|---|---|
+| Payment received | review purchase fulfilled | case home |
+| Your documents are complete | records-complete | progress page |
+| We need your help with some pages | OCR halt (E-1) set on the case | documents page |
+| Your review is delayed on our side | ops marks "delay ours" | progress page |
+| A specialist is giving your review a closer look | auto-QA hold | progress page |
+| Your report is ready | QA approval (manual or auto) | report |
+| Refund issued | any console refund | case home |
+| Your re-run is paid for | RERUN purchase fulfilled | documents page |
+| One quick question about your report | +7 days after the report | report (share survey) |
+
+All are fire-and-forget through the guarded sender; a failed send is logged, never a failed request. A deleted account is never emailed.
+
 ## Pipeline operations
 
 - **Re-run a case's analysis** (QA_REVIEW → reject → re-enqueue):

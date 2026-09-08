@@ -166,6 +166,15 @@ export async function issueRefund(args: {
     },
   });
 
+  // Tell the family (G-D2): how much, and when it lands.
+  void (async () => {
+    const buyer = await prisma.user.findUnique({ where: { id: payment.userId }, select: { email: true, deletedAt: true } });
+    if (!buyer?.email || buyer.deletedAt) return;
+    const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+    const { sendRefundIssued } = await import('@hg/email');
+    await sendRefundIssued(buyer.email, { amountCents: amount, partial: status !== 'REFUNDED', caseUrl: `${origin}/case/${payment.caseId ?? ''}` });
+  })().catch((e) => console.warn('[refunds] customer email failed:', (e as Error).message));
+
   return {
     ok: true,
     refundId: row.id,

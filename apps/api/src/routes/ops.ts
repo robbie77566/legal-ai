@@ -25,6 +25,19 @@ const STALL_DAYS = 7;
 const SUPPORT_WRITES = new Set(['delay-ours', 'delay-cleared', 'resume', 'contact', 'requests']);
 const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /\/cogs$/];
 
+/** Fire-and-forget customer email to the case owner (never fails a request). */
+async function notifyCaseOwner(caseId: string, send: (email: string, origin: string) => Promise<unknown>) {
+  try {
+    const owner = await prisma.caseAccess.findFirst({ where: { caseId, role: 'ADMIN' }, select: { userId: true } });
+    const user = owner ? await prisma.user.findUnique({ where: { id: owner.userId }, select: { email: true, deletedAt: true } }) : null;
+    if (!user?.email || user.deletedAt) return;
+    const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+    await send(user.email, origin);
+  } catch (e) {
+    console.warn('[ops] customer notification failed:', (e as Error).message);
+  }
+}
+
 export default async function opsRoutes(fastify: FastifyInstance) {
   fastify.addHook('onRequest', async (request, reply) => {
     const role = request.auth?.role;
@@ -283,6 +296,11 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     await AuditService.log({
       tenantId: kase.tenantId, caseId: id, action: LogAction.CASE_ACCESS,
       userId: request.auth.userId, details: { op: 'delay_ours_marked', extendedToDate },
+    });
+    // The tracker promises "we'll email you if anything needs your attention" — keep it (G-D2).
+    void notifyCaseOwner(id, async (email, origin) => {
+      const { sendDelayOurs } = await import('@hg/email');
+      await sendDelayOurs(email, { newDate: extendedToDate, statusUrl: `${origin}/case/${id}/status` });
     });
     return { ok: true };
   });

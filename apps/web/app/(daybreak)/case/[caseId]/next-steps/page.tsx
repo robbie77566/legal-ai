@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import CaseNav from '../../../../../components/daybreak/CaseNav'
 
 /**
  * S7 next steps (UI spec §5.8): consent card (default OFF, names who and
@@ -67,6 +68,7 @@ export default function NextSteps() {
 
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
+      <CaseNav caseId={caseId} current="next-steps" />
       <h1 className="font-db-serif text-2xl font-semibold">What happens next is your choice</h1>
       {notice && <p className="mt-3 text-sm text-db-muted">{notice}</p>}
 

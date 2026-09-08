@@ -220,7 +220,8 @@ export async function fulfillCheckoutSession(session: {
   const buyer = await prisma.user.findUnique({ where: { id: userId } });
   if (buyer?.email) {
     const { sendReceipt } = await import('@hg/email');
-    void sendReceipt(buyer.email, { amountCents: session.amount_total ?? PRICES_CENTS.review });
+    const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+    void sendReceipt(buyer.email, { amountCents: session.amount_total ?? PRICES_CENTS.review, caseUrl: `${origin}/case/${caseId}` });
   }
 
   // Promotion complete: the draft is copied, now deleted (ENG-7).

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import CaseNav from '../../../../../components/daybreak/CaseNav'
 import { formatCivilDate } from '@/lib/tracker'
 
 /**
@@ -277,6 +278,7 @@ export default function CaseDocuments() {
 
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
+      <CaseNav caseId={caseId} current="documents" />
       <h1 className="font-db-serif text-2xl font-semibold">Your documents</h1>
       {data?.rerun && (
         <div data-testid="rerun-banner" className="mt-3 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4 text-sm">
