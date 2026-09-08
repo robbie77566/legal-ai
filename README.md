@@ -192,7 +192,9 @@ Summarized from the readiness plan — read it before provisioning anything:
 
 Day-2 operations, failure modes (all learned live, none hypothetical), and the blocked-on-external launch checklist: **[docs/operations/runbook.md](docs/operations/runbook.md)**.
 
-Key surfaces: `/ops` (queue, timelines, refunds, scoped deletion, retention candidates, per-case COGS) · `/qa` (review queue, edits with reading-level lint, run diff, approve/reject) · customer tracker + report at `/case/<id>`.
+Key surfaces: `/ops` (overview, holds, cases, accounts, promos, retention, health) · `/ops/cases/<id>` (the case file: uploads, analysis, what the family received, contact log, requests) · `/ops/money` (payments audit, full/partial refunds, disputes, reconciliation) · `/qa` (review queue, edits with reading-level lint, run diff, approve/reject) · `/dashboard/permissions` (create staff accounts — sends the invite email — change roles) · customer tracker + report at `/case/<id>`.
+
+Staff roles: `ADMIN` (everything), `SUPPORT` (case files, customers, feedback, unblocking actions; refunds and deletions become requests an admin decides), `ATTORNEY` (`/qa`). Details: [docs/specifications/staff_console.md](docs/specifications/staff_console.md).
 
 ## Engineering invariants (do not break these)
 
