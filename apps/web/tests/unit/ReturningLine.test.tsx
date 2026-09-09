@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import { SessionContext } from 'next-auth/react'
 vi.mock('next/navigation', () => ({ usePathname: () => '/', useRouter: () => ({ push: vi.fn() }), useParams: () => ({}) }))
 vi.mock('@/lib/api', () => ({ apiFetch: vi.fn(async () => new Response('{"reviews":[]}', { status: 200 })) }))
-import BrandHome from '@/app/(daybreak)/page'
+import BrandHome from '@/components/site/BrandHome'
 import DaybreakLanding from '@/app/(daybreak)/review/page'
 
 /** 2026-09-09: "the landing page no longer has a sign-in" — the nav link was

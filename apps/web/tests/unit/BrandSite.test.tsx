@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 vi.mock('next/navigation', () => ({ useParams: () => ({ slug: 'what-is-an-11-07-writ' }) }))
 import { render, screen } from '@testing-library/react'
-import BrandHome from '@/app/(daybreak)/page'
+import BrandHome from '@/components/site/BrandHome'
 import Pricing from '@/app/(daybreak)/pricing/page'
 import About from '@/app/(daybreak)/about/page'
 
