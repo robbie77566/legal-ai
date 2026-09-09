@@ -30,15 +30,15 @@ In production (Render) there are no files: every value is a service env var (blu
 | Var | 🔑 | Purpose | Where to get it |
 |---|---|---|---|
 | `DOC_CLASSIFIER_MODEL` | | Tier-1 document classifier model (checklist filing) | Default `claude-haiku-4-5-20251001`; falls back to regex heuristics on any failure |
-| `NODE_OPTIONS` | | Node heap cap for the api process (`--max-old-space-size=<MB>`) | Every queue worker runs inside the api process; cap the heap below the plan's RAM so it trims itself instead of being OOM-killed mid-document. **Starter 512 MB → `400`; Standard 2 GB → `1536`.** Blueprint sets 400. |
-| `INGESTION_CONCURRENCY` | | Documents digitized at once (per instance) | Default 2 in code; blueprint sets **1** for the starter plan. Each document is parsed whole in memory (several × file size). Raise to 2–3 on Standard. Integer 1–16; nonsense is ignored with a warning. |
-| `ANALYSIS_CONCURRENCY` | | Analysis runs at once (per instance) | Default 2; blueprint sets **1** on starter. Raise with the plan. |
+| `NODE_OPTIONS` | | Node heap cap for the api process (`--max-old-space-size=<MB>`) | Every queue worker runs inside the api process; cap the heap below the plan's RAM so it trims itself instead of being OOM-killed mid-document. **Starter 512 MB → `400`; Standard 2 GB → `1536`.** Blueprint sets 1536 (api on Standard since 2026-09-06). |
+| `INGESTION_CONCURRENCY` | | Documents digitized at once (per instance) | Default 2 in code; blueprint sets **2** (Standard). On a starter plan use 1. Each document is parsed whole in memory (several × file size). Raise to 2–3 on Standard. Integer 1–16; nonsense is ignored with a warning. |
+| `ANALYSIS_CONCURRENCY` | | Analysis runs at once (per instance) | Default 2; blueprint sets **2** (Standard); 1 on starter. |
 | `ZIP_CONCURRENCY` | | ZIP archives unpacked at once | Default 1. Leave at 1 unless the plan is generous — an unpack holds the archive in memory. |
 | `DOC_CLASSIFIER_USD_FACTOR` | | Price ratio of the classifier model vs the MODEL_USD_* rates, for cost estimates | Default 0.2 (Haiku vs Opus) |
 | `ANTHROPIC_API_KEY` | 🔑 | Claude analysis engine | console.anthropic.com → API Keys (rotated for prod — dev key transited chat) |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | 🔑 | S3 + Textract | AWS IAM → the least-privilege prod user (S3 rw on the two buckets + Textract Start/Get only) |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | 🔑 | S3 + Textract | AWS IAM → the least-privilege user (S3 rw on the case-documents bucket for THAT environment + the eval corpus, + Textract Start/Get only). Prod and dev should use different keys, each scoped to its own bucket |
 | `AWS_REGION` | | Bucket/Textract region | `us-east-2` |
-| `S3_BUCKET` | | Case-documents bucket | `snl-case-documents-327600375718` |
+| `S3_BUCKET` | | Case-documents bucket — **separate per environment** (2026-09-09) | Production: `snl-case-documents-327600375718` (CORS: snotnoselegal.com origins only). Dev: `snl-case-documents-dev-327600375718` (CORS: localhost + LAN). Same settings on both: versioning, AES256, public access blocked, lifecycle (noncurrent 35d, MPU abort 7d, IA at 90d). Never point two environments at one bucket — dev test uploads landed in the production bucket for a week. |
 | `EVAL_CORPUS_BUCKET` | | Encrypted reference corpus (seed `--corpus`) | `snl-eval-corpus-327600375718` |
 | `S3_ENDPOINT` | | Optional S3-compatible endpoint override | Unset in real AWS |
 | `CLAMD_HOST` | | Arms the ENG-4 malware scan (`host` or `host:port`, default port 3310); unset = uploads log "NOT scanned" | Dev: `localhost` with `docker compose --profile scan up -d clamav`. Prod: auto-wired `fromService` (clamav) |

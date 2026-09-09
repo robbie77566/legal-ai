@@ -3,6 +3,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export CI=true
+# Force test mode regardless of what the caller's shell has exported (a sourced
+# .env once made every api suite boot a real server on :3001 — 2026-09-09).
+export NODE_ENV=test
 export DATABASE_URL="${DATABASE_URL:-postgresql://user:password@localhost:5433/legal_ai?schema=public}"
 
 echo "── migrations ──"
