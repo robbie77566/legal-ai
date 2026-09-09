@@ -142,6 +142,7 @@ describe('ops shell', () => {
   it('shows who is signed in and offers Sign out → back to the home page (2026-09-09)', () => {
     render(<OpsLayout><div>child</div></OpsLayout>)
     expect(screen.getByTestId('ops-session')).toHaveTextContent('robbie@snotnoselegal.com')
+    expect(screen.getByTestId('ops-profile-link')).toHaveAttribute('href', '/ops/profile')
     fireEvent.click(screen.getByTestId('ops-sign-out'))
     expect(signOut).toHaveBeenCalledWith({ callbackUrl: '/' })
   })

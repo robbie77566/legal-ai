@@ -51,6 +51,11 @@ model Payment {
   disputedAt      DateTime?
   disputeStatus   String? // open | won | lost
   promoCode       String? // attribution (promo_codes.md §5)
+  // Receipt details for the family's account page, fetched from Stripe once
+  // on first view and kept — brand and last four only, never more.
+  cardBrand       String?
+  cardLast4       String?
+  receiptUrl      String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -326,6 +331,11 @@ model User {
   id                  String      @id @default(cuid())
   email               String      @unique
   name                String?
+  // Staff profile (ops /profile, 2026-09-09). `name` stays the display
+  // name everywhere and is kept as "first last" when these are set.
+  firstName           String?
+  lastName            String?
+  phone               String?
   passwordHash        String?
   role                Role        @default(ATTORNEY)
   tenantId            String
@@ -334,6 +344,11 @@ model User {
 
   passwordChangedAt   DateTime?
   deletedAt           DateTime? // account deletion (anonymized row; ledger FKs survive)
+  // Email change (your_account spec U5): the new address is held until its
+  // owner confirms from a link sent to it; sign-in keeps using `email`.
+  pendingEmail        String?
+  emailChangeToken    String?
+  emailChangeExpires  DateTime?
   inviteToken         String?
   inviteExpires       DateTime?
   resetToken          String?

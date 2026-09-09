@@ -64,7 +64,9 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
           {/* Who is signed in + the way out. Testing the family flow from a
               staff session had no exit but clearing cookies (2026-09-09). */}
           <div className="flex items-center gap-3 text-xs text-[#8B949E]" data-testid="ops-session">
-            <span>{email ?? role ?? 'signed in'}{email && role ? ` · ${role.toLowerCase()}` : ''}</span>
+            <Link href="/ops/profile" className="rounded px-2 py-1 hover:bg-[#161B22] hover:text-[#E6EDF3]" title="Your profile" data-testid="ops-profile-link">
+              {email ?? role ?? 'signed in'}{email && role ? ` · ${role.toLowerCase()}` : ''}
+            </Link>
             <button
               type="button"
               onClick={() => void signOut({ callbackUrl: '/' })}
