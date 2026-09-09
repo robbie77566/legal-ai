@@ -62,7 +62,7 @@ In production (Render) there are no files: every value is a service env var (blu
 
 | Var | 🔑 | Purpose | Where to get it |
 |---|---|---|---|
-| `SENTRY_DSN` | 🔑* | Error capture (unset = off; *ingest-only, low sensitivity) | Sentry → Settings → Projects → project → **Client Keys (DSN)** |
+| `SENTRY_DSN` | | Error capture (unset = off). Ingest-only — a DSN can send events, never read them — so it lives as a plain value in `render.yaml` since 2026-09-09 after blueprint syncs dropped it twice | Sentry → Settings → Projects → project → **Client Keys (DSN)**. To rotate: new key in Sentry, update the blueprint value |
 | `POSTHOG_API_KEY` | | snl.* funnel events (`phc_…` project token; write-only, browser-safe) | PostHog → Settings → **Project token & ID** |
 | `POSTHOG_HOST` | | Region host (default `https://us.i.posthog.com`; EU accounts must set `eu.`) | PostHog settings header/URL shows region |
 | `RESEND_API_KEY` | 🔑 | All transactional email (unset = console transport, loudly) | resend.com → API Keys (+ SPF/DKIM DNS records) |

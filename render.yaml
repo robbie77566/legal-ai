@@ -94,7 +94,10 @@ services:
       - { key: STRIPE_SECRET_KEY, sync: false }
       - { key: STRIPE_WEBHOOK_SECRET, sync: false }
       - { key: RESEND_API_KEY, sync: false }
-      - { key: SENTRY_DSN, sync: false }
+      # Ingest-only key (a DSN can send events, never read them) — kept in the
+      # blueprint so a sync sets it instead of dropping it (lost twice, 2026-09).
+      - key: SENTRY_DSN
+        value: https://2288886c2a2123a393bb7e8e29c8f008@o4512005642911744.ingest.us.sentry.io/4512005695012864
       - { key: POSTHOG_API_KEY, sync: false }
 
   - type: web
