@@ -147,3 +147,24 @@ describe('ops shell', () => {
     session.role = 'ADMIN'
   })
 })
+
+describe('drawer actions report next to the button (2026-09-09)', () => {
+  it('Resume stuck pipeline shows its result inside the drawer, not only at the page top', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      const body = u.endsWith('/resume') ? { ok: true, analysisEnqueued: true, redigitized: 0, priorJobState: 'failed', undigitized: 0 }
+        : u.endsWith('/ops/status') ? STATUS : u.endsWith('/qa/holds') ? HOLDS : u.endsWith('/ops/queue') ? QUEUE
+        : u.endsWith('/ops/requests') ? REQUESTS : u.endsWith('/timeline') ? [] : u.endsWith('/cogs') ? { totalUsd: 0 } : { ok: true }
+      calls.push(`${init?.method ?? 'GET'} ${u}`)
+      return { ok: true, status: 200, json: async () => body } as Response
+    }))
+    render(<OpsOverview />)
+    fireEvent.click(await screen.findByText('Bexar County · 2018')) // ANALYZING → button shown
+    const drawer = await screen.findByTestId('case-drawer')
+    fireEvent.click(screen.getByTestId('resume-pipeline'))
+    const result = await screen.findByTestId('drawer-result')
+    await waitFor(() => expect(result).toHaveTextContent(/analysis re-queued \(previous job: failed\)/))
+    expect(drawer).toContainElement(result)
+    expect(calls.some((c) => c === 'POST http://localhost:3001/ops/cases/c_2/resume')).toBe(true)
+  })
+})

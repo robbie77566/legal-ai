@@ -60,6 +60,9 @@ export default function OpsOverview() {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([])
   const [cogs, setCogs] = useState<Cogs | null>(null)
   const [notice, setNotice] = useState('')
+  // Result of a drawer action, shown NEXT TO the button: the page-top notice
+  // was off-screen on a phone, so Resume looked like it did nothing (2026-09-09).
+  const [drawerResult, setDrawerResult] = useState('')
   const [delayDate, setDelayDate] = useState('')
   const [deleteTyped, setDeleteTyped] = useState('')
   const [filter, setFilter] = useState<'all' | 'attention'>('all')
@@ -85,7 +88,7 @@ export default function OpsOverview() {
   useEffect(() => { void loadAll() }, [loadAll])
 
   const open = async (row: QueueRow) => {
-    setSelected(row); setNotice(''); setDeleteTyped('')
+    setSelected(row); setNotice(''); setDrawerResult(''); setDeleteTyped('')
     const [t, c] = await Promise.all([apiFetch(`/ops/cases/${row.id}/timeline`), apiFetch(`/ops/cases/${row.id}/cogs`)])
     if (t.ok) setTimeline(await t.json())
     setCogs(c.ok ? await c.json() : null)
@@ -308,17 +311,22 @@ export default function OpsOverview() {
                     <button
                       data-testid="resume-pipeline"
                       title="For a case whose status says it is running but nothing has happened for hours: clears the dead job, re-reads documents with no text, re-queues the analysis. Refuses if a job is genuinely live."
-                      onClick={() => void apiFetch(`/ops/cases/${selected.id}/resume`, { method: 'POST' }).then(async (r) => {
-                        const d = await r.json().catch(() => ({}))
-                        setNotice(
-                          r.ok
-                            ? d.analysisEnqueued
-                              ? `Resumed: analysis re-queued (previous job: ${d.priorJobState}).`
-                              : `Resumed: ${d.redigitized} document(s) re-queued for reading (${d.undigitized} had no text). Press Resume again once they finish.`
-                            : d.error ?? `Resume failed: ${r.status}`
-                        )
-                        await loadAll()
-                      })}
+                      onClick={() => {
+                        setDrawerResult('Working…')
+                        void apiFetch(`/ops/cases/${selected.id}/resume`, { method: 'POST' })
+                          .then(async (r) => {
+                            const d = await r.json().catch(() => ({}))
+                            const msg = r.ok
+                              ? d.analysisEnqueued
+                                ? `Resumed: analysis re-queued (previous job: ${d.priorJobState}). Watch the timeline — the first event may take a while.`
+                                : `Resumed: ${d.redigitized} document(s) re-queued for reading (${d.undigitized} had no text). Press Resume again once they finish.`
+                              : d.error ?? `Resume failed: ${r.status}`
+                            setDrawerResult(msg)
+                            setNotice(msg)
+                            await loadAll()
+                          })
+                          .catch((e) => setDrawerResult(`Resume failed — the request didn’t reach the API (${(e as Error).message}).`))
+                      }}
                       className="rounded border border-[#3B82F6] px-2 py-1 text-xs text-[#3B82F6]"
                     >
                       Resume stuck pipeline
@@ -332,6 +340,11 @@ export default function OpsOverview() {
                   </button>
                 </div>
 
+                {drawerResult && (
+                  <p data-testid="drawer-result" role="status" className="mt-2 rounded border border-[#D29922] bg-[#D29922]/10 px-3 py-2 text-xs text-[#D29922]">
+                    {drawerResult}
+                  </p>
+                )}
                 <div className="mt-4 text-[11px] uppercase tracking-wider text-[#F85149]">Irreversible</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <Link href={`/ops/money?case=${selected.id}`} className="rounded border border-[#D29922] px-2 py-1 text-xs text-[#D29922]">Refund…</Link>
