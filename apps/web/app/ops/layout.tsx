@@ -10,6 +10,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { useStaffRole } from '@/lib/staff-role'
+import { signOut, useSession } from 'next-auth/react'
 
 const NAV: [string, string][] = [
   ['/ops', 'Overview'],
@@ -31,6 +32,7 @@ const SUPPORT_NAV = new Set(['/ops', '/ops/cases', '/ops/accounts', '/ops/feedba
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? ''
   const role = useStaffRole()
+  const email = (useSession().data?.user as { email?: string | null } | undefined)?.email ?? null
   const nav = role === 'SUPPORT' ? NAV.filter(([href]) => SUPPORT_NAV.has(href)) : NAV
   // The API rejecting the browser's session (cookie not reaching api.* or a
   // NEXTAUTH_SECRET mismatch between services) made every ops page render
@@ -59,6 +61,19 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
               )
             })}
           </nav>
+          {/* Who is signed in + the way out. Testing the family flow from a
+              staff session had no exit but clearing cookies (2026-09-09). */}
+          <div className="flex items-center gap-3 text-xs text-[#8B949E]" data-testid="ops-session">
+            <span>{email ?? role ?? 'signed in'}{email && role ? ` · ${role.toLowerCase()}` : ''}</span>
+            <button
+              type="button"
+              onClick={() => void signOut({ callbackUrl: '/' })}
+              className="rounded border border-[#30363D] px-2 py-1 text-[#E6EDF3] hover:border-[#8B949E]"
+              data-testid="ops-sign-out"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
       {apiAuth === 'rejected' && (

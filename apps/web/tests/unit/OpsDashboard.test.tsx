@@ -9,7 +9,8 @@ import OpsLayout from '@/app/ops/layout'
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/ops' }))
 const session = vi.hoisted(() => ({ role: 'ADMIN' }))
-vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { role: session.role } }, status: 'authenticated' }) }))
+const signOut = vi.fn()
+vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { role: session.role, email: 'robbie@snotnoselegal.com' } }, status: 'authenticated' }), signOut: (...a: unknown[]) => signOut(...a) }))
 
 const STATUS = {
   email: { configured: false, from: null },
@@ -136,6 +137,13 @@ describe('ops shell', () => {
     expect(screen.getByRole('link', { name: 'Holds' })).toHaveAttribute('href', '/ops/holds')
     expect(screen.getByRole('link', { name: 'Team' })).toHaveAttribute('href', '/dashboard/permissions')
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('shows who is signed in and offers Sign out → back to the home page (2026-09-09)', () => {
+    render(<OpsLayout><div>child</div></OpsLayout>)
+    expect(screen.getByTestId('ops-session')).toHaveTextContent('robbie@snotnoselegal.com')
+    fireEvent.click(screen.getByTestId('ops-sign-out'))
+    expect(signOut).toHaveBeenCalledWith({ callbackUrl: '/' })
   })
 
   it('a SUPPORT sign-in sees only the customer-facing doors — no Money, Promos, Holds, or Retention', () => {
