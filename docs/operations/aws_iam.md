@@ -4,14 +4,14 @@
 
 | Environment | IAM user | Policy file | Bucket | Where the key lives |
 |---|---|---|---|---|
-| Production | `snl-api-prod` (create) | `docs/operations/iam/snl-api-prod-policy.json` | `snl-case-documents-327600375718` | Render → api → `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` |
-| Dev | `legal-ai-local-dev` (exists) — replace its policy, or create `snl-api-dev` | `docs/operations/iam/snl-api-dev-policy.json` | `snl-case-documents-dev-327600375718` | root `.env` on the dev box |
+| Production | `snotnoselegal-prod-user` | `docs/operations/iam/snl-api-prod-policy.json` | `snl-case-documents-327600375718` | Render → api → `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` |
+| Dev | `snotnoselegal-dev-user` (replaces `legal-ai-local-dev`) | `docs/operations/iam/snl-api-dev-policy.json` | `snl-case-documents-dev-327600375718` | root `.env` on the dev box |
 
 Both policies also allow **read-only** access to the eval corpus bucket (seed `--corpus`, fetch script) and exactly the three Textract calls the pipeline makes (`DetectDocumentText`, `StartDocumentTextDetection`, `GetDocumentTextDetection`). Nothing else — no IAM, no other buckets, no console.
 
 ## Creating a user (AWS console, ~2 minutes)
 
-1. IAM → Users → **Create user** → name (`snl-api-prod` or `snl-api-dev`) → *no* console access → Next.
+1. IAM → Users → **Create user** → name (`snotnoselegal-prod-user` or `snotnoselegal-dev-user`) → *no* console access → Next.
 2. Permissions: **Attach policies directly** → **Create policy** → JSON tab → paste the matching file from `docs/operations/iam/` → name it the same as the user → create, then attach it to the user → Create user.
 3. Open the user → **Security credentials** → **Create access key** → *Application running outside AWS* → copy both values **once**.
 4. Put them where that environment reads them (table above). Prod: save on the Render api service and let it redeploy. Dev: edit `.env` — never paste a key into chat.
