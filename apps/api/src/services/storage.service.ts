@@ -1,6 +1,7 @@
 import {
   S3Client,
   GetObjectCommand,
+  HeadObjectCommand,
   ListObjectVersionsCommand,
   DeleteObjectsCommand,
 } from '@aws-sdk/client-s3';
@@ -26,6 +27,12 @@ export function s3(): S3Client {
     });
   }
   return clientSingleton;
+}
+
+/** Size in bytes without downloading — lets a bundle refuse before it OOMs. */
+export async function getObjectSize(key: string): Promise<number> {
+  const res = await s3().send(new HeadObjectCommand({ Bucket: bucket(), Key: key }));
+  return res.ContentLength ?? 0;
 }
 
 export async function getObjectBytes(key: string): Promise<Buffer> {

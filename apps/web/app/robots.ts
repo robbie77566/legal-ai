@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       // Signed-in and funnel-private surfaces stay out of the index.
-      disallow: ['/case/', '/cases', '/ops', '/qa', '/buy', '/check', '/auth/', '/api/'],
+      disallow: ['/case/', '/cases', '/account', '/ops', '/qa', '/buy', '/check', '/auth/', '/api/'],
     },
     sitemap: 'https://www.snotnoselegal.com/sitemap.xml',
   }

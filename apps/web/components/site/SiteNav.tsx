@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { useContext } from 'react'
 import { SessionContext } from 'next-auth/react'
 import { useContent, LangSwitch } from '../../lib/i18n'
+import { NamePill } from '../daybreak/NamePill'
 
 const NAV = {
   en: {
@@ -45,7 +46,10 @@ export default function SiteNav() {
   // or without one, and a signed-in family gets a way back to their reviews
   // (customer_journey_ux_review G-C3).
   const session = useContext(SessionContext)
-  const signedIn = !!session?.data?.user
+  const user = session?.data?.user as { name?: string | null; email?: string | null; role?: string } | undefined
+  // Staff on the brand site go through the role-aware landing, not the family page.
+  const pillHref = user?.role && user.role !== 'CLIENT' ? '/go' : '/account'
+  const signedIn = !!user
   return (
     <nav className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-2 px-5 py-5">
       <Link href="/" className="font-db-serif text-lg font-bold text-db-accent">
@@ -68,9 +72,7 @@ export default function SiteNav() {
           {t.faq}
         </Link>
         {signedIn ? (
-          <Link href="/cases" className="font-semibold text-db-accent underline" data-testid="nav-reviews">
-            {t.reviews}
-          </Link>
+          <NamePill name={user?.name} email={user?.email} compact href={pillHref} />
         ) : (
           <Link href="/auth/signin" className="text-db-muted underline" data-testid="nav-signin">
             {t.signIn}

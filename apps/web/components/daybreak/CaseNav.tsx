@@ -5,6 +5,7 @@
  * one click from every other. Labels are the family's words, not statuses.
  */
 import Link from 'next/link'
+import FamilyNav from './FamilyNav'
 
 export type CaseSection = 'overview' | 'documents' | 'progress' | 'report' | 'next-steps'
 
@@ -18,6 +19,8 @@ const ITEMS: Array<[CaseSection, string, (id: string) => string]> = [
 
 export default function CaseNav({ caseId, current }: { caseId: string; current: CaseSection }) {
   return (
+    <>
+    <div className="-mx-5 -mt-8 mb-4 border-b border-db-line"><FamilyNav /></div>
     <nav aria-label="Case sections" data-testid="case-nav" className="-mx-1 mb-5 flex flex-wrap gap-1 border-b border-db-line pb-2 text-sm">
       {ITEMS.map(([id, label, href]) => (
         <Link
@@ -30,5 +33,6 @@ export default function CaseNav({ caseId, current }: { caseId: string; current: 
         </Link>
       ))}
     </nav>
+    </>
   )
 }

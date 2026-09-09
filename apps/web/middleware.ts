@@ -28,7 +28,7 @@ export default withAuth({
       if (path.startsWith('/dashboard') || path.startsWith('/workspace')) {
         return STAFF_ROLES.has(role);
       }
-      return true; // /case — authentication is the only requirement here
+      return true; // /case, /account, /cases — authentication is the only requirement here
     },
   },
   pages: { signIn: '/auth/signin' },
@@ -41,5 +41,8 @@ export const config = {
     '/qa/:path*',
     '/ops/:path*',
     '/case/:path*',
+    '/cases',
+    '/account',
+    '/account/((?!confirm-email).*)', // the confirm link works signed out — token-verified
   ],
 };

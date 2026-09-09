@@ -5,6 +5,7 @@
 ## Daily surfaces
 
 - **Ops queue:** `/ops` — days-in-stage, holds, stall chips. A case parked at DOCS_COMPLETE with no analysis run means the enqueue failed (Redis down at records-complete) — re-enqueue via the re-run script below.
+- **Family account (what they see):** `/account` — reviews, payments with receipts, sharing, settings, export, deletion request (design/your_account.md). A family's deletion request lands in Overview approvals as ACCOUNT_DELETE.
 - **Case file:** `/ops/cases/<id>` — everything the family can see (uploads with page counts and OCR confidence, analysis, every released report as PDF, share-link opens) plus the contact log and any requests. Support's home page; admins get the same plus Refund and request decisions.
 - **Money:** `/ops/money` (ADMIN) — collected / refunded / net / refund rate vs the 5% reserve (cohort view: a refund counts against the week its payment was *sold*), open disputes and support requests, the refund dialog (full or partial, reason, note), the ledger with Stripe deep-links, and **Reconcile with Stripe now** (a healed count above zero means a webhook was missed — fix the secret).
 - **Your profile:** `/ops/profile` (the email chip in the ops header) — first, last, phone, email, role, change password, forgot-password link. Sign out is beside it.
@@ -24,6 +25,8 @@
 | A specialist is giving your review a closer look | auto-QA hold | progress page |
 | Your report is ready | QA approval (manual or auto) | report |
 | Refund issued | any console refund | case home |
+| Confirm your new email address | family starts an email change (sent to the NEW address) | /account/confirm-email |
+| Your account email is changing | same moment, to the OLD address | — (says: change your password if this wasn't you) |
 | Your re-run is paid for | RERUN purchase fulfilled | documents page |
 | One quick question about your report | +7 days after the report | report (share survey) |
 | We'll check back when the appeal is decided | a pending-appeal family leaves an email on /check | /check |

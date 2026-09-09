@@ -1,7 +1,7 @@
 'use client'
 
 /** Role-aware sign-in landing (US-11): a family must never land on a
- *  professional surface. CLIENT → /cases, ATTORNEY → /qa, ADMIN | SUPPORT → /ops. */
+ *  professional surface. CLIENT → /account, ATTORNEY → /qa, ADMIN | SUPPORT → /ops. */
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -12,7 +12,7 @@ export default function Go() {
   useEffect(() => {
     if (status === 'loading') return
     const role = (session?.user as { role?: string } | undefined)?.role
-    router.replace(role === 'ATTORNEY' ? '/qa' : role === 'ADMIN' || role === 'SUPPORT' ? '/ops' : '/cases')
+    router.replace(role === 'ATTORNEY' ? '/qa' : role === 'ADMIN' || role === 'SUPPORT' ? '/ops' : '/account')
   }, [status, session, router])
   return null
 }

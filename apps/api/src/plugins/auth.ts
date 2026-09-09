@@ -27,6 +27,7 @@ const PUBLIC_PREFIXES = [
   '/auth/forgot', // enumeration-safe + rate-limited in-route
   '/auth/reset', // token-verified in-route
   '/auth/setup', // invite acceptance — token-verified in-route
+  '/me/email/confirm', // email change — token-verified in-route
 ]
 
 const SESSION_COOKIES = [

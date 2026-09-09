@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { PasswordInput } from '../../../components/auth/PasswordInput';
 import { updateProfile, changePassword } from './_actions';
@@ -9,6 +10,10 @@ export default function AccountPage() {
   const { data: session, update } = useSession();
   const user = session?.user;
   const role = (user as any)?.role as string | undefined;
+  const router = useRouter();
+  // A family must never land on a professional surface (US-11): their
+  // account lives at /account (your_account spec U14).
+  useEffect(() => { if (role === 'CLIENT') router.replace('/account'); }, [role, router]);
 
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);

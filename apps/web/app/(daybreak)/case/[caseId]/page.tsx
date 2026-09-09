@@ -47,7 +47,7 @@ export default function CaseHome() {
     })()
   }, [caseId])
 
-  if (missing) return <main className="mx-auto max-w-xl px-5 py-12 text-db-muted">We couldn&rsquo;t open that review. <Link href="/cases" className="underline">Back to your reviews</Link>.</main>
+  if (missing) return <main className="mx-auto max-w-xl px-5 py-12 text-db-muted">We couldn&rsquo;t open that review. <Link href="/account" className="underline">Back to your account</Link>.</main>
   if (!data) return <main className="mx-auto max-w-xl px-5 py-12 text-db-muted">Loading…</main>
 
   const lines = (data.factLines ?? []).filter((l) => l.value)
@@ -61,7 +61,7 @@ export default function CaseHome() {
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
       <CaseNav caseId={caseId} current="overview" />
-      <p className="text-xs text-db-muted"><Link href="/cases" className="underline">Your reviews</Link></p>
+      <p className="text-xs text-db-muted"><Link href="/account" className="underline">Your account</Link></p>
       <h1 className="mt-1 font-db-serif text-2xl font-semibold" data-testid="case-home-title">{conviction ? `Review · ${conviction.split(' · ').slice(0, 2).join(' · ')}` : 'Your review'}</h1>
 
       <section data-testid="stage" className="mt-4 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4">

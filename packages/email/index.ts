@@ -256,6 +256,30 @@ If the appeal is still pending, nothing to do. This is the only reminder we send
   });
 }
 
+/** Email change (your_account U5): the new address confirms; the old one is told. */
+export function sendEmailChangeConfirm(to: string, opts: { confirmUrl: string }) {
+  return send({
+    to,
+    subject: 'Confirm your new email address',
+    text: `Someone — we hope you — asked to move a Family Case Review account to this address.
+
+Confirm it here (the link works for 24 hours):
+${opts.confirmUrl}
+
+If this wasn't you, ignore this message and nothing changes.`,
+  });
+}
+
+export function sendEmailChangeNotice(to: string, opts: { newEmail: string }) {
+  return send({
+    to,
+    subject: 'Your account email is changing',
+    text: `A request was made to change the email on your Family Case Review account to ${opts.newEmail}. Nothing changes until that address confirms.
+
+If this wasn't you, sign in and change your password now, then reply to this email so we can help.`,
+  });
+}
+
 /** Staff notification (staff_console_access_model §6): one email per request. */
 export function sendStaffRequest(
   to: string,
