@@ -17,7 +17,7 @@ const c = new S.S3Client({ region: process.env.AWS_REGION || 'us-east-2' })
   const verdict = {}
   for (const [env, b] of Object.entries(BUCKETS)) {
     try { await c.send(new S.HeadBucketCommand({ Bucket: b })); verdict[env] = 'REACHABLE' }
-    catch (e) { verdict[env] = e.name === 'NotFound' ? 'not found' : `denied (${e.name})` }
+    catch (e) { const code = e.$metadata && e.$metadata.httpStatusCode; verdict[env] = code === 404 ? 'not found' : `denied (${code || e.name})` }
     console.log(`  ${env.padEnd(5)} ${b.padEnd(42)} ${verdict[env]}`)
   }
   if (Object.values(verdict).every((v) => v.includes('CredentialsProviderError'))) {

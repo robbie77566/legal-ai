@@ -1,5 +1,7 @@
 # AWS IAM — one user per environment
 
+**Status:** dev done 2026-09-09 (`snotnoselegal-dev-user`, group `snotnoselegal-dev`, scope check OK); prod user created, key to be set on the Render api service. Old `legal-ai-local-dev` key: deactivate.
+
 **Why (2026-09-09):** the buckets were split into prod and dev, but one access key (`legal-ai-local-dev`) still reached both. A leaked dev key could read or delete production case files. Each environment gets its own IAM user whose policy names only its own bucket.
 
 | Environment | IAM user | Policy file | Bucket | Where the key lives |
