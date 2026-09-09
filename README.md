@@ -113,7 +113,7 @@ pnpm --filter web test:e2e                           # Playwright public-surface
 
 What the suites cover (~190 tests): RLS isolation both directions + a superuser-bypass canary, the event spine/outbox, Stripe webhook idempotency and replay, the analysis pipeline (FR-6 grounding, salvage/truncation/control-char regressions, sampling union, batch seam), QA approve/reject + FR-7 tamper detection, report PDF rendering, FR-5 deadline vectors, the eval scorer, auth/recovery, and web unit tests (eligibility wizard, landing, documents, QA console, tracker, palette A/B).
 
-Gotchas: run vitest from the **repo root** (workspace resolution breaks inside a package); integration suites pin `ANALYSIS_SAMPLES=1` themselves; a fresh clone needs migrations before tests (`pnpm --filter @hg/database db:migrate:deploy`).
+Gotchas: run vitest from the **repo root** (workspace resolution breaks inside a package); integration suites pin `ANALYSIS_SAMPLES=1` themselves; after a `git pull` that brings a migration, run **`pnpm db:sync`** (applies pending migrations + regenerates the Prisma client) — or just run `./scripts/gate.sh`, whose first step does the same, so the dev database follows the code automatically.
 
 ### Quality gates (run after any prompt/model/engine change)
 
