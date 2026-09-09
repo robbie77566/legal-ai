@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import ReturningLine from '../../../components/daybreak/ReturningLine'
 import CtaLink from '../../../components/ab/CtaLink'
 import PaletteExperiment from '../../../components/ab/PaletteExperiment'
 import { useContent, LangSwitch } from '../../../lib/i18n'
@@ -66,6 +67,7 @@ export default function DaybreakLanding() {
         <Link href="/sample-report" className="mt-2 inline-block text-sm font-semibold text-db-accent underline" data-testid="hero-sample-link">
           {t.sampleLink}
         </Link>
+        <ReturningLine className="mt-3" />
       </header>
 
       <section className="rounded-xl border border-db-line bg-db-surface p-6">

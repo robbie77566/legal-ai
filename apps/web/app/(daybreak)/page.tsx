@@ -8,6 +8,7 @@
  */
 import Link from 'next/link'
 import SiteNav from '../../components/site/SiteNav'
+import ReturningLine from '../../components/daybreak/ReturningLine'
 import { useContent } from '../../lib/i18n'
 import { HOME_CONTENT as H } from '../../lib/content/home'
 
@@ -30,6 +31,7 @@ export default function BrandHome() {
           {t.cta}
         </Link>
         <p className="mt-3 text-sm text-db-muted">{t.ctaSub}</p>
+        <ReturningLine className="mt-2" />
       </header>
 
       <section className="py-6">
@@ -83,6 +85,7 @@ export default function BrandHome() {
         >
           {t.footerCta}
         </Link>
+        <ReturningLine className="mt-3" />
       </div>
     </main>
   )
