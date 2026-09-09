@@ -26,6 +26,7 @@ const FILE = {
   notes: [{ id: 'n_1', channel: 'phone', body: 'Family asked for an update.', authorEmail: 'dana@snotnoselegal.com', createdAt: '2026-09-06T14:02:00Z' }],
   requests: { open: [{ id: 'q_0', type: 'CASE_DELETE', reason: 'customer_request', note: 'Family asked us to remove everything.', amountCents: null, requestedByEmail: 'dana@snotnoselegal.com', decision: null, decidedByEmail: null, decisionNote: null, createdAt: '2026-09-07T09:00:00Z', decidedAt: null }], decided: [{ id: 'q_1', type: 'REFUND', reason: 'unreadable_record', note: null, amountCents: null, requestedByEmail: 'dana@snotnoselegal.com', decision: 'DECLINED', decidedByEmail: 'robbie@snotnoselegal.com', decisionNote: 'Ask the clerk first.', createdAt: '2026-09-05T10:00:00Z', decidedAt: '2026-09-05T12:00:00Z' }] },
 }
+let PIPELINE: Record<string, unknown> = { status: 'READY', running: false, alive: false, analysisJob: 'none', docJobs: 0, undigitized: 0, lastEvent: null }
 const calls: string[] = []
 
 beforeEach(() => {
@@ -34,6 +35,8 @@ beforeEach(() => {
     const u = String(url)
     calls.push(`${init?.method ?? 'GET'} ${u}`)
     const body = u.endsWith('/file') ? FILE
+      : u.endsWith('/pipeline') ? PIPELINE
+      : u.endsWith('/resume') ? { ok: true, analysisEnqueued: true, redigitized: 0, undigitized: 0, priorJobState: 'failed' }
       : u.endsWith('/timeline') ? [{ id: 'e1', type: 'report.rendered', actor: 'marcus', createdAt: '2026-09-05T10:00:00Z' }]
       : u.endsWith('/download') ? { url: 'https://s3.example/signed', filename: 'RR_Vol1_VoirDire.pdf' }
       : u.endsWith('/contact') ? { id: 'n_2' }
@@ -118,5 +121,51 @@ describe('case file', () => {
     fireEvent.click(screen.getByTestId('approve-q_0'))
     await waitFor(() => expect(calls).toContain('POST http://localhost:3001/ops/requests/q_0/decide'))
     session.role = 'SUPPORT'
+  })
+})
+
+
+describe('case file — live pipeline card (2026-09-09)', () => {
+  it('running + alive: green card with the job state and last activity; no card when not running', async () => {
+    PIPELINE = { status: 'ANALYZING', running: true, alive: true, analysisJob: 'active', docJobs: 0, undigitized: 0, lastEvent: { type: 'screen.completed', at: new Date(Date.now() - 4 * 60_000).toISOString() } }
+    const runningFile = { ...FILE, case: { ...FILE.case, status: 'ANALYZING' } }
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url)
+      const body = u.endsWith('/file') ? runningFile : u.endsWith('/pipeline') ? PIPELINE : u.endsWith('/timeline') ? [] : { ok: true }
+      return { ok: true, status: 200, json: async () => body } as Response
+    }))
+    render(<CaseFilePage />)
+    const card = await screen.findByTestId('pipeline-card')
+    await waitFor(() => expect(card).toHaveAttribute('data-alive', 'true'))
+    expect(card).toHaveTextContent(/Running/)
+    expect(card).toHaveTextContent(/analysis job active/)
+    expect(screen.getByTestId('pipeline-last')).toHaveTextContent(/Last activity 4 minutes ago: finished one of the checks/)
+  })
+
+  it('running but dead: red "Stuck — no live job", and Resume reports its result inside the card', async () => {
+    PIPELINE = { status: 'ANALYZING', running: true, alive: false, analysisJob: 'failed', docJobs: 0, undigitized: 0, lastEvent: { type: 'stage.entered', at: new Date(Date.now() - 12 * 3600_000).toISOString() } }
+    const runningFile = { ...FILE, case: { ...FILE.case, status: 'ANALYZING' } }
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url); calls.push(`${init?.method ?? 'GET'} ${u}`)
+      const body = u.endsWith('/file') ? runningFile : u.endsWith('/pipeline') ? PIPELINE : u.endsWith('/timeline') ? []
+        : u.endsWith('/resume') ? { ok: true, analysisEnqueued: true, redigitized: 0, undigitized: 0, priorJobState: 'failed' } : { ok: true }
+      return { ok: true, status: 200, json: async () => body } as Response
+    }))
+    render(<CaseFilePage />)
+    const card = await screen.findByTestId('pipeline-card')
+    await waitFor(() => expect(card).toHaveAttribute('data-alive', 'false'))
+    expect(card).toHaveTextContent(/Stuck — no live job/)
+    expect(screen.getByTestId('pipeline-last')).toHaveTextContent(/12 hours ago/)
+    fireEvent.click(screen.getByTestId('resume-pipeline'))
+    const result = await screen.findByTestId('resume-result')
+    await waitFor(() => expect(result).toHaveTextContent(/analysis re-queued \(previous job: failed\)/))
+    expect(card).toContainElement(result)
+    expect(calls.some((c) => c === 'POST http://localhost:3001/ops/cases/c_1/resume')).toBe(true)
+  })
+
+  it('a delivered case shows no pipeline card', async () => {
+    render(<CaseFilePage />)
+    await screen.findByTestId('case-title')
+    expect(screen.queryByTestId('pipeline-card')).toBeNull()
   })
 })

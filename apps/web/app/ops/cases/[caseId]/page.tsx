@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { apiFetch, API_URL } from '@/lib/api'
 import { useStaffRole } from '@/lib/staff-role'
+import { ago, describeActivity } from '@/lib/tracker'
 
 interface CaseFile {
   case: {
@@ -36,6 +37,7 @@ interface CaseFile {
   shareLinks: Array<{ id: string; createdAt: string; expiresAt: string; revokedAt: string | null; opens: number; lastOpenedAt: string | null }>
 }
 interface TimelineEvent { id: string; type: string; actor: string; createdAt: string }
+interface Pipeline { status: string; running: boolean; alive: boolean; analysisJob: string; docJobs: number; undigitized: number; lastEvent: { type: string; at: string } | null }
 interface RequestRow {
   id: string; type: 'REFUND' | 'CASE_DELETE' | 'ACCOUNT_DELETE'; reason: string; note: string | null; amountCents: number | null
   requestedByEmail: string; decision: 'APPROVED' | 'DECLINED' | null; decidedByEmail: string | null; decisionNote: string | null
@@ -72,6 +74,11 @@ export default function CaseFilePage() {
   const [file, setFile] = useState<CaseFile | null>(null)
   const [timeline, setTimeline] = useState<TimelineEvent[]>([])
   const [notice, setNotice] = useState('')
+  // Live pipeline state (2026-09-09): "is anything happening?" answered on
+  // the case page itself, refreshed every 20s while the case is running.
+  const [pipeline, setPipeline] = useState<Pipeline | null>(null)
+  const [resumeResult, setResumeResult] = useState('')
+  const [tick, setTick] = useState(Date.now())
   const [delayDate, setDelayDate] = useState('')
   const [missing, setMissing] = useState(false)
   const [noteChannel, setNoteChannel] = useState('email')
@@ -90,11 +97,37 @@ export default function CaseFilePage() {
   }
 
   const load = useCallback(async () => {
-    const [f, t] = await Promise.all([apiFetch(`/ops/cases/${caseId}/file`), apiFetch(`/ops/cases/${caseId}/timeline`)])
+    const [f, t, p] = await Promise.all([apiFetch(`/ops/cases/${caseId}/file`), apiFetch(`/ops/cases/${caseId}/timeline`), apiFetch(`/ops/cases/${caseId}/pipeline`)])
     if (f.ok) setFile(await f.json()); else setMissing(true)
     if (t.ok) setTimeline(await t.json())
+    if (p.ok) setPipeline(await p.json())
+    setTick(Date.now())
   }, [caseId])
   useEffect(() => { void load() }, [load])
+  // Poll while running so the page shows movement without a manual reload.
+  useEffect(() => {
+    if (!pipeline?.running) return
+    const id = setInterval(() => void load(), 20_000)
+    return () => clearInterval(id)
+  }, [pipeline?.running, load])
+
+  const resume = async () => {
+    setResumeResult('Working…')
+    try {
+      const r = await apiFetch(`/ops/cases/${caseId}/resume`, { method: 'POST' })
+      const d = await r.json().catch(() => ({}))
+      setResumeResult(
+        r.ok
+          ? d.analysisEnqueued
+            ? `Resumed: analysis re-queued (previous job: ${d.priorJobState}). The first event can take a while — this card keeps refreshing.`
+            : `Resumed: ${d.redigitized} document(s) re-queued for reading (${d.undigitized} had no text). Press Resume again once they finish.`
+          : d.error ?? `Resume failed (${r.status})`
+      )
+    } catch (e) {
+      setResumeResult(`Resume failed — the request didn’t reach the API (${(e as Error).message}).`)
+    }
+    await load()
+  }
 
   const act = async (path: string, body?: unknown) => {
     const res = await apiFetch(`/ops/cases/${caseId}/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
@@ -152,7 +185,7 @@ export default function CaseFilePage() {
           <input type="date" value={delayDate} onChange={(e) => setDelayDate(e.target.value)} className="rounded border border-[#30363D] bg-[#0B0E14] p-1.5 text-xs" aria-label="New promise date" />
           <button onClick={() => void act('delay-ours', { extendedToDate: delayDate })} disabled={!delayDate} className="rounded border border-[#3B82F6] px-2 py-1 text-xs text-[#3B82F6] disabled:opacity-40">Mark delay ours</button>
           {c.delayOurs && <button onClick={() => void act('delay-cleared')} className="rounded border border-[#30363D] px-2 py-1 text-xs">Clear delay</button>}
-          {running && <button onClick={() => void act('resume')} className="rounded border border-[#3B82F6] px-2 py-1 text-xs text-[#3B82F6]">Resume stuck pipeline</button>}
+
           {role === 'ADMIN' && <Link href={`/ops/money?case=${c.id}`} className="rounded border border-[#D29922] px-2 py-1 text-xs text-[#D29922]">Refund…</Link>}
           {role === 'SUPPORT' && (
             <>
@@ -163,6 +196,44 @@ export default function CaseFilePage() {
         </div>
       </div>
       {notice && <p className="mt-2 text-sm text-[#D29922]" data-testid="notice">{notice}</p>}
+
+      {running && (
+        <div
+          data-testid="pipeline-card"
+          data-alive={pipeline ? String(pipeline.alive) : 'unknown'}
+          className="mt-3 rounded border p-3 text-sm"
+          style={{ borderColor: pipeline && !pipeline.alive ? '#F85149' : '#3FB950', background: pipeline && !pipeline.alive ? 'rgba(248,81,73,0.08)' : 'rgba(63,185,80,0.08)' }}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            {pipeline ? (
+              pipeline.alive ? (
+                <>
+                  <span aria-hidden className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-[#3FB950]" />
+                  <span className="font-semibold text-[#3FB950]">Running</span>
+                  <span className="text-[#8B949E]">
+                    · analysis job {pipeline.analysisJob}{pipeline.docJobs > 0 ? ` · ${pipeline.docJobs} document(s) being read` : ''}{pipeline.undigitized > 0 ? ` · ${pipeline.undigitized} not read yet` : ''}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-[#F85149]" />
+                  <span className="font-semibold text-[#F85149]">Stuck — no live job</span>
+                  <span className="text-[#8B949E]">· status says {pipeline.status} but nothing is running (analysis job: {pipeline.analysisJob}{pipeline.undigitized > 0 ? `, ${pipeline.undigitized} document(s) never read` : ''})</span>
+                </>
+              )
+            ) : (
+              <span className="text-[#8B949E]">Checking the pipeline…</span>
+            )}
+            <button onClick={() => void resume()} className="ml-auto rounded border border-[#3B82F6] px-2 py-1 text-xs text-[#3B82F6]" data-testid="resume-pipeline">Resume stuck pipeline</button>
+          </div>
+          {pipeline?.lastEvent && (
+            <p className="mt-1 text-xs text-[#8B949E]" data-testid="pipeline-last">
+              Last activity {ago(pipeline.lastEvent.at, tick)}: {describeActivity(pipeline.lastEvent.type)} ({humanize(pipeline.lastEvent.type)}). Refreshes every 20s.
+            </p>
+          )}
+          {resumeResult && <p role="status" data-testid="resume-result" className="mt-2 rounded border border-[#D29922] bg-[#D29922]/10 px-3 py-2 text-xs text-[#D29922]">{resumeResult}</p>}
+        </div>
+      )}
 
       {asking && (
         <div className="mt-3 rounded border border-[#D29922] bg-[#0D1117] p-3" data-testid="request-form">

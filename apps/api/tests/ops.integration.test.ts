@@ -213,6 +213,18 @@ describe('OPS: resume a stuck pipeline (2026-09-07)', () => {
     expect(resumeMock.enqueueAnalysis).toHaveBeenCalledWith(stuckId, tenantId);
   });
 
+  it('GET /pipeline: reports alive vs dead from the job state, plus undigitized count and last event', async () => {
+    resumeMock.state = 'active';
+    let res = await fastify.inject({ method: 'GET', url: `/ops/cases/${stuckId}/pipeline`, headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ running: true, alive: true, analysisJob: 'active', docJobs: 0 });
+    resumeMock.state = 'failed';
+    res = await fastify.inject({ method: 'GET', url: `/ops/cases/${stuckId}/pipeline`, headers: { cookie: adminCookie } });
+    const body = res.json();
+    expect(body).toMatchObject({ running: true, alive: false, analysisJob: 'failed' });
+    expect(body.lastEvent).toMatchObject({ type: 'pipeline.resumed' });
+  });
+
   it('a CLIENT cannot resume', async () => {
     const res = await fastify.inject({ method: 'POST', url: `/ops/cases/${stuckId}/resume`, headers: { cookie: clientCookie } });
     expect([401, 403]).toContain(res.statusCode);

@@ -318,6 +318,28 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     return { ok: true };
   });
 
+  // Live pipeline probe for the case file (2026-09-09): is a job actually
+  // alive right now, and what was the newest thing it did? Presence/state
+  // only — this is what tells staff "running" vs "dead" without the logs.
+  fastify.get('/cases/:id/pipeline', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const kase = await prisma.case.findUnique({ where: { id }, select: { status: true } });
+    if (!kase) return reply.status(404).send({ error: 'Not found' });
+    const running = ['DIGITIZING', 'DOCS_COMPLETE', 'ANALYZING', 'ADJUDICATING'].includes(kase.status);
+    const q = await import('../services/queue');
+    const job = await q.analysisQueue.getJob(`analysis-${id}`);
+    const analysisJob = job ? await job.getState() : 'none';
+    const docJobs = (await q.ingestionQueue.getJobs(['waiting', 'active', 'delayed', 'prioritized']))
+      .filter((j) => (j.data as { caseId?: string }).caseId === id).length;
+    const undigitized = await prisma.document.count({ where: { caseId: id, quarantined: false, pages: { none: {} } } });
+    const last = await prisma.caseEvent.findFirst({ where: { caseId: id }, orderBy: { createdAt: 'desc' }, select: { type: true, createdAt: true } });
+    const alive = ['active', 'waiting', 'delayed', 'prioritized', 'waiting-children'].includes(analysisJob) || docJobs > 0;
+    return {
+      status: kase.status, running, alive, analysisJob, docJobs, undigitized,
+      lastEvent: last ? { type: last.type, at: last.createdAt } : null,
+    };
+  });
+
   // Resume a stuck pipeline (2026-09-07). A case whose status says it is
   // running but whose job died (an api restart mid-run counts; BullMQ gives
   // up after the attempts) sits in limbo: nothing marks the case, and the
