@@ -23,7 +23,7 @@ const STALL_DAYS = 7;
 // the actions that unblock a family. Money, deletion, promos, drills, and
 // per-case cost stay ADMIN. Enforced here, not in the browser.
 const SUPPORT_WRITES = new Set(['delay-ours', 'delay-cleared', 'resume', 'contact', 'requests']);
-const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /\/cogs$/];
+const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /^\/ops\/diagnostics/, /\/cogs$/];
 
 /** Fire-and-forget customer email to the case owner (never fails a request). */
 async function notifyCaseOwner(caseId: string, send: (email: string, origin: string) => Promise<unknown>) {
@@ -329,14 +329,129 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     const q = await import('../services/queue');
     const job = await q.analysisQueue.getJob(`analysis-${id}`);
     const analysisJob = job ? await job.getState() : 'none';
+    // Why it died, in the job's own words (BullMQ keeps failedReason) — the
+    // single most useful line for "prod never finishes" (2026-09-09).
+    const failedReason = job && analysisJob === 'failed' ? String(job.failedReason ?? '').slice(0, 400) : null;
+    const attemptsMade = job ? job.attemptsMade : 0;
     const docJobs = (await q.ingestionQueue.getJobs(['waiting', 'active', 'delayed', 'prioritized']))
       .filter((j) => (j.data as { caseId?: string }).caseId === id).length;
     const undigitized = await prisma.document.count({ where: { caseId: id, quarantined: false, pages: { none: {} } } });
     const last = await prisma.caseEvent.findFirst({ where: { caseId: id }, orderBy: { createdAt: 'desc' }, select: { type: true, createdAt: true } });
     const alive = ['active', 'waiting', 'delayed', 'prioritized', 'waiting-children'].includes(analysisJob) || docJobs > 0;
     return {
-      status: kase.status, running, alive, analysisJob, docJobs, undigitized,
+      status: kase.status, running, alive, analysisJob, docJobs, undigitized, failedReason, attemptsMade,
       lastEvent: last ? { type: last.type, at: last.createdAt } : null,
+    };
+  });
+
+  // Production diagnostics (2026-09-09, "dev works, prod doesn't"): live-probe
+  // every pipeline dependency with the process's real credentials, snapshot
+  // the pipeline env (values, never secrets), count running workers, and
+  // list the last failed jobs WITH their failure reasons. ADMIN only.
+  fastify.get('/diagnostics', async () => {
+    const withTimeout = <T,>(p: Promise<T>, ms = 6000) =>
+      Promise.race<T>([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`timed out after ${ms} ms`)), ms))]);
+    type Check = { ok: boolean; detail: string; ms: number };
+    const run = async (fn: () => Promise<string>): Promise<Check> => {
+      const t = Date.now();
+      try { return { ok: true, detail: await withTimeout(fn()), ms: Date.now() - t }; }
+      catch (e) { return { ok: false, detail: String((e as Error).message ?? e).slice(0, 200), ms: Date.now() - t }; }
+    };
+    const env = (k: string) => process.env[k] ?? null;
+    const present = (k: string) => !!process.env[k];
+
+    const checks: Record<string, Check> = {};
+    checks.redis = await run(async () => {
+      const { createConnection } = await import('../lib/redis');
+      const conn = createConnection();
+      try { return `PONG (${await conn.ping()})`; } finally { conn.disconnect(); }
+    });
+    checks.s3 = await run(async () => {
+      if (!present('AWS_ACCESS_KEY_ID')) throw new Error('AWS_ACCESS_KEY_ID not set');
+      const { s3, bucket } = await import('../services/storage.service');
+      const { HeadBucketCommand } = await import('@aws-sdk/client-s3');
+      await s3().send(new HeadBucketCommand({ Bucket: bucket() }));
+      return `bucket ${bucket()} reachable`;
+    });
+    checks.textract = await run(async () => {
+      if (!present('AWS_ACCESS_KEY_ID')) throw new Error('AWS_ACCESS_KEY_ID not set');
+      const { TextractClient, DetectDocumentTextCommand } = await import('@aws-sdk/client-textract');
+      // A 1×1 PNG is not a document Textract accepts — but the REJECTION proves
+      // the key is authorized; an unauthorized key fails before validation.
+      const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+      try {
+        await new TextractClient({ region: process.env.AWS_REGION ?? 'us-east-2' }).send(new DetectDocumentTextCommand({ Document: { Bytes: png } }));
+        return 'authorized';
+      } catch (e) {
+        const name = (e as Error).name;
+        if (['UnsupportedDocumentException', 'InvalidParameterException', 'BadDocumentException'].includes(name)) return `authorized (${name} on the probe image is expected)`;
+        throw e;
+      }
+    });
+    checks.anthropic = await run(async () => {
+      if (!present('ANTHROPIC_API_KEY') && !present('ANTHROPIC_AUTH_TOKEN')) throw new Error('ANTHROPIC_API_KEY not set');
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      const model = process.env.ANALYSIS_MODEL ?? 'claude-opus-5';
+      const r = await new Anthropic().messages.countTokens({ model, messages: [{ role: 'user', content: 'ping' }] });
+      return `key valid, model ${model} answers (${r.input_tokens} tokens counted)`;
+    });
+    checks.clamd = await run(async () => {
+      const host = process.env.CLAMD_HOST;
+      if (!host) throw new Error('CLAMD_HOST not set — uploads are NOT scanned (dev only)');
+      const [h, p] = host.split(':');
+      const net = await import('net');
+      return await new Promise<string>((resolve, reject) => {
+        const sock = net.createConnection({ host: h, port: Number(p ?? 3310) });
+        let out = '';
+        sock.on('connect', () => sock.write('zPING\0'));
+        sock.on('data', (d) => { out += d.toString(); if (out.includes('PONG')) { sock.destroy(); resolve(`PONG from ${h}`); } });
+        sock.on('error', (e) => reject(new Error(`clamd ${h}: ${e.message} — every upload's digitizing will fail and retry until dead`)));
+        sock.on('close', () => { if (!out.includes('PONG')) reject(new Error(`clamd ${h} closed without PONG`)); });
+        sock.setTimeout(4000, () => { sock.destroy(); reject(new Error(`clamd ${h}: timeout`)); });
+      });
+    });
+
+    const q = await import('../services/queue');
+    const queues = { analysis: q.analysisQueue, ingestion: q.ingestionQueue, zip: q.zipQueue } as const;
+    const queueState: Record<string, { workers: number; counts: Record<string, number>; failed: Array<{ id: string; caseId: string | null; documentId: string | null; reason: string; attemptsMade: number; failedAt: string | null }> }> = {};
+    for (const [name, queue] of Object.entries(queues)) {
+      try {
+        const [workers, counts, failed] = await withTimeout(Promise.all([
+          queue.getWorkers(), queue.getJobCounts(), queue.getFailed(0, 9),
+        ]));
+        queueState[name] = {
+          workers: workers.length,
+          counts: counts as Record<string, number>,
+          failed: failed.map((j) => ({
+            id: String(j.id), caseId: (j.data as { caseId?: string })?.caseId ?? null, documentId: (j.data as { documentId?: string })?.documentId ?? null,
+            reason: String(j.failedReason ?? '').slice(0, 400), attemptsMade: j.attemptsMade, failedAt: j.finishedOn ? new Date(j.finishedOn).toISOString() : null,
+          })),
+        };
+      } catch (e) {
+        queueState[name] = { workers: -1, counts: {}, failed: [{ id: '-', caseId: null, documentId: null, reason: `queue unreadable: ${(e as Error).message}`, attemptsMade: 0, failedAt: null }] };
+      }
+    }
+
+    const v8 = await import('v8');
+    return {
+      at: new Date().toISOString(),
+      process: {
+        node: process.version, uptimeMin: Math.round(process.uptime() / 60),
+        rssMb: Math.round(process.memoryUsage().rss / 1048576), heapLimitMb: Math.round(v8.getHeapStatistics().heap_size_limit / 1048576),
+      },
+      env: {
+        NODE_ENV: env('NODE_ENV'), ANALYSIS_MODEL: env('ANALYSIS_MODEL'), ANALYSIS_ENGINES: env('ANALYSIS_ENGINES'), ANALYSIS_SAMPLES: env('ANALYSIS_SAMPLES'),
+        ANALYSIS_BATCH: env('ANALYSIS_BATCH'), ANALYSIS_BATCH_BUDGET_MS: env('ANALYSIS_BATCH_BUDGET_MS'), ANALYSIS_BATCH_MAX_RECORD_TOKENS: env('ANALYSIS_BATCH_MAX_RECORD_TOKENS'),
+        AUTO_APPROVE: env('AUTO_APPROVE'), INGESTION_CONCURRENCY: env('INGESTION_CONCURRENCY'), ANALYSIS_CONCURRENCY: env('ANALYSIS_CONCURRENCY'), ZIP_CONCURRENCY: env('ZIP_CONCURRENCY'),
+        NODE_OPTIONS: env('NODE_OPTIONS'), CLAMD_HOST: env('CLAMD_HOST'), DOC_CLASSIFIER_MODEL: env('DOC_CLASSIFIER_MODEL'), WEB_ORIGIN: env('WEB_ORIGIN'),
+        S3_BUCKET: env('S3_BUCKET'), AWS_REGION: env('AWS_REGION'),
+      },
+      secretsPresent: {
+        ANTHROPIC_API_KEY: present('ANTHROPIC_API_KEY'), AWS_ACCESS_KEY_ID: present('AWS_ACCESS_KEY_ID'), AWS_SECRET_ACCESS_KEY: present('AWS_SECRET_ACCESS_KEY'),
+        RESEND_API_KEY: present('RESEND_API_KEY'), STRIPE_SECRET_KEY: present('STRIPE_SECRET_KEY'), STRIPE_WEBHOOK_SECRET: present('STRIPE_WEBHOOK_SECRET'), HG_APP_PASSWORD: present('HG_APP_PASSWORD'),
+      },
+      checks,
+      queues: queueState,
     };
   });
 

@@ -21,6 +21,7 @@ const NAV: [string, string][] = [
   ['/ops/money', 'Money'],
   ['/ops/feedback', 'Feedback'],
   ['/ops/retention', 'Retention'],
+  ['/ops/diagnostics', 'Diagnostics'],
   // Staff accounts live on the legacy permissions page until the Team page
   // (staff_console_access_model §7) replaces it — but it needs a door.
   ['/dashboard/permissions', 'Team'],

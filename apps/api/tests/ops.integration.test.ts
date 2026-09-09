@@ -27,10 +27,13 @@ vi.mock('../src/services/queue', async (orig) => {
     analysisQueue: {
       getJob: async (id: string) =>
         id.startsWith('analysis-')
-          ? { getState: async () => resumeMock.state, remove: async () => { resumeMock.removed++; } }
+          ? { getState: async () => resumeMock.state, remove: async () => { resumeMock.removed++; }, failedReason: resumeMock.state === 'failed' ? 'Error: No digitized text to analyze' : undefined, attemptsMade: 2 }
           : null,
+      getWorkers: async () => [{}], getJobCounts: async () => ({ waiting: 0, active: 0, failed: 1, completed: 4 }),
+      getFailed: async () => [{ id: '42', data: { caseId: 'c_dead', tenantId: 't' }, failedReason: 'Error: No digitized text to analyze', attemptsMade: 2, finishedOn: Date.now() }],
     },
-    ingestionQueue: { getJobs: async () => [] },
+    ingestionQueue: { getJobs: async () => [], getWorkers: async () => [{}, {}], getJobCounts: async () => ({}), getFailed: async () => [] },
+    zipQueue: { getWorkers: async () => [], getJobCounts: async () => ({}), getFailed: async () => [] },
   };
 });
 import { fastify } from '../src/index';
@@ -238,5 +241,31 @@ describe('OPS: resume a stuck pipeline (2026-09-07)', () => {
     const res = await fastify.inject({ method: 'POST', url: `/ops/cases/${idle.id}/resume`, headers: { cookie: adminCookie } });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toMatch(/Nothing to resume/);
+  });
+});
+
+describe('OPS: diagnostics (2026-09-09)', () => {
+  it('probes every dependency, snapshots the env, counts workers, and lists failed jobs with reasons — ADMIN only', async () => {
+    const res = await fastify.inject({ method: 'GET', url: '/ops/diagnostics', headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(200);
+    const d = res.json();
+    for (const k of ['redis', 's3', 'textract', 'anthropic', 'clamd']) {
+      expect(d.checks[k]).toMatchObject({ ok: expect.any(Boolean), detail: expect.any(String), ms: expect.any(Number) });
+    }
+    expect(d.checks.redis.ok).toBe(true);
+    expect(d.checks.clamd.ok).toBe(false); // no CLAMD_HOST in tests — and it must say so, not hide it
+    expect(d.env).toHaveProperty('ANALYSIS_BATCH');
+    expect(d.secretsPresent).toHaveProperty('ANTHROPIC_API_KEY');
+    expect(d.queues.analysis).toMatchObject({ workers: 1, counts: { failed: 1 } });
+    expect(d.queues.analysis.failed[0]).toMatchObject({ caseId: 'c_dead', reason: 'Error: No digitized text to analyze', attemptsMade: 2 });
+    expect(d.queues.zip.workers).toBe(0);
+    expect(JSON.stringify(d)).not.toMatch(/sk_|AKIA|whsec_/); // never a secret value
+  });
+
+  it('is walled off from SUPPORT', async () => {
+    const support = await prisma.user.create({ data: { email: `${run}_support2@x.com`, tenantId, role: 'SUPPORT' } });
+    const cookie = `next-auth.session-token=${await encodeSessionToken({ userId: support.id, tenantId, role: 'SUPPORT' })}`;
+    const res = await fastify.inject({ method: 'GET', url: '/ops/diagnostics', headers: { cookie } });
+    expect(res.statusCode).toBe(403);
   });
 });

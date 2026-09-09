@@ -37,7 +37,7 @@ interface CaseFile {
   shareLinks: Array<{ id: string; createdAt: string; expiresAt: string; revokedAt: string | null; opens: number; lastOpenedAt: string | null }>
 }
 interface TimelineEvent { id: string; type: string; actor: string; createdAt: string }
-interface Pipeline { status: string; running: boolean; alive: boolean; analysisJob: string; docJobs: number; undigitized: number; lastEvent: { type: string; at: string } | null }
+interface Pipeline { status: string; running: boolean; alive: boolean; analysisJob: string; docJobs: number; undigitized: number; failedReason?: string | null; attemptsMade?: number; lastEvent: { type: string; at: string } | null }
 interface RequestRow {
   id: string; type: 'REFUND' | 'CASE_DELETE' | 'ACCOUNT_DELETE'; reason: string; note: string | null; amountCents: number | null
   requestedByEmail: string; decision: 'APPROVED' | 'DECLINED' | null; decidedByEmail: string | null; decisionNote: string | null
@@ -226,6 +226,11 @@ export default function CaseFilePage() {
             )}
             <button onClick={() => void resume()} className="ml-auto rounded border border-[#3B82F6] px-2 py-1 text-xs text-[#3B82F6]" data-testid="resume-pipeline">Resume stuck pipeline</button>
           </div>
+          {pipeline?.failedReason && (
+            <p className="mt-2 rounded border border-[#F85149] bg-[#0B0E14] px-3 py-2 font-mono text-xs text-[#F85149]" data-testid="pipeline-failed-reason">
+              Job failed after {pipeline.attemptsMade} attempt(s): {pipeline.failedReason}
+            </p>
+          )}
           {pipeline?.lastEvent && (
             <p className="mt-1 text-xs text-[#8B949E]" data-testid="pipeline-last">
               Last activity {ago(pipeline.lastEvent.at, tick)}: {describeActivity(pipeline.lastEvent.type)} ({humanize(pipeline.lastEvent.type)}). Refreshes every 20s.

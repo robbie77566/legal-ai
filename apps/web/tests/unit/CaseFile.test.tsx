@@ -143,7 +143,7 @@ describe('case file — live pipeline card (2026-09-09)', () => {
   })
 
   it('running but dead: red "Stuck — no live job", and Resume reports its result inside the card', async () => {
-    PIPELINE = { status: 'ANALYZING', running: true, alive: false, analysisJob: 'failed', docJobs: 0, undigitized: 0, lastEvent: { type: 'stage.entered', at: new Date(Date.now() - 12 * 3600_000).toISOString() } }
+    PIPELINE = { status: 'ANALYZING', running: true, alive: false, analysisJob: 'failed', docJobs: 0, undigitized: 0, failedReason: 'Error: No digitized text to analyze', attemptsMade: 2, lastEvent: { type: 'stage.entered', at: new Date(Date.now() - 12 * 3600_000).toISOString() } }
     const runningFile = { ...FILE, case: { ...FILE.case, status: 'ANALYZING' } }
     vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const u = String(url); calls.push(`${init?.method ?? 'GET'} ${u}`)
@@ -156,6 +156,7 @@ describe('case file — live pipeline card (2026-09-09)', () => {
     await waitFor(() => expect(card).toHaveAttribute('data-alive', 'false'))
     expect(card).toHaveTextContent(/Stuck — no live job/)
     expect(screen.getByTestId('pipeline-last')).toHaveTextContent(/12 hours ago/)
+    expect(screen.getByTestId('pipeline-failed-reason')).toHaveTextContent(/after 2 attempt\(s\): Error: No digitized text to analyze/)
     fireEvent.click(screen.getByTestId('resume-pipeline'))
     const result = await screen.findByTestId('resume-result')
     await waitFor(() => expect(result).toHaveTextContent(/analysis re-queued \(previous job: failed\)/))
