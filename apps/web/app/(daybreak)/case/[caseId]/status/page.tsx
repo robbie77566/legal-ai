@@ -67,6 +67,7 @@ export default function CaseStatus() {
   const [view, setView] = useState<CustomerView | null>(null)
   const [lastDetail, setLastDetail] = useState<string | null>(null)
   const [checksDone, setChecksDone] = useState<string[]>([])
+  const [nowChecking, setNowChecking] = useState<{ name: string; sample: number; samplesTotal: number; index: number; total: number } | null>(null)
   const [dates, setDates] = useState<{ started: string | null; readyBy: string | null }>({ started: null, readyBy: null })
   const [facts, setFacts] = useState<Facts | null>(null)
   const [tick, setTick] = useState(Date.now()) // re-renders the "N minutes ago" line
@@ -108,7 +109,10 @@ export default function CaseStatus() {
           setTick(Date.now())
         }
         // Honest sub-detail: counts only, from the registry-validated payload
-        if (msg.type === 'screen.completed') {
+        if (msg.type === 'analysis.progress' && msg.payload) {
+          const name = SCREEN_NAMES[msg.payload.screen as string]
+          if (name) setNowChecking({ name, sample: msg.payload.sample, samplesTotal: msg.payload.samplesTotal, index: msg.payload.screenIndex, total: msg.payload.screensTotal })
+        } else if (msg.type === 'screen.completed') {
           if (msg.payload?.volumesTotal) {
             setLastDetail(`Volume ${msg.payload.volumesRead} of ${msg.payload.volumesTotal} read`)
           }
@@ -229,11 +233,13 @@ export default function CaseStatus() {
                   {isActive && stage.id === 'analyzing' && (
                     <span data-testid="checks-feed" className="mt-2 block text-sm">
                       <span className="font-semibold">
-                        {checksDone.length === 0
-                          ? `Check 1 of ${TOTAL_CHECKS} in progress`
-                          : checksDone.length >= TOTAL_CHECKS
-                            ? `All ${TOTAL_CHECKS} checks finished`
-                            : `${checksDone.length} of ${TOTAL_CHECKS} checks finished · check ${checksDone.length + 1} in progress`}
+                        {checksDone.length >= TOTAL_CHECKS
+                          ? `All ${TOTAL_CHECKS} checks finished`
+                          : nowChecking
+                            ? `Now checking for ${nowChecking.name} (check ${nowChecking.index} of ${nowChecking.total}${nowChecking.samplesTotal > 1 ? `, pass ${nowChecking.sample} of ${nowChecking.samplesTotal}` : ''})`
+                            : checksDone.length === 0
+                              ? `Check 1 of ${TOTAL_CHECKS} in progress`
+                              : `${checksDone.length} of ${TOTAL_CHECKS} checks finished · check ${checksDone.length + 1} in progress`}
                       </span>
                       {checksDone.map((c) => (
                         <span key={c} className="mt-1 block text-db-muted">

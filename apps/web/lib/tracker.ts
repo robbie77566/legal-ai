@@ -62,6 +62,7 @@ const ACTIVITY_WORDS: Record<string, string> = {
   'stage.entered': 'moved on to the next step',
   'ocr.halted': 'paused to check reading quality',
   'ocr.resumed': 'resumed reading',
+  'analysis.progress': 'started one of the checks',
   'screen.completed': 'finished one of the checks',
   'adjudication.completed': 'finished comparing results',
   'hold.set': 'sent the report for a closer look',

@@ -517,6 +517,19 @@ export async function runAnalysis(
         // Model call: minutes, OUTSIDE any transaction.
         const instruction = buildScreenInstruction(screenId, chunks, contextHeader);
         for (let n = 0; n < samples; n++) {
+          // Proof of life for a 15–20 minute call: recorded BEFORE the call,
+          // in its own short tx, so the family's page and the ops card move.
+          await withTenant(tenantId, (tx) =>
+            appendCaseEvent(tx, {
+              caseId, tenantId, type: 'analysis.progress',
+              payload: {
+                screen: (screenId === 'plea_lane' ? 'plea_lane' : screenId) as 'iac',
+                sample: n + 1, samplesTotal: samples,
+                screenIndex: SCREENS_BY_LANE[lane].indexOf(screenId) + 1, screensTotal: SCREENS_BY_LANE[lane].length,
+              },
+              actor: 'pipeline',
+            })
+          );
           const res = await invokeValidated(m, instruction, record);
           arrays.push(res.findings.map((f) => ({ ...f, engine: m.name })));
         }

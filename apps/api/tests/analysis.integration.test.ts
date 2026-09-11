@@ -514,6 +514,16 @@ describe('runAnalysis (FR-6 grounding + state machine)', () => {
     expect(stages.map((e) => (e.payload as { status: string }).status)).toEqual([
       'DIGITIZING', 'ANALYZING', 'ADJUDICATING', 'QA_REVIEW',
     ]);
+
+    // Progress INSIDE a check (2026-09-11): one analysis.progress per live
+    // model call, recorded BEFORE the call — screen, pass, and position.
+    const progress = await prisma.caseEvent.findMany({ where: { caseId, type: 'analysis.progress' }, orderBy: { id: 'asc' } });
+    const screensDone = await prisma.caseEvent.count({ where: { caseId, type: 'screen.completed' } });
+    expect(progress.length).toBe(screensDone); // ANALYSIS_SAMPLES=1 → one per screen
+    const first = progress[0].payload as { screen: string; sample: number; samplesTotal: number; screenIndex: number; screensTotal: number };
+    expect(first).toMatchObject({ sample: 1, samplesTotal: 1, screenIndex: 1 });
+    expect(first.screensTotal).toBe(screensDone);
+    expect(Number(progress[0].id)).toBeLessThan(Number((await prisma.caseEvent.findFirstOrThrow({ where: { caseId, type: 'screen.completed' }, orderBy: { id: 'asc' } })).id));
   });
 
   it('customer report is 404 before QA approves — nothing legal leaks pre-QA', async () => {

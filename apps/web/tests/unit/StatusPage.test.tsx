@@ -201,4 +201,15 @@ describe('status page — proof of life and "safe to leave" (round 4, 2026-09-06
     await screen.findByText(/Your report is ready/)
     expect(screen.queryByTestId('safe-to-leave')).toBeNull()
   })
+
+  it('analysis.progress names the check and pass in progress, and counts as activity (2026-09-11)', async () => {
+    render(<CaseStatus />)
+    await screen.findByTestId('stage-explainer')
+    act(() => {
+      sseInstance!.onmessage!({ data: JSON.stringify({ type: 'analysis.progress', payload: { screen: 'brady', sample: 2, samplesTotal: 2, screenIndex: 3, screensTotal: 6 } }) })
+    })
+    const feed = await screen.findByTestId('checks-feed')
+    expect(feed).toHaveTextContent('Now checking for evidence the State may not have turned over (check 3 of 6, pass 2 of 2)')
+    expect(screen.getByTestId('last-activity')).toHaveTextContent(/just now it started one of the checks/)
+  })
 })

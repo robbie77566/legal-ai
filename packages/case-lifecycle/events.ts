@@ -85,6 +85,21 @@ export const CASE_EVENT_SCHEMAS = {
   'ocr.resumed': { 1: z.object({}).strict() },
   'hold.set': { 1: z.object({ hold }).strict() },
   'hold.cleared': { 1: z.object({ hold }).strict() },
+  // Progress INSIDE a check (2026-09-11): a live check on a 500k-token
+  // record takes 15–20 min on Fable and nothing was recorded until it
+  // finished — the status page and the ops card read as "stopped". Emitted
+  // before each model call: which check, which sample.
+  'analysis.progress': {
+    1: z
+      .object({
+        screen: z.enum(['preserved_error', 'iac', 'brady', 'junk_science', 'sentencing', 'deadline', 'appeal_restoration', 'plea_lane', 'voir_dire']),
+        sample: count,
+        samplesTotal: count,
+        screenIndex: count,
+        screensTotal: count,
+      })
+      .strict(),
+  },
   'screen.completed': {
     1: z
       .object({
