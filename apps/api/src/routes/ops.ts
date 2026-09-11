@@ -585,15 +585,24 @@ export default async function opsRoutes(fastify: FastifyInstance) {
 
   // Money page (payments_and_refunds spec §3): the ledger with the customer
   // and case joined in two queries (no FKs on Payment by design).
+  // Purge Stripe TEST-mode payments (cs_test_…) and their refunds — never live, never promo rows.
+  fastify.post('/payments/purge-test', async (request) => {
+    z.object({ confirm: z.literal('PURGE TEST') }).parse(request.body);
+    const { purgeTestPayments } = await import('../services/refunds.service');
+    const out = await purgeTestPayments(request.auth.userId);
+    request.log.info(out, 'test-mode payments purged');
+    return { ok: true, ...out };
+  });
+
   fastify.get('/payments', async (request) => {
-    const { status, q } = request.query as { status?: string; q?: string };
-    return listPayments({ status, q });
+    const { status, q, includeTest } = request.query as { status?: string; q?: string; includeTest?: string };
+    return listPayments({ status, q, includeTest: includeTest === '1' });
   });
 
   fastify.get('/payments/summary', async (request) => {
-    const { days } = request.query as { days?: string };
+    const { days, includeTest } = request.query as { days?: string; includeTest?: string };
     const n = Math.min(Math.max(Number(days) || 30, 1), 3650);
-    return paymentsSummary(n);
+    return paymentsSummary(n, includeTest === '1');
   });
 
   fastify.get('/refunds', async () => listRefunds(100));

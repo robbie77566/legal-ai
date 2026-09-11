@@ -10,6 +10,7 @@ import MoneyPage from '@/app/ops/money/page'
 const SUMMARY = {
   stripe: 'live',
   period: { days: 30, from: '2026-08-08T00:00:00Z' },
+  testMode: { included: false, hiddenCount: 5 },
   totals: {
     sold: 29, freeCount: 3, collectedCents: 867100, refundedCents: 89700, netCents: 777400,
     refundRate: 0.104, refundCount: 3, partialCount: 1, costUsd: 312.4, costPerCaseUsd: 10.77, marginPct: 0.96, needsDecision: 1,
@@ -38,7 +39,8 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url)
     calls.push({ url: u, init })
-    const body = u.includes('/ops/costs') ? SPEND
+    const body = u.includes('/purge-test') ? { ok: true, payments: 5, refunds: 0, amountCents: 149500 }
+      : u.includes('/ops/costs') ? SPEND
       : u.includes('/ops/payments/summary') ? SUMMARY
       : u.includes('/decide') ? { ok: true, decision: 'APPROVED', result: { amountCents: 29900 } }
       : u.includes('/refund') ? { ok: true, amountCents: 14900, caseTransitioned: false }
@@ -112,5 +114,24 @@ describe('money page', () => {
     expect(t).toHaveTextContent(/\$20\.65/)
     expect(screen.getByText(/last 12 weeks: \$61\.40 across 3 cases/)).toBeInTheDocument()
     expect(calls.some((c) => c.url.endsWith('/ops/costs?weeks=12'))).toBe(true)
+  })
+
+  it('test-mode payments: hidden by default with a count, toggle re-fetches with includeTest=1, purge needs the typed phrase', async () => {
+    render(<MoneyPage />)
+    const bar = await screen.findByTestId('test-mode-bar')
+    expect(bar).toHaveTextContent(/5 Stripe test-mode payments hidden/)
+    expect(calls.some((c) => c.url.includes('/ops/payments/summary?days=30') && !c.url.includes('includeTest'))).toBe(true)
+    fireEvent.click(screen.getByTestId('toggle-test'))
+    await waitFor(() => expect(calls.some((c) => c.url.includes('/ops/payments/summary?days=30&includeTest=1'))).toBe(true))
+    await waitFor(() => expect(calls.some((c) => /\/ops\/payments\?.*includeTest=1/.test(c.url))).toBe(true))
+    const purge = screen.getByTestId('purge-test')
+    expect(purge).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Purge confirmation'), { target: { value: 'PURGE TEST' } })
+    expect(purge).not.toBeDisabled()
+    fireEvent.click(purge)
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/ops/payments/purge-test') && c.init?.method === 'POST')).toBe(true))
+    const post = calls.find((c) => c.url.endsWith('/ops/payments/purge-test'))!
+    expect(JSON.parse(String(post.init?.body))).toEqual({ confirm: 'PURGE TEST' })
+    expect(await screen.findByTestId('notice')).toHaveTextContent(/Purged 5 test-mode payment\(s\) \(\$1,495\.00\)/)
   })
 })

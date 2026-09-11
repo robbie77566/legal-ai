@@ -327,8 +327,33 @@ function shapePayment(p: Payment, emailOf: Map<string, string>, caseOf: Map<stri
 }
 export type PaymentView = ReturnType<typeof shapePayment>;
 
-export async function listPayments(opts: { status?: string; q?: string }) {
+/**
+ * Stripe test-mode rows (2026-09-11): a checkout session id starts with
+ * `cs_test_` in test mode and `cs_live_` in live mode; promo purchases are
+ * `promo_…`. Test purchases are real rows (they create real cases) but not
+ * real money, so the Money page hides them unless asked, and an admin can
+ * purge them. Live rows and promo rows are never touched.
+ */
+export const TEST_MODE_WHERE = { stripeId: { startsWith: 'cs_test_' } } as const;
+export const isTestModePayment = (p: { stripeId: string }) => p.stripeId.startsWith('cs_test_');
+
+export async function purgeTestPayments(actorUserId: string) {
+  const rows = await prisma.payment.findMany({ where: TEST_MODE_WHERE, select: { id: true, tenantId: true, caseId: true, amountCents: true } });
+  if (rows.length === 0) return { payments: 0, refunds: 0, amountCents: 0 };
+  const ids = rows.map((r) => r.id);
+  const refunds = await prisma.refund.deleteMany({ where: { paymentId: { in: ids } } });
+  await prisma.payment.deleteMany({ where: { id: { in: ids } } });
+  const amountCents = rows.reduce((a, r) => a + r.amountCents, 0);
+  await AuditService.log({
+    tenantId: rows[0].tenantId, caseId: rows[0].caseId ?? 'ledger', action: LogAction.CASE_ACCESS, userId: actorUserId,
+    details: { op: 'purge_test_payments', payments: ids.length, refunds: refunds.count, amountCents },
+  });
+  return { payments: ids.length, refunds: refunds.count, amountCents };
+}
+
+export async function listPayments(opts: { status?: string; q?: string; includeTest?: boolean }) {
   const where: Record<string, unknown> = {};
+  if (!opts.includeTest) where.NOT = TEST_MODE_WHERE;
   switch (opts.status) {
     case 'succeeded': where.status = 'SUCCEEDED'; where.amountCents = { gt: 0 }; break;
     case 'refunded': where.status = 'REFUNDED'; break;
@@ -401,11 +426,12 @@ export function weekOf(d: Date): string {
 
 const COLLECTED_STATUSES = ['SUCCEEDED', 'PARTIALLY_REFUNDED', 'REFUNDED'] as const;
 
-export async function paymentsSummary(days: number) {
+export async function paymentsSummary(days: number, includeTest = false) {
   const from = new Date(Date.now() - days * 86_400_000);
   const stripeKey = process.env.STRIPE_SECRET_KEY ?? '';
-  const [payments, disputedRaw, recentRefunds] = await Promise.all([
-    prisma.payment.findMany({ where: { createdAt: { gte: from }, status: { in: [...COLLECTED_STATUSES] } } }),
+  const [payments, hiddenTestCount, disputedRaw, recentRefunds] = await Promise.all([
+    prisma.payment.findMany({ where: { createdAt: { gte: from }, status: { in: [...COLLECTED_STATUSES] }, ...(includeTest ? {} : { NOT: TEST_MODE_WHERE }) } }),
+    prisma.payment.count({ where: { ...TEST_MODE_WHERE, createdAt: { gte: from } } }),
     prisma.payment.findMany({ where: { disputeStatus: 'open' }, orderBy: { disputedAt: 'asc' } }),
     listRefunds(8),
   ]);
@@ -459,6 +485,7 @@ export async function paymentsSummary(days: number) {
   return {
     stripe: !stripeKey ? 'unset' : stripeKey.startsWith('sk_live_') ? 'live' : 'test',
     period: { days, from: from.toISOString() },
+    testMode: { included: includeTest, hiddenCount: includeTest ? 0 : hiddenTestCount },
     totals: {
       sold,
       freeCount: payments.filter(isFree).length,

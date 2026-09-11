@@ -44,6 +44,7 @@ interface Spend {
 interface Summary {
   stripe: 'unset' | 'test' | 'live'
   period: { days: number; from: string }
+  testMode?: { included: boolean; hiddenCount: number }
   totals: {
     sold: number; freeCount: number; collectedCents: number; refundedCents: number; netCents: number
     refundRate: number | null; refundCount: number; partialCount: number
@@ -184,6 +185,9 @@ function RefundDialog({ payment, onClose, onDone }: { payment: PaymentRow; onClo
 
 export default function MoneyPage() {
   const [days, setDays] = useState(30)
+  const [showTest, setShowTest] = useState(false)
+  const [purgeTyped, setPurgeTyped] = useState('')
+  const [purging, setPurging] = useState(false)
   const [summary, setSummary] = useState<Summary | null>(null)
   const [spend, setSpend] = useState<Spend | null>(null)
   const [filter, setFilter] = useState('')
@@ -206,16 +210,17 @@ export default function MoneyPage() {
 
   const loadSummary = useCallback(async () => {
     void apiFetch('/ops/costs?weeks=12').then(async (c) => { if (c.ok) setSpend(await c.json()) })
-    const r = await apiFetch(`/ops/payments/summary?days=${days}`)
+    const r = await apiFetch(`/ops/payments/summary?days=${days}${showTest ? '&includeTest=1' : ''}`)
     if (r.ok) setSummary(await r.json())
-  }, [days])
+  }, [days, showTest])
   const loadPayments = useCallback(async () => {
     const params = new URLSearchParams()
     if (filter) params.set('status', filter)
     if (term) params.set('q', term)
+    if (showTest) params.set('includeTest', '1')
     const r = await apiFetch(`/ops/payments${params.size ? `?${params}` : ''}`)
     if (r.ok) setPayments(await r.json())
-  }, [filter, term])
+  }, [filter, term, showTest])
   useEffect(() => { void loadSummary() }, [loadSummary])
   useEffect(() => { void loadPayments() }, [loadPayments])
 
@@ -274,6 +279,37 @@ export default function MoneyPage() {
         </div>
       </div>
       {notice && <p className="mt-2 text-sm text-[#D29922]" data-testid="notice">{notice}</p>}
+
+      {/* Stripe test-mode rows (cs_test_…) are not money. Hidden by default;
+          shown on request; purgeable by an admin (2026-09-11). */}
+      {summary && (showTest || (summary.testMode?.hiddenCount ?? 0) > 0) && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded border border-[#D29922]/60 bg-[#0D1117] px-3 py-2 text-xs" data-testid="test-mode-bar">
+          <span className="text-[#D29922]">
+            {showTest ? 'Showing Stripe test-mode payments (not real money).' : `${summary.testMode?.hiddenCount} Stripe test-mode payment${summary.testMode?.hiddenCount === 1 ? '' : 's'} hidden from every number on this page.`}
+          </span>
+          <button onClick={() => setShowTest((v) => !v)} className="rounded border border-[#30363D] px-2 py-1" data-testid="toggle-test">{showTest ? 'Hide test-mode' : 'Show test-mode'}</button>
+          <span className="ml-auto flex items-center gap-2">
+            <input value={purgeTyped} onChange={(e) => setPurgeTyped(e.target.value)} placeholder="type PURGE TEST" aria-label="Purge confirmation" className="w-36 rounded border border-[#30363D] bg-[#161B22] p-1 font-mono" />
+            <button
+              disabled={purgeTyped !== 'PURGE TEST' || purging}
+              onClick={async () => {
+                setPurging(true)
+                try {
+                  const r = await apiFetch('/ops/payments/purge-test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: purgeTyped }) })
+                  const d = await r.json().catch(() => ({}))
+                  setNotice(r.ok ? `Purged ${d.payments} test-mode payment(s) (${usd(d.amountCents ?? 0)}) and ${d.refunds} refund row(s). Live and promo rows untouched.` : d.error ?? `Purge failed (${r.status})`)
+                  setPurgeTyped('')
+                  await Promise.all([loadSummary(), loadPayments()])
+                } finally { setPurging(false) }
+              }}
+              className="rounded border border-[#F85149] px-2 py-1 text-[#F85149] disabled:opacity-40"
+              data-testid="purge-test"
+            >
+              Purge test-mode payments
+            </button>
+          </span>
+        </div>
+      )}
 
       {t && (
         <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">

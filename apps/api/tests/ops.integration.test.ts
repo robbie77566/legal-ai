@@ -280,3 +280,63 @@ describe('OPS: diagnostics (2026-09-09)', () => {
     expect(res.statusCode).toBe(403);
   });
 });
+
+describe('OPS: running costs (2026-09-11)', () => {
+  it('GET /costs groups recorded spend by the week it was incurred; SUPPORT is walled off', async () => {
+    const c = await prisma.case.create({ data: { title: `${run}_costs`, tenantId, status: 'READY', lane: 'TRIAL', accessList: { create: { userId, role: 'ADMIN' } } } });
+    const now = new Date(); const lastWeek = new Date(Date.now() - 8 * 86_400_000);
+    await prisma.costRecord.createMany({ data: [
+      { caseId: c.id, tenantId, source: 'model', provider: 'claude-fable-5-1#batch', amountUsd: 40.2, createdAt: now },
+      { caseId: c.id, tenantId, source: 'ocr', provider: 'textract', amountUsd: 1.1, pages: 700, createdAt: now },
+      { caseId: c.id, tenantId, source: 'model', provider: 'claude-opus-5', amountUsd: 17.34, createdAt: lastWeek },
+    ] });
+    const res = await fastify.inject({ method: 'GET', url: '/ops/costs?weeks=4', headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(200);
+    const d = res.json();
+    expect(d.rows.length).toBeGreaterThanOrEqual(2);
+    const thisWeek = d.rows[0];
+    expect(thisWeek.modelUsd).toBeGreaterThanOrEqual(40.2);
+    expect(thisWeek.ocrUsd).toBeGreaterThanOrEqual(1.1);
+    expect(thisWeek.byProvider['claude-fable-5-1']).toBeGreaterThanOrEqual(40.2); // '#batch' suffix folded
+    expect(d.totalUsd).toBeGreaterThanOrEqual(58.6);
+    const byCase = (await fastify.inject({ method: 'GET', url: '/ops/cogs-by-case', headers: { cookie: adminCookie } })).json();
+    expect(byCase[c.id]).toBeCloseTo(58.64, 1);
+    const support = await prisma.user.create({ data: { email: `${run}_support3@x.com`, tenantId, role: 'SUPPORT' } });
+    const sc = `next-auth.session-token=${await encodeSessionToken({ userId: support.id, tenantId, role: 'SUPPORT' })}`;
+    expect((await fastify.inject({ method: 'GET', url: '/ops/costs', headers: { cookie: sc } })).statusCode).toBe(403);
+    expect((await fastify.inject({ method: 'GET', url: '/ops/cogs-by-case', headers: { cookie: sc } })).statusCode).toBe(403);
+    await prisma.costRecord.deleteMany({ where: { caseId: c.id } });
+    await prisma.caseAccess.deleteMany({ where: { caseId: c.id } });
+    await prisma.case.delete({ where: { id: c.id } });
+  });
+
+  it('Stripe test-mode payments are hidden from the ledger by default, shown on request, and purgeable — live and promo rows untouched', async () => {
+    const c = await prisma.case.create({ data: { title: `${run}_tm`, tenantId, status: 'READY', lane: 'TRIAL', accessList: { create: { userId, role: 'ADMIN' } } } });
+    await prisma.payment.createMany({ data: [
+      { stripeId: `cs_test_${run}`, caseId: c.id, userId, tenantId, kind: 'REVIEW', status: 'SUCCEEDED', amountCents: 29900 },
+      { stripeId: `cs_live_${run}`, caseId: c.id, userId, tenantId, kind: 'REVIEW', status: 'SUCCEEDED', amountCents: 29900 },
+      { stripeId: `promo_SNOT26_${run}`, caseId: c.id, userId, tenantId, kind: 'REVIEW', status: 'SUCCEEDED', amountCents: 0, promoCode: 'SNOT26' },
+    ] });
+    const get = (url: string) => fastify.inject({ method: 'GET', url, headers: { cookie: adminCookie } });
+    let sum = (await get('/ops/payments/summary?days=30')).json();
+    expect(sum.testMode).toMatchObject({ included: false });
+    expect(sum.testMode.hiddenCount).toBeGreaterThanOrEqual(1);
+    let ids = (await get(`/ops/payments?q=${run}_tm`)).json().rows.map((r: { stripeId: string }) => r.stripeId);
+    expect(ids).toContain(`cs_live_${run}`); expect(ids).toContain(`promo_SNOT26_${run}`); expect(ids).not.toContain(`cs_test_${run}`);
+    ids = (await get(`/ops/payments?q=${run}_tm&includeTest=1`)).json().rows.map((r: { stripeId: string }) => r.stripeId);
+    expect(ids).toContain(`cs_test_${run}`);
+    sum = (await get('/ops/payments/summary?days=30&includeTest=1')).json();
+    expect(sum.testMode).toEqual({ included: true, hiddenCount: 0 });
+    const bad = await fastify.inject({ method: 'POST', url: '/ops/payments/purge-test', headers: { cookie: adminCookie }, payload: { confirm: 'purge' } });
+    expect(bad.statusCode).toBe(400);
+    const ok = await fastify.inject({ method: 'POST', url: '/ops/payments/purge-test', headers: { cookie: adminCookie }, payload: { confirm: 'PURGE TEST' } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().payments).toBeGreaterThanOrEqual(1);
+    expect(await prisma.payment.findUnique({ where: { stripeId: `cs_test_${run}` } })).toBeNull();
+    expect(await prisma.payment.findUnique({ where: { stripeId: `cs_live_${run}` } })).not.toBeNull();
+    expect(await prisma.payment.findUnique({ where: { stripeId: `promo_SNOT26_${run}` } })).not.toBeNull();
+    await prisma.payment.deleteMany({ where: { caseId: c.id } });
+    await prisma.caseAccess.deleteMany({ where: { caseId: c.id } });
+    await prisma.case.delete({ where: { id: c.id } });
+  });
+});
