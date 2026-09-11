@@ -88,4 +88,11 @@ const ago = (d) => { if (!d) return ''; const m = Math.round((Date.now() - new D
     }
   }
   await prisma.$disconnect()
-})().catch(async (e) => { console.error('FAILED:', e.message.trim().split('\n').slice(0, 3).join(' ')); await prisma.$disconnect().catch(() => {}); process.exit(1) })
+})().catch(async (e) => {
+  // Prisma buries the cause (P1000 auth, P1001 unreachable, 42501 permission…) below a
+  // multi-line "Invalid invocation" banner — surface code + the informative line.
+  const lines = String(e.message ?? e).split('\n').map((l) => l.trim()).filter(Boolean)
+  const cause = lines.find((l) => /authentication|password|permission denied|does not exist|Can't reach|timed out|closed the connection|SSL|denied/i.test(l)) ?? lines[lines.length - 1]
+  console.error(`FAILED${e.code ? ` (${e.code})` : ''}: ${cause}`)
+  await prisma.$disconnect().catch(() => {}); process.exit(1)
+})
