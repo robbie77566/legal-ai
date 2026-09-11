@@ -12,6 +12,7 @@ The rule underneath everything: **the running dev app never points at production
 | Node heap capped at 1536 MB; 2 documents digitize at once, 2 analyses | Unbounded, 2/2 | `.env`: `NODE_OPTIONS="--max-old-space-size=1536"`, `INGESTION_CONCURRENCY=2`, `ANALYSIS_CONCURRENCY=2`, `ZIP_CONCURRENCY=1` |
 | Batch analysis with the 400k-token live fallback | Already `ANALYSIS_BATCH=1` | nothing |
 | Auto-approve | `AUTO_APPROVE=1` in dev | match production's value while testing that behaviour |
+| **Analysis engine** | **Deliberately different:** dev `claude-opus-5`, production `claude-fable-5-1` (PO 2026-09-11 — Opus is close in quality at half the price for testing) | Nothing — but any model-sensitive check (the eval gate, a prompt change) must be run once with `ANALYSIS_MODEL=claude-fable-5-1` overridden before it counts for production |
 
 Then `pnpm env:drift` — the "prod-only code paths NOT exercised in dev" line should be gone.
 

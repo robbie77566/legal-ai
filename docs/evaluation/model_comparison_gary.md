@@ -71,3 +71,5 @@ PO decision after the two comparisons above: recall over cost. `ANALYSIS_MODEL=c
 **Open before launch:** re-run the eval gate on Gary and Brian against the new engine (`scripts/eval-run.ts`; it exits 1 below 100% recall) — it could not run on 2026-09-11 because the Anthropic key was mid-rotation. The attorney-adjudicated ledger remains the only way to know whether Fable's extra findings are correct rather than merely more.
 
 See also: [model_landscape_2026-09.md](model_landscape_2026-09.md) — the September 2026 market survey (free/open models, cost projections from the measured token profile, and the Sonnet 5 experiment plan).
+
+**Amendment (2026-09-11, later the same day):** dev/CI/tests run **Opus 5** (`.env`, code default) — close in quality, half the price for testing; **production stays on Fable 5.1** via `render.yaml`. The eval gate therefore has to be run once with `ANALYSIS_MODEL=claude-fable-5-1` overridden before real customers.

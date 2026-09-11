@@ -203,7 +203,7 @@ export const analysisWorker = new Worker(
     const { caseId, tenantId } = job.data as { caseId: string; tenantId: string };
     // Multi-engine union (Advanced tier): ANALYSIS_ENGINES is a comma list;
     // single-engine default preserves the launch posture.
-    const engines = (process.env.ANALYSIS_ENGINES ?? process.env.ANALYSIS_MODEL ?? 'claude-fable-5-1')
+    const engines = (process.env.ANALYSIS_ENGINES ?? process.env.ANALYSIS_MODEL ?? 'claude-opus-5') // unset env = dev/test → Opus 5; production sets Fable 5.1 in render.yaml
       .split(',')
       .map((e) => e.trim())
       .filter(Boolean);
