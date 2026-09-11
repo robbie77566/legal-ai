@@ -69,3 +69,5 @@ Differences are differences, not correctness. Which model's severity calls and e
 PO decision after the two comparisons above: recall over cost. `ANALYSIS_MODEL=claude-fable-5-1` in the blueprint, dev `.env`, and the code default; cost-telemetry rates moved to $10/$50 per MTok and the classifier factor to 0.1. Request shape verified compatible (no sampling params, no forced tool choice, no prefill; live path keeps `fallbacks: "default"`, batch path omits it as required). Measured expectation: ~2× input and ~6× output cost versus Opus, i.e. roughly $5–15 per case — still under 5% of price.
 
 **Open before launch:** re-run the eval gate on Gary and Brian against the new engine (`scripts/eval-run.ts`; it exits 1 below 100% recall) — it could not run on 2026-09-11 because the Anthropic key was mid-rotation. The attorney-adjudicated ledger remains the only way to know whether Fable's extra findings are correct rather than merely more.
+
+See also: [model_landscape_2026-09.md](model_landscape_2026-09.md) — the September 2026 market survey (free/open models, cost projections from the measured token profile, and the Sonnet 5 experiment plan).

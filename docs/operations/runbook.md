@@ -45,6 +45,7 @@ All are fire-and-forget through the guarded sender; a failed send is logged, nev
 - **Eval gate:** `pnpm --filter api tsx scripts/eval-run.ts <caseId> docs/evaluation/ledgers/<case>.json` — exits 1 below 100% recall. Run after ANY prompt/model/engine change.
 - **Model comparison:** `pnpm --filter api tsx scripts/compare-models.ts <caseId> [model]`.
 - **Batch mode:** `ANALYSIS_BATCH=1` (50% price). Budget `ANALYSIS_BATCH_BUDGET_MS` (default 4h) cancels and falls back live per request — a stuck batch cannot break the SLA. **Economics caveat (measured):** parallel batch items race the prompt cache — records over `ANALYSIS_BATCH_MAX_RECORD_TOKENS` (~400k, ≈1,600 pages) automatically run live-sequential instead, where caching is certain (a 695k-token batch run cost ~2× live before this gate).
+- **Model choice evidence:** evaluation/model_landscape_2026-09.md — measured cost is dominated by cache writes in batch (Fable $40/case as measured vs $15 cache-efficient); free tiers are disqualified by their data terms; Sonnet 5 is the one candidate worth a real comparison.
 - **Engine:** `ANALYSIS_MODEL=claude-fable-5-1` (PO decision 2026-09-11; $10/$50 per MTok, ~3× the output tokens of Opus → expect analysis COGS of roughly $5–15/case instead of $2–5). **Engines:** `ANALYSIS_ENGINES=claude-fable-5-1[,claude-opus-5]` — union model; cross-engine agreement is recorded, never used as a veto. `ANALYSIS_SAMPLES=2` is the recall-tuned default.
 
 ## Known failure modes (all encountered live, all now handled)
