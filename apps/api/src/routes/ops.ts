@@ -162,11 +162,15 @@ export default async function opsRoutes(fastify: FastifyInstance) {
   // Full event timeline for a case (the case file).
   fastify.get('/cases/:id/timeline', async (request) => {
     const { id } = request.params as { id: string };
-    return prisma.caseEvent.findMany({
+    const rows = await prisma.caseEvent.findMany({
       where: { caseId: id },
       orderBy: { id: 'asc' },
       select: { id: true, type: true, version: true, payload: true, actor: true, createdAt: true },
     });
+    // CaseEvent.id is a BigInt sequence; JSON cannot serialize BigInt, so this
+    // route 500'd on every case-page poll ("Do not know how to serialize a
+    // BigInt", found in prod logs 2026-09-11). Ids are far below 2^53.
+    return rows.map((r) => ({ ...r, id: Number(r.id) }));
   });
 
   // NFR-3 retention: cases past the stated 12-month retention window,

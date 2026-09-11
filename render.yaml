@@ -49,6 +49,16 @@ services:
     preDeployCommand: corepack pnpm --filter @hg/database db:migrate:deploy
     startCommand: node apps/api/dist/index.js
     healthCheckPath: /healthz
+    # A deploy restarts the api and KILLS in-flight analysis runs (2026-09-11:
+    # three documentation pushes reset a live Fable run three times). Only
+    # changes that can reach this service's build trigger a deploy.
+    buildFilter:
+      ignoredPaths:
+        - docs/**
+        - "**/*.md"
+        - .github/**
+        - apps/web/**
+        - test-fixtures/**
     envVars:
       - key: DATABASE_URL
         fromDatabase: { name: hg-postgres, property: connectionString }
@@ -77,6 +87,10 @@ services:
         value: "50"
       - key: DOC_CLASSIFIER_USD_FACTOR
         value: "0.1" # Haiku $1 vs Fable $10
+      - key: MODEL_CACHE_READ_MULT
+        value: "0.025" # Fable 5.1 cache hits are 0.025× base (Opus/Sonnet: 0.1)
+      - key: ANALYSIS_CACHE_PREWARM
+        value: "1" # 1-token live request writes the record to a 1h cache before each batch (2026-09-11)
       - key: TEXTRACT_USD_PER_1K_PAGES
         value: "1.5"
       - { key: HG_APP_PASSWORD, sync: false }
@@ -112,6 +126,13 @@ services:
     region: ohio
     buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter @hg/database exec prisma generate && corepack pnpm --filter web build
     startCommand: corepack pnpm --filter web start
+    buildFilter:
+      ignoredPaths:
+        - docs/**
+        - "**/*.md"
+        - .github/**
+        - apps/api/**
+        - test-fixtures/**
     envVars:
       - key: NODE_ENV
         value: production

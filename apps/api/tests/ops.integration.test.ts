@@ -98,6 +98,14 @@ describe('access + queue', () => {
     expect(drill.statusCode).toBe(500);
   });
 
+  it('the timeline serializes (CaseEvent.id is a BigInt — it 500d on every case-page poll, 2026-09-11)', async () => {
+    const res = await fastify.inject({ method: 'GET', url: `/ops/cases/${caseId}/timeline`, headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(200);
+    const rows = res.json();
+    expect(Array.isArray(rows)).toBe(true);
+    for (const r of rows) expect(typeof r.id).toBe('number');
+  });
+
   it('the queue lists the case with stage and stall math', async () => {
     const res = await fastify.inject({ method: 'GET', url: '/ops/queue', headers: { cookie: adminCookie } });
     expect(res.statusCode).toBe(200);

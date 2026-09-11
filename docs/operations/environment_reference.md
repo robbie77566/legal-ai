@@ -47,7 +47,9 @@ In production (Render) there are no files: every value is a service env var (blu
 | `ANALYSIS_SAMPLES` | | Self-consistency passes 1–3 (recall-tuned: 2) | choice |
 | `ANALYSIS_BATCH` | | `1` = Message Batches (50% price, live fallback) | choice; validated |
 | `ANALYSIS_BATCH_BUDGET_MS` | | Batch stage budget before live fallback (default 4h) | choice |
-| `ANALYSIS_BATCH_MAX_RECORD_TOKENS` | | Records above this run live-sequential (cache-race economics; default 400k) | measured — see runbook |
+| `ANALYSIS_BATCH_MAX_RECORD_TOKENS` | | Records above this run live-sequential (default 400k) | measured — see runbook. With the pre-warm below, batch no longer races the cache, so this gate can be raised once a warmed run shows cache reads on every item |
+| `ANALYSIS_CACHE_PREWARM` | | `1` (default): before each batch, one 1-token live request writes the record to a **1-hour** cache; batch items carry the same 1h breakpoint and read it. `0` disables | Cost model: Fable $40 → ~$24 per Gary-sized case (model_landscape_2026-09.md §2). The pre-warm is recorded as provider `<model>#prewarm` in CostRecord |
+| `MODEL_CACHE_READ_MULT` / `MODEL_CACHE_WRITE_MULT` | | Cache-hit / 5m-write price multipliers vs base input for the COGS estimator | Blueprint sets read 0.025 (Fable 5.1); dev/default 0.1 (Opus/Sonnet). Write default 1.25 |
 
 ## Commerce — API service
 

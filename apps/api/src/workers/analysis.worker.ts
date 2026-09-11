@@ -24,8 +24,7 @@ import { recordModelCost } from '../services/costs.service';
  * progress (SRE-4). BullMQ retries cover transient API errors.
  */
 
-const FIXED_SYSTEM =
-  'You are a meticulous post-conviction record examiner. You analyze Texas criminal court records exactly as instructed in the final message of each request, and you respond with ONLY the JSON object that instruction specifies.';
+import { FIXED_SYSTEM, buildMessages, prewarmCache, prewarmEnabled } from '../services/analysis-request';
 
 function buildModel(caseId: string, tenantId: string, modelName: string): AnalysisModel | null {
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) return null;
@@ -39,19 +38,9 @@ function buildModel(caseId: string, tenantId: string, modelName: string): Analys
           betas: ['server-side-fallback-2026-07-01'],
           fallbacks: 'default',
           system: FIXED_SYSTEM,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: record,
-                  cache_control: { type: 'ephemeral' }, // screens 2..n read this at ~0.1×
-                },
-                { type: 'text', text: screenInstruction },
-              ],
-            },
-          ],
+          // Live-sequential: screens run one after another within minutes,
+          // so the 5-minute cache (1.25× write) is enough; screens 2..n read.
+          messages: buildMessages(record, screenInstruction, '5m'),
         })
         .finalMessage();
 
@@ -104,6 +93,23 @@ function buildModel(caseId: string, tenantId: string, modelName: string): Analys
     const budgetMs = Math.max(60_000, Number(process.env.ANALYSIS_BATCH_BUDGET_MS ?? '') || 4 * 3600_000);
     const out = new Map<string, string>();
     try {
+      // Cache pre-warm (PO 2026-09-11): one 1-token live request writes the
+      // record to a 1-HOUR cache before the batch exists, so the parallel
+      // items read it instead of racing to write it (measured: 7/10 items
+      // re-wrote a 696k record; writes were 88% of the run's cost).
+      if (prewarmEnabled()) {
+        try {
+          const u = await prewarmCache(client, modelName, record);
+          console.log(`[analysis] cache pre-warm (1h) — cache_write:${u.cacheWriteTokens} cache_read:${u.cacheReadTokens} in:${u.inputTokens}`);
+          void recordModelCost({
+            caseId, tenantId, provider: `${modelName}#prewarm`,
+            usage: { tokensIn: u.inputTokens, tokensOut: 1, cacheReadTokens: u.cacheReadTokens, cacheWriteTokens: u.cacheWriteTokens },
+            usdFactor: 1.6, // usage is ~all cache-write: the 1h write is 2× base vs the estimator's 1.25× default → ×1.6
+          });
+        } catch (e) {
+          console.warn(`[analysis] cache pre-warm failed — batch proceeds unwarmed: ${(e as Error).message.slice(0, 120)}`);
+        }
+      }
       const batch = await client.messages.batches.create({
         requests: requests.map((r) => ({
           custom_id: r.key,
@@ -111,15 +117,7 @@ function buildModel(caseId: string, tenantId: string, modelName: string): Analys
             model: modelName,
             max_tokens: 32000,
             system: FIXED_SYSTEM,
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: record, cache_control: { type: 'ephemeral' } },
-                  { type: 'text', text: r.instruction },
-                ],
-              },
-            ],
+            messages: buildMessages(record, r.instruction, '1h'), // same 1h breakpoint as the pre-warm → reads
           },
         })),
       });
