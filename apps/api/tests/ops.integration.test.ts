@@ -253,7 +253,10 @@ describe('OPS: diagnostics (2026-09-09)', () => {
       expect(d.checks[k]).toMatchObject({ ok: expect.any(Boolean), detail: expect.any(String), ms: expect.any(Number) });
     }
     expect(d.checks.redis.ok).toBe(true);
-    expect(d.checks.clamd.ok).toBe(false); // no CLAMD_HOST in tests — and it must say so, not hide it
+    // The clamd row follows the environment: unset → an honest FAIL that says
+    // so; set (dev now runs production's scan path) → a real PONG.
+    if (process.env.CLAMD_HOST) expect(d.checks.clamd).toMatchObject({ ok: true, detail: expect.stringMatching(/PONG/) });
+    else expect(d.checks.clamd).toMatchObject({ ok: false, detail: expect.stringMatching(/CLAMD_HOST not set/) });
     expect(d.env).toHaveProperty('ANALYSIS_BATCH');
     expect(d.secretsPresent).toHaveProperty('ANTHROPIC_API_KEY');
     expect(d.queues.analysis).toMatchObject({ workers: 1, counts: { failed: 1 } });

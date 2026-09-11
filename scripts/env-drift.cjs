@@ -52,7 +52,12 @@ if (local) {
   if (!dev) console.log('  no .env')
   else {
     const apiKeys = Object.values(blueprint).filter((b) => b.service === 'api' && b.kind !== 'fromDatabase' && b.kind !== 'fromService').map((b) => b.key)
-    const PROD_ONLY = new Set(['NODE_ENV', 'NODE_OPTIONS', 'WEB_ORIGIN', 'CLAMD_HOST', 'SENTRY_DSN', 'POSTHOG_API_KEY', 'STRIPE_WEBHOOK_SECRET', 'EVAL_CORPUS_BUCKET'])
+    // Absent in dev BY DESIGN — each has a dev behaviour that does not need the value.
+    const PROD_ONLY = new Set([
+      'NODE_ENV', 'WEB_ORIGIN', 'SENTRY_DSN', 'POSTHOG_API_KEY', 'STRIPE_WEBHOOK_SECRET', 'EVAL_CORPUS_BUCKET',
+      'RESEND_API_KEY',   // dev = console transport, prints the email body
+      'HG_APP_PASSWORD',  // dev = the migration's default role password
+    ])
     const missing = apiKeys.filter((k) => !dev.has(k) && !PROD_ONLY.has(k))
     console.log(missing.length ? `  .env is missing api values the blueprint sets/expects: ${missing.join(', ')}` : '  .env covers every api value the blueprint expects (prod-only ones excepted).')
     const prodPaths = ['CLAMD_HOST', 'ANALYSIS_BATCH', 'NODE_OPTIONS', 'INGESTION_CONCURRENCY', 'ANALYSIS_CONCURRENCY'].filter((k) => !dev.has(k))
