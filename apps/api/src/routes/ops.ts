@@ -23,7 +23,7 @@ const STALL_DAYS = 7;
 // the actions that unblock a family. Money, deletion, promos, drills, and
 // per-case cost stay ADMIN. Enforced here, not in the browser.
 const SUPPORT_WRITES = new Set(['delay-ours', 'delay-cleared', 'resume', 'contact', 'requests']);
-const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /^\/ops\/diagnostics/, /\/cogs$/];
+const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /^\/ops\/diagnostics/, /^\/ops\/costs/, /^\/ops\/cogs-by-case/, /\/cogs$/];
 
 /** Fire-and-forget customer email to the case owner (never fails a request). */
 async function notifyCaseOwner(caseId: string, send: (email: string, origin: string) => Promise<unknown>) {
@@ -261,6 +261,17 @@ export default async function opsRoutes(fastify: FastifyInstance) {
 
   // NFR-4: per-case COGS is a single query — tokens/pages are ground
   // truth, dollars are env-rate estimates (see costs.service).
+  // Running costs by week INCURRED + per-case totals (ops Money page, cases list).
+  fastify.get('/costs', async (request) => {
+    const { weeks } = request.query as { weeks?: string };
+    const { spendByWeek } = await import('../services/costs.service');
+    return spendByWeek(Number(weeks) || 12);
+  });
+  fastify.get('/cogs-by-case', async () => {
+    const { cogsByCase } = await import('../services/costs.service');
+    return cogsByCase();
+  });
+
   fastify.get('/cases/:id/cogs', async (request) => {
     const { id } = request.params as { id: string };
     const kase = await prisma.case.findUniqueOrThrow({ where: { id }, select: { tenantId: true } });

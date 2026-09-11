@@ -27,6 +27,10 @@ const PAYMENTS = {
     { id: 'p_2', stripeId: 'promo_FAMILY50_x', paymentIntentId: null, caseId: 'c_2', caseTitle: 'Ramirez — Bexar County record', customerEmail: 'm@x.com', kind: 'REVIEW', status: 'SUCCEEDED', amountCents: 0, refundedCents: 0, remainingCents: 0, promoCode: 'FAMILY50', free: true, disputeStatus: null, disputedAt: null, refundedAt: null, createdAt: '2026-09-02T11:27:00Z' },
   ],
 }
+const SPEND = { weeks: 12, from: '2026-06-19T00:00:00Z', totalUsd: 61.4, cases: 3, perCaseUsd: 20.47, rows: [
+  { weekOf: '2026-09-07', cases: 2, modelUsd: 40.2, ocrUsd: 1.1, otherUsd: 0, totalUsd: 41.3, perCaseUsd: 20.65, byProvider: { 'claude-fable-5-1': 40.2 } },
+  { weekOf: '2026-08-31', cases: 1, modelUsd: 17.34, ocrUsd: 2.76, otherUsd: 0, totalUsd: 20.1, perCaseUsd: 20.1, byProvider: { 'claude-opus-5': 17.34 } },
+] }
 const calls: Array<{ url: string; init?: RequestInit }> = []
 
 beforeEach(() => {
@@ -34,7 +38,8 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url)
     calls.push({ url: u, init })
-    const body = u.includes('/ops/payments/summary') ? SUMMARY
+    const body = u.includes('/ops/costs') ? SPEND
+      : u.includes('/ops/payments/summary') ? SUMMARY
       : u.includes('/decide') ? { ok: true, decision: 'APPROVED', result: { amountCents: 29900 } }
       : u.includes('/refund') ? { ok: true, amountCents: 14900, caseTransitioned: false }
       : u.includes('/ops/payments') ? PAYMENTS
@@ -97,5 +102,15 @@ describe('money page', () => {
     await screen.findByTestId('payments-table')
     fireEvent.click(screen.getByRole('button', { name: 'Refunded' }))
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/ops/payments?status=refunded'))).toBe(true))
+  })
+
+  it('spend by week (incurred): model/OCR/total/per-case per week, with the period total in the heading', async () => {
+    render(<MoneyPage />)
+    const t = await screen.findByTestId('spend-by-week')
+    await waitFor(() => expect(t).toHaveTextContent(/\$40\.20/))
+    expect(t).toHaveTextContent(/\$41\.30/)
+    expect(t).toHaveTextContent(/\$20\.65/)
+    expect(screen.getByText(/last 12 weeks: \$61\.40 across 3 cases/)).toBeInTheDocument()
+    expect(calls.some((c) => c.url.endsWith('/ops/costs?weeks=12'))).toBe(true)
   })
 })

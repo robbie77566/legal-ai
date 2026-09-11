@@ -37,6 +37,10 @@ interface RefundRow {
   issuedByEmail: string
   createdAt: string
 }
+interface Spend {
+  weeks: number; from: string; totalUsd: number; cases: number; perCaseUsd: number | null
+  rows: Array<{ weekOf: string; cases: number; modelUsd: number; ocrUsd: number; otherUsd: number; totalUsd: number; perCaseUsd: number | null; byProvider: Record<string, number> }>
+}
 interface Summary {
   stripe: 'unset' | 'test' | 'live'
   period: { days: number; from: string }
@@ -181,6 +185,7 @@ function RefundDialog({ payment, onClose, onDone }: { payment: PaymentRow; onClo
 export default function MoneyPage() {
   const [days, setDays] = useState(30)
   const [summary, setSummary] = useState<Summary | null>(null)
+  const [spend, setSpend] = useState<Spend | null>(null)
   const [filter, setFilter] = useState('')
   const [q, setQ] = useState('')
   const [term, setTerm] = useState('')
@@ -200,6 +205,7 @@ export default function MoneyPage() {
   }
 
   const loadSummary = useCallback(async () => {
+    void apiFetch('/ops/costs?weeks=12').then(async (c) => { if (c.ok) setSpend(await c.json()) })
     const r = await apiFetch(`/ops/payments/summary?days=${days}`)
     if (r.ok) setSummary(await r.json())
   }, [days])
@@ -303,6 +309,31 @@ export default function MoneyPage() {
               {summary && summary.weeks.length === 0 && <tr><td colSpan={6} className="py-3 text-sm text-[#8B949E]">No payments in this period.</td></tr>}
             </tbody>
           </table>
+          <p className="mt-1 text-[11px] text-[#8B949E]">Cost here is charged to the week the case was <em>sold</em> (the reserve-policy view).</p>
+
+          <h2 className="mt-6 text-[11px] uppercase tracking-wider text-[#8B949E]">Spend by week, as incurred{spend ? ` · last ${spend.weeks} weeks: ${usdFloat(spend.totalUsd)} across ${spend.cases} case${spend.cases === 1 ? '' : 's'}` : ''}</h2>
+          <table className="mt-2 w-full border-collapse text-sm" data-testid="spend-by-week">
+            <thead>
+              <tr className="border-b border-[#30363D] text-left text-xs uppercase tracking-wider text-[#8B949E]">
+                <th className="py-2">Week of</th><th className="text-right">Cases worked</th><th className="text-right">Model</th><th className="text-right">OCR</th><th className="text-right">Other</th><th className="text-right">Total</th><th className="text-right">Per case</th>
+              </tr>
+            </thead>
+            <tbody>
+              {spend?.rows.map((w) => (
+                <tr key={w.weekOf} className="border-b border-[#21262D] font-mono tabular-nums" title={Object.entries(w.byProvider).map(([k, v]) => `${k}: ${usdFloat(v)}`).join(' · ')}>
+                  <td className="py-2 font-sans">{day(w.weekOf)}</td>
+                  <td className="text-right">{w.cases}</td>
+                  <td className="text-right">{usdFloat(w.modelUsd)}</td>
+                  <td className="text-right">{w.ocrUsd ? usdFloat(w.ocrUsd) : '—'}</td>
+                  <td className="text-right">{w.otherUsd ? usdFloat(w.otherUsd) : '—'}</td>
+                  <td className="text-right font-semibold">{usdFloat(w.totalUsd)}</td>
+                  <td className="text-right">{w.perCaseUsd != null ? usdFloat(w.perCaseUsd) : '—'}</td>
+                </tr>
+              ))}
+              {spend && spend.rows.length === 0 && <tr><td colSpan={7} className="py-3 text-sm text-[#8B949E]">No model or OCR spend recorded in this period.</td></tr>}
+            </tbody>
+          </table>
+          <p className="mt-1 text-[11px] text-[#8B949E]">Charged to the week the work ran (model calls, OCR pages). Hover a row for the split by model. Dollars are estimates from env rates; tokens and pages are the ground truth (per case: the case file&rsquo;s COGS).</p>
         </section>
 
         <aside>

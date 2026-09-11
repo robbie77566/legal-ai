@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
+import { useStaffRole } from '@/lib/staff-role'
 
 interface QueueRow {
   id: string; title: string; status: string; lane: string | null
@@ -23,8 +24,12 @@ export default function CasesPage() {
   const [rows, setRows] = useState<QueueRow[]>([])
   const [q, setQ] = useState('')
   const [attention, setAttention] = useState(false)
+  const role = useStaffRole()
+  // Per-case running cost (ADMIN only — Support is walled off from money)
+  const [cogs, setCogs] = useState<Record<string, number> | null>(null)
 
   useEffect(() => { void apiFetch('/ops/queue').then(async (r) => r.ok && setRows(await r.json())) }, [])
+  useEffect(() => { if (role === 'ADMIN') void apiFetch('/ops/cogs-by-case').then(async (r) => r.ok && setCogs(await r.json())) }, [role])
 
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -47,7 +52,7 @@ export default function CasesPage() {
       <table className="mt-4 w-full border-collapse text-sm" data-testid="cases-table">
         <thead>
           <tr className="border-b border-[#30363D] text-left text-xs uppercase tracking-wider text-[#8B949E]">
-            <th className="py-2">Case</th><th>Stage</th><th className="text-right">Days</th><th>Flags</th><th>Last activity</th><th></th>
+            <th className="py-2">Case</th><th>Stage</th><th className="text-right">Days</th><th>Flags</th><th>Last activity</th>{cogs && <th className="text-right">Cost so far</th>}<th></th>
           </tr>
         </thead>
         <tbody>
@@ -63,10 +68,11 @@ export default function CasesPage() {
                 {c.subsequentWrit && <span className="rounded bg-[#21262D] px-1.5 py-0.5 text-[#8B949E]">§4</span>}
               </td>
               <td className="font-mono text-xs text-[#8B949E]">{new Date(c.updatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</td>
+              {cogs && <td className="text-right font-mono tabular-nums" data-testid={`cogs-${c.id}`}>{cogs[c.id] != null ? `$${cogs[c.id].toFixed(2)}` : '—'}</td>}
               <td className="text-right"><Link href={`/ops/cases/${c.id}`} className="rounded border border-[#30363D] px-2 py-1 text-xs">Case file →</Link></td>
             </tr>
           ))}
-          {shown.length === 0 && <tr><td colSpan={6} className="py-3 text-sm text-[#8B949E]">{rows.length ? 'No case matches.' : 'No cases yet.'}</td></tr>}
+          {shown.length === 0 && <tr><td colSpan={cogs ? 7 : 6} className="py-3 text-sm text-[#8B949E]">{rows.length ? 'No case matches.' : 'No cases yet.'}</td></tr>}
         </tbody>
       </table>
     </div>

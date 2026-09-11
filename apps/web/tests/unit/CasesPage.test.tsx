@@ -1,6 +1,8 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+const role = { value: 'SUPPORT' as string }
+vi.mock('@/lib/staff-role', () => ({ useStaffRole: () => role.value }))
 import CasesPage from '@/app/ops/cases/page'
 
 /** Cases — the support surface: every case, searchable, linking to its case file. */
@@ -9,7 +11,8 @@ const QUEUE = [
   { id: 'c_2', title: 'Bexar County · 2018', status: 'QA_REJECTED', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: true, updatedAt: '2026-09-07T10:00:00Z' },
 ]
 beforeEach(() => {
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => QUEUE }) as Response))
+  role.value = 'SUPPORT'
+  vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => ({ ok: true, status: 200, json: async () => (String(url).endsWith('/ops/cogs-by-case') ? { c_1: 12.5 } : QUEUE) }) as Response))
 })
 
 describe('cases page', () => {
@@ -22,5 +25,18 @@ describe('cases page', () => {
     fireEvent.change(screen.getByLabelText('Find a case'), { target: { value: 'travis' } })
     expect(table).not.toHaveTextContent(/Bexar/)
     expect(table).toHaveTextContent(/STALL/)
+  })
+
+  it('admins see a running cost per case; support does not', async () => {
+    render(<CasesPage />)
+    await screen.findByTestId('cases-table')
+    expect(screen.queryByText('Cost so far')).toBeNull()
+  })
+  it('admin: Cost so far column from /ops/cogs-by-case, dash when nothing recorded', async () => {
+    role.value = 'ADMIN'
+    render(<CasesPage />)
+    expect(await screen.findByText('Cost so far')).toBeInTheDocument()
+    expect(await screen.findByTestId('cogs-c_1')).toHaveTextContent('$12.50')
+    expect(screen.getByTestId('cogs-c_2')).toHaveTextContent('—')
   })
 })

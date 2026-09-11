@@ -1,4 +1,4 @@
-import { withTenant } from '@hg/database';
+import prisma, { withTenant } from '@hg/database';
 
 /**
  * NFR-4 cost telemetry: every model/OCR call writes a CostRecord, so
@@ -115,4 +115,45 @@ export async function caseCogs(caseId: string, tenantId: string) {
       totalUsd: sum(rows),
     };
   });
+}
+
+/**
+ * Running costs by the week they were INCURRED (ops Money page, 2026-09-11).
+ * Distinct from paymentsSummary's cohort view, which charges a case's cost
+ * to the week it was SOLD. This answers "what did we spend this week and on
+ * what" — model vs OCR vs other, how many cases were worked, cost per case.
+ * Owner connection: a cross-tenant system surface (ADMIN only at the route).
+ */
+export async function spendByWeek(weeks = 12) {
+  const { weekOf } = await import('./refunds.service');
+  const n = Math.min(52, Math.max(1, Math.floor(weeks) || 12));
+  const from = new Date(Date.now() - n * 7 * 86_400_000);
+  const rows = await prisma.costRecord.findMany({
+    where: { createdAt: { gte: from } },
+    select: { caseId: true, source: true, provider: true, amountUsd: true, createdAt: true },
+  });
+  type Week = { weekOf: string; cases: number; modelUsd: number; ocrUsd: number; otherUsd: number; totalUsd: number; perCaseUsd: number | null; byProvider: Record<string, number> };
+  const weeksMap = new Map<string, Week & { caseIds: Set<string> }>();
+  for (const r of rows) {
+    const key = weekOf(r.createdAt);
+    let w = weeksMap.get(key);
+    if (!w) { w = { weekOf: key, cases: 0, modelUsd: 0, ocrUsd: 0, otherUsd: 0, totalUsd: 0, perCaseUsd: null, byProvider: {}, caseIds: new Set() }; weeksMap.set(key, w); }
+    w.caseIds.add(r.caseId);
+    if (r.source === 'model') w.modelUsd += r.amountUsd; else if (r.source === 'ocr') w.ocrUsd += r.amountUsd; else w.otherUsd += r.amountUsd;
+    w.totalUsd += r.amountUsd;
+    const prov = r.provider.replace(/#.*$/, '');
+    w.byProvider[prov] = (w.byProvider[prov] ?? 0) + r.amountUsd;
+  }
+  const out = [...weeksMap.values()]
+    .map(({ caseIds, ...w }) => ({ ...w, cases: caseIds.size, perCaseUsd: caseIds.size ? w.totalUsd / caseIds.size : null }))
+    .sort((a, b) => (a.weekOf < b.weekOf ? 1 : -1));
+  const totalUsd = out.reduce((a, w) => a + w.totalUsd, 0);
+  const allCases = new Set(rows.map((r) => r.caseId)).size;
+  return { weeks: n, from: from.toISOString(), totalUsd, cases: allCases, perCaseUsd: allCases ? totalUsd / allCases : null, rows: out };
+}
+
+/** Total recorded cost per case, for the cases list (ADMIN). */
+export async function cogsByCase(): Promise<Record<string, number>> {
+  const g = await prisma.costRecord.groupBy({ by: ['caseId'], _sum: { amountUsd: true } });
+  return Object.fromEntries(g.map((x) => [x.caseId, x._sum.amountUsd ?? 0]));
 }
