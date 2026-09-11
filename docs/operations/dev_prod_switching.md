@@ -56,6 +56,15 @@ The shell runs with the api's real environment, so anything that needs the produ
 
 What it cannot see is a value that is *set but wrong* on Render (a revoked key, a mismatched secret between web and api). That is what `/ops/diagnostics` is for — check it after every blueprint change, because a sync is exactly the event that has dropped values before.
 
+### 3b. Orphaned Render resources (the abandoned-Postgres problem)
+
+**What happened.** The first deploy (2026-08-31) created a Postgres, a Key Value store and a clamav under earlier names. The blueprint was then edited (`hg-postgres`, `hg-redis`, `clamav`) and re-applied. Render created the new resources and **left the old ones running** — Render never deletes a resource that drops out of a blueprint, it only stops managing it. The strays cost ~$50/month, and the stray Postgres had its allowlist open to `0.0.0.0/0`. Found ten days later, by accident, when the CLI listed services.
+
+**Rules.**
+1. **Never rename a resource in `render.yaml` once it exists.** A rename is a create-plus-orphan. If a rename is unavoidable, delete the old resource the same day.
+2. **After every blueprint change, run `pnpm render:inventory`.** It lists every resource in the workspace, marks each `in blueprint` / `render add-on` / `ORPHAN`, flags a Postgres open to the internet, and exits 1 on orphans. (Needs `render login` or `RENDER_API_KEY`; it is not in CI because CI has no Render credential — it is a human step on the same checklist as the Diagnostics check.)
+3. **Before deleting a stray Postgres**, confirm it is empty: `scripts/prod-case.cjs` will not help (different database); the inventory script tells you which one to check and the dashboard's pgAdmin shows its tables. Deletion is done in the dashboard; it is deliberately not scripted.
+
 ## 4. Safety rules
 - Production credentials on the dev box are **read-only** (`hg_readonly`) or **absent** (the AWS key here is dev-scoped; `node scripts/aws-scope-check.cjs dev` proves it).
 - Anything that writes to production runs **in** production: the Render shell, or the ops console.

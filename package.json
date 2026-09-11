@@ -11,6 +11,7 @@
     "db:seed:prod": "pnpm --filter @hg/database db:seed",
     "env:drift": "node scripts/env-drift.cjs --local",
     "prod:case": "node scripts/prod-case.cjs",
+    "render:inventory": "node scripts/render-inventory.cjs",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "rag:index": "npx tsx packages/ai/scripts/index-codebase.ts",
     "typecheck": "turbo typecheck"
