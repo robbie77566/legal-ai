@@ -9,6 +9,8 @@
     "test:coverage": "vitest run --coverage",
     "db:sync": "pnpm --filter @hg/database db:migrate:deploy && pnpm --filter @hg/database db:generate",
     "db:seed:prod": "pnpm --filter @hg/database db:seed",
+    "env:drift": "node scripts/env-drift.cjs --local",
+    "prod:case": "node scripts/prod-case.cjs",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "rag:index": "npx tsx packages/ai/scripts/index-codebase.ts",
     "typecheck": "turbo typecheck"

@@ -16,6 +16,11 @@ pnpm --filter @hg/database db:migrate:deploy > /tmp/gate-migrate.log 2>&1 || { t
 pnpm --filter @hg/database db:generate > /tmp/gate-generate.log 2>&1 || { tail -20 /tmp/gate-generate.log; exit 1; }
 grep -E "applied|up to date|No pending" /tmp/gate-migrate.log | tail -1 || echo "migrations OK"
 
+echo "── env drift ──"
+# Blueprint ↔ environment_reference.md ↔ .env.example must agree (every prod
+# failure in Sept 2026 was configuration, not code — dev_prod_switching.md).
+node scripts/env-drift.cjs || exit 1
+
 echo "── typecheck ──"
 pnpm typecheck > /tmp/gate-typecheck.log 2>&1 || { tail -20 /tmp/gate-typecheck.log; exit 1; }
 grep -E "Tasks:" /tmp/gate-typecheck.log | tail -1

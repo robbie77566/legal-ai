@@ -79,6 +79,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Env drift (render.yaml ↔ docs ↔ .env.example)
+        run: node scripts/env-drift.cjs
+
       - name: Generate Prisma client
         # Before Build: web and api compile against the generated client
         # (Render's buildCommand does the same). Running this only in the
