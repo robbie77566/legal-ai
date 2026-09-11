@@ -371,7 +371,7 @@ export async function digitizeDocument(
         cacheReadTokens: 0, cacheWriteTokens: 0,
       },
       // Haiku rates vs the configured (analysis-model) rates.
-      usdFactor: Number(process.env.DOC_CLASSIFIER_USD_FACTOR ?? '0.2'),
+      usdFactor: Number(process.env.DOC_CLASSIFIER_USD_FACTOR ?? '0.1'), // Haiku vs Fable 5.1
     });
   }
 

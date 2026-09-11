@@ -391,7 +391,7 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     checks.anthropic = await run(async () => {
       if (!present('ANTHROPIC_API_KEY') && !present('ANTHROPIC_AUTH_TOKEN')) throw new Error('ANTHROPIC_API_KEY not set');
       const { default: Anthropic } = await import('@anthropic-ai/sdk');
-      const model = process.env.ANALYSIS_MODEL ?? 'claude-opus-5';
+      const model = process.env.ANALYSIS_MODEL ?? 'claude-fable-5-1';
       const r = await new Anthropic().messages.countTokens({ model, messages: [{ role: 'user', content: 'ping' }] });
       return `key valid, model ${model} answers (${r.input_tokens} tokens counted)`;
     });

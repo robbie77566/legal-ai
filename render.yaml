@@ -60,18 +60,23 @@ services:
         value: production
       - key: WEB_ORIGIN
         value: https://www.snotnoselegal.com
+      # Analysis engine: Fable 5.1 (PO decision 2026-09-11 — recall over cost; the
+      # Gary/Brian comparisons found ~50% more issues with better verbatim quotes).
       - key: ANALYSIS_MODEL
-        value: claude-opus-5
+        value: claude-fable-5-1
       - key: ANALYSIS_SAMPLES
         value: "2"
       - key: ANALYSIS_BATCH
         value: "1"
       - key: ANALYSIS_BATCH_MAX_RECORD_TOKENS
         value: "400000"
+      # Cost-telemetry rates follow the engine (Fable 5.1: $10 in / $50 out per MTok).
       - key: MODEL_USD_PER_MTOK_IN
-        value: "5"
+        value: "10"
       - key: MODEL_USD_PER_MTOK_OUT
-        value: "25"
+        value: "50"
+      - key: DOC_CLASSIFIER_USD_FACTOR
+        value: "0.1" # Haiku $1 vs Fable $10
       - key: TEXTRACT_USD_PER_1K_PAGES
         value: "1.5"
       - { key: HG_APP_PASSWORD, sync: false }

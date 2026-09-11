@@ -5,7 +5,7 @@ import { withTenant } from '@hg/database';
  * per-case COGS is one query. Tokens/pages are ground truth; dollars are
  * an ESTIMATE from env-configured rates — set these from the current
  * price sheet at deploy:
- *   MODEL_USD_PER_MTOK_IN   (default 5)    MODEL_USD_PER_MTOK_OUT (default 25)
+ *   MODEL_USD_PER_MTOK_IN   (default 10)   MODEL_USD_PER_MTOK_OUT (default 50)   — Fable 5.1 rates (2026-09-11)
  *   MODEL_CACHE_READ_MULT   (default 0.1)  MODEL_CACHE_WRITE_MULT (default 1.25)
  *   TEXTRACT_USD_PER_1K_PAGES (default 1.5)
  *
@@ -25,8 +25,8 @@ export interface ModelUsage {
 }
 
 export function estimateModelUsd(u: ModelUsage): number {
-  const inRate = num(process.env.MODEL_USD_PER_MTOK_IN, 5) / 1_000_000;
-  const outRate = num(process.env.MODEL_USD_PER_MTOK_OUT, 25) / 1_000_000;
+  const inRate = num(process.env.MODEL_USD_PER_MTOK_IN, 10) / 1_000_000;
+  const outRate = num(process.env.MODEL_USD_PER_MTOK_OUT, 50) / 1_000_000;
   const readMult = num(process.env.MODEL_CACHE_READ_MULT, 0.1);
   const writeMult = num(process.env.MODEL_CACHE_WRITE_MULT, 1.25);
   return (

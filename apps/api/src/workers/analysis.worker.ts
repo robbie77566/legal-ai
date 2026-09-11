@@ -203,7 +203,7 @@ export const analysisWorker = new Worker(
     const { caseId, tenantId } = job.data as { caseId: string; tenantId: string };
     // Multi-engine union (Advanced tier): ANALYSIS_ENGINES is a comma list;
     // single-engine default preserves the launch posture.
-    const engines = (process.env.ANALYSIS_ENGINES ?? process.env.ANALYSIS_MODEL ?? 'claude-opus-5')
+    const engines = (process.env.ANALYSIS_ENGINES ?? process.env.ANALYSIS_MODEL ?? 'claude-fable-5-1')
       .split(',')
       .map((e) => e.trim())
       .filter(Boolean);

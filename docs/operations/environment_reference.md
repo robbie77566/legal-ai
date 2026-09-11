@@ -34,7 +34,7 @@ In production (Render) there are no files: every value is a service env var (blu
 | `INGESTION_CONCURRENCY` | | Documents digitized at once (per instance) | Default 2 in code; blueprint sets **2** (Standard). On a starter plan use 1. Each document is parsed whole in memory (several × file size). Raise to 2–3 on Standard. Integer 1–16; nonsense is ignored with a warning. |
 | `ANALYSIS_CONCURRENCY` | | Analysis runs at once (per instance) | Default 2; blueprint sets **2** (Standard); 1 on starter. |
 | `ZIP_CONCURRENCY` | | ZIP archives unpacked at once | Default 1. Leave at 1 unless the plan is generous — an unpack holds the archive in memory. |
-| `DOC_CLASSIFIER_USD_FACTOR` | | Price ratio of the classifier model vs the MODEL_USD_* rates, for cost estimates | Default 0.2 (Haiku vs Opus) |
+| `DOC_CLASSIFIER_USD_FACTOR` | | Price ratio of the classifier model vs the MODEL_USD_* rates, for cost estimates | Default 0.1 (Haiku $1 vs Fable $10); was 0.2 on Opus |
 | `ANTHROPIC_API_KEY` | 🔑 | Claude analysis engine | console.anthropic.com → API Keys (rotated for prod — dev key transited chat) |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | 🔑 | S3 + Textract | AWS IAM → the least-privilege user (S3 rw on the case-documents bucket for THAT environment + the eval corpus, + Textract Start/Get only). Prod and dev should use different keys, each scoped to its own bucket |
 | `AWS_REGION` | | Bucket/Textract region | `us-east-2` |
@@ -42,7 +42,7 @@ In production (Render) there are no files: every value is a service env var (blu
 | `EVAL_CORPUS_BUCKET` | | Encrypted reference corpus (seed `--corpus`) | `snl-eval-corpus-327600375718` |
 | `S3_ENDPOINT` | | Optional S3-compatible endpoint override | Unset in real AWS |
 | `CLAMD_HOST` | | Arms the ENG-4 malware scan (`host` or `host:port`, default port 3310); unset = uploads log "NOT scanned" | Dev: `localhost` with `docker compose --profile scan up -d clamav`. Prod: auto-wired `fromService` (clamav) |
-| `ANALYSIS_MODEL` | | Engine (default `claude-opus-5`) | choice |
+| `ANALYSIS_MODEL` | | Engine (default `claude-fable-5-1` since 2026-09-11; was `claude-opus-5`) | PO decision — recall over cost (evaluation/model_comparison_gary.md). Rates below must move with it |
 | `ANALYSIS_ENGINES` | | Comma list → multi-engine union (Advanced tier) | choice; default single |
 | `ANALYSIS_SAMPLES` | | Self-consistency passes 1–3 (recall-tuned: 2) | choice |
 | `ANALYSIS_BATCH` | | `1` = Message Batches (50% price, live fallback) | choice; validated |
