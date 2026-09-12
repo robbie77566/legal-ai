@@ -83,7 +83,11 @@ export default function BuyPage() {
       if (res.status === 403) setPromoError('You’re signed in as a staff account, which can’t buy or use codes. Sign out, then try the code as a customer.')
       else if (res.status === 401) setPromoError('Please sign in (or create your account below) before adding a code.')
       else if (res.status === 429) setPromoError('Too many tries — wait a minute and try again.')
-      else setPromoError("That code isn't valid")
+      else {
+        // The server's own words when it has them ("already used on this account"), else the generic line.
+        const body = (await res.json().catch(() => ({}))) as { error?: string }
+        setPromoError(body.error ?? "That code isn't valid")
+      }
       return
     }
     setPromo(await res.json())

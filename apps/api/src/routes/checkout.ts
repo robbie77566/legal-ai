@@ -124,6 +124,13 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
     const check = await checkPromo(code, userId);
     if (!check.valid) {
       request.log.info({ code, reason: check.reason }, 'promo validate rejected');
+      // One exception to the generic message (promo_codes.md §4.5): a code
+      // THIS account already redeemed. The user already knows the code, so
+      // nothing is revealed — and "isn't valid" sent a real customer in
+      // circles (SNOT99, 2026-09-12).
+      if (check.reason === 'already_used_by_user') {
+        return reply.status(400).send({ error: 'This account already used that code — each code works once per account. Use a different code, or ask us for one.', reason: 'already_used' });
+      }
       return reply.status(400).send({ error: "That code isn't valid" });
     }
     const newTotal = Math.max(PRICES_CENTS.review - (check.amountOffCents ?? 0), 0);

@@ -41,7 +41,7 @@ Patterns from high-converting checkout research (Baymard-style findings, common 
 2. **Race on the redemption cap**: two simultaneous redemptions of the last slot → atomic `updateMany WHERE redeemedCount < maxRedemptions` increment; 0 rows updated = limit reached, code rejected.
 3. **Per-user re-redemption**: a user re-using the same free code → checked against existing `Payment` rows for (user, promoCode).
 4. **Free path must not skip the safety rails**: it runs *after* the disclosure-ack gate in the same flow order, binds the eligibility draft, and refuses staff roles — because it reuses the fulfillment function where those live.
-5. **Validation leakage**: one generic failure message; details only in server logs and the admin list.
+5. **Validation leakage**: one generic failure message; details only in server logs and the admin list. **One exception (2026-09-12):** a code *this account* already redeemed says so ("This account already used that code — each code works once per account"). The user already knows that code exists, so nothing leaks — and the generic line sent a real customer (SNOT99, second purchase on the same account) in circles.
 6. **Normalization**: codes stored and compared uppercase/trimmed; creation rejects non `[A-Z0-9-]` and duplicates.
 7. **Refund surface**: free purchases have nothing to refund (OPS refund honestly 503s on them — no Stripe id); discounted purchases refund their actual charged amount via the existing Stripe path.
 8. **COGS honesty**: free cases still spend real Textract/Claude dollars — the cap defaults are deliberately small and the admin page shows redemption counts next to that reality.

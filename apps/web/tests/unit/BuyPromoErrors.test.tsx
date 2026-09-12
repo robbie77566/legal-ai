@@ -8,10 +8,11 @@ import BuyPage from '@/app/(daybreak)/buy/page'
 /** 2026-09-12: an admin testing a fresh code saw "That code isn't valid" three
  *  times — the API had returned 403 for the STAFF session. Say so. */
 let status = 403
+let bodyError = 'Consumer purchases only'
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
     const u = String(url)
-    if (u.endsWith('/checkout/promo/validate')) return { ok: false, status, json: async () => ({ error: 'Consumer purchases only' }) } as Response
+    if (u.endsWith('/checkout/promo/validate')) return { ok: false, status, json: async () => ({ error: bodyError }) } as Response
     return { ok: true, status: 200, json: async () => ({ ackedAt: null }) } as Response
   }))
 })
@@ -31,7 +32,15 @@ describe('buy page — promo errors', () => {
   })
   it('a real rejection still reads "That code isn\'t valid"', async () => {
     status = 400
+    bodyError = "That code isn't valid"
     await apply('NOPE')
     await waitFor(() => expect(screen.getByText(/That code isn.t valid/)).toBeInTheDocument())
+  })
+  it('a code this account already used shows the server\'s own words (SNOT99, 2026-09-12)', async () => {
+    status = 400
+    bodyError = 'This account already used that code — each code works once per account. Use a different code, or ask us for one.'
+    await apply('SNOT99')
+    await waitFor(() => expect(screen.getByText(/already used that code/)).toBeInTheDocument())
+    expect(screen.queryByText(/isn.t valid/)).toBeNull()
   })
 })

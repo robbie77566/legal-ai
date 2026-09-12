@@ -54,6 +54,20 @@ describe('promo service', () => {
     expect((await checkPromo('T-FULL', userId)).reason).toBe('limit');
   });
 
+  it('a code this account already used says so on validate — the one non-generic message (2026-09-12)', async () => {
+    await prisma.promoCode.create({ data: { code: 'T-USED', amountOffCents: 29900, createdBy: 'test', redeemedCount: 1 } });
+    await prisma.payment.create({ data: { tenantId, userId, kind: 'REVIEW', status: 'SUCCEEDED', amountCents: 0, promoCode: 'T-USED', stripeId: `promo_T-USED_${run}` } });
+    const res = await fastify.inject({ method: 'POST', url: '/checkout/promo/validate', headers: { cookie: clientCookie }, payload: { code: 't-used' } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ reason: 'already_used' });
+    expect(res.json().error).toMatch(/already used that code/);
+    // Everything else stays generic.
+    const unknown = await fastify.inject({ method: 'POST', url: '/checkout/promo/validate', headers: { cookie: clientCookie }, payload: { code: 'T-NOPE' } });
+    expect(unknown.json()).toEqual({ error: "That code isn't valid" });
+    const old = await fastify.inject({ method: 'POST', url: '/checkout/promo/validate', headers: { cookie: clientCookie }, payload: { code: 'T-OLD' } });
+    expect(old.json()).toEqual({ error: "That code isn't valid" });
+  });
+
   it('cap redemption is atomic — parallel racers cannot oversubscribe', async () => {
     await prisma.promoCode.create({ data: { code: 'T-RACE', amountOffCents: 29900, maxRedemptions: 3, createdBy: 'test' } });
     const results = await Promise.all(Array.from({ length: 8 }, () => redeemPromo('T-RACE')));
