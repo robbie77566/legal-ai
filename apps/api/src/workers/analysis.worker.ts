@@ -16,8 +16,9 @@ import { recordModelCost } from '../services/costs.service';
  * top-level system slot so the prefix stays identical across screens.)
  *
  * Streaming (long records exceed non-streaming HTTP comfort), adaptive
- * thinking (Opus 5 default — no `thinking` param needed), and server-side
- * refusal fallbacks enabled by default.
+ * thinking (Opus 5 default — no `thinking` param needed). Refusals are handled
+ * client-side (see streamOnce) — server-side fallbacks + the stream helper
+ * crashed with "reading 'signal'" (2026-09-11).
  *
  * Honest failure mode unchanged: with no Anthropic credential the case STAYS
  * at DOCS_COMPLETE and this logs loudly — never fake findings, never fake
@@ -30,25 +31,39 @@ function buildModel(caseId: string, tenantId: string, modelName: string): Analys
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) return null;
   const client = new Anthropic(); // resolves credentials from the environment
 
-  const liveInvoke = async (screenInstruction: string, record: string): Promise<string> => {
-      const response = await client.beta.messages
-        .stream({
-          model: modelName,
-          max_tokens: 32000, // Fable comparison hit 16k mid-array; verbose models need headroom
-          betas: ['server-side-fallback-2026-07-01'],
-          fallbacks: 'default',
-          system: FIXED_SYSTEM,
-          // Live-sequential: screens run one after another within minutes,
-          // so the 5-minute cache (1.25× write) is enough; screens 2..n read.
-          messages: buildMessages(record, screenInstruction, '5m'),
-        })
-        .finalMessage();
+  /**
+   * One streamed request. NO server-side fallbacks here: with
+   * `fallbacks:'default'` a refusal re-routed by the server comes back in a
+   * shape the SDK's stream helper cannot handle — it dereferences
+   * `stream.controller.signal` and throws "Cannot read properties of
+   * undefined (reading 'signal')". That killed nine production runs on a
+   * record whose content trips the classifiers (2026-09-11). Refusals are
+   * handled by US instead: one client-side retry on the fallback engine,
+   * then an empty sample.
+   */
+  const streamOnce = async (model: string, screenInstruction: string, record: string) =>
+    client.messages
+      .stream({
+        model,
+        max_tokens: 32000, // Fable comparison hit 16k mid-array; verbose models need headroom
+        system: FIXED_SYSTEM,
+        // Live-sequential: screens run one after another within minutes,
+        // so the 5-minute cache (1.25× write) is enough; screens 2..n read.
+        messages: buildMessages(record, screenInstruction, '5m'),
+      })
+      .finalMessage();
 
+  const FALLBACK_ENGINE = process.env.ANALYSIS_FALLBACK_MODEL ?? (modelName.startsWith('claude-opus') ? '' : 'claude-opus-5');
+
+  const liveInvoke = async (screenInstruction: string, record: string): Promise<string> => {
+      let response = await streamOnce(modelName, screenInstruction, record);
+      if (response.stop_reason === 'refusal' && FALLBACK_ENGINE) {
+        console.warn(`[analysis] ${modelName} refused a screen (category: ${response.stop_details?.category ?? 'unknown'}) — retrying once on ${FALLBACK_ENGINE}`);
+        response = await streamOnce(FALLBACK_ENGINE, screenInstruction, record);
+      }
       if (response.stop_reason === 'refusal') {
-        // Whole fallback chain declined — an empty screen for QA, never a crash.
-        console.warn(
-          `[analysis] refusal on screen (category: ${response.stop_details?.category ?? 'unknown'})`
-        );
+        // Every engine declined — an empty screen for QA, never a crash.
+        console.warn(`[analysis] refusal on screen (category: ${response.stop_details?.category ?? 'unknown'})`);
         return '{"findings":[]}';
       }
 
@@ -76,6 +91,26 @@ function buildModel(caseId: string, tenantId: string, modelName: string): Analys
         .filter((b): b is Anthropic.TextBlock => b.type === 'text')
         .map((b) => b.text)
         .join('');
+  };
+
+  /**
+   * A thrown error inside ONE sample must never kill the run (the batch path
+   * already holds this rule). Retry once — most live failures are transient
+   * (disconnect mid-stream, 529) — then an empty sample with the STACK in the
+   * log, so the next unknown failure names its line.
+   */
+  const liveInvokeResilient = async (screenInstruction: string, record: string): Promise<string> => {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        return await liveInvoke(screenInstruction, record);
+      } catch (e) {
+        const err = e as Error;
+        console.error(`[analysis] live sample failed (attempt ${attempt}/2): ${String(err.message).slice(0, 300)}\n${String(err.stack ?? '').split('\n').slice(0, 6).join('\n')}`);
+        if (attempt === 2) return '{"findings":[]}';
+        await new Promise((r) => setTimeout(r, 15_000));
+      }
+    }
+    return '{"findings":[]}';
   };
 
   /**
@@ -175,7 +210,7 @@ function buildModel(caseId: string, tenantId: string, modelName: string): Analys
     for (const r of requests) {
       if (out.has(r.key)) continue;
       try {
-        out.set(r.key, await liveInvoke(r.instruction, record));
+        out.set(r.key, await liveInvokeResilient(r.instruction, record));
       } catch (e) {
         // One filtered/failed SAMPLE must never kill the run (learned live:
         // a content-filtering rejection on one sentencing sample wedged a
@@ -190,7 +225,7 @@ function buildModel(caseId: string, tenantId: string, modelName: string): Analys
 
   return {
     name: modelName,
-    invoke: liveInvoke,
+    invoke: liveInvokeResilient,
     ...(process.env.ANALYSIS_BATCH === '1' ? { invokeMany: batchInvokeMany } : {}),
   };
 }

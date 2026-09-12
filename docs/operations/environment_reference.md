@@ -44,6 +44,7 @@ In production (Render) there are no files: every value is a service env var (blu
 | `CLAMD_HOST` | | Arms the ENG-4 malware scan (`host` or `host:port`, default port 3310); unset = uploads log "NOT scanned" | Dev: `localhost` with `docker compose --profile scan up -d clamav`. Prod: auto-wired `fromService` (clamav) |
 | `ANALYSIS_MODEL` | | Engine. **Deliberately differs by environment (PO 2026-09-11):** production `claude-fable-5-1` (render.yaml); dev/CI/tests `claude-opus-5` (`.env`, code default) — close in quality, half the price for testing | Rates (`MODEL_USD_*`, `DOC_CLASSIFIER_USD_FACTOR`) move with it: 10/50/0.1 for Fable, 5/25/0.2 for Opus |
 | `ANALYSIS_ENGINES` | | Comma list → multi-engine union (Advanced tier) | choice; default single |
+| `ANALYSIS_FALLBACK_MODEL` | | Engine a refused screen is retried on, once (client-side; server-side fallbacks crashed the stream helper) | Default `claude-opus-5` when the engine is Fable; empty when the engine is already Opus |
 | `ANALYSIS_SAMPLES` | | Self-consistency passes 1–3 (recall-tuned: 2) | choice |
 | `ANALYSIS_BATCH` | | `1` = Message Batches (50% price, live fallback) | choice; validated |
 | `ANALYSIS_BATCH_BUDGET_MS` | | Batch stage budget before live fallback (default 4h) | choice |
