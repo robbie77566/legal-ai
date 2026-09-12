@@ -188,6 +188,10 @@ export async function sharedReportRoutes(fastify: FastifyInstance) {
         notice:
           'Attorney working packet (Part B). Prepared with AI assistance, approved by a trained reviewer. Access to this packet does not itself create an attorney-client relationship or privilege.',
         templateVersion: report.templateVersion,
+        caseSummary: await (await import('../services/case-summary.service')).summaryRowsForReport(
+          report.runId,
+          (await tx.case.findUnique({ where: { id: report.caseId }, select: { county: true, convictionYear: true, facts: true, deadlineFacts: true } })) ?? {}
+        ),
         findings: snapshot.findings
           .filter((f) => verified.includes(f.id))
           .map(({ id: _id, ...f }) => f),

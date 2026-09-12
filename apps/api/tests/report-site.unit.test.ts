@@ -19,6 +19,11 @@ describe('report PDF names the site', () => {
     const buf = await renderReportPdf({
       caseTitle: 'Site Reference Case', reportId: 'rep_site', versionNo: 1, templateVersion: '2026-08-29.1', renderedAt: new Date(),
       subsequentWritMode: false, strongSignals: [finding('dispositive')], possibleIssues: Array.from({ length: 14 }, () => finding('supportive')), droppedByReverification: 0,
+      summary: [
+        { key: 'defendant', label: 'Person', value: 'GARY W. DOE', source: 'record', cite: { volume: 'RR1', page: 3, quote: 'THE STATE OF TEXAS VS. GARY W. DOE' } },
+        { key: 'county', label: 'County', value: 'Brazoria County', source: 'family' },
+        { key: 'offense', label: 'Offense', value: null, source: null },
+      ],
     });
     const { PDFParse } = await import('pdf-parse');
     const parser = new PDFParse({ data: new Uint8Array(buf) });
@@ -30,6 +35,10 @@ describe('report PDF names the site', () => {
     expect(mentions).toBeGreaterThanOrEqual(pages + 2); // one footer per page + cover + closing note
     expect(text).toContain('a service of Snot Nose Legal');
     expect(text).toContain('are at snotnoselegal.com');
+    expect(text).toContain('About this case');
+    expect(text).toContain('GARY W. DOE (RR1 p. 3)');
+    expect(text).toContain('as your family told us');
+    expect(text).toContain('not stated in the record');
     expect(buf.toString('latin1')).toContain('snotnoselegal.com'); // metadata Author, literal
   });
 });

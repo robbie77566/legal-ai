@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { z } from 'zod';
+import { CaseSummarySchema, type CaseSummary } from '@hg/case-lifecycle';
 import { withTenant, appendCaseEvent } from '@hg/database';
 
 /**
@@ -81,6 +82,9 @@ const SCREENS_BY_LANE: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
  */
 const CONTEXT_INSTRUCTIONS =
   'From the record above identify: the defendant; the offense(s) charged; the complainant/victim name(s) and role; key State witnesses (law enforcement, experts, outcry/medical); and the central contested issue at trial. Respond with ONE compact plain-text paragraph beginning "CASE CONTEXT:" (max ~150 words). No JSON, no headings, no analysis.';
+
+const SUMMARY_INSTRUCTIONS =
+  'From the record above extract the case summary for the top of a report. Respond with ONLY a JSON object with these keys (each either null or {"value":"<short fact>","cite":{"volume":"<volume file if shown>","page":<page number if shown>,"quote":"<VERBATIM text copied from the record that states this fact>"}}): defendant (full name), county, court (court and county), causeNumber, offense (charge(s) as stated, with degree), offenseDate, trialDates (start–end or the date), verdict (jury or court, what was found), sentence (as pronounced), judgmentDate, appeal (court of appeals cause, outcome, date, if any), priorWrits (any prior writ application: article, filed date, outcome). The quote MUST be copied character-for-character from the record. If the record does not state a fact, use null — never guess or infer.';
 
 const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. Severity calibration: "dispositive" = could plausibly justify relief or major posture change on its own (illegal sentence, seated biased juror, suppressed exculpatory evidence); "supportive" = strengthens a claim package but needs companions; "background" = context a lawyer should know. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
 
@@ -384,6 +388,35 @@ export async function executeScreen(
 export { SCREENS_BY_LANE };
 
 /** The pre-pass itself — shared by the pipeline and compare-models. */
+/**
+ * Case summary (report header, PO 2026-09-12): one cached-read call; every
+ * fact must carry a quote that grounds VERBATIM in a chunk (whitespace-
+ * normalized, like FR-6) — an ungrounded fact is dropped, never softened.
+ * Never a gate: any failure yields null and the run proceeds.
+ */
+export async function buildCaseSummary(model: AnalysisModel, record: string, chunks: AnalysisChunk[]): Promise<CaseSummary | null> {
+  try {
+    const raw = (await model.invoke(SUMMARY_INSTRUCTIONS, record)).trim();
+    const start = raw.indexOf('{');
+    if (start < 0) return null;
+    const parsed = CaseSummarySchema.safeParse(JSON.parse(raw.slice(start, raw.lastIndexOf('}') + 1)));
+    if (!parsed.success) return null;
+    const out: CaseSummary = {};
+    let kept = 0;
+    for (const key of Object.keys(parsed.data) as (keyof CaseSummary)[]) {
+      const f = parsed.data[key];
+      if (!f) continue;
+      const grounded = chunks.some((c) => quoteGrounds(c.content, f.cite.quote));
+      if (grounded) { out[key] = f; kept++; }
+      else console.warn(`[analysis] summary fact '${key}' dropped — quote not found verbatim in the record`);
+    }
+    return kept ? out : null;
+  } catch (e) {
+    console.warn(`[analysis] case summary skipped: ${(e as Error).message.slice(0, 120)}`);
+    return null;
+  }
+}
+
 export async function buildContextHeader(model: AnalysisModel, record: string): Promise<string> {
   try {
     const text = (await model.invoke(CONTEXT_INSTRUCTIONS, record)).trim();
@@ -463,6 +496,13 @@ export async function runAnalysis(
   // Context pre-pass: outside any transaction, one cached-read call.
   const contextHeader = await buildContextHeader(model, record);
   if (contextHeader) console.log(`[analysis] context header: ${contextHeader.slice(0, 160)}…`);
+  // Case summary for the report header — persisted on the run so every
+  // report version renders the summary its findings were built alongside.
+  const caseSummary = await buildCaseSummary(model, record, chunks);
+  if (caseSummary) {
+    await withTenant(tenantId, (tx) => tx.analysisRun.update({ where: { id: run.id }, data: { summary: caseSummary as object } }));
+    console.log(`[analysis] case summary: ${Object.keys(caseSummary).length} fact(s) grounded`);
+  }
 
   const samples = Math.min(3, Math.max(1, Number(process.env.ANALYSIS_SAMPLES ?? '1') || 1));
 

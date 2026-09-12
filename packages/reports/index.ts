@@ -58,6 +58,16 @@ export interface ReportPdfInput {
   palette?: ReportPalette;
   /** Test hook: uncompressed streams so assertions can read the text. */
   compress?: boolean;
+  /** "About this case" rows (case-lifecycle summaryRows): record-cited, family-told, or unknown. */
+  summary?: SummaryRowLike[];
+}
+
+export interface SummaryRowLike {
+  key: string;
+  label: string;
+  value: string | null;
+  source: 'record' | 'family' | null;
+  cite?: { volume?: string | null; page?: number | null; quote: string };
 }
 
 export const SITE = 'snotnoselegal.com';
@@ -129,6 +139,20 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
         `Report ${input.reportId} · version ${input.versionNo} · rendered ${new Date(input.renderedAt).toDateString()} · template ${input.templateVersion}`
       );
     doc.moveDown(1);
+
+    // ---- About this case (PO 2026-09-12): grounded summary, never inferred ----
+    if (input.summary && input.summary.some((r) => r.value)) {
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('About this case');
+      doc.moveDown(0.2);
+      doc.font('Helvetica').fontSize(8.5).fillColor('#555555').text('From the record you sent, with the page it comes from. A line marked "as your family told us" is from your answers, not the record.');
+      doc.moveDown(0.4);
+      for (const r of input.summary) {
+        const where = r.cite ? ` (${[r.cite.volume, r.cite.page != null ? `p. ${r.cite.page}` : null].filter(Boolean).join(' ') || 'record'})` : r.source === 'family' ? ' — as your family told us' : '';
+        doc.font('Helvetica-Bold').fontSize(9.5).fillColor(pal.ink).text(`${r.label}: `, { continued: true });
+        doc.font('Helvetica').fontSize(9.5).fillColor(r.value ? '#222222' : '#777777').text(r.value ? `${r.value}${where}` : 'not stated in the record');
+      }
+      doc.moveDown(1);
+    }
 
     // ---- TL;DR ----
     doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('What we found');

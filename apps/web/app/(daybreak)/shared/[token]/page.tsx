@@ -1,5 +1,7 @@
 'use client'
 
+import CaseSummaryBlock, { type SummaryRow } from '../../../../components/daybreak/CaseSummaryBlock'
+
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
@@ -39,6 +41,7 @@ export default function SharedReport() {
     <main className="mx-auto max-w-2xl px-5 py-8">
       <h1 className="font-db-serif text-2xl font-semibold">Attorney working packet — Part B</h1>
       <p className="mt-2 text-sm text-db-muted">{data.notice}</p>
+      <CaseSummaryBlock rows={(data as { caseSummary?: SummaryRow[] | null }).caseSummary} compact />
 
       <ol className="mt-6 space-y-4">
         {data.findings.map((f, i) => (

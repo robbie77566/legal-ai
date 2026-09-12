@@ -170,6 +170,10 @@ model AnalysisRun {
   tenantId    String
   runNo       Int       @default(1)
   modelConfig Json // model/prompt/router versions — a QA'd report is reproducible
+  // Case summary extracted from the record (case-lifecycle/summary.ts):
+  // person, county, court, cause, offense, dates, verdict, sentence,
+  // appeal, prior writs — each fact cited to the record or absent (2026-09-12).
+  summary     Json?
   startedAt   DateTime  @default(now())
   completedAt DateTime?
 

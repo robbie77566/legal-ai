@@ -5,3 +5,4 @@ export * from './checklist'
 export * from './calendar'
 export * from './deadlines';
 export * from './facts'
+export * from './summary'

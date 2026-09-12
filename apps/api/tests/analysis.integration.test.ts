@@ -36,6 +36,13 @@ const CHUNK_B = `${run} Q: Did you disclose the lab notes to the defense? A: No,
 const fakeModel: AnalysisModel = {
   name: 'fake-deterministic',
   invoke: async (system: string) => {
+    // Case summary (report header): one grounded fact, one fabricated quote that must be dropped.
+    if (system.includes('case summary for the top of a report')) {
+      return JSON.stringify({
+        defendant: { value: 'The bite-mark defendant', cite: { volume: 'RR3', page: 214, quote: 'The bite mark comparison testimony will be admitted.' } },
+        sentence: { value: '99 years', cite: { volume: 'RR9', page: 1, quote: 'this sentence is not in the record at all' } },
+      });
+    }
     const isJunk = system.includes('forensic-science');
     if (!isJunk) return JSON.stringify({ findings: [] });
     return JSON.stringify({
@@ -514,6 +521,12 @@ describe('runAnalysis (FR-6 grounding + state machine)', () => {
     expect(stages.map((e) => (e.payload as { status: string }).status)).toEqual([
       'DIGITIZING', 'ANALYZING', 'ADJUDICATING', 'QA_REVIEW',
     ]);
+
+    // Case summary (2026-09-12): stored on the run; the fabricated quote was dropped.
+    const runRow = await prisma.analysisRun.findFirstOrThrow({ where: { caseId }, orderBy: { startedAt: 'desc' } });
+    const caseSummary = runRow.summary as { defendant?: { value: string }; sentence?: unknown } | null;
+    expect(caseSummary?.defendant?.value).toBe('The bite-mark defendant');
+    expect(caseSummary?.sentence).toBeUndefined();
 
     // Progress INSIDE a check (2026-09-11): one analysis.progress per live
     // model call, recorded BEFORE the call — screen, pass, and position.
