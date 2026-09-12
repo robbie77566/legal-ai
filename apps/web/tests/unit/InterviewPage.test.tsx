@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import CaseInterview from '@/app/(daybreak)/case/[caseId]/interview/page'
 
 /** Never ask twice: the interview prefills from the case facts and hides
@@ -89,5 +89,37 @@ describe('interview', () => {
     render(<CaseInterview />)
     await screen.findByTestId('known-facts')
     expect((screen.getByLabelText('Judgment date') as HTMLInputElement).value).toBe('2019-06-14')
+  })
+
+  it('while collecting documents the shaping answers can be changed — the writ answer PATCHes and the card updates (PO, 2026-09-12)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      calls.push({ url: u, init })
+      if (u.endsWith('/facts') && init?.method === 'PATCH') {
+        return { ok: true, status: 200, json: async () => ({ facts: { ...CHECKLIST.facts, priorWrit: 'yes' }, factLines: CHECKLIST.factLines.map((l) => (l.key === 'priorWrit' ? { ...l, value: 'Yes — a writ was filed before' } : l)), checklistItemCount: 8 }) } as Response
+      }
+      return { ok: true, status: 200, json: async () => (u.endsWith('/checklist') ? CHECKLIST : { checklistItemCount: 5 }) } as Response
+    }))
+    render(<CaseInterview />)
+    await screen.findByTestId('known-facts')
+    fireEvent.click(screen.getByTestId('change-answers'))
+    const form = screen.getByTestId('change-answers-form')
+    expect(form).toHaveTextContent(/Has a writ .* been filed before/)
+    fireEvent.click(within(screen.getByTestId('shape-priorWrit')).getByLabelText('Yes'))
+    fireEvent.click(screen.getByTestId('save-answers'))
+    await waitFor(() => {
+      const patch = calls.find((c) => c.url.endsWith('/cases/case_1/facts') && c.init?.method === 'PATCH')
+      expect(patch).toBeTruthy()
+      expect(JSON.parse(String(patch!.init!.body))).toEqual({ trialOrPlea: 'trial', appeal: 'decided', priorWrit: 'yes' })
+    })
+    expect(await screen.findByText(/Yes — a writ was filed before/)).toBeInTheDocument()
+    expect(screen.queryByTestId('change-answers-form')).toBeNull()
+  })
+
+  it('after records-complete the shaping answers are locked — no change control', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => ({ ok: true, status: 200, json: async () => (String(url).endsWith('/checklist') ? { ...CHECKLIST, status: 'ANALYZING' } : {}) }) as Response))
+    render(<CaseInterview />)
+    await screen.findByTestId('locked-note')
+    expect(screen.queryByTestId('change-answers')).toBeNull()
   })
 })

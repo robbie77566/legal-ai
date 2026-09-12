@@ -292,9 +292,18 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         convictionYear: z.number().int().min(1950).max(2100).optional(),
         trialDays: z.number().int().min(0).max(365).nullable().optional(),
         judgmentDate: z.preprocess((v) => (v === null ? null : normalizeCivilDate(v)), z.string().regex(CIVIL_RE, CIVIL_DATE_MESSAGE).nullable().optional()),
+        // Shaping facts (PO, 2026-09-12: "I need to change my answer regarding
+        // the writ"): editable while the case is still AWAITING_DOCS — they
+        // re-derive the lane / subsequent-writ mode and rebuild the un-started
+        // checklist. After records-complete they stay locked (409).
+        trialOrPlea: z.enum(['trial', 'plea']).optional(),
+        appeal: z.enum(['decided', 'pending', 'none']).optional(),
+        priorWrit: z.enum(['no', 'yes', 'unsure']).optional(),
       })
       .strict()
       .parse(request.body);
+    const SHAPING = ['trialOrPlea', 'appeal', 'priorWrit'] as const;
+    const shaping = SHAPING.filter((k) => body[k] !== undefined);
     const keys = (Object.keys(body) as Array<keyof typeof body>).filter((k) => body[k] !== undefined);
     if (keys.length === 0) return reply.status(400).send({ error: 'Nothing to change' });
 
@@ -302,9 +311,17 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       const kase = await withCase(tx, id, userId);
       if (!kase) return reply.status(403).send({ error: 'Forbidden' });
       if (kase.status === 'DELETED') return reply.status(409).send({ error: 'This case has been deleted' });
+      if (shaping.length > 0 && kase.status !== 'AWAITING_DOCS') {
+        return reply.status(409).send({ error: 'How it was decided, the appeal, and any prior writ are locked once the review starts — a re-run is where they can change.' });
+      }
 
       const prior = (CaseFactsSchema.safeParse(kase.facts ?? {}).success ? (kase.facts as CaseFacts) : {}) ?? {};
       const facts: CaseFacts = { ...prior, source: { ...(prior.source ?? {}), editedAt: new Date().toISOString() } };
+      if (body.trialOrPlea !== undefined) facts.trialOrPlea = body.trialOrPlea;
+      if (body.appeal !== undefined) { facts.appeal = body.appeal; if (body.appeal !== 'none') delete facts.noAppealReason; }
+      if (body.priorWrit !== undefined) facts.priorWrit = body.priorWrit;
+      const lane = body.trialOrPlea ? (body.trialOrPlea === 'plea' ? 'PLEA' : 'TRIAL') : kase.lane;
+      const subsequentWrit = body.priorWrit !== undefined ? body.priorWrit === 'yes' : kase.subsequentWrit;
       if (body.county !== undefined) facts.county = body.county;
       if (body.convictionYear !== undefined) facts.convictionYear = body.convictionYear;
       if (body.trialDays !== undefined) { if (body.trialDays === null) delete facts.trialDays; else facts.trialDays = body.trialDays; }
@@ -322,12 +339,22 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         data: {
           ...(body.county !== undefined ? { county: body.county } : {}),
           ...(body.convictionYear !== undefined ? { convictionYear: body.convictionYear } : {}),
+          ...(shaping.length > 0 ? { lane, subsequentWrit } : {}),
           facts: facts as Prisma.InputJsonValue,
           deadlineFacts: deadlineFacts === null ? Prisma.DbNull : (deadlineFacts as Prisma.InputJsonValue),
         },
       });
+      let checklistItemCount: number | undefined;
+      if (shaping.length > 0) {
+        // The template changed: drop the un-started items and reseed; received
+        // items keep their documents.
+        await tx.checklistItem.deleteMany({ where: { caseId: id, state: 'NEEDED' } });
+        const { seedChecklist } = await import('../services/case-setup.service');
+        checklistItemCount = await seedChecklist(tx, { id, lane, subsequentWrit }, facts.appeal ? facts.appeal !== 'none' : true);
+      }
       await appendCaseEvent(tx, { caseId: id, tenantId, type: 'facts.updated', payload: { keys }, actor: userId });
-      return { facts, factLines: describeFacts(facts, { ...kase, county: facts.county ?? kase.county, convictionYear: facts.convictionYear ?? kase.convictionYear }) };
+      const view = { ...kase, lane, subsequentWrit, county: facts.county ?? kase.county, convictionYear: facts.convictionYear ?? kase.convictionYear };
+      return { facts, factLines: describeFacts(facts, view), ...(checklistItemCount !== undefined ? { checklistItemCount } : {}) };
     });
   });
 

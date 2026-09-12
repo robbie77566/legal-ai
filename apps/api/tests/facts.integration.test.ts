@@ -91,6 +91,31 @@ describe('the free check survives purchase', () => {
     expect((await get(`/checkout/fulfillment?session_id=cs_${run}_nope`)).json()).toEqual({ pending: true });
   });
 
+  it('the writ and the other shaping answers can change while documents are still being collected — the checklist rebuilds (PO, 2026-09-12)', async () => {
+    const before = (await prisma.checklistItem.findMany({ where: { caseId } })).map((i) => i.kind);
+    expect(before).not.toContain('prior_writ_application');
+    const res = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { priorWrit: 'yes' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().facts.priorWrit).toBe('yes');
+    expect(res.json().factLines.find((l: { key: string }) => l.key === 'priorWrit').value).toMatch(/Yes/);
+    const kase = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    expect(kase.subsequentWrit).toBe(true);
+    const after = (await prisma.checklistItem.findMany({ where: { caseId } })).map((i) => i.kind);
+    expect(after).toContain('prior_writ_application');
+    expect(after).toContain('rr_volume');
+    // And back: the writ items go away again, received items would have stayed.
+    const back = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { priorWrit: 'no' } });
+    expect(back.statusCode).toBe(200);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).subsequentWrit).toBe(false);
+    expect((await prisma.checklistItem.findMany({ where: { caseId } })).map((i) => i.kind)).not.toContain('prior_writ_application');
+    // A plea changes the lane and the template.
+    const plea = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { trialOrPlea: 'plea' } });
+    expect(plea.statusCode).toBe(200);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).lane).toBe('PLEA');
+    expect((await prisma.checklistItem.findMany({ where: { caseId } })).map((i) => i.kind)).toContain('plea_papers');
+    await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { trialOrPlea: 'trial' } });
+  });
+
   it('a judgment date typed the way people write it is normalized; an unreadable one gets a human message (Sentry, 2026-09-12)', async () => {
     const bad = await post(`/cases/${caseId}/interview`, { county: 'Travis', convictionYear: 2019, judgmentDate: 'last spring' });
     expect(bad.statusCode).toBe(400);
@@ -205,16 +230,18 @@ describe('lock semantics (decision 1)', () => {
     // The interview route (which reseeds the checklist) is closed…
     expect((await post(`/cases/${caseId}/interview`, { county: 'Bexar', convictionYear: 2018 })).statusCode).toBe(409);
     // …the facts route accepts the contact-style facts…
+    const eventsBefore = await prisma.caseEvent.count({ where: { caseId, type: 'facts.updated' } });
     const res = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { county: 'Bexar', judgmentDate: '2019-07-01' } });
     expect(res.statusCode).toBe(200);
     expect(res.json().facts).toMatchObject({ county: 'Bexar', judgmentDate: '2019-07-01', appeal: 'decided', custody: 'probation' });
     const kase = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
     expect(kase.county).toBe('Bexar');
     expect(kase.deadlineFacts).toMatchObject({ judgmentDate: '2019-07-01' });
-    expect(await prisma.caseEvent.count({ where: { caseId, type: 'facts.updated' } })).toBe(1);
+    expect(await prisma.caseEvent.count({ where: { caseId, type: 'facts.updated' } })).toBe(eventsBefore + 1);
     // …and refuses anything that shapes the review.
     const shaping = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { trialOrPlea: 'plea' } });
-    expect(shaping.statusCode).toBe(400);
+    expect(shaping.statusCode).toBe(409);
+    expect(shaping.json().error).toMatch(/a re-run is where they can change/);
     // Clearing the judgment date removes it from both places.
     const cleared = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { judgmentDate: null } });
     expect(cleared.statusCode).toBe(200);

@@ -161,7 +161,7 @@ export const CASE_EVENT_SCHEMAS = {
   // Case facts (customer_journey_ux_review §3): which keys changed — never
   // the values (county is free text).
   'facts.updated': {
-    1: z.object({ keys: z.array(z.enum(['county', 'convictionYear', 'trialDays', 'judgmentDate'])).min(1).max(4) }).strict(),
+    1: z.object({ keys: z.array(z.enum(['county', 'convictionYear', 'trialDays', 'judgmentDate', 'trialOrPlea', 'appeal', 'priorWrit'])).min(1).max(7) }).strict(),
   },
   'consent.granted': { 1: z.object({ consentId: id, recipientClass: z.enum(['clinic', 'attorney']) }).strict() },
   'consent.revoked': { 1: z.object({ consentId: id }).strict() },

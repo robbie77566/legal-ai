@@ -14,3 +14,7 @@ Everything carried over is labelled: `facts.source.carriedFromCaseId`, and the d
 `GET /checkout/fulfillment` (and the free promo path's `url`) return `interviewNeeded`; the interview is still needed when the lane, county, year or appeal answer is unknown — a first purchase, or a free check that skipped a question.
 
 Tests: `fulfillment-heal.integration` (repeat buyer: carried facts, seeded checklist, event, poll says no interview), `BuySuccess` (documents link), `DocumentsPage` (carried-over note).
+
+## Changing a shaping answer (PO, 2026-09-12: "I need to change my answer regarding the writ")
+
+The free check's answers — how it was decided, the direct appeal, any prior writ — were shown as "already saved, you won't be asked again" with no way to correct them. Now, **while the case is still collecting documents** (`AWAITING_DOCS`), the interview page's *From your free check* card has **"Something here isn't right? Change these answers"**: three radio groups, one save. `PATCH /cases/:id/facts` accepts `trialOrPlea`, `appeal`, `priorWrit` in that state, re-derives the lane (trial/plea template) and subsequent-writ mode (`priorWrit === 'yes'`), drops the checklist items not yet received and reseeds from the new template — received items keep their documents. After records-complete the same request is refused with 409 ("locked once the review starts — a re-run is where they can change"), and the control is not shown. The `facts.updated` event now lists which of the seven keys changed.

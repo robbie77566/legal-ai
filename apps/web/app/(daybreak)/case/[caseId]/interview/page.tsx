@@ -18,6 +18,11 @@ export default function CaseInterview() {
   const [known, setKnown] = useState<Record<string, unknown> | null>(null)
   const [locked, setLocked] = useState(false)
   const [factLines, setFactLines] = useState<Array<{ key: string; label: string; value: string | null; derived?: boolean }>>([])
+  // Shaping answers (PO, 2026-09-12): editable here while the case is still
+  // collecting documents; the checklist rebuilds; locked after records-complete.
+  const [changing, setChanging] = useState(false)
+  const [shape, setShape] = useState<{ trialOrPlea: string; appeal: string; priorWrit: string }>({ trialOrPlea: '', appeal: '', priorWrit: '' })
+  const [shapeBusy, setShapeBusy] = useState(false)
 
   // Never ask twice: prefill from what the case already knows (the free
   // check at purchase, or an earlier visit here).
@@ -34,8 +39,24 @@ export default function CaseInterview() {
       if (typeof f.trialDays === 'number') setTrialDays(String(f.trialDays))
       if (typeof f.judgmentDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.judgmentDate)) setJudgmentDate(f.judgmentDate) // a date input only holds ISO
       if (f.appeal) setHadAppeal(f.appeal === 'none' ? 'no' : 'yes')
+      setShape({ trialOrPlea: typeof f.trialOrPlea === 'string' ? f.trialOrPlea : '', appeal: typeof f.appeal === 'string' ? f.appeal : '', priorWrit: typeof f.priorWrit === 'string' ? f.priorWrit : '' })
     })
   }, [caseId])
+
+  const saveShape = async () => {
+    setError('')
+    setShapeBusy(true)
+    const body: Record<string, string> = {}
+    for (const k of ['trialOrPlea', 'appeal', 'priorWrit'] as const) if (shape[k]) body[k] = shape[k]
+    const res = await apiFetch(`/cases/${caseId}/facts`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const d = (await res.json().catch(() => ({}))) as { error?: string; facts?: Record<string, unknown>; factLines?: typeof factLines }
+    setShapeBusy(false)
+    if (!res.ok) { setError(d.error ?? `Could not save (error ${res.status}) — please try again.`); return }
+    if (d.facts) setKnown(d.facts)
+    if (d.factLines) setFactLines(d.factLines)
+    if (d.facts?.appeal) setHadAppeal(d.facts.appeal === 'none' ? 'no' : 'yes')
+    setChanging(false)
+  }
   const appealKnown = !!known?.appeal
   const returning = !!(known && (known.county || known.convictionYear))
 
@@ -125,6 +146,37 @@ export default function CaseInterview() {
                 </div>
               ))}
           </dl>
+          {!locked && !changing && (
+            <button type="button" onClick={() => setChanging(true)} className="mt-3 text-sm font-semibold text-db-accent underline" data-testid="change-answers">
+              Something here isn&rsquo;t right? Change these answers
+            </button>
+          )}
+          {!locked && changing && (
+            <div className="mt-3 space-y-4 border-t border-db-line pt-3" data-testid="change-answers-form">
+              <p className="text-xs text-db-muted">These shape your checklist and your review. Changing one rebuilds the items you have not sent yet; anything already received stays.</p>
+              {([
+                ['trialOrPlea', 'How was it decided?', [['trial', 'A trial'], ['plea', 'A guilty or no-contest plea']]],
+                ['appeal', 'Was there a direct appeal?', [['decided', 'Yes — decided'], ['pending', 'Yes — still pending'], ['none', 'No']]],
+                ['priorWrit', 'Has a writ (habeas application) been filed before?', [['no', 'No'], ['yes', 'Yes'], ['unsure', 'Not sure']]],
+              ] as const).map(([key, q, opts]) => (
+                <fieldset key={key} data-testid={`shape-${key}`}>
+                  <legend className="text-sm font-semibold">{q}</legend>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {opts.map(([v, label]) => (
+                      <label key={v} className={`rounded-lg border px-3 py-1.5 text-sm ${shape[key] === v ? 'border-db-accent font-semibold' : 'border-db-line'}`}>
+                        <input type="radio" name={key} className="mr-1" checked={shape[key] === v} onChange={() => setShape({ ...shape, [key]: v })} />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ))}
+              <div className="flex gap-3">
+                <button type="button" onClick={() => void saveShape()} disabled={shapeBusy} className="rounded-lg bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface disabled:opacity-40" data-testid="save-answers">{shapeBusy ? 'Saving…' : 'Save these answers'}</button>
+                <button type="button" onClick={() => setChanging(false)} className="text-sm text-db-muted underline">Cancel</button>
+              </div>
+            </div>
+          )}
         </section>
       )}
       {error && (
