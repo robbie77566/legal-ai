@@ -25,7 +25,7 @@ import type { AnalysisSummary } from './analysis.service';
  * via GET /qa/auto-approved — delivery is never delayed by the flag.
  */
 
-const TEMPLATE_VERSION = 'AB-v1';
+import { TEMPLATE_VERSION } from './report-template';
 
 const num = (v: string | undefined, d: number) => {
   const n = Number(v);

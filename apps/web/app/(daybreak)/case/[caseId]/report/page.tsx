@@ -47,6 +47,7 @@ interface Changes {
   added: Array<{ category: string; severity: string; partAText: string }>
   removed: Array<{ category: string; severity: string; partAText: string }>
   keptCount: number | null
+  notes?: string[]
 }
 
 interface ReportData {
@@ -191,8 +192,14 @@ export default function CaseReport() {
       {changes && changes.fromVersion != null && (version == null || version === changes.toVersion) && (
         <section className="mt-4 rounded-xl border border-db-line bg-db-surface p-4" data-testid="what-changed">
           <h2 className="font-db-serif text-lg font-semibold">New since your last report (v{changes.fromVersion} → v{changes.toVersion})</h2>
+          {changes.notes && changes.notes.length > 0 && (
+            <div className="mt-2" data-testid="what-changed-notes">
+              <p className="text-sm font-semibold">What is different in this version</p>
+              <ul className="mt-1 list-disc pl-5 text-sm">{changes.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+            </div>
+          )}
           {changes.added.length === 0 && changes.removed.length === 0 ? (
-            <p className="mt-2 text-sm text-db-muted">The new documents did not change what we found. {changes.keptCount} finding{changes.keptCount === 1 ? '' : 's'} carried over.</p>
+            <p className="mt-2 text-sm text-db-muted">{changes.notes && changes.notes.length > 0 ? 'What we found has not changed.' : 'The new documents did not change what we found.'} {changes.keptCount} finding{changes.keptCount === 1 ? '' : 's'} carried over.</p>
           ) : (
             <>
               {changes.added.length > 0 && (

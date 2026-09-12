@@ -14,7 +14,7 @@ import { verifyFindings } from '../services/analysis.service';
  */
 
 const QA_ROLES = new Set(['ADMIN', 'ATTORNEY']);
-const TEMPLATE_VERSION = 'AB-v1';
+import { TEMPLATE_VERSION } from '../services/report-template';
 
 export default async function qaRoutes(fastify: FastifyInstance) {
   fastify.addHook('onRequest', async (request, reply) => {

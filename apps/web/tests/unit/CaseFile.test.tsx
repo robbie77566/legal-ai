@@ -36,6 +36,7 @@ beforeEach(() => {
     calls.push(`${init?.method ?? 'GET'} ${u}`)
     const body = u.endsWith('/file') ? FILE
       : u.endsWith('/pipeline') ? PIPELINE
+      : u.endsWith('/report/republish') ? { ok: true, fromVersion: 1, toVersion: 2, templateVersion: 'AB-v2', notes: ['x'], emailed: true }
       : u.endsWith('/resume') ? { ok: true, analysisEnqueued: true, redigitized: 0, undigitized: 0, priorJobState: 'failed' }
       : u.endsWith('/timeline') ? [{ id: 'e1', type: 'report.rendered', actor: 'marcus', createdAt: '2026-09-05T10:00:00Z' }]
       : u.endsWith('/download') ? { url: 'https://s3.example/signed', filename: 'RR_Vol1_VoirDire.pdf' }
@@ -168,5 +169,22 @@ describe('case file — live pipeline card (2026-09-09)', () => {
     render(<CaseFilePage />)
     await screen.findByTestId('case-title')
     expect(screen.queryByTestId('pipeline-card')).toBeNull()
+  })
+
+  it('ADMIN can republish the report on the current template; the result names the version and the email (PO, 2026-09-12)', async () => {
+    session.role = 'ADMIN'
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    render(<CaseFilePage />)
+    fireEvent.click(await screen.findByTestId('republish-report'))
+    await waitFor(() => expect(calls).toContain('POST http://localhost:3001/ops/cases/c_1/report/republish'))
+    expect(await screen.findByTestId('republish-result')).toHaveTextContent('Released v2 (template AB-v2) from v1. The family was emailed what changed.')
+    session.role = 'SUPPORT'
+  })
+
+  it('SUPPORT does not see the republish control', async () => {
+    session.role = 'SUPPORT'
+    render(<CaseFilePage />)
+    await screen.findByTestId('case-title')
+    expect(screen.queryByTestId('republish-report')).toBeNull()
   })
 })

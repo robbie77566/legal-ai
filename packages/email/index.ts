@@ -161,6 +161,22 @@ Whatever it says, there is a next step, and the report walks you through it.`,
   });
 }
 
+export function sendReportUpdated(to: string, opts: { caseUrl: string; versionNo: number; notes: string[] }) {
+  return send({
+    to,
+    subject: `Your report has been updated (version ${opts.versionNo})`,
+    text: `We have released an updated version of your Family Case Review report.
+
+What we found has not changed: the same findings, checked word-for-word against the same record. What is different in this version:
+
+${opts.notes.map((n) => `  - ${n}`).join('\n')}
+
+Read the updated report here: ${opts.caseUrl}
+
+Your earlier version is still available from the same page, and the "New since your last report" box at the top lists these changes.`,
+  });
+}
+
 export function sendQualityHold(to: string, opts: { caseUrl: string }) {
   return send({
     to,

@@ -669,7 +669,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       const kase = await withCase(tx, id, userId);
       if (!kase) return reply.status(403).send({ error: 'Forbidden' });
       const reports = await tx.report.findMany({ where: { caseId: id }, orderBy: { versionNo: 'desc' }, take: 2 });
-      if (reports.length < 2) return { fromVersion: null, toVersion: reports[0]?.versionNo ?? null, added: [], removed: [], keptCount: null };
+      if (reports.length < 2) return { fromVersion: null, toVersion: reports[0]?.versionNo ?? null, added: [], removed: [], keptCount: null, notes: [] };
       const [latest, prior] = reports;
       const pick = { stableKey: true, category: true, severity: true, partAText: true };
       const [latestF, priorF] = await Promise.all([
@@ -685,6 +685,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         added: latestF.filter((f) => !priorKeys.has(f.stableKey)).map(shape),
         removed: priorF.filter((f) => !latestKeys.has(f.stableKey)).map(shape),
         keptCount: latestF.filter((f) => priorKeys.has(f.stableKey)).length,
+        // Republish: what is different in the presentation, in the family's words.
+        notes: Array.isArray(latest.changeNotes) ? (latest.changeNotes as string[]) : [],
       };
     });
   });

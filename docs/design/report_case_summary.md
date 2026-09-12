@@ -54,6 +54,10 @@ Colors changed with it: strong signals were green on the web report, which read 
 
 Confidence is written into every new report snapshot; older snapshots get it from the Finding rows at render (`finding-confidence.service.ts`), so reports already delivered show the line too.
 
+## Republishing a report (PO, 2026-09-12)
+
+Reports render from the approved snapshot at every request, so a template change shows up on the family's page the moment it deploys. What it does **not** do on its own is tell the family, or give them a version to compare. The ops case page (ADMIN only) has "Republish on the current template & email the family what changed": it creates the next report version from the latest snapshot and run (same findings, nothing re-analyzed), stamps it with the current template version and the changelog notes since the family's version (`services/report-template.ts`), and emails the owner what is different. The family's report page shows those notes in the "New since your last report" box, with "What we found has not changed." It refuses (409) when the latest version is already current, so pressing twice is harmless.
+
 ## Not done
 
 QA editing of a summary line (today a reviewer can only remove findings); a cause-number lookup against the county clerk; Spanish for the labels (the report is English-only today).

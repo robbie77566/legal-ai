@@ -278,6 +278,8 @@ model Report {
   findingsSnapshot Json
   approvedBy       String
   renderedAt       DateTime @default(now())
+  /// Republish only: what is different from the prior version, in the family's words.
+  changeNotes      Json?
 
   @@index([caseId])
 }

@@ -494,6 +494,43 @@ export default async function opsRoutes(fastify: FastifyInstance) {
   // no-op while the dead job is still in Redis. This removes the dead job,
   // re-digitizes documents that never produced pages, and re-queues the
   // analysis — refusing (409) if a job is genuinely live.
+  // Republish (PO, 2026-09-12): re-release the latest report on the current
+  // template — same findings, same run — and tell the family what changed.
+  // ADMIN only (not in SUPPORT_WRITES): it emails a customer.
+  fastify.post('/cases/:id/report/republish', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { TEMPLATE_VERSION, templateNotesSince } = await import('../services/report-template');
+    const kase = await prisma.case.findUnique({ where: { id }, select: { id: true, tenantId: true } });
+    if (!kase) return reply.status(404).send({ error: 'Not found' });
+    const latest = await prisma.report.findFirst({ where: { caseId: id }, orderBy: { versionNo: 'desc' } });
+    if (!latest) return reply.status(404).send({ error: 'No released report to republish' });
+    const notes = templateNotesSince(latest.templateVersion);
+    if (notes.length === 0) return reply.status(409).send({ error: `Report v${latest.versionNo} is already on the current template (${TEMPLATE_VERSION})` });
+
+    const created = await withTenant(kase.tenantId, async (tx) => {
+      const report = await tx.report.create({
+        data: {
+          caseId: id, tenantId: kase.tenantId, runId: latest.runId, versionNo: latest.versionNo + 1,
+          templateVersion: TEMPLATE_VERSION, approvedBy: request.auth.userId,
+          findingsSnapshot: latest.findingsSnapshot as object, changeNotes: notes,
+        },
+      });
+      await appendCaseEvent(tx, { caseId: id, tenantId: kase.tenantId, actor: request.auth.userId, type: 'report.rendered', payload: { reportId: report.id, templateVersion: TEMPLATE_VERSION } });
+      return report;
+    });
+    await AuditService.log({
+      tenantId: kase.tenantId, caseId: id, action: LogAction.QA_DECISION, userId: request.auth.userId,
+      details: { decision: 'report_republished', reportId: created.id, fromVersion: latest.versionNo, toVersion: created.versionNo, fromTemplate: latest.templateVersion, toTemplate: TEMPLATE_VERSION },
+    });
+    let emailed = false;
+    await notifyCaseOwner(id, async (email, origin) => {
+      const { sendReportUpdated } = await import('@hg/email');
+      const r = await sendReportUpdated(email, { caseUrl: `${origin}/case/${id}/report`, versionNo: created.versionNo, notes });
+      emailed = r.delivered;
+    });
+    return { ok: true, fromVersion: latest.versionNo, toVersion: created.versionNo, templateVersion: TEMPLATE_VERSION, notes, emailed };
+  });
+
   fastify.post('/cases/:id/resume', async (request, reply) => {
     const { id } = request.params as { id: string };
     const kase = await prisma.case.findUnique({ where: { id } });

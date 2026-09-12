@@ -78,6 +78,7 @@ export default function CaseFilePage() {
   // the case page itself, refreshed every 20s while the case is running.
   const [pipeline, setPipeline] = useState<Pipeline | null>(null)
   const [resumeResult, setResumeResult] = useState('')
+  const [republishResult, setRepublishResult] = useState('')
   const [tick, setTick] = useState(Date.now())
   const [delayDate, setDelayDate] = useState('')
   const [missing, setMissing] = useState(false)
@@ -110,6 +111,23 @@ export default function CaseFilePage() {
     const id = setInterval(() => void load(), 20_000)
     return () => clearInterval(id)
   }, [pipeline?.running, load])
+
+  // Republish (PO, 2026-09-12): same findings on the current template, the
+  // family emailed with what changed. Confirms because it emails a customer.
+  const republish = async () => {
+    if (!window.confirm('Re-release the current findings on the latest report template and email the family what changed?')) return
+    setRepublishResult('Working…')
+    try {
+      const r = await apiFetch(`/ops/cases/${caseId}/report/republish`, { method: 'POST' })
+      const d = await r.json().catch(() => ({}))
+      setRepublishResult(r.ok
+        ? `Released v${d.toVersion} (template ${d.templateVersion}) from v${d.fromVersion}. ${d.emailed ? 'The family was emailed what changed.' : 'No email went out — check the account email and the email provider.'}`
+        : d.error ?? `Republish failed (${r.status})`)
+    } catch (e) {
+      setRepublishResult(`Republish failed — the request didn’t reach the API (${(e as Error).message}).`)
+    }
+    await load()
+  }
 
   const resume = async () => {
     setResumeResult('Working…')
@@ -386,6 +404,13 @@ export default function CaseFilePage() {
                 <div className="px-3 py-3">
                   <div className="font-semibold">Report — not yet released</div>
                   <div className="text-xs text-[#8B949E]">Appears here the moment a reviewer approves it, with every version kept.</div>
+                </div>
+              )}
+              {role === 'ADMIN' && file.reports.length > 0 && (
+                <div className="border-t border-[#21262D] px-3 py-3" data-testid="republish">
+                  <button onClick={() => void republish()} className="rounded border border-[#3B82F6] px-2 py-1 text-xs text-[#3B82F6]" data-testid="republish-report">Republish on the current template &amp; email the family what changed</button>
+                  <span className="ml-2 text-xs text-[#8B949E]">Same findings, same run — only the presentation. Refuses if v{file.reports[0].versionNo} is already current.</span>
+                  {republishResult && <p role="status" data-testid="republish-result" className="mt-2 rounded border border-[#D29922] bg-[#D29922]/10 px-3 py-2 text-xs text-[#D29922]">{republishResult}</p>}
                 </div>
               )}
               <div className="border-t border-[#21262D] px-3 py-3">
