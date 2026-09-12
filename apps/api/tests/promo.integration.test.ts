@@ -126,4 +126,20 @@ describe('promo admin (/ops/promos)', () => {
     expect(off.statusCode).toBe(200);
     expect((await checkPromo('T-ADMIN', userId)).reason).toBe('inactive');
   });
+
+  it('PATCH expiresAt revives an expired code; null removes the expiry (SNOT26 lesson, 2026-09-12)', async () => {
+    const created = await fastify.inject({
+      method: 'POST', url: '/ops/promos', headers: { cookie: adminCookie },
+      payload: { code: 't-expired', amountOffCents: 29900, maxRedemptions: 5, expiresAt: new Date(Date.now() - 86_400_000).toISOString() },
+    });
+    const id = created.json().id;
+    expect((await checkPromo('T-EXPIRED', userId)).reason).toBe('expired');
+    const ext = await fastify.inject({ method: 'PATCH', url: `/ops/promos/${id}`, headers: { cookie: adminCookie }, payload: { expiresAt: new Date(Date.now() + 30 * 86_400_000).toISOString() } });
+    expect(ext.statusCode).toBe(200);
+    expect((await checkPromo('T-EXPIRED', userId)).valid).toBe(true);
+    const never = await fastify.inject({ method: 'PATCH', url: `/ops/promos/${id}`, headers: { cookie: adminCookie }, payload: { expiresAt: null } });
+    expect(never.json().expiresAt).toBeNull();
+    const empty = await fastify.inject({ method: 'PATCH', url: `/ops/promos/${id}`, headers: { cookie: adminCookie }, payload: {} });
+    expect(empty.statusCode).toBe(400);
+  });
 });

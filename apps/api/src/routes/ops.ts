@@ -240,11 +240,28 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Edit a code: on/off, expiry (ISO, or null = never expires), cap. An
+  // expired SNOT26 showed 'active' and could only be replaced (2026-09-12).
   fastify.patch('/promos/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const { active } = z.object({ active: z.boolean() }).parse(request.body);
-    const promo = await prisma.promoCode.update({ where: { id }, data: { active } }).catch(() => null);
+    const body = z
+      .object({
+        active: z.boolean().optional(),
+        expiresAt: z.string().datetime().nullable().optional(),
+        maxRedemptions: z.number().int().min(1).max(10000).nullable().optional(),
+      })
+      .parse(request.body);
+    const data: { active?: boolean; expiresAt?: Date | null; maxRedemptions?: number | null } = {};
+    if (body.active !== undefined) data.active = body.active;
+    if (body.expiresAt !== undefined) data.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
+    if (body.maxRedemptions !== undefined) data.maxRedemptions = body.maxRedemptions;
+    if (Object.keys(data).length === 0) return reply.status(400).send({ error: 'Nothing to change' });
+    const promo = await prisma.promoCode.update({ where: { id }, data }).catch(() => null);
     if (!promo) return reply.status(404).send({ error: 'Not found' });
+    await AuditService.log({
+      tenantId: request.auth.tenantId, caseId: 'promo:' + promo.code, action: LogAction.QA_DECISION,
+      userId: request.auth.userId, details: { decision: 'promo_edited', code: promo.code, ...data, expiresAt: data.expiresAt?.toISOString() ?? data.expiresAt },
+    });
     return promo;
   });
 

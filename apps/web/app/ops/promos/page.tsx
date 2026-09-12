@@ -47,13 +47,21 @@ export default function PromoAdmin() {
     }
   }
 
-  const toggle = async (p: Promo) => {
-    await apiFetch(`/ops/promos/${p.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: !p.active }),
-    })
+  const patch = async (p: Promo, body: Record<string, unknown>) => {
+    await apiFetch(`/ops/promos/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     load()
+  }
+  const toggle = (p: Promo) => patch(p, { active: !p.active })
+  const extend30 = (p: Promo) => patch(p, { expiresAt: new Date(Date.now() + 30 * 86_400_000).toISOString() })
+  const noExpiry = (p: Promo) => patch(p, { expiresAt: null })
+
+  // What a family typing the code will actually get — the same checks the
+  // API runs, in order. 'active' alone lied: an expired code showed active.
+  const statusOf = (p: Promo): { label: string; tone: string } => {
+    if (!p.active) return { label: 'off', tone: 'text-[#8B949E]' }
+    if (p.expiresAt && new Date(p.expiresAt) < new Date()) return { label: 'EXPIRED', tone: 'text-[#F85149]' }
+    if (p.maxRedemptions != null && p.redeemedCount >= p.maxRedemptions) return { label: 'USED UP', tone: 'text-[#D29922]' }
+    return { label: 'active', tone: 'text-[#3FB950]' }
   }
 
   return (
@@ -133,9 +141,11 @@ export default function PromoAdmin() {
                 {p.redeemedCount}
                 {p.maxRedemptions != null ? ` / ${p.maxRedemptions}` : ''}
               </td>
-              <td>{p.expiresAt ? new Date(p.expiresAt).toLocaleDateString() : '—'}</td>
-              <td className={p.active ? 'text-[#3FB950]' : 'text-[#8B949E]'}>{p.active ? 'active' : 'off'}</td>
-              <td>
+              <td>{p.expiresAt ? new Date(p.expiresAt).toLocaleDateString() : 'never'}</td>
+              <td className={statusOf(p).tone} data-testid={`promo-status-${p.code}`}>{statusOf(p).label}</td>
+              <td className="space-x-3 whitespace-nowrap">
+                <button onClick={() => void extend30(p)} className="text-xs text-[#3B82F6] underline" data-testid={`promo-extend-${p.code}`}>extend 30 days</button>
+                {p.expiresAt && <button onClick={() => void noExpiry(p)} className="text-xs text-[#8B949E] underline">no expiry</button>}
                 <button onClick={() => void toggle(p)} className="text-xs text-[#8B949E] underline">
                   {p.active ? 'deactivate' : 'reactivate'}
                 </button>
