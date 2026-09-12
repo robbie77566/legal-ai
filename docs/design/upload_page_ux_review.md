@@ -60,6 +60,22 @@ The PO asked what the echo-back quick check actually accomplishes. Honest answer
 
 Any model failure (no key, network, unparseable output) falls back to the regex at medium confidence — the pipeline never depends on the model being up, and tests stay hermetic (no injected classifier = regex only). Env knobs: `DOC_CLASSIFIER_MODEL` (default claude-haiku-4-5), `DOC_CLASSIFIER_USD_FACTOR` (Haiku-vs-analysis-model price ratio for the cost estimate, default 0.2). Deferred from that discussion: the "I don't know / none of these" option in the correction picker.
 
+## 4b. Round 5 — document priority: "is what I have enough?" (2026-09-12, PO request)
+
+Both delivered reviews (Brazoria, San Jacinto) ran on **transcripts alone** and produced full reports; the checklist nevertheless showed each family "1 of 5" and a flat to-do list where a judgment copy and the trial transcript carried the same weight. Families cannot always get every paper, and the page never said which ones matter.
+
+**Plan (reviewed before implementation):**
+
+| # | Decision | Reasoning / what the review changed |
+|---|---|---|
+| P1 | **Three tiers per item, defined once** (`case-lifecycle/checklist.ts` → `DOC_PRIORITY`): *Essential — the review depends on it*, *Strengthens the review*, *Helpful if you can get it*; each with a one-sentence **"Without it:"** consequence. | Grounded in what the checks read: for a trial nearly every screen (IAC, Brady, junk science, voir dire, sentencing) reads the transcript, so it is the single essential; judgment and indictment feed the sentence check and time limits but the interview's judgment date already covers the limits → *strengthens*; clerk's record and appellate opinion overlap the transcript → *helpful*. Plea lane: the plea papers are the record (*essential*); admonishments, confession, agreement *strengthen*. Prior-writ papers stay *essential* (§4 is guesswork without them). |
+| P2 | **A readiness line** under the progress bar: "✓ You have what the review needs" or "Not enough yet — the review depends on: …" (`checklistReadiness`, also returned by `GET /cases/:id/checklist` as `readiness`). | The count answered "how many"; the family's real question is "can I run it". Kept the count line beside it (multi-visit motivation, F2). |
+| P3 | **Still-needed rows grouped and ordered by tier**, tier chip visible in the row, consequence + where-to-get-it inside the expander. | Review rejected hiding the tier in the expander — the list would read as a flat to-do again. Essential items also come first in the template so a fresh checklist lists them first. |
+| P4 | **The run dialog tells the truth by tier.** Essentials present: "You have what the review needs" + what the missing items would add. Essential missing: "Run without the documents the review depends on?", the consequence spelled out, the button reads "…on the paperwork only", and a nudge to wait if there is any way to get it (this is the one included run). The Step 2 card carries the same "Not enough yet" note before the click. | Review **rejected blocking the run**: a family that truly cannot get the transcript should still be able to run on the paperwork, told plainly what that buys. The API gate stays "at least one document". |
+| P5 | Kept the existing button labels and the $99 consent paragraph. | The billing boundary (F14) is unchanged; the priority layer sits inside it. |
+
+Not done (tracked): the same readiness on the ops case page and in the records-complete email; a per-item "I can't get this" acknowledgement so the page stops asking; Spanish.
+
 ## 5. Out of scope, tracked
 
 F8/F9 above; Spanish for both surfaces (the recorded i18n P1 gap); replaying missed activity-feed lines on reconnect (needs a customer-safe events endpoint — today a mid-analysis page load gets the panel, new lines from the next event on).

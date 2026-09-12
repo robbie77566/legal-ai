@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
 import { formatCivilDate } from '@/lib/tracker'
+import { checklistReadiness, docPriority, tierRank, TIER_META, type DocTier } from '@hg/case-lifecycle'
 
 /**
  * S2/S3 checklist home (UI spec §5.4–5.5): per-item upload embedded in the
@@ -48,6 +49,9 @@ interface Meter {
   duplicatesIgnored: number
   cap: number
 }
+
+/** Tier colors: essential reads as urgent, strengthens as the accent, helpful as muted. */
+const TIER_COLOR: Record<DocTier, string> = { essential: 'var(--db-urgent)', strengthens: 'var(--db-accent)', helpful: 'var(--db-muted)' }
 
 const HOWTO: Record<string, string> = {
   judgment: 'The district clerk of the county of conviction has this — ask for a certified copy (often ~$1/page).',
@@ -315,6 +319,20 @@ export default function CaseDocuments() {
           <p className="mt-1 text-sm text-db-muted">
             Any order, your own pace — we recognize each document and check it off for you.
           </p>
+          {(() => {
+            // Document priority (PO, 2026-09-12): the question is not "how
+            // many" but "is it enough" — answered here, in one line.
+            const r = checklistReadiness(data.items)
+            return r.enough ? (
+              <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--db-signal)' }} data-testid="readiness" data-enough="true">
+                ✓ You have what the review needs.{r.missing.strengthens.length + r.missing.helpful.length > 0 ? ' The rest would make it stronger — get what you can.' : ''}
+              </p>
+            ) : (
+              <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--db-urgent)' }} data-testid="readiness" data-enough="false">
+                Not enough yet — the review depends on: {r.missing.essential.join(', ')}.
+              </p>
+            )
+          })()}
         </div>
       )}
       {data?.factLines?.some((l) => l.value) && (
@@ -539,16 +557,30 @@ export default function CaseDocuments() {
               Tap an item for who to ask.
             </p>
           </div>
+          {/* Document priority (PO, 2026-09-12): essential first, then what
+              strengthens the review, then the nice-to-haves — the tier is
+              visible in the row, the consequence sits with the how-to. */}
           <ul>
-            {data.items.filter((i) => i.state === 'NEEDED').map((item) => (
+            {(['essential', 'strengthens', 'helpful'] as DocTier[]).map((tier) => {
+              const rows = data.items.filter((i) => i.state === 'NEEDED' && docPriority(i.kind).tier === tier).sort((a, b) => tierRank(a.kind) - tierRank(b.kind))
+              if (rows.length === 0) return null
+              return (
+                <li key={tier} data-testid={`tier-${tier}`}>
+                  <p className="border-b border-db-line bg-db-bg px-4 py-1.5 text-xs font-semibold" style={{ color: TIER_COLOR[tier] }}>{TIER_META[tier].heading}</p>
+                  <ul>
+                    {rows.map((item) => (
               <li key={item.id} className="border-b border-db-line last:border-b-0">
                 <details>
                   <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5">
                     <span className="text-sm font-semibold">{item.label}</span>
-                    <span className="whitespace-nowrap text-xs font-semibold text-db-muted">Needed ›</span>
+                    <span className="flex items-center gap-2 whitespace-nowrap text-xs font-semibold">
+                      <span className="rounded-full border px-2 py-0.5" style={{ color: TIER_COLOR[tier], borderColor: TIER_COLOR[tier] }} data-testid={`tier-chip-${item.kind}`}>{TIER_META[tier].label}</span>
+                      <span className="text-db-muted">›</span>
+                    </span>
                   </summary>
                   <div className="px-4 pb-3 text-sm text-db-muted">
-                    <p>{HOWTO[item.kind] ?? 'The district clerk of the county of conviction is the place to start.'}</p>
+                    <p className="text-db-ink" data-testid={`without-${item.kind}`}><span className="font-semibold">Without it:</span> {docPriority(item.kind).without}</p>
+                    <p className="mt-1"><span className="font-semibold">Where to get it:</span> {HOWTO[item.kind] ?? 'The district clerk of the county of conviction is the place to start.'}</p>
                     <button
                       onClick={() => pickFile(item.label)}
                       disabled={uploading !== null}
@@ -559,7 +591,11 @@ export default function CaseDocuments() {
                   </div>
                 </details>
               </li>
-            ))}
+                    ))}
+                  </ul>
+                </li>
+              )
+            })}
           </ul>
         </section>
       )}
@@ -641,6 +677,11 @@ export default function CaseDocuments() {
           it; a later run with new documents costs $99. So start the review when everything you can
           get is here.
         </p>
+        {data && !checklistReadiness(data.items).enough && (
+          <p className="mt-2 rounded-lg border p-3 text-sm" style={{ borderColor: 'var(--db-urgent)' }} data-testid="run-not-enough">
+            <strong>Not enough yet.</strong> The review depends on: {checklistReadiness(data.items).missing.essential.join(', ')}. You can still run it on what is here, but it will only be able to check the paperwork.
+          </p>
+        )}
         {data && data.items.some((i) => i.state === 'NEEDED') ? (
           <button
             onClick={() => setConfirmRun(true)}
@@ -671,13 +712,36 @@ export default function CaseDocuments() {
           aria-modal="true"
         >
           <div className="w-full max-w-md rounded-xl border border-db-line bg-db-surface p-5">
-            <h2 className="font-db-serif text-xl font-semibold">Run the review without every document?</h2>
-            <p className="mt-2 text-sm">
-              Some items are still missing:{' '}
-              <strong>{data.items.filter((i) => i.state === 'NEEDED').map((i) => i.label).join(', ')}</strong>.
-              That&rsquo;s okay — many families can&rsquo;t get everything, and we&rsquo;ll review
-              what&rsquo;s here.
-            </p>
+            {(() => {
+              const r = checklistReadiness(data.items)
+              const list = (tier: DocTier) => r.missing[tier].length > 0 && (
+                <p className="mt-2 text-sm" data-testid={`confirm-missing-${tier}`}>
+                  <span className="font-semibold" style={{ color: TIER_COLOR[tier] }}>{TIER_META[tier].label}:</span>{' '}
+                  {r.missing[tier].join(', ')}
+                </p>
+              )
+              return r.enough ? (
+                <>
+                  <h2 className="font-db-serif text-xl font-semibold">Run the review without every document?</h2>
+                  <p className="mt-2 text-sm" data-testid="confirm-verdict">
+                    <strong>You have what the review needs.</strong> The items still missing would make it stronger, and many families cannot get everything — we will review what is here.
+                  </p>
+                  {list('strengthens')}
+                  {list('helpful')}
+                </>
+              ) : (
+                <>
+                  <h2 className="font-db-serif text-xl font-semibold">Run without the documents the review depends on?</h2>
+                  <p className="mt-2 text-sm" data-testid="confirm-verdict">
+                    <strong>Still missing — essential:</strong> {r.missing.essential.join(', ')}.{' '}
+                    {r.missing.essential.map((label) => data.items.find((i) => i.label === label)).filter(Boolean).map((i) => docPriority(i!.kind).without).join(' ')}
+                  </p>
+                  {list('strengthens')}
+                  {list('helpful')}
+                  <p className="mt-2 text-sm">If there is any way to get {r.missing.essential.length === 1 ? 'it' : 'them'}, wait — this is the one run your purchase includes.</p>
+                </>
+              )
+            })()}
             <p className="mt-2 text-sm">
               One thing to know first: <strong>your purchase includes one full analysis</strong>, and
               it runs on only the documents uploaded now. Each analysis run costs real computer time
@@ -692,7 +756,7 @@ export default function CaseDocuments() {
                 }}
                 className="w-full rounded-xl bg-db-accent px-5 py-3 font-semibold text-db-surface"
               >
-                I understand — run my review now
+                {checklistReadiness(data.items).enough ? 'I understand — run my review now' : 'I understand — run my review now on the paperwork only'}
               </button>
               <button
                 onClick={() => setConfirmRun(false)}

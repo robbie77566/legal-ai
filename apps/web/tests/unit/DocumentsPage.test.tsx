@@ -95,7 +95,7 @@ describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
   it('state chips distinguish received items; upload link only on still-needed items', async () => {
     render(<CaseDocuments />)
     expect(await screen.findByText('✓ Received')).toBeInTheDocument()
-    expect(screen.getByText(/Needed/)).toBeInTheDocument()
+    expect(screen.getByTestId('tier-chip-judgment')).toBeInTheDocument() // the still-needed row now carries its tier (round 5)
     // one NEEDED item → exactly one per-item upload link
     expect(screen.getAllByRole('button', { name: /Upload this document/ })).toHaveLength(1)
   })
@@ -242,5 +242,45 @@ describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
     expect(screen.getByTestId('about-case')).toHaveTextContent(/Travis County · 2019 · A trial/)
     expect(screen.getByTestId('about-case')).toHaveTextContent(/Not right\? Change the details/)
     expect(screen.getByRole('button', { name: /start the re-run/ })).toBeInTheDocument()
+  })
+
+  it('document priority: says the transcript is enough, chips the missing item by tier, and explains what it adds (PO, 2026-09-12)', async () => {
+    render(<CaseDocuments />)
+    const ready = await screen.findByTestId('readiness')
+    expect(ready).toHaveAttribute('data-enough', 'true')
+    expect(ready).toHaveTextContent(/You have what the review needs.*make it stronger/)
+    expect(screen.getByTestId('tier-strengthens')).toHaveTextContent('Judgment and sentence')
+    expect(screen.getByTestId('tier-chip-judgment')).toHaveTextContent('Strengthens the review')
+    expect(screen.getByTestId('without-judgment')).toHaveTextContent(/Without it:.*check the sentence itself/)
+    expect(screen.queryByTestId('run-not-enough')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /everything I could get/ }))
+    const modal = screen.getByTestId('run-anyway-confirm')
+    expect(screen.getByTestId('confirm-verdict')).toHaveTextContent('You have what the review needs.')
+    expect(screen.getByTestId('confirm-missing-strengthens')).toHaveTextContent('Judgment and sentence')
+    expect(modal).toHaveTextContent(/costs \$99/)
+    expect(screen.getByRole('button', { name: 'I understand — run my review now' })).toBeInTheDocument()
+  })
+
+  it('document priority: with only paperwork the page says it is not enough and the run is "on the paperwork only"', async () => {
+    const paperwork = { ...CHECKLIST, items: [
+      { id: 'it_rr', kind: 'rr_volume', label: "Reporter's record volumes", state: 'NEEDED' },
+      { id: 'it_j', kind: 'judgment', label: 'Judgment and sentence', state: 'CONFIRMED' },
+    ] }
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url)
+      const body = u.endsWith('/checklist') ? paperwork : u.endsWith('/pages') ? METER : { ok: true }
+      return { ok: true, json: async () => body } as Response
+    }))
+    render(<CaseDocuments />)
+    const ready = await screen.findByTestId('readiness')
+    expect(ready).toHaveAttribute('data-enough', 'false')
+    expect(ready).toHaveTextContent("Not enough yet — the review depends on: Reporter's record volumes.")
+    expect(screen.getByTestId('tier-essential')).toHaveTextContent("Reporter's record volumes")
+    expect(screen.getByTestId('tier-chip-rr_volume')).toHaveTextContent('Essential')
+    expect(screen.getByTestId('run-not-enough')).toHaveTextContent(/only be able to check the paperwork/)
+    fireEvent.click(screen.getByRole('button', { name: /everything I could get/ }))
+    expect(screen.getByRole('heading', { name: /Run without the documents the review depends on/ })).toBeInTheDocument()
+    expect(screen.getByTestId('confirm-verdict')).toHaveTextContent(/Still missing — essential: Reporter's record volumes.*Almost every check reads the transcript/)
+    expect(screen.getByRole('button', { name: /run my review now on the paperwork only/ })).toBeInTheDocument()
   })
 })

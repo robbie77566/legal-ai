@@ -123,6 +123,11 @@ describe('checklist home + records complete', () => {
     expect(body.status).toBe('AWAITING_DOCS');
     expect(body.customer.stage).toBe('awaiting_documents');
     expect(body.items.length).toBeGreaterThan(0);
+    // Document priority (PO, 2026-09-12): the transcript is the trial essential;
+    // nothing uploaded yet → not enough, and the page can say why.
+    expect(body.items[0].kind).toBe('rr_volume');
+    expect(body.readiness).toMatchObject({ enough: false, essentialTotal: 1, essentialHave: 0 });
+    expect(body.readiness.missing.essential).toEqual(["Reporter's record (trial transcript) volumes"]);
   });
 
   it('refuses records-complete with zero documents', async () => {
