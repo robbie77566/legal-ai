@@ -32,7 +32,7 @@ export default function CaseInterview() {
       if (typeof f.county === 'string') setCounty(f.county)
       if (typeof f.convictionYear === 'number') setYear(String(f.convictionYear))
       if (typeof f.trialDays === 'number') setTrialDays(String(f.trialDays))
-      if (typeof f.judgmentDate === 'string') setJudgmentDate(f.judgmentDate)
+      if (typeof f.judgmentDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.judgmentDate)) setJudgmentDate(f.judgmentDate) // a date input only holds ISO
       if (f.appeal) setHadAppeal(f.appeal === 'none' ? 'no' : 'yes')
     })
   }, [caseId])
@@ -44,6 +44,9 @@ export default function CaseInterview() {
     setError('')
     setBusy(true)
     try {
+      // A date input only ever holds ISO, but a stale prefill or browser quirk
+      // must not turn into a server-side validation error (Sentry, 2026-09-12).
+      if (judgmentDate && !/^\d{4}-\d{2}-\d{2}$/.test(judgmentDate)) { setError('Enter the judgment date as YYYY-MM-DD (for example 2019-09-12), or leave it blank.'); setBusy(false); return }
       if (locked) {
         // Lock semantics: after records-complete only the contact-style
         // facts change; the checklist and analysis are not touched.

@@ -7,3 +7,4 @@ export * from './deadlines';
 export * from './facts'
 export * from './summary'
 export * from './bottom-line'
+export * from './civil-date'

@@ -91,6 +91,23 @@ describe('the free check survives purchase', () => {
     expect((await get(`/checkout/fulfillment?session_id=cs_${run}_nope`)).json()).toEqual({ pending: true });
   });
 
+  it('a judgment date typed the way people write it is normalized; an unreadable one gets a human message (Sentry, 2026-09-12)', async () => {
+    const bad = await post(`/cases/${caseId}/interview`, { county: 'Travis', convictionYear: 2019, judgmentDate: 'last spring' });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json()).toMatchObject({ field: 'judgmentDate' });
+    expect(bad.json().error).toMatch(/YYYY-MM-DD \(for example 2019-09-12\)/);
+    expect(bad.json().error).not.toBe('YYYY-MM-DD');
+
+    const us = await post(`/cases/${caseId}/interview`, { county: 'Travis', convictionYear: 2019, judgmentDate: '06/14/2019' });
+    expect(us.statusCode).toBe(200);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).deadlineFacts).toMatchObject({ judgmentDate: '2019-06-14' });
+
+    // Blank means "not given", not an error — and does not disturb the stored date.
+    const blank = await post(`/cases/${caseId}/interview`, { county: 'Travis', convictionYear: 2019, judgmentDate: '' });
+    expect(blank.statusCode).toBe(200);
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).facts).toMatchObject({ judgmentDate: '2019-06-14' });
+  });
+
   it('the interview merges into the facts, keeps the check\'s appeal answer, and stores the judgment date', async () => {
     const res = await post(`/cases/${caseId}/interview`, { county: 'Travis', convictionYear: 2019, trialDays: 4, judgmentDate: '2019-06-14' });
     expect(res.statusCode).toBe(200);
@@ -202,6 +219,13 @@ describe('lock semantics (decision 1)', () => {
     const cleared = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { judgmentDate: null } });
     expect(cleared.statusCode).toBe(200);
     expect(cleared.json().facts.judgmentDate).toBeUndefined();
+    // The same normalization applies here: a US-shaped date is stored as ISO.
+    const us = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { judgmentDate: '7/1/2019' } });
+    expect(us.statusCode).toBe(200);
+    expect(us.json().facts.judgmentDate).toBe('2019-07-01');
+    const unreadable = await fastify.inject({ method: 'PATCH', url: `/cases/${caseId}/facts`, headers: { cookie }, payload: { judgmentDate: 'sometime in 2019' } });
+    expect(unreadable.statusCode).toBe(400);
+    expect(unreadable.json().error).toMatch(/for example 2019-09-12/);
   });
 });
 

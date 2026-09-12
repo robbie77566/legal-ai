@@ -76,4 +76,18 @@ describe('interview', () => {
     })
     expect(calls.some((c) => c.url.endsWith('/cases/case_1/interview') && c.init?.method === 'POST')).toBe(false)
   })
+
+  it('a stored judgment date that is not ISO is not prefilled (a date input cannot hold it) — the field stays blank', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ ...CHECKLIST, facts: { ...CHECKLIST.facts, judgmentDate: '06/14/2019' } }) }) as Response))
+    render(<CaseInterview />)
+    await screen.findByTestId('known-facts')
+    expect((screen.getByLabelText('Judgment date') as HTMLInputElement).value).toBe('')
+  })
+
+  it('an ISO judgment date is prefilled', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ ...CHECKLIST, facts: { ...CHECKLIST.facts, judgmentDate: '2019-06-14' } }) }) as Response))
+    render(<CaseInterview />)
+    await screen.findByTestId('known-facts')
+    expect((screen.getByLabelText('Judgment date') as HTMLInputElement).value).toBe('2019-06-14')
+  })
 })

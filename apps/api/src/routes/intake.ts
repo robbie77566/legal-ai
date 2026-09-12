@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent, Prisma } from '@hg/database';
-import { computeDeadlinePosture, checklistTemplate, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
+import { computeDeadlinePosture, checklistTemplate, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
 import { verifyFindings } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 
@@ -11,7 +11,12 @@ import { pageMeter } from '../services/digitize.service';
  * §S2–S3). All tenant-scoped through withTenant; case access verified.
  */
 
-const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
+// Accepts what people type (9/12/2019, Sept 12 2019, blank) and stores YYYY-MM-DD;
+// an unreadable value gets a human message, not the regex's name (Sentry, 2026-09-12).
+const CIVIL_RE = /^\d{4}-\d{2}-\d{2}$/;
+const civilDate = z.preprocess((v) => normalizeCivilDate(v) ?? v, z.string().regex(CIVIL_RE, CIVIL_DATE_MESSAGE));
+// Optional flavour: blank / whitespace means "not given", not an error.
+const civilDateOpt = z.preprocess(normalizeCivilDate, z.string().regex(CIVIL_RE, CIVIL_DATE_MESSAGE).optional());
 const InterviewSchema = z.object({
   county: z.string().min(1).max(64),
   convictionYear: z.number().int().min(1950).max(2100),
@@ -21,18 +26,18 @@ const InterviewSchema = z.object({
   hadAppeal: z.boolean().optional(),
   // FR-5: the one date that unlocks the time-limits section. From the
   // judgment paper; skippable, addable later.
-  judgmentDate: civilDate.optional(),
+  judgmentDate: civilDateOpt,
   // FR-5 deadline facts — all optional; families rarely know every date,
   // and a partial posture ("as of what we know") beats none.
   deadlineFacts: z
     .object({
       judgmentDate: civilDate,
       motionForNewTrialFiled: z.boolean().optional(),
-      coaJudgmentDate: civilDate.optional(),
-      pdrDisposedDate: civilDate.optional(),
-      certDisposedDate: civilDate.optional(),
+      coaJudgmentDate: civilDateOpt,
+      pdrDisposedDate: civilDateOpt,
+      certDisposedDate: civilDateOpt,
       stateWrits: z
-        .array(z.object({ filedDate: civilDate, disposedDate: civilDate.optional() }).strict())
+        .array(z.object({ filedDate: civilDate, disposedDate: civilDateOpt }).strict())
         .max(5)
         .optional(),
     })
@@ -296,7 +301,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         county: z.string().min(1).max(64).optional(),
         convictionYear: z.number().int().min(1950).max(2100).optional(),
         trialDays: z.number().int().min(0).max(365).nullable().optional(),
-        judgmentDate: civilDate.nullable().optional(),
+        judgmentDate: z.preprocess((v) => (v === null ? null : normalizeCivilDate(v)), z.string().regex(CIVIL_RE, CIVIL_DATE_MESSAGE).nullable().optional()),
       })
       .strict()
       .parse(request.body);

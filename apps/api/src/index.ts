@@ -33,6 +33,18 @@ if (process.env.SENTRY_DSN) {
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV ?? 'development',
     tracesSampleRate: 0.1,
+    // Sentry's Fastify hook captures independently of our onError hook: a
+    // family's malformed date became a paging 'new issue' (2026-09-12).
+    // Client-input errors are answered with a 400 and are not incidents.
+    integrations: [
+      Sentry.fastifyIntegration({
+        shouldHandleError(error, _request, reply) {
+          if (error instanceof ZodError) return false
+          const sc = (error as { statusCode?: number }).statusCode ?? reply.statusCode
+          return !sc || sc >= 500
+        },
+      }),
+    ],
   })
 }
 
