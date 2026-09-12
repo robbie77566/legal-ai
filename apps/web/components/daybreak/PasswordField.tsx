@@ -28,12 +28,15 @@ export default function PasswordField({
   onChange,
   autoComplete = 'new-password',
   showRules = true,
+  testId = 'password',
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   autoComplete?: string
   showRules?: boolean
+  /** Prefix for data-testids when a page has more than one field (reset/setup/account). */
+  testId?: string
 }) {
   const t = useContent(T)
   const [visible, setVisible] = useState(false)
@@ -48,14 +51,14 @@ export default function PasswordField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="w-full rounded-lg border border-db-line bg-db-surface p-3 pr-20"
-          data-testid="password-input"
+          data-testid={`${testId}-input`}
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
           aria-pressed={visible}
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-sm font-semibold text-db-accent"
-          data-testid="password-toggle"
+          data-testid={`${testId}-toggle`}
         >
           {visible ? t.hide : t.show}
         </button>

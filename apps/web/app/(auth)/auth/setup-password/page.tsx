@@ -5,6 +5,7 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import PasswordField from '../../../../components/daybreak/PasswordField'
 
 function SetupForm() {
   const params = useSearchParams()
@@ -54,15 +55,12 @@ function SetupForm() {
       <h1 className="text-xl font-semibold">Welcome — set your password</h1>
       <p className="mt-2 text-sm text-db-muted">You&rsquo;ll sign in with your email address and this password from now on.</p>
       {error && <p role="alert" className="mt-3 text-sm text-red-400">{error}</p>}
-      <label className="mt-5 block">
-        <span className="text-sm font-semibold">Password</span>
-        <input type="password" required minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 focus:outline-none focus:ring-2 focus:ring-db-accent" />
-        <span className="mt-1 block text-xs text-db-muted">At least 12 characters, with an uppercase letter and a number or symbol.</span>
-      </label>
-      <label className="mt-4 block">
-        <span className="text-sm font-semibold">Confirm password</span>
-        <input type="password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 focus:outline-none focus:ring-2 focus:ring-db-accent" />
-      </label>
+      <div className="mt-5">
+        <PasswordField label="Password" value={password} onChange={setPassword} testId="new-password" />
+      </div>
+      <div className="mt-4">
+        <PasswordField label="Confirm password" value={confirm} onChange={setConfirm} showRules={false} testId="confirm-password" />
+      </div>
       <button type="submit" disabled={busy} className="mt-5 w-full rounded-xl bg-db-accent px-4 py-3 font-semibold text-db-surface disabled:opacity-40">
         {busy ? 'Saving…' : 'Set password and continue'}
       </button>

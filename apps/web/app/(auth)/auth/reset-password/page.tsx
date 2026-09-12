@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import PasswordField from '../../../../components/daybreak/PasswordField'
 
 function ResetForm() {
   const params = useSearchParams()
@@ -59,30 +60,14 @@ function ResetForm() {
           {error}
         </p>
       )}
-      <label className="mt-5 block">
-        <span className="text-sm font-semibold">New password</span>
-        <input
-          type="password"
-          required
-          minLength={12}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 focus:outline-none focus:ring-2 focus:ring-db-accent"
-        />
-        <span className="mt-1 block text-xs text-db-muted">
-          At least 12 characters, with an uppercase letter and a number or symbol.
-        </span>
-      </label>
-      <label className="mt-4 block">
-        <span className="text-sm font-semibold">Confirm password</span>
-        <input
-          type="password"
-          required
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 focus:outline-none focus:ring-2 focus:ring-db-accent"
-        />
-      </label>
+      {/* Show/Hide + live rules (PO, 2026-09-12: "I need to see the password
+          I typed") — the same field the buy page uses. */}
+      <div className="mt-5">
+        <PasswordField label="New password" value={password} onChange={setPassword} testId="new-password" />
+      </div>
+      <div className="mt-4">
+        <PasswordField label="Confirm password" value={confirm} onChange={setConfirm} showRules={false} testId="confirm-password" />
+      </div>
       <button
         type="submit"
         disabled={busy}

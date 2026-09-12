@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { signOut, useSession } from 'next-auth/react'
 import { apiFetch, API_URL } from '@/lib/api'
 import FamilyNav, { firstName } from '../../../components/daybreak/FamilyNav'
+import PasswordField from '../../../components/daybreak/PasswordField'
 import { trackerModel } from '@/lib/tracker'
 import type { CustomerView } from '@hg/case-lifecycle'
 
@@ -146,8 +147,8 @@ export default function AccountPage() {
               {editing === 'password' && (
                 <form className="mt-2 space-y-2" onSubmit={async (e) => { e.preventDefault(); if (form.newPassword !== form.confirm) { setNotice('The passwords don’t match.'); return } const d = await post('/me/password', 'POST', { currentPassword: form.currentPassword, newPassword: form.newPassword }); if (d) { setEditing(null); await update({ passwordChanged: true }); setNotice('Password changed. Other devices were signed out.'); await load() } }}>
                   <input aria-label="Current password" type="password" required placeholder="Current password" value={form.currentPassword ?? ''} onChange={(e) => setForm({ ...form, currentPassword: e.target.value })} className="w-full rounded-lg border border-db-line p-2 text-[15px]" />
-                  <input aria-label="New password" type="password" required minLength={12} placeholder="New password (12+ characters)" value={form.newPassword ?? ''} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} className="w-full rounded-lg border border-db-line p-2 text-[15px]" />
-                  <input aria-label="Confirm new password" type="password" required placeholder="Confirm new password" value={form.confirm ?? ''} onChange={(e) => setForm({ ...form, confirm: e.target.value })} className="w-full rounded-lg border border-db-line p-2 text-[15px]" />
+                  <PasswordField label="New password" value={form.newPassword ?? ''} onChange={(v) => setForm({ ...form, newPassword: v })} testId="new-password" />
+                  <PasswordField label="Confirm new password" value={form.confirm ?? ''} onChange={(v) => setForm({ ...form, confirm: v })} showRules={false} testId="confirm-password" />
                   <button disabled={busy} className="rounded-lg bg-db-accent px-3 py-2 font-semibold text-db-surface">Change password</button>
                 </form>
               )}
