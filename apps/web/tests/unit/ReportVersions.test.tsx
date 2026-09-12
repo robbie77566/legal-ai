@@ -35,4 +35,14 @@ describe('report versions', () => {
     expect(await screen.findByText('Finding in v1')).toBeInTheDocument()
     expect(screen.queryByTestId('what-changed')).toBeNull() // only shown on the current version
   })
+
+  it('the report footer names the site (PO, 2026-09-12)', async () => {
+    render(<CaseReport />)
+    // The 'Before you open' gate is remembered after the first test in this file; the footer renders either way.
+    const gate = await screen.findByRole('button', { name: /Read it now/ }).catch(() => null)
+    if (gate) fireEvent.click(gate)
+    const site = await screen.findByTestId('report-site')
+    expect(site).toHaveTextContent('snotnoselegal.com')
+    expect(site.querySelector('a')).toHaveAttribute('href', 'https://www.snotnoselegal.com')
+  })
 })

@@ -60,7 +60,7 @@ export function __setEmailProviderForTests(p: EmailProvider | undefined) {
 }
 
 const FOOTER =
-  '\n\n—\nFamily Case Review is a service of Snot Nose Legal. We are not a law firm and this is not legal advice. Questions? Just reply to this email.';
+  '\n\n—\nFamily Case Review is a service of Snot Nose Legal — snotnoselegal.com. We are not a law firm and this is not legal advice. Questions? Just reply to this email.';
 
 async function send(msg: EmailMessage): Promise<{ delivered: boolean; id?: string; error?: string }> {
   try {

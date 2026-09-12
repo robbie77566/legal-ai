@@ -347,6 +347,7 @@ export default function CaseReport() {
         Information about court records — not legal advice, and not a prediction of any outcome.
         Prepared with AI assistance and approved by a trained legal reviewer. Sharing this report
         does not by itself create an attorney-client relationship or privilege.
+        <span className="mt-2 block" data-testid="report-site">Family Case Review · <a href="https://www.snotnoselegal.com" className="underline">snotnoselegal.com</a></span>
       </footer>
     </main>
   )

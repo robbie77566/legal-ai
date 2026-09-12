@@ -56,9 +56,13 @@ export interface ReportPdfInput {
   droppedByReverification: number;
   /** Matches the web theme; harbor is THE theme (A/B retired 2026-09-02). */
   palette?: ReportPalette;
+  /** Test hook: uncompressed streams so assertions can read the text. */
+  compress?: boolean;
 }
 
+export const SITE = 'snotnoselegal.com';
 const FOOTER =
+  `Family Case Review · ${SITE} · ` +
   'This is an information report about the contents of a court record. It is not legal advice, ' +
   'does not create an attorney-client relationship, and is not protected by attorney-client privilege. ' +
   'Decisions about any filing should be made with a licensed attorney.';
@@ -72,12 +76,13 @@ function severityLabel(s: string): string {
 export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
+      compress: input.compress ?? true, // tests read the text stream uncompressed
       size: 'LETTER',
       margins: { top: MARGIN, bottom: MARGIN + 28, left: MARGIN, right: MARGIN },
       info: {
         Title: `Family Case Review — ${input.caseTitle}`,
-        Author: 'Family Case Review, a service of Snot Nose Legal',
-        Subject: `Report ${input.reportId} v${input.versionNo} (template ${input.templateVersion})`,
+        Author: 'Family Case Review, a service of Snot Nose Legal (snotnoselegal.com)',
+        Subject: `Report ${input.reportId} v${input.versionNo} (template ${input.templateVersion}) — snotnoselegal.com`,
       },
     });
     const pal = PALETTES[input.palette ?? 'harbor'];
@@ -114,7 +119,7 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
 
     // ---- Cover header ----
     doc.font('Helvetica-Bold').fontSize(20).fillColor(pal.accent).text('Family Case Review');
-    doc.font('Helvetica').fontSize(10).fillColor('#555555').text('a service of Snot Nose Legal');
+    doc.font('Helvetica').fontSize(10).fillColor('#555555').text(`a service of Snot Nose Legal · ${SITE}`);
     doc.moveDown(0.8);
     doc.fontSize(12).fillColor(pal.ink).text(input.caseTitle);
     doc
@@ -247,6 +252,12 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
       .text(
         'This report covers the complete set of documents you provided, as inventoried on your case page. If you have additional volumes or exhibits, a re-run with the new documents may change these results.'
       );
+    doc.moveDown(0.6);
+    doc
+      .font('Helvetica')
+      .fontSize(9)
+      .fillColor('#555555')
+      .text(`Your case page, this report, and the guide to getting court documents are at ${SITE}. Questions? Reply to any email from us — a person reads it.`);
 
     doc.end();
   });

@@ -62,6 +62,9 @@ export default function SharedReport() {
           </li>
         )}
       </ol>
+      <footer className="mt-8 border-t border-db-line pt-4 text-sm text-db-muted" data-testid="packet-site">
+        Family Case Review · <a href="https://www.snotnoselegal.com" className="underline">snotnoselegal.com</a> · Information about a court record, not legal advice; sharing does not create an attorney-client relationship or privilege.
+      </footer>
     </main>
   )
 }
