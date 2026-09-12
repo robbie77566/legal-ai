@@ -78,7 +78,12 @@ export default function BuyPage() {
       body: JSON.stringify({ code: promoInput }),
     })
     if (!res.ok) {
-      setPromoError("That code isn't valid")
+      // Say what happened (2026-09-12: an admin testing a code got "isn't
+      // valid" three times — the API had refused the STAFF session, not the code).
+      if (res.status === 403) setPromoError('You’re signed in as a staff account, which can’t buy or use codes. Sign out, then try the code as a customer.')
+      else if (res.status === 401) setPromoError('Please sign in (or create your account below) before adding a code.')
+      else if (res.status === 429) setPromoError('Too many tries — wait a minute and try again.')
+      else setPromoError("That code isn't valid")
       return
     }
     setPromo(await res.json())
