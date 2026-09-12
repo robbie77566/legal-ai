@@ -283,4 +283,23 @@ describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
     expect(screen.getByTestId('confirm-verdict')).toHaveTextContent(/Still missing — essential: Reporter's record volumes.*Almost every check reads the transcript/)
     expect(screen.getByRole('button', { name: /run my review now on the paperwork only/ })).toBeInTheDocument()
   })
+
+  it('a file the classifier could not name can be named from "Your files", which posts the correction (engineering review, 2026-09-12)', async () => {
+    const withUnnamed = { ...CHECKLIST, items: [
+      { id: 'it_rr', kind: 'rr_volume', label: "Reporter's record volumes", state: 'NEEDED' },
+      { id: 'it_j', kind: 'judgment', label: 'Judgment and sentence', state: 'NEEDED' },
+    ], documents: [{ id: 'doc_9', filename: 'scan_0001.pdf', suggestedChecklistItemId: null, classificationConfirmed: false, quarantined: false }] }
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url)
+      calls.push(`${init?.method ?? 'GET'} ${u}`)
+      const body = u.endsWith('/checklist') ? withUnnamed : u.endsWith('/pages') ? METER : { ok: true }
+      return { ok: true, json: async () => body } as Response
+    }))
+    render(<CaseDocuments />)
+    expect(await screen.findByTestId('readiness-unnamed')).toHaveTextContent(/could not name 1 of your files/)
+    expect(screen.getByTestId('your-files')).toHaveAttribute('open')
+    fireEvent.click(screen.getByTestId('name-file-doc_9'))
+    fireEvent.click(screen.getByRole('button', { name: "Reporter's record volumes" }))
+    await waitFor(() => expect(calls.some((c) => c === 'POST http://localhost:3001/cases/case_1/documents/doc_9/correct')).toBe(true))
+  })
 })

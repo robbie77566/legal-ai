@@ -1,12 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
 import { formatCivilDate } from '@/lib/tracker'
-import { checklistReadiness, docPriority, tierRank, TIER_META, type DocTier } from '@hg/case-lifecycle'
+import { checklistReadiness, docPriority, TIERS, TIER_META, type DocTier } from '@hg/case-lifecycle'
 
 /**
  * S2/S3 checklist home (UI spec §5.4–5.5): per-item upload embedded in the
@@ -53,21 +53,6 @@ interface Meter {
 /** Tier colors: essential reads as urgent, strengthens as the accent, helpful as muted. */
 const TIER_COLOR: Record<DocTier, string> = { essential: 'var(--db-urgent)', strengthens: 'var(--db-accent)', helpful: 'var(--db-muted)' }
 
-const HOWTO: Record<string, string> = {
-  judgment: 'The district clerk of the county of conviction has this — ask for a certified copy (often ~$1/page).',
-  indictment: "Also at the district clerk's office, in the case file.",
-  clerks_record: 'Ask the district clerk for the case file. For 2016-or-later e-filings, re:SearchTX may have it online.',
-  rr_volume:
-    'If there was a direct appeal, the trial transcript usually already exists — ask the district clerk or the court of appeals before paying a court reporter for a new one.',
-  appellate_opinion: 'Search the court of appeals website by case number, or ask the clerk.',
-  plea_papers: "The plea paperwork is in the district clerk's case file.",
-  admonishments: "Part of the plea paperwork at the district clerk's office.",
-  judicial_confession: "Part of the plea paperwork at the district clerk's office.",
-  plea_agreement: "Ask the district clerk for the full plea file.",
-  prior_writ_application: 'The district clerk keeps writ filings under the same cause number (often with a -A suffix).',
-  prior_writ_answer: "Ask the district clerk for the State's answer in the writ file.",
-  prior_writ_findings: "Ask the district clerk for the court's findings in the writ file.",
-}
 
 export default function CaseDocuments() {
   const { caseId } = useParams<{ caseId: string }>()
@@ -89,6 +74,10 @@ export default function CaseDocuments() {
   const zipStartedAt = useRef<number>(0)
   const [pollBudget, setPollBudget] = useState(0)
   const [confirmRun, setConfirmRun] = useState(false)
+  // Document priority: one computation per checklist load, used by the
+  // readiness line, the Step 2 note, and the run dialog.
+  const readiness = useMemo(() => (data ? checklistReadiness(data.items) : null), [data])
+  const unnamed = useMemo(() => (data ? data.documents.filter((d) => !d.quarantined && !d.suggestedChecklistItemId) : []), [data])
   // F9: real upload progress — fetch() cannot report upload bytes, so the S3
   // PUT rides XHR. Slow cell connections get a moving bar, not a frozen page.
   const [progress, setProgress] = useState<{ name: string; pct: number; index: number; total: number } | null>(null)
@@ -319,20 +308,22 @@ export default function CaseDocuments() {
           <p className="mt-1 text-sm text-db-muted">
             Any order, your own pace — we recognize each document and check it off for you.
           </p>
-          {(() => {
-            // Document priority (PO, 2026-09-12): the question is not "how
-            // many" but "is it enough" — answered here, in one line.
-            const r = checklistReadiness(data.items)
-            return r.enough ? (
-              <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--db-signal)' }} data-testid="readiness" data-enough="true">
-                ✓ You have what the review needs.{r.missing.strengthens.length + r.missing.helpful.length > 0 ? ' The rest would make it stronger — get what you can.' : ''}
-              </p>
-            ) : (
-              <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--db-urgent)' }} data-testid="readiness" data-enough="false">
-                Not enough yet — the review depends on: {r.missing.essential.join(', ')}.
-              </p>
-            )
-          })()}
+          {/* Document priority (PO, 2026-09-12): the question is not "how
+              many" but "is it enough" — answered here, in one line. */}
+          {readiness && (readiness.enough ? (
+            <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--db-signal)' }} data-testid="readiness" data-enough="true">
+              ✓ You have what the review needs.{readiness.missing.strengthens.length + readiness.missing.helpful.length > 0 ? ' The rest would make it stronger — get what you can.' : ''}
+            </p>
+          ) : (
+            <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--db-urgent)' }} data-testid="readiness" data-enough="false">
+              Not enough yet — the review depends on: {readiness.missing.essential.map((m) => m.label).join(', ')}.
+              {unnamed.length > 0 && pollBudget === 0 && (
+                <span className="block font-normal text-db-ink" data-testid="readiness-unnamed">
+                  We could not name {unnamed.length} of your files. If one of them is what is missing, name it under &ldquo;Your files&rdquo; below.
+                </span>
+              )}
+            </p>
+          ))}
         </div>
       )}
       {data?.factLines?.some((l) => l.value) && (
@@ -561,8 +552,8 @@ export default function CaseDocuments() {
               strengthens the review, then the nice-to-haves — the tier is
               visible in the row, the consequence sits with the how-to. */}
           <ul>
-            {(['essential', 'strengthens', 'helpful'] as DocTier[]).map((tier) => {
-              const rows = data.items.filter((i) => i.state === 'NEEDED' && docPriority(i.kind).tier === tier).sort((a, b) => tierRank(a.kind) - tierRank(b.kind))
+            {TIERS.map((tier) => {
+              const rows = data.items.filter((i) => i.state === 'NEEDED' && docPriority(i.kind).tier === tier)
               if (rows.length === 0) return null
               return (
                 <li key={tier} data-testid={`tier-${tier}`}>
@@ -580,7 +571,7 @@ export default function CaseDocuments() {
                   </summary>
                   <div className="px-4 pb-3 text-sm text-db-muted">
                     <p className="text-db-ink" data-testid={`without-${item.kind}`}><span className="font-semibold">Without it:</span> {docPriority(item.kind).without}</p>
-                    <p className="mt-1"><span className="font-semibold">Where to get it:</span> {HOWTO[item.kind] ?? 'The district clerk of the county of conviction is the place to start.'}</p>
+                    <p className="mt-1"><span className="font-semibold">Where to get it:</span> {docPriority(item.kind).howTo}</p>
                     <button
                       onClick={() => pickFile(item.label)}
                       disabled={uploading !== null}
@@ -621,29 +612,53 @@ export default function CaseDocuments() {
       {/* F3/F4: files live below the checklist, collapsed, each with its
           processing state — "did my upload work?" answered at a glance. */}
       {data && data.documents.filter((d) => !d.quarantined).length > 0 && (
-        <details className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
+        <details className="mt-6 rounded-xl border border-db-line bg-db-surface p-4" open={unnamed.length > 0 && pollBudget === 0} data-testid="your-files">
           <summary className="cursor-pointer font-db-serif text-lg font-semibold">
             Your files ({data.documents.filter((d) => !d.quarantined).length})
           </summary>
           <p className="mt-1 text-sm text-db-muted">
             Every file stays yours — download any of them to hand to a lawyer.
+            {unnamed.length > 0 && pollBudget === 0 && ' A file we could not name still gets read — naming it just checks the right item off your list.'}
           </p>
           <ul className="mt-3 space-y-2">
             {data.documents.filter((d) => !d.quarantined).map((d) => (
-              <li key={d.id} className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate font-db-mono text-sm">{d.filename}</span>
-                <span className="flex items-center gap-3 whitespace-nowrap text-sm">
-                  <span className="text-db-muted">
-                    {d.suggestedChecklistItemId
-                      ? '✓ Recognized'
-                      : pollBudget > 0
-                        ? 'Reading it now…'
-                        : 'Received'}
+              <li key={d.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate font-db-mono text-sm">{d.filename}</span>
+                  <span className="flex items-center gap-3 whitespace-nowrap text-sm">
+                    <span className="text-db-muted">
+                      {d.suggestedChecklistItemId
+                        ? '✓ Recognized'
+                        : pollBudget > 0
+                          ? 'Reading it now…'
+                          : 'Received'}
+                    </span>
+                    {/* Engineering review (2026-09-12): a file the classifier
+                        could not name had no way to be named, so the
+                        readiness line could say "not enough" about a
+                        transcript that was already here. */}
+                    {!d.suggestedChecklistItemId && pollBudget === 0 && (
+                      <button onClick={() => setCorrecting(correcting === d.id ? null : d.id)} className="font-semibold text-db-accent underline" data-testid={`name-file-${d.id}`}>
+                        Name this file
+                      </button>
+                    )}
+                    <button onClick={() => void download(d.id)} className="font-semibold text-db-accent underline">
+                      Download
+                    </button>
                   </span>
-                  <button onClick={() => void download(d.id)} className="font-semibold text-db-accent underline">
-                    Download
-                  </button>
-                </span>
+                </div>
+                {correcting === d.id && !d.suggestedChecklistItemId && (
+                  <div className="mt-2 rounded-lg border border-db-line p-3" data-testid={`name-file-picker-${d.id}`}>
+                    <p className="text-sm font-semibold">Which document is this?</p>
+                    <div className="mt-2 space-y-2">
+                      {data.items.map((i) => (
+                        <button key={i.id} onClick={() => void verdict(d.id, 'correct', i.id)} className="block w-full rounded-lg border border-db-line p-2 text-left text-sm hover:border-db-accent">
+                          {i.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -677,9 +692,9 @@ export default function CaseDocuments() {
           it; a later run with new documents costs $99. So start the review when everything you can
           get is here.
         </p>
-        {data && !checklistReadiness(data.items).enough && (
+        {readiness && !readiness.enough && (
           <p className="mt-2 rounded-lg border p-3 text-sm" style={{ borderColor: 'var(--db-urgent)' }} data-testid="run-not-enough">
-            <strong>Not enough yet.</strong> The review depends on: {checklistReadiness(data.items).missing.essential.join(', ')}. You can still run it on what is here, but it will only be able to check the paperwork.
+            <strong>Not enough yet.</strong> The review depends on: {readiness.missing.essential.map((m) => m.label).join(', ')}. You can still run it on what is here, but it will only be able to check the paperwork.
           </p>
         )}
         {data && data.items.some((i) => i.state === 'NEEDED') ? (
@@ -712,12 +727,12 @@ export default function CaseDocuments() {
           aria-modal="true"
         >
           <div className="w-full max-w-md rounded-xl border border-db-line bg-db-surface p-5">
-            {(() => {
-              const r = checklistReadiness(data.items)
+            {readiness && (() => {
+              const r = readiness
               const list = (tier: DocTier) => r.missing[tier].length > 0 && (
                 <p className="mt-2 text-sm" data-testid={`confirm-missing-${tier}`}>
                   <span className="font-semibold" style={{ color: TIER_COLOR[tier] }}>{TIER_META[tier].label}:</span>{' '}
-                  {r.missing[tier].join(', ')}
+                  {r.missing[tier].map((m) => m.label).join(', ')}
                 </p>
               )
               return r.enough ? (
@@ -733,8 +748,8 @@ export default function CaseDocuments() {
                 <>
                   <h2 className="font-db-serif text-xl font-semibold">Run without the documents the review depends on?</h2>
                   <p className="mt-2 text-sm" data-testid="confirm-verdict">
-                    <strong>Still missing — essential:</strong> {r.missing.essential.join(', ')}.{' '}
-                    {r.missing.essential.map((label) => data.items.find((i) => i.label === label)).filter(Boolean).map((i) => docPriority(i!.kind).without).join(' ')}
+                    <strong>Still missing — essential:</strong> {r.missing.essential.map((m) => m.label).join(', ')}.{' '}
+                    {r.missing.essential.map((m) => m.without).join(' ')}
                   </p>
                   {list('strengthens')}
                   {list('helpful')}
@@ -756,7 +771,7 @@ export default function CaseDocuments() {
                 }}
                 className="w-full rounded-xl bg-db-accent px-5 py-3 font-semibold text-db-surface"
               >
-                {checklistReadiness(data.items).enough ? 'I understand — run my review now' : 'I understand — run my review now on the paperwork only'}
+                {readiness?.enough ? 'I understand — run my review now' : 'I understand — run my review now on the paperwork only'}
               </button>
               <button
                 onClick={() => setConfirmRun(false)}

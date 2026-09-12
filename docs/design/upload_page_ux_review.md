@@ -74,6 +74,16 @@ Both delivered reviews (Brazoria, San Jacinto) ran on **transcripts alone** and 
 | P4 | **The run dialog tells the truth by tier.** Essentials present: "You have what the review needs" + what the missing items would add. Essential missing: "Run without the documents the review depends on?", the consequence spelled out, the button reads "…on the paperwork only", and a nudge to wait if there is any way to get it (this is the one included run). The Step 2 card carries the same "Not enough yet" note before the click. | Review **rejected blocking the run**: a family that truly cannot get the transcript should still be able to run on the paperwork, told plainly what that buys. The API gate stays "at least one document". |
 | P5 | Kept the existing button labels and the $99 consent paragraph. | The billing boundary (F14) is unchanged; the priority layer sits inside it. |
 
+**Engineering review of the shipped plan (2026-09-12), and what changed:**
+
+| # | Finding | Fix |
+|---|---|---|
+| R1 | The State's answer and the court's findings on a prior writ were *essential* — but many 11.07 writs are denied without a written order, so those papers often do not exist and "Not enough yet" would never clear for those families. | Only the earlier **application** is essential; answer and findings *strengthen*, and their "Without it" line says they may not exist. |
+| R2 | The biggest way the readiness line could lie: a file the classifier could not name had **no way to be named** (the quick-check card only appears for medium-confidence guesses), so a transcript that was already uploaded could read as "not enough". Verified on the two real cases that every volume was matched — but the gap was real. | "**Name this file**" on any unrecognized file under *Your files* (reuses the existing correction route, which already accepted a file with no prior guess); the section opens itself when something is unnamed; the readiness line says "We could not name N of your files — if one of them is what is missing, name it below." |
+| R3 | Two copy sources per document kind: tiers and consequences in `case-lifecycle`, the where-to-get-it text in the page. | One record per kind (`DOC_PRIORITY[kind] = { tier, without, howTo }`); the page's `HOWTO` map is gone. |
+| R4 | `missing` carried labels only, so the dialog looked items up **by label** to find the consequence — fragile once two items share a label. | `missing` entries are `{ kind, label, without }` (also in the API's `readiness`). |
+| R5 | Readiness was recomputed five times per render; a tier-sort inside an already tier-filtered list was dead code. | One `useMemo` per checklist load; `TIERS` exported in display order; dead sort removed. |
+
 Not done (tracked): the same readiness on the ops case page and in the records-complete email; a per-item "I can't get this" acknowledgement so the page stops asking; Spanish.
 
 ## 5. Out of scope, tracked

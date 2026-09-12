@@ -8,6 +8,7 @@ describe('document priority', () => {
       for (const i of checklistTemplate({ lane, subsequentWrit: true })) {
         expect(DOC_PRIORITY[i.kind], i.kind).toBeDefined()
         expect(docPriority(i.kind).without.length).toBeGreaterThan(20)
+        expect(docPriority(i.kind).howTo.length).toBeGreaterThan(20)
       }
     }
   })
@@ -18,18 +19,20 @@ describe('document priority', () => {
     const plea = checklistTemplate({ lane: 'PLEA', subsequentWrit: false })
     expect(plea.filter((i) => docPriority(i.kind).tier === 'essential').map((i) => i.kind)).toEqual(['plea_papers'])
     const sw = checklistTemplate({ lane: 'TRIAL', subsequentWrit: true })
-    expect(sw.filter((i) => i.kind.startsWith('prior_writ')).every((i) => docPriority(i.kind).tier === 'essential')).toBe(true)
+    // The application is essential; the State's answer and the findings may not exist (writs denied without written order).
+    expect(sw.filter((i) => i.kind.startsWith('prior_writ')).map((i) => docPriority(i.kind).tier)).toEqual(['essential', 'strengthens', 'strengthens'])
   })
   it('readiness: transcripts alone are enough for a trial review (both delivered cases); paperwork alone is not', () => {
     const items = checklistTemplate({ lane: 'TRIAL', subsequentWrit: false }).map((i) => ({ ...i, state: i.kind === 'rr_volume' ? 'UPLOADED' : 'NEEDED' }))
     const r = checklistReadiness(items)
     expect(r).toMatchObject({ enough: true, essentialTotal: 1, essentialHave: 1 })
     expect(r.missing.essential).toEqual([])
-    expect(r.missing.strengthens).toEqual(['Judgment and sentence', 'Indictment'])
-    expect(r.missing.helpful).toEqual(["Clerk's record", 'Appellate opinion (if there was an appeal)'])
+    expect(r.missing.strengthens.map((m) => m.label)).toEqual(['Judgment and sentence', 'Indictment'])
+    expect(r.missing.helpful.map((m) => m.kind)).toEqual(['clerks_record', 'appellate_opinion'])
+    expect(r.missing.strengthens[0]).toMatchObject({ kind: 'judgment', without: expect.stringMatching(/time limits/) })
 
     const paperwork = items.map((i) => ({ ...i, state: i.kind === 'rr_volume' ? 'NEEDED' : 'CONFIRMED' }))
-    expect(checklistReadiness(paperwork)).toMatchObject({ enough: false, essentialHave: 0, missing: { essential: ["Reporter's record (trial transcript) volumes"] } })
+    expect(checklistReadiness(paperwork)).toMatchObject({ enough: false, essentialHave: 0, missing: { essential: [{ kind: 'rr_volume', label: "Reporter's record (trial transcript) volumes" }] } })
   })
   it('an unknown kind is treated as helpful, never as a blocker', () => {
     expect(docPriority('mystery').tier).toBe('helpful')

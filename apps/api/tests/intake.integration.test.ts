@@ -127,7 +127,7 @@ describe('checklist home + records complete', () => {
     // nothing uploaded yet → not enough, and the page can say why.
     expect(body.items[0].kind).toBe('rr_volume');
     expect(body.readiness).toMatchObject({ enough: false, essentialTotal: 1, essentialHave: 0 });
-    expect(body.readiness.missing.essential).toEqual(["Reporter's record (trial transcript) volumes"]);
+    expect(body.readiness.missing.essential).toMatchObject([{ kind: 'rr_volume', label: "Reporter's record (trial transcript) volumes" }]);
   });
 
   it('refuses records-complete with zero documents', async () => {
