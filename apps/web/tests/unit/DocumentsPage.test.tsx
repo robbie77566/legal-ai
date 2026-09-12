@@ -315,4 +315,71 @@ describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
     expect(note).toHaveTextContent(/carried over from your earlier review/)
     expect(note.querySelector('a')).toHaveAttribute('href', '/case/case_1/interview')
   })
+
+  it('a PUT with no progress for 45 s is treated as stalled: aborted, explained, retryable in one tap (2026-09-12)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const sent: string[] = []
+    class FakeXhr {
+      upload: { onprogress: ((e: { lengthComputable: boolean; loaded: number; total: number }) => void) | null } = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      onabort: (() => void) | null = null
+      status = 200
+      open() {}
+      setRequestHeader() {}
+      abort() { this.onabort?.() }
+      send() { sent.push('put'); if (sent.length === 2) setTimeout(() => this.onload?.(), 0) } // second attempt succeeds
+    }
+    vi.stubGlobal('XMLHttpRequest', FakeXhr as unknown as typeof XMLHttpRequest)
+    const calls: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url); calls.push(`${init?.method ?? 'GET'} ${u}`)
+      const body = u.endsWith('/checklist') ? CHECKLIST : u.endsWith('/pages') ? METER : u.endsWith('/upload/url') ? { url: 'https://s3.example/put', s3Key: 'cases/case_1/x.pdf' } : { ok: true }
+      return { ok: true, json: async () => body } as Response
+    }))
+    try {
+      const { container } = render(<CaseDocuments />)
+      await screen.findByTestId('zip-card')
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement
+      fireEvent.change(input, { target: { files: [new File([new Uint8Array(10)], 'phone-scan.pdf', { type: 'application/pdf' })] } })
+      const bar = await screen.findByTestId('upload-progress')
+      expect(bar).toHaveTextContent(/screen unlocked/)
+      await vi.advanceTimersByTimeAsync(50_000)
+      const alert = await screen.findByTestId('upload-error')
+      expect(alert).toHaveTextContent(/stalled — this happens when a phone locks its screen/)
+      expect(calls.filter((c) => c.endsWith('/upload/complete'))).toHaveLength(0) // nothing was registered
+      fireEvent.click(screen.getByTestId('upload-retry'))
+      await waitFor(() => expect(calls.filter((c) => c.endsWith('/upload/url'))).toHaveLength(2))
+      await waitFor(() => expect(calls.some((c) => c.endsWith('/upload/complete'))).toBe(true))
+      await waitFor(() => expect(screen.queryByTestId('upload-retry')).toBeNull())
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('Cancel aborts the upload in flight and offers a retry', async () => {
+    class FakeXhr {
+      upload: { onprogress: unknown } = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      onabort: (() => void) | null = null
+      status = 200
+      open() {}
+      setRequestHeader() {}
+      abort() { this.onabort?.() }
+      send() {}
+    }
+    vi.stubGlobal('XMLHttpRequest', FakeXhr as unknown as typeof XMLHttpRequest)
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url)
+      const body = u.endsWith('/checklist') ? CHECKLIST : u.endsWith('/pages') ? METER : u.endsWith('/upload/url') ? { url: 'https://s3.example/put', s3Key: 'k' } : { ok: true }
+      return { ok: true, json: async () => body } as Response
+    }))
+    const { container } = render(<CaseDocuments />)
+    await screen.findByTestId('zip-card')
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [new File([new Uint8Array(10)], 'a.pdf', { type: 'application/pdf' })] } })
+    fireEvent.click(await screen.findByTestId('upload-cancel'))
+    expect(await screen.findByTestId('upload-error')).toHaveTextContent('Upload cancelled — nothing was saved for a.pdf.')
+    expect(screen.getByTestId('upload-retry')).toHaveTextContent('Retry a.pdf')
+  })
 })

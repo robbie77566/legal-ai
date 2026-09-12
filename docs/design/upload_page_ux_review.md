@@ -86,6 +86,18 @@ Both delivered reviews (Brazoria, San Jacinto) ran on **transcripts alone** and 
 
 Not done (tracked): the same readiness on the ops case page and in the records-complete email; a per-item "I can't get this" acknowledgement so the page stops asking; Spanish.
 
+## 4c. Round 6 — a stalled phone upload with no way out (2026-09-12, PO report)
+
+**Seen in production:** four presigned uploads from a phone; three completed, the fourth (19:28 UTC) never sent its PUT to storage and never errored — the bar froze, every control was disabled (`uploading !== null`), and there was nothing to tap. Locking the screen or switching networks pauses a mobile PUT, and the browser does not always report it.
+
+| # | Finding | Disposition |
+|---|---|---|
+| F18 | **A silent PUT hangs the page forever.** XHR had no timeout and no stall detection; the batch loop waited on it indefinitely. | Fixed: a **watchdog** aborts a PUT with no progress event for 45 s (and immediately when the tab comes back to the foreground after >15 s of silence); the failure explains itself — *"stalled — this happens when a phone locks its screen or changes networks."* Nothing is registered for a file that did not arrive (the `/upload/complete` call never fires). |
+| F19 | **No way to stop or retry.** | Fixed: **Cancel** on the progress bar aborts the file in flight and stops the batch; every failed or cancelled file is kept and **Retry** re-sends them in one tap (the picker also works as before). |
+| F20 | The keep-page-open line did not mention the screen. | Fixed: "Keep this page open **and your screen unlocked** … on a phone, locking the screen can pause the upload." |
+
+Not done (tracked): resumable multipart for very large files (the `UploadSession` model exists; the page still sends one PUT per file), and a Wake Lock request while a PUT is in flight (Chrome/Android only today).
+
 ## 5. Out of scope, tracked
 
 F8/F9 above; Spanish for both surfaces (the recorded i18n P1 gap); replaying missed activity-feed lines on reconnect (needs a customer-safe events endpoint — today a mid-analysis page load gets the panel, new lines from the next event on).

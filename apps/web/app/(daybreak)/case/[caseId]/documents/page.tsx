@@ -73,6 +73,13 @@ export default function CaseDocuments() {
   // short polling budget so echo-back classifications check items off live.
   const [zipBusy, setZipBusy] = useState<'uploading' | 'unpacking' | null>(null)
   const zipStartedAt = useRef<number>(0)
+  // Stalled/cancelled uploads (2026-09-12: a phone upload hung with the bar
+  // frozen and every control disabled — locking the screen pauses the PUT
+  // and the browser never reports it). A watchdog aborts a silent PUT, the
+  // bar has Cancel, and failed files can be retried in one tap.
+  const activeXhr = useRef<XMLHttpRequest | null>(null)
+  const cancelled = useRef(false)
+  const [failedFiles, setFailedFiles] = useState<File[]>([])
   const [pollBudget, setPollBudget] = useState(0)
   const [confirmRun, setConfirmRun] = useState(false)
   // Document priority: one computation per checklist load, used by the
@@ -135,44 +142,89 @@ export default function CaseDocuments() {
   const putWithProgress = (url: string, file: File) =>
     new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
+      activeXhr.current = xhr
+      cancelled.current = false
+      let lastProgress = Date.now()
+      let stalled = false
+      const STALL_MS = 45_000
+      const finish = () => {
+        clearInterval(watchdog)
+        document.removeEventListener('visibilitychange', onVisible)
+        if (activeXhr.current === xhr) activeXhr.current = null
+      }
+      const stall = () => {
+        stalled = true
+        xhr.abort()
+      }
+      // No progress for 45 s → the connection is dead (phone locked, network
+      // switched). Coming back to the tab after a long silence counts too.
+      const watchdog = setInterval(() => { if (Date.now() - lastProgress > STALL_MS) stall() }, 5_000)
+      const onVisible = () => { if (document.visibilityState === 'visible' && Date.now() - lastProgress > 15_000) stall() }
+      document.addEventListener('visibilitychange', onVisible)
       xhr.open('PUT', url)
       xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
       xhr.upload.onprogress = (e) => {
+        lastProgress = Date.now()
         if (e.lengthComputable) {
           const pct = Math.round((e.loaded / e.total) * 100)
           setProgress((prev) => (prev ? { ...prev, pct } : prev))
         }
       }
-      xhr.onload = () =>
-        xhr.status < 300
+      xhr.onload = () => {
+        finish()
+        return xhr.status < 300
           ? resolve()
           : reject(new Error('The upload didn’t reach our storage — please try again.'))
-      xhr.onerror = () =>
+      }
+      xhr.onerror = () => {
+        finish()
         reject(new Error('The upload didn’t reach our storage — check your connection and try again.'))
+      }
+      xhr.onabort = () => {
+        finish()
+        reject(new Error(cancelled.current
+          ? `Upload cancelled — nothing was saved for ${file.name}.`
+          : `The upload of ${file.name} stalled — this happens when a phone locks its screen or changes networks. Tap Retry to send it again.`))
+        void stalled
+      }
       xhr.send(file)
     })
+
+  const cancelUpload = () => {
+    cancelled.current = true
+    activeXhr.current?.abort()
+  }
 
   // One entry point for everything (F1): ZIPs route to the bulk path, other
   // files upload sequentially so a mid-batch failure keeps its progress.
   const handleFiles = async (files: File[]) => {
+    const failed: File[] = []
+    setFailedFiles([])
     try {
       for (let i = 0; i < files.length; i++) {
         const f = files[i]
         setProgress({ name: f.name, pct: 0, index: i + 1, total: files.length })
+        let ok: boolean
         if (/\.zip$/i.test(f.name)) {
           setZipBusy('uploading')
-          await upload(f)
+          ok = await upload(f)
           setZipBusy((z) => (z === 'uploading' ? null : z))
         } else {
-          await upload(f)
+          ok = await upload(f)
+        }
+        if (!ok) {
+          failed.push(f)
+          // A cancel stops the whole batch; the rest can be retried together.
+          if (cancelled.current) { failed.push(...files.slice(i + 1)); break }
         }
       }
     } finally {
       setProgress(null)
+      setFailedFiles(failed)
     }
   }
 
-  const upload = async (file: File) => {
+  const upload = async (file: File): Promise<boolean> => {
     setError('')
     setUploading(pendingItem.current ?? 'shoebox')
     try {
@@ -214,8 +266,10 @@ export default function CaseDocuments() {
         setPollBudget(24)
       }
       await refresh()
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed — please try again.')
+      return false
     } finally {
       setUploading(null)
       pendingItem.current = null
@@ -359,8 +413,18 @@ export default function CaseDocuments() {
         </details>
       )}
       {error && (
-        <p role="alert" className="mt-3 text-sm" style={{ color: 'var(--db-urgent)' }}>
+        <p role="alert" data-testid="upload-error" className="mt-3 text-sm" style={{ color: 'var(--db-urgent)' }}>
           {error}
+          {failedFiles.length > 0 && !progress && (
+            <button
+              type="button"
+              onClick={() => void handleFiles(failedFiles)}
+              className="ml-2 rounded-lg bg-db-accent px-3 py-1 text-sm font-semibold text-db-surface"
+              data-testid="upload-retry"
+            >
+              Retry {failedFiles.length === 1 ? failedFiles[0].name : `${failedFiles.length} files`}
+            </button>
+          )}
         </p>
       )}
 
@@ -426,7 +490,8 @@ export default function CaseDocuments() {
               />
             </div>
             <p className="mt-1 text-sm text-db-muted">
-              Keep this page open until the bar finishes — a slow connection is fine, it just takes longer.
+              Keep this page open and your screen unlocked until the bar finishes — a slow connection is fine, it just takes longer; on a phone, locking the screen can pause the upload.
+              <button type="button" onClick={cancelUpload} className="ml-2 font-semibold text-db-accent underline" data-testid="upload-cancel">Cancel</button>
             </p>
           </div>
         )}
