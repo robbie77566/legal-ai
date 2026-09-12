@@ -17,3 +17,10 @@ onlyBuiltDependencies:
   - esbuild
   - msgpackr-extract
   - prisma
+
+# Dependency audit — accepted advisories, each with a reason and an exit
+# condition in docs/operations/dependency_audit.md. Never add one silently.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-p293-qw3h-jr36 # next: RCE on Windows-hosted servers — we run on Linux (Render)
+    - GHSA-2xp9-vwfh-vxw4 # next: Image Optimization API AVIF RCE — /_next/image closed (images.unoptimized → 404)
