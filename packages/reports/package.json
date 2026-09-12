@@ -5,6 +5,7 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "dependencies": {
+    "@hg/case-lifecycle": "workspace:*",
     "pdfkit": "^0.15.2"
   },
   "devDependencies": {

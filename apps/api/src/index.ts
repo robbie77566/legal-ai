@@ -76,7 +76,12 @@ fastify.register(cors, {
   // Comma-separated origins: prod sets one; dev allows localhost + the
   // LAN address so a phone/laptop on the network can use the full app.
   origin: (process.env.WEB_ORIGIN ?? 'http://localhost:3000,http://192.168.154.213:3000').split(','),
-  credentials: true
+  credentials: true,
+  // @fastify/cors 11 answers preflights with GET,HEAD,POST only — the browser
+  // then never sent our PATCH (promo deactivate, facts edit) or DELETE
+  // (family account) at all; found in prod logs 2026-09-12: OPTIONS 204,
+  // no PATCH after it.
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
 })
 
 // Global error handler: a ZodError is a client input problem (400), NOT a

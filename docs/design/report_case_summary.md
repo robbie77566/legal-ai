@@ -36,6 +36,24 @@ Right after "What we found": a headline and two or three short paragraphs answer
 
 Modifiers add a paragraph: the §4 subsequent-writ bar; an estimated-expired federal window; a running clock (≤180 days or laches urgency). The ROI framing is qualitative — "a first consultation costs a small fraction of a full writ; this report is built to make that hour count" — no dollar figures. Every version ends with the not-legal-advice sentence, and the unit test forbids "you should file", "we recommend filing", "will win", "guarantee". **This wording is in the counsel review queue** (UPL): it is the closest the product comes to an opinion.
 
+## The weight line on every issue (PO, 2026-09-12)
+
+"It is hard to determine what is a major versus a minor thing in the PDF." Every finding now opens with one line, in the same words on the PDF, the report page, and the attorney packet (`case-lifecycle/issue-weight.ts`):
+
+> Weight: could stand on its own · How sure we are: high (91%)
+
+| Weight (from severity) | Color | Means |
+|---|---|---|
+| Could stand on its own (`dispositive`) | red (`--db-urgent`) | on its own could justify relief or change the posture |
+| Supports a larger claim (`supportive`) | amber (`--db-review`) | strengthens a claim package, unlikely to carry a filing alone |
+| Background | gray (`--db-none`) | context a lawyer should know |
+
+"How sure we are" is the analysis confidence (0–1) in bands: high ≥ 80 %, medium 55–79 %, low < 55 %, "not rated" when a snapshot carries none. It is our confidence that the issue is really in the record (every citation is re-checked word-for-word at render), **not a chance of winning** — the legend says so, and the unit test forbids outcome language.
+
+Colors changed with it: strong signals were green on the web report, which read as good news next to the most serious issue. They are red now; the section heading, the card's left border, and the PDF heading all follow the weight's color. "Nothing found" stays neutral.
+
+Confidence is written into every new report snapshot; older snapshots get it from the Finding rows at render (`finding-confidence.service.ts`), so reports already delivered show the line too.
+
 ## Not done
 
 QA editing of a summary line (today a reviewer can only remove findings); a cause-number lookup against the county clerk; Spanish for the labels (the report is English-only today).

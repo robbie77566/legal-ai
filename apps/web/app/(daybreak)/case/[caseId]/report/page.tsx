@@ -8,6 +8,7 @@ import CaseSummaryBlock, { type SummaryRow } from '../../../../../components/day
 import { getPaletteVariant } from '../../../../../lib/ab'
 import FeedbackCard from '../../../../../components/FeedbackCard'
 import { apiFetch } from '@/lib/api'
+import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND } from '@hg/case-lifecycle'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
 
 /**
@@ -20,6 +21,7 @@ import CaseNav from '../../../../../components/daybreak/CaseNav'
 interface ReportFinding {
   category: string
   severity: string
+  confidence?: number
   partAText: string
   partBText: string
   citations: { volume: string | null; page: number | null; excerpt: string }[]
@@ -58,13 +60,23 @@ interface ReportData {
   deadlinePosture?: DeadlinePosture | null
 }
 
-function FindingCard({ f, tone }: { f: ReportFinding; tone: 'signal' | 'review' }) {
+/** Tone colors follow the weight (PO, 2026-09-12): the most serious issue is
+ *  red, not green — green read as "good news" next to a strong signal. */
+const TONE_VAR = { urgent: 'var(--db-urgent)', review: 'var(--db-review)', muted: 'var(--db-none)' } as const
+
+function FindingCard({ f }: { f: ReportFinding }) {
+  const w = issueWeight(f.severity, f.confidence)
   return (
     <div
       className="rounded-xl border-l-4 border border-db-line bg-db-surface p-4"
-      style={{ borderLeftColor: tone === 'signal' ? 'var(--db-signal)' : 'var(--db-review)' }}
+      style={{ borderLeftColor: TONE_VAR[w.tone] }}
+      data-testid="finding-card"
+      data-tone={w.tone}
     >
-      <p>{f.partAText}</p>
+      <p className="text-sm font-semibold" style={{ color: TONE_VAR[w.tone] }} data-testid="finding-weight">
+        {w.line}
+      </p>
+      <p className="mt-1">{f.partAText}</p>
       {f.citations[0] && (
         <p className="mt-2 font-db-mono text-sm text-db-muted">
           {f.citations[0].volume ?? 'Record'}
@@ -305,14 +317,28 @@ export default function CaseReport() {
         </section>
       )}
 
+      {data.strongSignals.length + data.possibleIssues.length > 0 && (
+        <section className="mt-8 rounded-xl border border-db-line bg-db-surface p-4 text-sm" data-testid="weight-legend">
+          <h2 className="font-semibold">How to read each issue</h2>
+          <ul className="mt-2 space-y-1">
+            {WEIGHT_LEGEND.map((l) => (
+              <li key={l.tone}>
+                <span className="font-semibold" style={{ color: TONE_VAR[l.tone] }}>{l.badge}:</span> {l.means}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-db-muted">{SURENESS_LEGEND}</p>
+        </section>
+      )}
+
       {data.strongSignals.length > 0 && (
         <section className="mt-8">
-          <h2 className="font-db-serif text-xl font-semibold" style={{ color: 'var(--db-signal)' }}>
+          <h2 className="font-db-serif text-xl font-semibold" style={{ color: 'var(--db-urgent)' }}>
             Strong signals
           </h2>
           <div className="mt-3 space-y-3">
             {data.strongSignals.map((f, i) => (
-              <FindingCard key={i} f={f} tone="signal" />
+              <FindingCard key={i} f={f} />
             ))}
           </div>
         </section>
@@ -325,7 +351,7 @@ export default function CaseReport() {
           </h2>
           <div className="mt-3 space-y-3">
             {data.possibleIssues.map((f, i) => (
-              <FindingCard key={i} f={f} tone="review" />
+              <FindingCard key={i} f={f} />
             ))}
           </div>
         </section>

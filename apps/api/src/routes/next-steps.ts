@@ -168,7 +168,7 @@ export async function sharedReportRoutes(fastify: FastifyInstance) {
       if (!report) return reply.status(404).send({ error: 'This link is no longer available' });
 
       const snapshot = report.findingsSnapshot as {
-        findings: { id: string; category: string; severity: string; partBText: string; citations: unknown[] }[];
+        findings: { id: string; category: string; severity: string; confidence?: number; partBText: string; citations: unknown[] }[];
       };
       const { verified } = await verifyFindings(tx, snapshot.findings.map((f) => f.id));
 
@@ -191,8 +191,7 @@ export async function sharedReportRoutes(fastify: FastifyInstance) {
         templateVersion: report.templateVersion,
         posture: (await import('../services/bottom-line.service')).bottomLineFor(snapshot.findings.filter((f) => verified.includes(f.id)), packetCase?.subsequentWrit ?? false, null).forLawyer,
         caseSummary: await (await import('../services/case-summary.service')).summaryRowsForReport(report.runId, packetCase ?? {}),
-        findings: snapshot.findings
-          .filter((f) => verified.includes(f.id))
+        findings: (await (await import('../services/finding-confidence.service')).attachConfidence(tx, snapshot.findings.filter((f) => verified.includes(f.id))))
           .map(({ id: _id, ...f }) => f),
       };
     });

@@ -124,6 +124,7 @@ export async function autoApproveCase(
             id: f.id,
             category: f.category,
             severity: f.severity,
+          confidence: f.confidence,
             provenance: f.provenance,
             partAText: f.partAText,
             partBText: f.partBText,

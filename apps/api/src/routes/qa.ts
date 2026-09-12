@@ -241,6 +241,7 @@ export default async function qaRoutes(fastify: FastifyInstance) {
               id: f.id,
               category: f.category,
               severity: f.severity,
+            confidence: f.confidence,
               provenance: f.provenance,
               partAText: f.partAText,
               partBText: f.partBText,

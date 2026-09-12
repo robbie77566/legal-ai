@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND } from '@hg/case-lifecycle';
 
 /**
  * ENG-11 report PDF (M5): renders the QA-approved findings snapshot —
@@ -16,6 +17,8 @@ export interface ReportFinding {
   id: string;
   category: string;
   severity: string;
+  /** 0..1 from the analysis; absent on snapshots written before 2026-09-12. */
+  confidence?: number;
   partAText: string;
   partBText: string;
   citations: { volume: string | null; page: number | null; excerpt: string }[];
@@ -84,6 +87,9 @@ const MARGIN = 54;
 function severityLabel(s: string): string {
   return s === 'dispositive' ? 'Strong signal' : s === 'supportive' ? 'Possible issue' : 'Background';
 }
+
+/** Same reds/ambers the web report uses: urgent, review, muted. */
+const TONE_COLOR: Record<'urgent' | 'review' | 'muted', string> = { urgent: '#8a1c1c', review: '#8a4b00', muted: '#555555' };
 
 export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -246,7 +252,11 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
 
     const renderFinding = (f: ReportFinding, idx: number) => {
       if (doc.y > doc.page.height - 200) doc.addPage();
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(pal.ink).text(`${idx}. ${severityLabel(f.severity)} — ${f.category.replace(/_/g, ' ')}`);
+      const w = issueWeight(f.severity, f.confidence);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(TONE_COLOR[w.tone]).text(`${idx}. ${severityLabel(f.severity)} — ${f.category.replace(/_/g, ' ')}`);
+      // The weight line (PO, 2026-09-12): how much it could matter, and how
+      // sure the review is — so major and minor are told apart at a glance.
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(TONE_COLOR[w.tone]).text(w.line);
       doc.moveDown(0.2);
       doc.font('Helvetica-Bold').fontSize(9).fillColor('#444444').text('For your family (plain English)');
       doc.font('Helvetica').fontSize(10).fillColor('#222222').text(f.partAText);
@@ -262,14 +272,25 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
     };
 
     let n = 1;
+    if (input.strongSignals.length + input.possibleIssues.length > 0) {
+      // Legend once, before the first issue: what the weight words mean.
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(pal.ink).text('How to read each issue');
+      doc.moveDown(0.2);
+      for (const l of WEIGHT_LEGEND) {
+        doc.font('Helvetica-Bold').fontSize(9).fillColor(TONE_COLOR[l.tone]).text(`${l.badge}: `, { continued: true });
+        doc.font('Helvetica').fillColor('#222222').text(l.means);
+      }
+      doc.font('Helvetica').fontSize(9).fillColor('#222222').text(SURENESS_LEGEND);
+      doc.moveDown(0.8);
+    }
     if (input.strongSignals.length > 0) {
-      doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('Strong signals');
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(TONE_COLOR.urgent).text('Strong signals');
       doc.moveDown(0.4);
       for (const f of input.strongSignals) renderFinding(f, n++);
     }
     if (input.possibleIssues.length > 0) {
       if (doc.y > doc.page.height - 200) doc.addPage();
-      doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('Possible issues and background');
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(TONE_COLOR.review).text('Possible issues and background');
       doc.moveDown(0.4);
       for (const f of input.possibleIssues) renderFinding(f, n++);
     }

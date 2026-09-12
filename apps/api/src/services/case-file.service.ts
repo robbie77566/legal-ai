@@ -163,6 +163,7 @@ interface SnapshotFinding {
   id: string;
   category: string;
   severity: string;
+  confidence?: number;
   partAText: string;
   partBText: string;
   citations: { volume: string | null; page: number | null; excerpt: string }[];
@@ -185,7 +186,8 @@ export async function staffReportPdf(caseId: string, versionNo?: number) {
     if (!report) return null;
     const snapshot = report.findingsSnapshot as unknown as { findings: SnapshotFinding[] };
     const { verified, failed } = await verifyFindings(tx, snapshot.findings.map((f) => f.id));
-    const visible = snapshot.findings.filter((f) => verified.includes(f.id));
+    const { attachConfidence } = await import('./finding-confidence.service');
+    const visible = await attachConfidence(tx, snapshot.findings.filter((f) => verified.includes(f.id)));
 
     let deadlinePosture: ReturnType<typeof computeDeadlinePosture> | null = null;
     const facts = (kase as { deadlineFacts?: unknown }).deadlineFacts as

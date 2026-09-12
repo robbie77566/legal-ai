@@ -519,6 +519,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     id: string;
     category: string;
     severity: string;
+    confidence?: number;
     partAText: string;
     partBText: string;
     citations: { volume: string | null; page: number | null; excerpt: string }[];
@@ -549,7 +550,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       tx,
       snapshot.findings.map((f) => f.id)
     );
-    const visible = snapshot.findings.filter((f) => verified.includes(f.id));
+    const { attachConfidence } = await import('../services/finding-confidence.service');
+    const visible = await attachConfidence(tx, snapshot.findings.filter((f) => verified.includes(f.id)));
 
     // FR-5: deadline posture computed fresh at every render on the civil
     // "today" in America/Chicago — elapsed/remaining always current,

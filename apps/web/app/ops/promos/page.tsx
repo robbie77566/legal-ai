@@ -47,13 +47,28 @@ export default function PromoAdmin() {
     }
   }
 
-  const patch = async (p: Promo, body: Record<string, unknown>) => {
-    await apiFetch(`/ops/promos/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  // Says what happened: the deactivate link "did nothing" in prod because the
+  // PATCH never left the browser (CORS preflight) and no error was shown
+  // (2026-09-12). A failed request is now reported, a success confirmed.
+  const patch = async (p: Promo, body: Record<string, unknown>, done: string) => {
+    setNotice('')
+    try {
+      const res = await apiFetch(`/ops/promos/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string }
+        setNotice(`${p.code}: ${err.error ?? `could not save (error ${res.status})`}`)
+        return
+      }
+      setNotice(`${p.code} ${done}`)
+    } catch {
+      setNotice(`${p.code}: the request did not reach the server — check the API and try again`)
+      return
+    }
     load()
   }
-  const toggle = (p: Promo) => patch(p, { active: !p.active })
-  const extend30 = (p: Promo) => patch(p, { expiresAt: new Date(Date.now() + 30 * 86_400_000).toISOString() })
-  const noExpiry = (p: Promo) => patch(p, { expiresAt: null })
+  const toggle = (p: Promo) => patch(p, { active: !p.active }, p.active ? 'deactivated' : 'reactivated')
+  const extend30 = (p: Promo) => patch(p, { expiresAt: new Date(Date.now() + 30 * 86_400_000).toISOString() }, 'extended 30 days')
+  const noExpiry = (p: Promo) => patch(p, { expiresAt: null }, 'no longer expires')
 
   // What a family typing the code will actually get — the same checks the
   // API runs, in order. 'active' alone lied: an expired code showed active.

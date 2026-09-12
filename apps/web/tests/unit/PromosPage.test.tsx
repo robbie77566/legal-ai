@@ -29,4 +29,20 @@ describe('promos page', () => {
     const body = JSON.parse(String(calls.find((c) => c.url.endsWith('/ops/promos/p1'))!.init!.body))
     expect(new Date(body.expiresAt).getTime()).toBeGreaterThan(Date.now() + 29 * 86_400_000)
   })
+
+  it('deactivate sends active:false and says so; a failed save is reported instead of silently ignored', async () => {
+    render(<PromosPage />)
+    await screen.findByTestId('promo-status-LIVE')
+    fireEvent.click(screen.getAllByRole('button', { name: 'deactivate' })[2]) // LIVE
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/ops/promos/p3') && c.init?.method === 'PATCH')).toBe(true))
+    expect(JSON.parse(String(calls.find((c) => c.url.endsWith('/ops/promos/p3'))!.init!.body))).toEqual({ active: false })
+    expect(await screen.findByText('LIVE deactivated')).toBeInTheDocument()
+
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'PATCH') return { ok: false, status: 404, json: async () => ({ error: 'Not found' }) } as Response
+      return { ok: true, status: 200, json: async () => PROMOS } as Response
+    }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'deactivate' })[0])
+    expect(await screen.findByText('SNOT26: Not found')).toBeInTheDocument()
+  })
 })

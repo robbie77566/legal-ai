@@ -674,6 +674,15 @@ describe('QA console (US-8)', () => {
     expect(body.strongSignals).toHaveLength(1);
     expect(body.strongSignals[0].partAText).toMatch(/science has since rejected/);
     expect(body.droppedByReverification).toBe(0);
+    // Weight line input (PO, 2026-09-12): confidence rides with each finding…
+    expect(body.strongSignals[0].confidence).toBeGreaterThan(0);
+    // …and a snapshot written before confidence was stored still gets it
+    // from the Finding rows at render.
+    const report = await prisma.report.findFirstOrThrow({ where: { caseId }, orderBy: { versionNo: 'desc' } });
+    const snap = report.findingsSnapshot as { findings: Array<Record<string, unknown>> };
+    await prisma.report.update({ where: { id: report.id }, data: { findingsSnapshot: JSON.parse(JSON.stringify({ findings: snap.findings.map(({ confidence: _c, ...f }) => f) })) } });
+    const again = await fastify.inject({ method: 'GET', url: `/cases/${caseId}/report`, headers: { cookie: clientCookie } });
+    expect(again.json().strongSignals[0].confidence).toBe(body.strongSignals[0].confidence);
   });
 
   it('report PDF: renders the same verified payload as a well-formed PDF', async () => {
