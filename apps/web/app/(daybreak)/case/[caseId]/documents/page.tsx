@@ -42,6 +42,7 @@ interface ChecklistData {
   slaStartedAt: string | null
   lastZip: ZipSummary | null
   factLines?: Array<{ key: string; label: string; value: string | null; derived?: boolean; shapesReview?: boolean }>
+  facts?: { source?: { carriedFromCaseId?: string } }
   rerun?: { reportCount: number; lastReportAt: string | null } | null
 }
 interface Meter {
@@ -336,6 +337,12 @@ export default function CaseDocuments() {
             </span>
           </summary>
           <p className="mt-2 text-xs text-db-muted">Your checklist is built from these answers.</p>
+          {data.facts?.source?.carriedFromCaseId && (
+            <p className="mt-1 text-xs" data-testid="carried-over">
+              County, year and dates were carried over from your earlier review so you were not asked again.{' '}
+              {data.status === 'AWAITING_DOCS' && <>Not the same case? <Link href={`/case/${caseId}/interview`} className="text-db-accent underline">Change the details</Link>.</>}
+            </p>
+          )}
           <dl className="mt-2 grid grid-cols-[minmax(0,40%)_1fr] gap-x-4 gap-y-1.5">
             {data.factLines.filter((l) => l.value).map((l) => (
               <div key={l.key} className="contents">

@@ -26,6 +26,8 @@ export const CaseFactsSchema = z
         checkAt: z.string().optional(),
         interviewAt: z.string().optional(),
         editedAt: z.string().optional(),
+        /** County/year/dates copied from the family's earlier case at purchase (repeat buyer, 2026-09-12). */
+        carriedFromCaseId: z.string().max(64).optional(),
       })
       .optional(),
   })

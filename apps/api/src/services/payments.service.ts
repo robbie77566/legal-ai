@@ -74,7 +74,7 @@ export async function fulfillCheckoutSession(session: {
   amount_total: number | null;
   metadata: Partial<CheckoutMetadata> | null;
   payment_intent?: string | { id: string } | null;
-}): Promise<{ caseId?: string; skipped?: string }> {
+}): Promise<{ caseId?: string; skipped?: string; interviewNeeded?: boolean }> {
   const meta = session.metadata ?? {};
   const { userId, tenantId, kind } = meta;
   if (!userId || !tenantId || !kind) {
@@ -152,6 +152,25 @@ export async function fulfillCheckoutSession(session: {
     ? caseSetupFromOutcome(draft.outcome, (draft.answers ?? {}) as Record<string, unknown>)
     : { lane: null, vehicle: null, subsequentWrit: false };
 
+  // Keep what the family told us in the free check — the draft row is
+  // deleted below, and nothing should ask these questions again. A repeat
+  // buyer's county, year and dates come over from their earlier case
+  // (labelled, editable) so the interview has nothing left to ask.
+  const { carryOverFacts, interviewNeeded, seedChecklist } = await import('./case-setup.service');
+  const draftFacts = draft ? factsFromCheckAnswers((draft.answers ?? {}) as Record<string, unknown>) : {};
+  const carried = await carryOverFacts(userId);
+  const facts = {
+    ...draftFacts,
+    ...(carried?.county && !draftFacts.county ? { county: carried.county } : {}),
+    ...(carried?.convictionYear && !draftFacts.convictionYear ? { convictionYear: carried.convictionYear } : {}),
+    ...(carried?.trialDays != null && draftFacts.trialDays == null ? { trialDays: carried.trialDays } : {}),
+    ...(carried?.judgmentDate && !draftFacts.judgmentDate ? { judgmentDate: carried.judgmentDate } : {}),
+    ...(carried && (carried.county || carried.convictionYear)
+      ? { source: { ...(draftFacts.source ?? {}), carriedFromCaseId: carried.fromCaseId } }
+      : {}),
+  };
+  const needsInterview = interviewNeeded({ lane: setup.lane, facts });
+
   const caseId = await withTenant(tenantId, async (tx) => {
     const created = await tx.case.create({
       data: {
@@ -160,12 +179,17 @@ export async function fulfillCheckoutSession(session: {
         lane: setup.lane ?? undefined,
         vehicle: setup.vehicle ?? undefined,
         subsequentWrit: setup.subsequentWrit,
-        // Keep what the family told us in the free check — the draft row is
-        // deleted below, and nothing should ask these questions again.
-        facts: draft ? (factsFromCheckAnswers((draft.answers ?? {}) as Record<string, unknown>) as Prisma.InputJsonValue) : undefined,
+        county: facts.county ?? undefined,
+        convictionYear: facts.convictionYear ?? undefined,
+        facts: Object.keys(facts).length ? (facts as Prisma.InputJsonValue) : undefined,
+        ...(facts.judgmentDate ? { deadlineFacts: { judgmentDate: facts.judgmentDate } as Prisma.InputJsonValue } : {}),
         accessList: { create: { userId, role: 'ADMIN' } },
       },
     });
+    if (!needsInterview) {
+      const count = await seedChecklist(tx, created, facts.appeal ? facts.appeal !== 'none' : true);
+      await appendCaseEvent(tx, { caseId: created.id, tenantId, type: 'interview.completed', payload: { checklistItemCount: count }, actor: 'system' });
+    }
 
     await tx.payment.create({
       data: {
@@ -241,7 +265,7 @@ export async function fulfillCheckoutSession(session: {
     await redeemPromo(meta.promoCode);
   }
 
-  return { caseId };
+  return { caseId, interviewNeeded: needsInterview };
 }
 
 /**

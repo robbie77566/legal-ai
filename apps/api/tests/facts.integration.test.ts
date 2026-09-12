@@ -85,7 +85,7 @@ describe('the free check survives purchase', () => {
   it('the success page can find ITS case from the session id — owner only', async () => {
     const mine = await get(`/checkout/fulfillment?session_id=cs_${run}_1`);
     expect(mine.statusCode).toBe(200);
-    expect(mine.json()).toEqual({ caseId, kind: 'review' });
+    expect(mine.json()).toMatchObject({ caseId, kind: 'review' }); // + interviewNeeded (repeat-buyer flow, 2026-09-12)
     expect((await get(`/checkout/fulfillment?session_id=cs_${run}_1`, otherCookie)).statusCode).toBe(404);
     expect((await get(`/checkout/fulfillment?session_id=cs_${run}_nope`)).statusCode).toBe(404);
     expect((await get(`/checkout/fulfillment?session_id=cs_${run}_nope`)).json()).toEqual({ pending: true });

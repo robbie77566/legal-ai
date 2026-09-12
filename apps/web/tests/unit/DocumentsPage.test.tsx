@@ -302,4 +302,17 @@ describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
     fireEvent.click(screen.getByRole('button', { name: "Reporter's record volumes" }))
     await waitFor(() => expect(calls.some((c) => c === 'POST http://localhost:3001/cases/case_1/documents/doc_9/correct')).toBe(true))
   })
+
+  it('says when the details were carried over from an earlier review, with a way to change them (PO, 2026-09-12)', async () => {
+    const carried = { ...CHECKLIST, facts: { source: { carriedFromCaseId: 'case_0' } }, factLines: [{ key: 'conviction', label: 'Conviction', value: 'Brazoria County · 2019' }] }
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url)
+      const body = u.endsWith('/checklist') ? carried : u.endsWith('/pages') ? METER : { ok: true }
+      return { ok: true, json: async () => body } as Response
+    }))
+    render(<CaseDocuments />)
+    const note = await screen.findByTestId('carried-over')
+    expect(note).toHaveTextContent(/carried over from your earlier review/)
+    expect(note.querySelector('a')).toHaveAttribute('href', '/case/case_1/interview')
+  })
 })

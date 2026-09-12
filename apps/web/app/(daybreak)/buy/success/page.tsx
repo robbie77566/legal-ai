@@ -14,6 +14,7 @@ import { apiFetch } from '@/lib/api'
 function Success() {
   const sessionId = useSearchParams().get('session_id')
   const [caseId, setCaseId] = useState<string | null>(null)
+  const [interviewNeeded, setInterviewNeeded] = useState(true)
   const [slow, setSlow] = useState(false)
 
   useEffect(() => {
@@ -25,6 +26,9 @@ function Success() {
         if (res.ok) {
           const d = await res.json()
           if (d?.caseId) {
+            // Repeat buyer (2026-09-12): the details are on file and the
+            // checklist is already built — straight to the documents.
+            setInterviewNeeded(d.interviewNeeded !== false)
             setCaseId(d.caseId)
             return
           }
@@ -46,15 +50,16 @@ function Success() {
         {caseId ? (
           <>
             <p className="mt-3">
-              Your case is set up. Next: confirm a few details about the case — most are already
-              filled in from your free check — and we build your personal document checklist.
+              {interviewNeeded
+                ? 'Your case is set up. Next: confirm a few details about the case — most are already filled in from your free check — and we build your personal document checklist.'
+                : 'Your case is set up, and we used the details already on file from your earlier review — nothing to answer again. Your document checklist is ready.'}
             </p>
             <Link
-              href={`/case/${caseId}/interview`}
+              href={`/case/${caseId}/${interviewNeeded ? 'interview' : 'documents'}`}
               data-testid="continue"
               className="mt-5 inline-block rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface"
             >
-              Continue to your case
+              {interviewNeeded ? 'Continue to your case' : 'Continue to your documents'}
             </Link>
           </>
         ) : !sessionId ? (

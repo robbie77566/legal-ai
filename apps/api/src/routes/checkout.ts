@@ -145,7 +145,8 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
     if (!session_id) return reply.status(400).send({ error: 'session_id required' });
     const payment = await prisma.payment.findUnique({ where: { stripeId: session_id } });
     if (payment && payment.userId === request.auth.userId && payment.caseId) {
-      return { caseId: payment.caseId, kind: payment.kind.toLowerCase() };
+      const items = await prisma.checklistItem.count({ where: { caseId: payment.caseId } });
+      return { caseId: payment.caseId, kind: payment.kind.toLowerCase(), interviewNeeded: items === 0 };
     }
     // Self-heal (2026-09-12): a family sat on "Setting up your case…" for an
     // hour because no webhook endpoint existed in Stripe and the hourly
@@ -165,7 +166,7 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
           });
           if (healed.caseId) {
             request.log.warn({ sessionId: session_id, skipped: healed.skipped }, 'fulfillment healed from the success page — the webhook did not land');
-            return { caseId: healed.caseId, kind: String(s.metadata?.kind ?? 'review'), healed: true };
+            return { caseId: healed.caseId, kind: String(s.metadata?.kind ?? 'review'), healed: true, interviewNeeded: healed.interviewNeeded !== false };
           }
         }
       } catch (e) {
@@ -233,7 +234,7 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
         const { capture } = await import('../services/analytics.service');
         capture('snl.promo_applied', tenantId, { code: appliedPromo, free: true });
         const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
-        return { free: true, caseId: result.caseId, url: `${origin}/case/${result.caseId}/interview` };
+        return { free: true, caseId: result.caseId, interviewNeeded: result.interviewNeeded !== false, url: `${origin}/case/${result.caseId}/${result.interviewNeeded === false ? 'documents' : 'interview'}` };
       }
     }
 

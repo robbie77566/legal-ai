@@ -162,20 +162,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
       // Idempotent re-run of the interview replaces un-started checklist state.
       await tx.checklistItem.deleteMany({ where: { caseId: id, state: 'NEEDED' } });
-      const existing = await tx.checklistItem.findMany({ where: { caseId: id }, select: { kind: true } });
-      const have = new Set(existing.map((i) => i.kind));
-
-      const items = checklistTemplate({
-        lane: (kase.lane ?? 'TRIAL') as 'TRIAL' | 'PLEA',
-        subsequentWrit: kase.subsequentWrit,
-        hadAppeal,
-      }).filter((i) => !have.has(i.kind));
-
-      await tx.checklistItem.createMany({
-        data: items.map((i) => ({ caseId: id, kind: i.kind, label: i.label, howToKey: i.howToKey })),
-      });
-
-      const count = await tx.checklistItem.count({ where: { caseId: id } });
+      const { seedChecklist } = await import('../services/case-setup.service');
+      const count = await seedChecklist(tx, kase, hadAppeal);
       await appendCaseEvent(tx, {
         caseId: id,
         tenantId,

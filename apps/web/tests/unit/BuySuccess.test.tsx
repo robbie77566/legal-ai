@@ -24,4 +24,13 @@ describe('buy success', () => {
     expect(calls.some((u) => u.endsWith('/checkout/fulfillment?session_id=cs_test_2'))).toBe(true)
     expect(calls.some((u) => u.endsWith('/cases'))).toBe(false)
   })
+
+  it('a repeat buyer with the details on file goes straight to the documents (PO, 2026-09-12)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ caseId: 'c_third', kind: 'review', interviewNeeded: false }) }) as Response))
+    render(<BuySuccess />)
+    const link = await screen.findByTestId('continue')
+    expect(link).toHaveAttribute('href', '/case/c_third/documents')
+    expect(link).toHaveTextContent('Continue to your documents')
+    expect(screen.getByText(/nothing to answer again/)).toBeInTheDocument()
+  })
 })
