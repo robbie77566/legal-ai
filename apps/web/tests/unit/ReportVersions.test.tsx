@@ -6,7 +6,7 @@ import CaseReport from '@/app/(daybreak)/case/[caseId]/report/page'
 /** Re-run (US-6): the report shows its versions and what changed since the last one. */
 vi.mock('next/navigation', () => ({ useParams: () => ({ caseId: 'case_1' }), useSearchParams: () => new URLSearchParams(''), useRouter: () => ({ push: vi.fn() }) }))
 
-const REPORT = (v: number) => ({ caseSummary: [{ key: 'defendant', label: 'Person', value: 'GARY W. DOE', source: 'record', cite: { volume: 'RR1', page: 3, quote: 'THE STATE OF TEXAS VS. GARY W. DOE' } }, { key: 'county', label: 'County', value: 'Brazoria County', source: 'family' }, { key: 'offense', label: 'Offense', value: null, source: null }], versionNo: v, templateVersion: 'AB-v1', renderedAt: '2026-09-08T10:00:00Z', deadlinePosture: null, subsequentWritMode: false, strongSignals: [], possibleIssues: [{ category: 'brady', severity: 'supportive', partAText: `Finding in v${v}`, partBText: 'B', citations: [] }], droppedByReverification: 0 })
+const REPORT = (v: number) => ({ bottomLine: { tier: 'consult', headline: 'Worth a consultation — nothing here stands alone yet.', body: ['This review found 1 possible issue.', 'This is information about what is in the record, not legal advice.'] }, caseSummary: [{ key: 'defendant', label: 'Person', value: 'GARY W. DOE', source: 'record', cite: { volume: 'RR1', page: 3, quote: 'THE STATE OF TEXAS VS. GARY W. DOE' } }, { key: 'county', label: 'County', value: 'Brazoria County', source: 'family' }, { key: 'offense', label: 'Offense', value: null, source: null }], versionNo: v, templateVersion: 'AB-v1', renderedAt: '2026-09-08T10:00:00Z', deadlinePosture: null, subsequentWritMode: false, strongSignals: [], possibleIssues: [{ category: 'brady', severity: 'supportive', partAText: `Finding in v${v}`, partBText: 'B', citations: [] }], droppedByReverification: 0 })
 const calls: string[] = []
 beforeEach(() => {
   calls.length = 0
@@ -55,5 +55,15 @@ describe('report versions', () => {
     expect(screen.getByTestId('summary-county')).toHaveTextContent(/Brazoria County.*as your family told us/)
     expect(screen.getByTestId('summary-offense')).toHaveTextContent('not stated in the record')
     expect(block).toHaveTextContent(/About this case/)
+  })
+
+  it('The bottom line: headline, body, tier attribute (PO, 2026-09-12)', async () => {
+    render(<CaseReport />)
+    const gate = await screen.findByRole('button', { name: /Read it now/ }).catch(() => null)
+    if (gate) fireEvent.click(gate)
+    const bl = await screen.findByTestId('bottom-line')
+    expect(bl).toHaveAttribute('data-tier', 'consult')
+    expect(bl).toHaveTextContent(/Worth a consultation/)
+    expect(bl).toHaveTextContent(/not legal advice/)
   })
 })

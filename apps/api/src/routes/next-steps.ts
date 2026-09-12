@@ -183,15 +183,14 @@ export async function sharedReportRoutes(fastify: FastifyInstance) {
         },
       });
 
+      const packetCase = await tx.case.findUnique({ where: { id: report.caseId }, select: { county: true, convictionYear: true, facts: true, deadlineFacts: true, subsequentWrit: true } });
       return {
         // R-7: sharing creates no attorney-client relationship or privilege.
         notice:
           'Attorney working packet (Part B). Prepared with AI assistance, approved by a trained reviewer. Access to this packet does not itself create an attorney-client relationship or privilege.',
         templateVersion: report.templateVersion,
-        caseSummary: await (await import('../services/case-summary.service')).summaryRowsForReport(
-          report.runId,
-          (await tx.case.findUnique({ where: { id: report.caseId }, select: { county: true, convictionYear: true, facts: true, deadlineFacts: true } })) ?? {}
-        ),
+        posture: (await import('../services/bottom-line.service')).bottomLineFor(snapshot.findings.filter((f) => verified.includes(f.id)), packetCase?.subsequentWrit ?? false, null).forLawyer,
+        caseSummary: await (await import('../services/case-summary.service')).summaryRowsForReport(report.runId, packetCase ?? {}),
         findings: snapshot.findings
           .filter((f) => verified.includes(f.id))
           .map(({ id: _id, ...f }) => f),

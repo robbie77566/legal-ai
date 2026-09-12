@@ -60,6 +60,8 @@ export interface ReportPdfInput {
   compress?: boolean;
   /** "About this case" rows (case-lifecycle summaryRows): record-cited, family-told, or unknown. */
   summary?: SummaryRowLike[];
+  /** "The bottom line" (case-lifecycle bottomLine): deterministic, never advice. */
+  bottomLine?: { headline: string; body: string[] } | null;
 }
 
 export interface SummaryRowLike {
@@ -168,6 +170,18 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
             ? ` ${input.droppedByReverification} item(s) failed that re-verification and are not shown.`
             : '')
       );
+    // ---- The bottom line (PO 2026-09-12) ----
+    if (input.bottomLine) {
+      doc.moveDown(0.7);
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('The bottom line');
+      doc.moveDown(0.2);
+      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(pal.accent).text(input.bottomLine.headline);
+      for (const p of input.bottomLine.body) {
+        doc.moveDown(0.3);
+        doc.font('Helvetica').fontSize(10).fillColor('#222222').text(p);
+      }
+    }
+
     if (input.subsequentWritMode) {
       doc.moveDown(0.5);
       doc

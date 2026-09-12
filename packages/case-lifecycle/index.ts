@@ -6,3 +6,4 @@ export * from './calendar'
 export * from './deadlines';
 export * from './facts'
 export * from './summary'
+export * from './bottom-line'

@@ -24,6 +24,18 @@ The customer PDF (after the cover, before "What we found"), the report page, the
 
 `buildCaseSummary` in `analysis.service.ts`: one model call on the cached record prefix (a cache read, ~no extra cost), a strict zod schema (`case-lifecycle/summary.ts`), per-fact grounding with `quoteGrounds`, persisted on the run in its own short transaction. Runs before the screens; never a gate — any failure yields no summary and the run proceeds.
 
+## The bottom line (PO, 2026-09-12)
+
+Right after "What we found": a headline and two or three short paragraphs answering the question a family actually has — *is this worth my time and money with a lawyer?* It is **deterministic**, computed from the visible findings and the posture (`case-lifecycle/bottom-line.ts`), so the PDF, the report page, and the attorney packet's one-line "Posture" never disagree, and no model ever writes it.
+
+| Tier | When | Headline |
+|---|---|---|
+| strong | ≥1 dispositive finding | There is a real reason to talk to a lawyer. |
+| consult | supportive findings only | Worth a consultation — nothing here stands alone yet. |
+| limited | nothing dispositive or supportive | This review did not find a path in the record itself. |
+
+Modifiers add a paragraph: the §4 subsequent-writ bar; an estimated-expired federal window; a running clock (≤180 days or laches urgency). The ROI framing is qualitative — "a first consultation costs a small fraction of a full writ; this report is built to make that hour count" — no dollar figures. Every version ends with the not-legal-advice sentence, and the unit test forbids "you should file", "we recommend filing", "will win", "guarantee". **This wording is in the counsel review queue** (UPL): it is the closest the product comes to an opinion.
+
 ## Not done
 
 QA editing of a summary line (today a reviewer can only remove findings); a cause-number lookup against the county clerk; Spanish for the labels (the report is English-only today).

@@ -566,6 +566,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     return {
       report,
       payload: {
+        bottomLine: (await import('../services/bottom-line.service')).bottomLineFor(visible, kase.subsequentWrit, deadlinePosture),
         caseSummary: await (await import('../services/case-summary.service')).summaryRowsForReport(report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown }),
         versionNo: report.versionNo,
         templateVersion: report.templateVersion,

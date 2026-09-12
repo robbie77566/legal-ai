@@ -203,8 +203,10 @@ export async function staffReportPdf(caseId: string, versionNo?: number) {
 
     const { renderReportPdf } = await import('@hg/reports');
     const { summaryRowsForReport } = await import('./case-summary.service');
+    const { bottomLineFor } = await import('./bottom-line.service');
     const pdf = await renderReportPdf({
       palette: 'harbor',
+      bottomLine: bottomLineFor(visible, kase.subsequentWrit, deadlinePosture),
       summary: await summaryRowsForReport(report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown }),
       caseTitle: kase.title,
       reportId: report.id,

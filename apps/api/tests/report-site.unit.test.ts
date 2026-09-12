@@ -19,6 +19,7 @@ describe('report PDF names the site', () => {
     const buf = await renderReportPdf({
       caseTitle: 'Site Reference Case', reportId: 'rep_site', versionNo: 1, templateVersion: '2026-08-29.1', renderedAt: new Date(),
       subsequentWritMode: false, strongSignals: [finding('dispositive')], possibleIssues: Array.from({ length: 14 }, () => finding('supportive')), droppedByReverification: 0,
+      bottomLine: { headline: 'There is a real reason to talk to a lawyer.', body: ['This review found 1 issue that could support a claim on its own.', 'This is information about what is in the record, not legal advice.'] },
       summary: [
         { key: 'defendant', label: 'Person', value: 'GARY W. DOE', source: 'record', cite: { volume: 'RR1', page: 3, quote: 'THE STATE OF TEXAS VS. GARY W. DOE' } },
         { key: 'county', label: 'County', value: 'Brazoria County', source: 'family' },
@@ -36,6 +37,8 @@ describe('report PDF names the site', () => {
     expect(text).toContain('a service of Snot Nose Legal');
     expect(text).toContain('are at snotnoselegal.com');
     expect(text).toContain('About this case');
+    expect(text).toContain('The bottom line');
+    expect(text).toContain('There is a real reason to talk to a lawyer.');
     expect(text).toContain('GARY W. DOE (RR1 p. 3)');
     expect(text).toContain('as your family told us');
     expect(text).toContain('not stated in the record');

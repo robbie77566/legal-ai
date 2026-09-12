@@ -42,6 +42,7 @@ export default function SharedReport() {
       <h1 className="font-db-serif text-2xl font-semibold">Attorney working packet — Part B</h1>
       <p className="mt-2 text-sm text-db-muted">{data.notice}</p>
       <CaseSummaryBlock rows={(data as { caseSummary?: SummaryRow[] | null }).caseSummary} compact />
+      {(data as { posture?: string }).posture && <p className="mt-3 rounded-lg border border-db-line bg-db-surface px-3 py-2 font-db-mono text-xs" data-testid="packet-posture">{(data as { posture?: string }).posture}</p>}
 
       <ol className="mt-6 space-y-4">
         {data.findings.map((f, i) => (

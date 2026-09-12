@@ -49,6 +49,7 @@ interface Changes {
 
 interface ReportData {
   caseSummary?: SummaryRow[] | null
+  bottomLine?: { tier: 'strong' | 'consult' | 'limited'; headline: string; body: string[] } | null
   versionNo?: number
   strongSignals: ReportFinding[]
   possibleIssues: ReportFinding[]
@@ -200,11 +201,21 @@ export default function CaseReport() {
           )}
         </section>
       )}
-      <p className="mt-2">
-        {nothingFound
-          ? 'In short: we did not find issues in this record that we can point a lawyer to — and we tell you what that does and doesn’t mean below.'
-          : 'In short: we found things in this record a lawyer should look at.'}
-      </p>
+      {data.bottomLine ? (
+        <section className="mt-4 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4" data-testid="bottom-line" data-tier={data.bottomLine.tier}>
+          <h2 className="font-db-serif text-lg font-semibold">The bottom line</h2>
+          <p className="mt-1 font-semibold">{data.bottomLine.headline}</p>
+          {data.bottomLine.body.map((p, i) => (
+            <p key={i} className={`mt-2 text-sm ${i === data.bottomLine!.body.length - 1 ? 'text-db-muted' : ''}`}>{p}</p>
+          ))}
+        </section>
+      ) : (
+        <p className="mt-2">
+          {nothingFound
+            ? 'In short: we did not find issues in this record that we can point a lawyer to — and we tell you what that does and doesn’t mean below.'
+            : 'In short: we found things in this record a lawyer should look at.'}
+        </p>
+      )}
 
       {data.subsequentWritMode && (
         <p className="mt-4 rounded-xl border p-4 text-sm" style={{ borderColor: 'var(--db-review)', color: 'var(--db-review)' }}>
