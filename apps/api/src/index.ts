@@ -281,6 +281,13 @@ const start = async () => {
   }, 24 * 3600 * 1000).unref();
 
   if (getStripe()) {
+    // Once shortly after start, then hourly: the timer alone was reset by
+    // every deploy, so on a busy release day the sweep never ran (2026-09-12).
+    setTimeout(() => {
+      void reconcilePayments()
+        .then((r) => { if (r.healed > 0) fastify.log.warn(r, 'startup reconciliation healed missed webhooks'); })
+        .catch((e) => fastify.log.error({ err: e }, 'startup payment reconciliation failed'));
+    }, 30_000).unref();
     setInterval(() => {
       void reconcilePayments()
         .then((r) => {

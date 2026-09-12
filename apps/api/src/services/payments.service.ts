@@ -25,6 +25,10 @@ export const PRICES_CENTS = {
 export type PurchaseKind = keyof typeof PRICES_CENTS;
 
 let stripeSingleton: Stripe | null | undefined;
+/** Tests only: inject a fake client (or null to simulate 'unconfigured'). */
+export function __setStripeForTests(s: Stripe | null | undefined) {
+  stripeSingleton = s;
+}
 export function getStripe(): Stripe | null {
   if (stripeSingleton !== undefined) return stripeSingleton;
   const key = process.env.STRIPE_SECRET_KEY;

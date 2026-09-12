@@ -4,7 +4,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import prisma, { withTenant } from '@hg/database';
 import { DISCLOSURE_SET_VERSION } from '@hg/case-lifecycle';
-import { getStripe, PRICES_CENTS, type PurchaseKind } from '../services/payments.service';
+import { fulfillCheckoutSession, getStripe, PRICES_CENTS, type PurchaseKind } from '../services/payments.service';
 
 /**
  * The S1 purchase flow, API side (landing spec §3 W-3/W-4, auth design §12.2):
@@ -144,10 +144,35 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
     const { session_id } = request.query as { session_id?: string };
     if (!session_id) return reply.status(400).send({ error: 'session_id required' });
     const payment = await prisma.payment.findUnique({ where: { stripeId: session_id } });
-    if (!payment || payment.userId !== request.auth.userId || !payment.caseId) {
-      return reply.status(404).send({ pending: true });
+    if (payment && payment.userId === request.auth.userId && payment.caseId) {
+      return { caseId: payment.caseId, kind: payment.kind.toLowerCase() };
     }
-    return { caseId: payment.caseId, kind: payment.kind.toLowerCase() };
+    // Self-heal (2026-09-12): a family sat on "Setting up your case…" for an
+    // hour because no webhook endpoint existed in Stripe and the hourly
+    // sweep had been reset by every deploy. The success page's own poll now
+    // asks Stripe directly: paid, this buyer's session → fulfill it here.
+    // Same idempotent path as the webhook and the sweep.
+    const stripe = getStripe();
+    if (!payment && stripe && /^cs_/.test(session_id)) {
+      try {
+        const s = await stripe.checkout.sessions.retrieve(session_id);
+        if (s.payment_status === 'paid' && s.metadata?.userId === request.auth.userId) {
+          const healed = await fulfillCheckoutSession({
+            id: s.id,
+            amount_total: s.amount_total,
+            metadata: (s.metadata ?? null) as Parameters<typeof fulfillCheckoutSession>[0]['metadata'],
+            payment_intent: typeof s.payment_intent === 'string' ? s.payment_intent : s.payment_intent?.id ?? null,
+          });
+          if (healed.caseId) {
+            request.log.warn({ sessionId: session_id, skipped: healed.skipped }, 'fulfillment healed from the success page — the webhook did not land');
+            return { caseId: healed.caseId, kind: String(s.metadata?.kind ?? 'review'), healed: true };
+          }
+        }
+      } catch (e) {
+        request.log.warn({ err: e, sessionId: session_id }, 'success-page self-heal could not reach Stripe');
+      }
+    }
+    return reply.status(404).send({ pending: true });
   });
 
   fastify.post('/checkout/session', async (request, reply) => {
