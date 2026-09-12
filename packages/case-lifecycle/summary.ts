@@ -51,6 +51,41 @@ export const SUMMARY_KEYS: Array<[keyof CaseSummary, string]> = [
   ['priorWrits', 'Prior writs'],
 ]
 
+/** Which checklist documents usually state each fact (PO, 2026-09-12): when
+ *  a row is not from the record, the report can say which missing paper
+ *  would carry it, and that a re-run with it would fill the row. */
+export const SUMMARY_SOURCES: Record<keyof CaseSummary, string[]> = {
+  defendant: ['judgment', 'indictment', 'rr_volume'],
+  county: ['judgment', 'indictment'],
+  court: ['judgment', 'indictment'],
+  causeNumber: ['judgment', 'indictment'],
+  offense: ['indictment', 'judgment'],
+  offenseDate: ['indictment'],
+  trialDates: ['rr_volume', 'judgment'],
+  verdict: ['judgment', 'rr_volume'],
+  sentence: ['judgment'],
+  judgmentDate: ['judgment'],
+  appeal: ['appellate_opinion'],
+  priorWrits: ['prior_writ_application', 'clerks_record'],
+}
+
+export interface SummaryGap {
+  /** Row labels not confirmed from the record (family-told or unknown). */
+  labels: string[]
+  /** Still-needed checklist documents that usually state one of those rows. */
+  documents: Array<{ kind: string; label: string }>
+}
+
+/** Rows not confirmed from the record, and the missing documents that would fill them. */
+export function summaryGaps(rows: SummaryRow[], needed: Array<{ kind: string; label: string }>): SummaryGap | null {
+  const gapRows = rows.filter((r) => r.source !== 'record')
+  if (gapRows.length === 0) return null
+  const kinds = new Set(gapRows.flatMap((r) => SUMMARY_SOURCES[r.key] ?? []))
+  const seen = new Set<string>()
+  const documents = needed.filter((n) => kinds.has(n.kind) && !seen.has(n.kind) && seen.add(n.kind)).map(({ kind, label }) => ({ kind, label }))
+  return { labels: gapRows.map((r) => r.label), documents }
+}
+
 export interface SummaryRow {
   key: keyof CaseSummary
   label: string

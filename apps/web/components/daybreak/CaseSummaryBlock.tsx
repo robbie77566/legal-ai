@@ -10,7 +10,19 @@ export interface SummaryRow {
   cite?: { volume?: string | null; page?: number | null; quote: string }
 }
 
-export default function CaseSummaryBlock({ rows, compact = false }: { rows?: SummaryRow[] | null; compact?: boolean }) {
+export interface SummaryGap {
+  labels: string[]
+  documents: Array<{ kind: string; label: string }>
+}
+
+/** Shared wording with the PDF (packages/reports summaryGapNote). */
+export function summaryGapNote(gap: SummaryGap, rerunPriceCents?: number | null): string {
+  const docs = gap.documents.map((d) => d.label).join(', ')
+  const price = rerunPriceCents != null ? ` — $${Math.round(rerunPriceCents / 100)} at today's price` : ''
+  return `Not confirmed from the documents you sent: ${gap.labels.join(', ')}. These are usually stated on: ${docs} (not uploaded). If you can get ${gap.documents.length === 1 ? 'it' : 'them'}, upload and re-run the analysis${price}; the review would then fill these in from the record.`
+}
+
+export default function CaseSummaryBlock({ rows, compact = false, gap, rerunPriceCents }: { rows?: SummaryRow[] | null; compact?: boolean; gap?: SummaryGap | null; rerunPriceCents?: number | null }) {
   if (!rows || !rows.some((r) => r.value)) return null
   return (
     <section className={`${compact ? 'mt-4' : 'mt-6'} rounded-xl border border-db-line bg-db-surface p-4`} data-testid="case-summary">
@@ -32,6 +44,11 @@ export default function CaseSummaryBlock({ rows, compact = false }: { rows?: Sum
           </div>
         ))}
       </dl>
+      {gap && gap.documents.length > 0 && (
+        <p className="mt-3 rounded-lg border border-db-line p-3 text-xs" data-testid="summary-gap">
+          {summaryGapNote(gap, rerunPriceCents)}
+        </p>
+      )}
     </section>
   )
 }

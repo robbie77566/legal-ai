@@ -674,6 +674,9 @@ describe('QA console (US-8)', () => {
     expect(body.strongSignals).toHaveLength(1);
     expect(body.strongSignals[0].partAText).toMatch(/science has since rejected/);
     expect(body.droppedByReverification).toBe(0);
+    // Gap note (PO, 2026-09-12): rows the record did not confirm, with the price of a re-run.
+    expect(Array.isArray(body.summaryGap?.labels) || body.summaryGap === null).toBe(true);
+    expect(body.rerunPriceCents).toBe(9900);
     // Weight line input (PO, 2026-09-12): confidence rides with each finding…
     expect(body.strongSignals[0].confidence).toBeGreaterThan(0);
     // …and a snapshot written before confidence was stored still gets it

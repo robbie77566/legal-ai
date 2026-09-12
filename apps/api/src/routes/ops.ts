@@ -506,6 +506,10 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     if (!latest) return reply.status(404).send({ error: 'No released report to republish' });
     const notes = templateNotesSince(latest.templateVersion);
     if (notes.length === 0) return reply.status(409).send({ error: `Report v${latest.versionNo} is already on the current template (${TEMPLATE_VERSION})` });
+    // Runs before 2026-09-12 stored no case summary: extract it now (one
+    // model call on the record) so the republished report's "About this
+    // case" comes from the documents, not only the family's answers.
+    const summary = await (await import('../services/case-summary.service')).rebuildCaseSummary(id);
 
     const created = await withTenant(kase.tenantId, async (tx) => {
       const report = await tx.report.create({
@@ -528,7 +532,7 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       const r = await sendReportUpdated(email, { caseUrl: `${origin}/case/${id}/report`, versionNo: created.versionNo, notes });
       emailed = r.delivered;
     });
-    return { ok: true, fromVersion: latest.versionNo, toVersion: created.versionNo, templateVersion: TEMPLATE_VERSION, notes, emailed };
+    return { ok: true, fromVersion: latest.versionNo, toVersion: created.versionNo, templateVersion: TEMPLATE_VERSION, notes, emailed, summary };
   });
 
   fastify.post('/cases/:id/resume', async (request, reply) => {

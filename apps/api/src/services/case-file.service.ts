@@ -204,12 +204,16 @@ export async function staffReportPdf(caseId: string, versionNo?: number) {
     }
 
     const { renderReportPdf } = await import('@hg/reports');
-    const { summaryRowsForReport } = await import('./case-summary.service');
+    const { summaryRowsForReport, summaryGapForReport } = await import('./case-summary.service');
+    const { PRICES_CENTS } = await import('./payments.service');
+    const summaryRowsList = await summaryRowsForReport(report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown });
     const { bottomLineFor } = await import('./bottom-line.service');
     const pdf = await renderReportPdf({
       palette: 'harbor',
       bottomLine: bottomLineFor(visible, kase.subsequentWrit, deadlinePosture),
-      summary: await summaryRowsForReport(report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown }),
+      summary: summaryRowsList,
+      summaryGap: await summaryGapForReport(caseId, summaryRowsList),
+      rerunPriceCents: PRICES_CENTS.rerun,
       caseTitle: kase.title,
       reportId: report.id,
       versionNo: report.versionNo,

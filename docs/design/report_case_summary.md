@@ -54,6 +54,13 @@ Colors changed with it: strong signals were green on the web report, which read 
 
 Confidence is written into every new report snapshot; older snapshots get it from the Finding rows at render (`finding-confidence.service.ts`), so reports already delivered show the line too.
 
+## Gaps, and the backfill for earlier runs (PO, 2026-09-12)
+
+The first two delivered reports showed "not stated in the record" on nearly every line because their runs finished before the summary extraction existed — nothing had ever been extracted. Two things changed:
+
+1. **Backfill.** `rebuildCaseSummary(caseId)` (`case-summary.service.ts`) extracts the summary for the latest completed run when it has none: one live model call on the record through the same `buildModel` the pipeline uses (now in `services/analysis-model.ts`, so it is reusable without importing the worker), grounded fact by fact, persisted on the run. The ops **Republish** action calls it first, so the republished report's "About this case" comes from the documents; the result line says how many facts were extracted.
+2. **The gap note.** Any row not confirmed from the record — family-told or unknown — is listed under the block with the still-needed checklist documents that usually state it (`SUMMARY_SOURCES` in `case-lifecycle/summary.ts`: judgment and indictment for the person, court, cause number, offense and sentence; the transcript for trial dates; the appellate opinion for the appeal; the prior application for writs) and today's re-run price from `PRICES_CENTS.rerun`: *"Not confirmed from the documents you sent: … These are usually stated on: Judgment and sentence, Indictment (not uploaded). If you can get them, upload and re-run the analysis — $99 at today's price; the review would then fill these in from the record."* Same wording on the PDF and the report page; the attorney packet shows the rows without the pitch.
+
 ## Republishing a report (PO, 2026-09-12)
 
 Reports render from the approved snapshot at every request, so a template change shows up on the family's page the moment it deploys. What it does **not** do on its own is tell the family, or give them a version to compare. The ops case page (ADMIN only) has "Republish on the current template & email the family what changed": it creates the next report version from the latest snapshot and run (same findings, nothing re-analyzed), stamps it with the current template version and the changelog notes since the family's version (`services/report-template.ts`), and emails the owner what is different. The family's report page shows those notes in the "New since your last report" box, with "What we found has not changed." It refuses (409) when the latest version is already current, so pressing twice is harmless.

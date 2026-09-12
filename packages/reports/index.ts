@@ -65,6 +65,9 @@ export interface ReportPdfInput {
   summary?: SummaryRowLike[];
   /** "The bottom line" (case-lifecycle bottomLine): deterministic, never advice. */
   bottomLine?: { headline: string; body: string[] } | null;
+  /** Rows not confirmed from the record + the missing documents that would state them. */
+  summaryGap?: { labels: string[]; documents: Array<{ kind: string; label: string }> } | null;
+  rerunPriceCents?: number;
 }
 
 export interface SummaryRowLike {
@@ -83,6 +86,13 @@ const FOOTER =
   'Decisions about any filing should be made with a licensed attorney.';
 
 const MARGIN = 54;
+
+/** The gap note, shared wording with the web report. */
+export function summaryGapNote(gap: { labels: string[]; documents: Array<{ kind: string; label: string }> }, rerunPriceCents?: number): string {
+  const docs = gap.documents.map((d) => d.label).join(', ');
+  const price = rerunPriceCents != null ? ` — $${Math.round(rerunPriceCents / 100)} at today's price` : '';
+  return `Not confirmed from the documents you sent: ${gap.labels.join(', ')}. These are usually stated on: ${docs} (not uploaded). If you can get ${gap.documents.length === 1 ? 'it' : 'them'}, upload and re-run the analysis${price}; the review would then fill these in from the record.`;
+}
 
 function severityLabel(s: string): string {
   return s === 'dispositive' ? 'Strong signal' : s === 'supportive' ? 'Possible issue' : 'Background';
@@ -158,6 +168,10 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
         const where = r.cite ? ` (${[r.cite.volume, r.cite.page != null ? `p. ${r.cite.page}` : null].filter(Boolean).join(' ') || 'record'})` : r.source === 'family' ? ' — as your family told us' : '';
         doc.font('Helvetica-Bold').fontSize(9.5).fillColor(pal.ink).text(`${r.label}: `, { continued: true });
         doc.font('Helvetica').fontSize(9.5).fillColor(r.value ? '#222222' : '#777777').text(r.value ? `${r.value}${where}` : 'not stated in the record');
+      }
+      if (input.summaryGap && input.summaryGap.documents.length > 0) {
+        doc.moveDown(0.4);
+        doc.font('Helvetica').fontSize(9).fillColor('#444444').text(summaryGapNote(input.summaryGap, input.rerunPriceCents));
       }
       doc.moveDown(1);
     }

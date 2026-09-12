@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { summaryRows, CaseSummarySchema } from '../summary'
+import { summaryRows, summaryGaps, CaseSummarySchema, SUMMARY_SOURCES, SUMMARY_KEYS } from '../summary'
 
 describe('case summary rows', () => {
   it('a record-cited fact wins, family facts fill gaps and say so, unknowns are null', () => {
@@ -21,5 +21,28 @@ describe('case summary rows', () => {
     expect(CaseSummarySchema.safeParse({ defendant: { value: 'X', cite: { quote: 'THE STATE OF TEXAS VS. X' } }, extra: 1 }).success).toBe(false)
     expect(CaseSummarySchema.safeParse({ defendant: { value: 'X' } }).success).toBe(false)
     expect(CaseSummarySchema.safeParse({ defendant: null, offense: { value: 'Murder', cite: { volume: null, page: 4, quote: 'the offense of Murder' } } }).success).toBe(true)
+  })
+
+  it('gaps: rows not confirmed from the record name the missing documents that usually state them (PO, 2026-09-12)', () => {
+    for (const [key] of SUMMARY_KEYS) expect(SUMMARY_SOURCES[key].length).toBeGreaterThan(0)
+    const rows = summaryRows(
+      { defendant: { value: 'GARY W. DOE', cite: { quote: 'THE STATE OF TEXAS VS. GARY W. DOE' } } },
+      { county: 'San Jacinto', judgmentDate: '2024-06-05', appeal: 'decided' }
+    )
+    const needed = [
+      { kind: 'judgment', label: 'Judgment and sentence' },
+      { kind: 'indictment', label: 'Indictment' },
+      { kind: 'clerks_record', label: "Clerk's record" },
+      { kind: 'appellate_opinion', label: 'Appellate opinion (if there was an appeal)' },
+    ]
+    const gap = summaryGaps(rows, needed)!
+    expect(gap.labels).not.toContain('Person') // cited to the record
+    expect(gap.labels).toContain('County') // family-told counts as not confirmed
+    expect(gap.labels).toContain('Sentence')
+    expect(gap.documents.map((d) => d.kind)).toEqual(['judgment', 'indictment', 'clerks_record', 'appellate_opinion'])
+    // Everything cited → no gap; nothing missing on the checklist → gap with no documents.
+    const full = Object.fromEntries(SUMMARY_KEYS.map(([k]) => [k, { value: 'x', cite: { quote: 'xyz' } }]))
+    expect(summaryGaps(summaryRows(full as never, {}), needed)).toBeNull()
+    expect(summaryGaps(rows, [])).toMatchObject({ documents: [] })
   })
 })

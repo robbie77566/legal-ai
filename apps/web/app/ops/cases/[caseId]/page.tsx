@@ -115,13 +115,13 @@ export default function CaseFilePage() {
   // Republish (PO, 2026-09-12): same findings on the current template, the
   // family emailed with what changed. Confirms because it emails a customer.
   const republish = async () => {
-    if (!window.confirm('Re-release the current findings on the latest report template and email the family what changed?')) return
+    if (!window.confirm('Re-release the current findings on the latest report template and email the family what changed? If the run has no case summary yet, this also reads the record once to extract it (one model call).')) return
     setRepublishResult('Working…')
     try {
       const r = await apiFetch(`/ops/cases/${caseId}/report/republish`, { method: 'POST' })
       const d = await r.json().catch(() => ({}))
       setRepublishResult(r.ok
-        ? `Released v${d.toVersion} (template ${d.templateVersion}) from v${d.fromVersion}. ${d.emailed ? 'The family was emailed what changed.' : 'No email went out — check the account email and the email provider.'}`
+        ? `Released v${d.toVersion} (template ${d.templateVersion}) from v${d.fromVersion}. ${d.emailed ? 'The family was emailed what changed.' : 'No email went out — check the account email and the email provider.'} Case summary: ${d.summary?.rebuilt ? `${d.summary.facts} fact(s) extracted from the record` : d.summary?.reason === 'already extracted' ? `${d.summary.facts} fact(s), already extracted` : `not extracted (${d.summary?.reason ?? 'unknown'})`}.`
         : d.error ?? `Republish failed (${r.status})`)
     } catch (e) {
       setRepublishResult(`Republish failed — the request didn’t reach the API (${(e as Error).message}).`)

@@ -572,11 +572,16 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       }
     }
 
+    const { summaryRowsForReport, summaryGapForReport } = await import('../services/case-summary.service');
+    const { PRICES_CENTS } = await import('../services/payments.service');
+    const summaryRowsList = await summaryRowsForReport(report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown });
     return {
       report,
       payload: {
         bottomLine: (await import('../services/bottom-line.service')).bottomLineFor(visible, kase.subsequentWrit, deadlinePosture),
-        caseSummary: await (await import('../services/case-summary.service')).summaryRowsForReport(report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown }),
+        caseSummary: summaryRowsList,
+        summaryGap: await summaryGapForReport(kase.id, summaryRowsList),
+        rerunPriceCents: PRICES_CENTS.rerun,
         versionNo: report.versionNo,
         templateVersion: report.templateVersion,
         renderedAt: report.renderedAt,
@@ -707,7 +712,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
       const { renderReportPdf } = await import('@hg/reports');
       const pdf = await renderReportPdf({
-        summary: await (await import('../services/case-summary.service')).summaryRowsForReport(loaded.report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown }),
+        summary: loaded.payload.caseSummary,
         palette: palette === 'amber' ? 'amber' : 'harbor',
         caseTitle: kase.title,
         reportId: loaded.report.id,

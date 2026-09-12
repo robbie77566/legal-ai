@@ -21,6 +21,8 @@ describe('report PDF names the site', () => {
       caseTitle: 'Site Reference Case', reportId: 'rep_site', versionNo: 1, templateVersion: '2026-08-29.1', renderedAt: new Date(),
       subsequentWritMode: false, strongSignals: [finding('dispositive', 0.91)], possibleIssues: [finding('background'), ...Array.from({ length: 13 }, () => finding('supportive', 0.6))], droppedByReverification: 0,
       bottomLine: { headline: 'There is a real reason to talk to a lawyer.', body: ['This review found 1 issue that could support a claim on its own.', 'This is information about what is in the record, not legal advice.'] },
+      summaryGap: { labels: ['County', 'Offense'], documents: [{ kind: 'judgment', label: 'Judgment and sentence' }, { kind: 'indictment', label: 'Indictment' }] },
+      rerunPriceCents: 9900,
       summary: [
         { key: 'defendant', label: 'Person', value: 'GARY W. DOE', source: 'record', cite: { volume: 'RR1', page: 3, quote: 'THE STATE OF TEXAS VS. GARY W. DOE' } },
         { key: 'county', label: 'County', value: 'Brazoria County', source: 'family' },
@@ -43,6 +45,10 @@ describe('report PDF names the site', () => {
     expect(text).toContain('GARY W. DOE (RR1 p. 3)');
     expect(text).toContain('as your family told us');
     expect(text).toContain('not stated in the record');
+    const flat = text.replace(/\s+/g, ' '); // pdfkit wraps the note across lines
+    expect(flat).toContain('Not confirmed from the documents you sent: County, Offense.');
+    expect(flat).toContain('Judgment and sentence, Indictment (not uploaded)');
+    expect(flat).toContain('re-run the analysis — $99 at today');
     expect(buf.toString('latin1')).toContain('snotnoselegal.com'); // metadata Author, literal
     // Per-issue weight line (PO, 2026-09-12) and its legend, once.
     expect(text).toContain('How to read each issue');

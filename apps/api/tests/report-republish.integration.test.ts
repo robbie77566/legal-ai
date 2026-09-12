@@ -51,6 +51,8 @@ describe('POST /ops/cases/:id/report/republish', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body).toMatchObject({ ok: true, fromVersion: 1, toVersion: 2, templateVersion: TEMPLATE_VERSION, emailed: true });
+    // Summary backfill is attempted, never blocks: this case has no digitized text, so no model call.
+    expect(body.summary).toMatchObject({ runId, rebuilt: false, reason: 'no digitized text' });
     expect(body.notes.length).toBeGreaterThan(0);
     const v2 = await prisma.report.findFirstOrThrow({ where: { caseId, versionNo: 2 } });
     expect(v2.runId).toBe(runId);

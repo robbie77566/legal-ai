@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { API_URL } from '../../../../../lib/api'
-import CaseSummaryBlock, { type SummaryRow } from '../../../../../components/daybreak/CaseSummaryBlock'
+import CaseSummaryBlock, { type SummaryRow, type SummaryGap } from '../../../../../components/daybreak/CaseSummaryBlock'
 import { getPaletteVariant } from '../../../../../lib/ab'
 import FeedbackCard from '../../../../../components/FeedbackCard'
 import { apiFetch } from '@/lib/api'
@@ -52,6 +52,8 @@ interface Changes {
 
 interface ReportData {
   caseSummary?: SummaryRow[] | null
+  summaryGap?: SummaryGap | null
+  rerunPriceCents?: number
   bottomLine?: { tier: 'strong' | 'consult' | 'limited'; headline: string; body: string[] } | null
   versionNo?: number
   strongSignals: ReportFinding[]
@@ -169,7 +171,7 @@ export default function CaseReport() {
     <main className="mx-auto max-w-xl px-5 py-8">
       <CaseNav caseId={caseId} current="report" />
       <h1 className="font-db-serif text-3xl font-semibold">Your case review</h1>
-      <CaseSummaryBlock rows={data.caseSummary} />
+      <CaseSummaryBlock rows={data.caseSummary} gap={data.summaryGap} rerunPriceCents={data.rerunPriceCents} />
       {remembered && (
         <p className="mt-2 text-sm text-db-muted" data-testid="gentle-reminder">
           Whatever this says, there is a next step — and you don&rsquo;t have to read it alone.
