@@ -238,3 +238,14 @@ export const analysisWorker = new Worker(
   },
   { connection: createConnection(), concurrency: concurrencyFromEnv('ANALYSIS_CONCURRENCY', 2) }
 );
+
+// A dead analysis job left NO trace in the logs (nine silent deaths on one
+// case, 2026-09-11) — BullMQ records failedReason in Redis, the api's
+// request-scoped error hook never sees worker errors, and Sentry was not
+// told. Say it loudly, with the attempt count, and capture it.
+analysisWorker.on('failed', (job, err) => {
+  const { caseId } = (job?.data ?? {}) as { caseId?: string };
+  console.error(`[analysis] JOB FAILED case ${caseId ?? '?'} attempt ${job?.attemptsMade ?? '?'}/${job?.opts.attempts ?? '?'}: ${String(err?.message ?? err).slice(0, 600)}`);
+  if (process.env.SENTRY_DSN) void import('@sentry/node').then((S) => S.captureException(err, { tags: { worker: 'analysis', caseId: caseId ?? '' } }));
+});
+analysisWorker.on('error', (err) => console.error(`[analysis] worker error: ${String(err?.message ?? err).slice(0, 300)}`));
