@@ -31,7 +31,7 @@ interface Me {
 const usd = (c: number) => `$${(c / 100).toFixed(2)}`
 const day = (iso: string, year = false) => new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', ...(year ? { year: 'numeric' } : {}) })
 const REASON: Record<string, string> = { unreadable_record: 'unreadable pages', customer_request: 'at your request', chargeback: 'chargeback', other: '' }
-const KIND: Record<string, string> = { REVIEW: 'Family Case Review', OVERAGE: 'Additional pages', RERUN: 'Re-run', REFUND: 'Refund' }
+const KIND: Record<string, string> = { REVIEW: 'Case review', OVERAGE: 'Additional pages', RERUN: 'Re-run', REFUND: 'Refund' }
 
 function primaryAction(r: Review): { href: string; label: string } {
   if (r.status === 'AWAITING_DOCS') return { href: `/case/${r.id}/documents`, label: 'Continue your checklist' }

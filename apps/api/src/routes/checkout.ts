@@ -259,7 +259,7 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
               tax_code: process.env.STRIPE_TAX_CODE ?? 'txcd_20030000',
               name:
                 kind === 'review'
-                  ? 'Family Case Review — up to 5,000 pages, all screens, human review'
+                  ? 'Snot Nose Legal case review — up to 5,000 pages, all screens, human review'
                   : kind === 'overage'
                     ? 'Additional pages (+2,500)'
                     : 'Re-run with new documents',

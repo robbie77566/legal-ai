@@ -188,7 +188,7 @@ describe('the case file', () => {
     const res = await get(`/ops/cases/${caseId}/report/pdf`);
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('application/pdf');
-    expect(res.headers['content-disposition']).toContain(`family-case-review-${caseId}-v1.pdf`);
+    expect(res.headers['content-disposition']).toContain(`snot-nose-legal-review-${caseId}-v1.pdf`);
     expect(res.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
     expect((await get(`/ops/cases/${caseId}/report/pdf?version=9`)).statusCode).toBe(404);
   });

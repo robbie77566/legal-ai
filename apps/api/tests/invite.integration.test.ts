@@ -54,7 +54,7 @@ describe('creating a staff account', () => {
     expect(sent).toHaveLength(1);
     const msg = sent[0];
     expect(msg.to).toBe(`${run}_dana@x.com`);
-    expect(msg.subject).toMatch(/added to the Family Case Review console/);
+    expect(msg.subject).toMatch(/added to the Snot Nose Legal console/);
     expect(msg.text).toMatch(/Robbie added you .* as a support team member/);
     expect(msg.text).toMatch(/Set your password/);
     expect(msg.text).toMatch(/sign in with this email address at:\s+\S+\/auth\/signin/);

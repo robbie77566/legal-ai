@@ -735,7 +735,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       });
       return reply
         .header('content-type', 'application/pdf')
-        .header('content-disposition', `attachment; filename="family-case-review-${id}.pdf"`)
+        .header('content-disposition', `attachment; filename="snot-nose-legal-review-${id}.pdf"`)
         .send(pdf);
     });
   });

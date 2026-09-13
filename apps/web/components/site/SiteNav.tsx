@@ -12,6 +12,7 @@ import { useContext } from 'react'
 import { SessionContext } from 'next-auth/react'
 import { useContent, LangSwitch } from '../../lib/i18n'
 import { NamePill } from '../daybreak/NamePill'
+import BrandLogo from '../daybreak/BrandLogo'
 
 const NAV = {
   en: {
@@ -52,9 +53,7 @@ export default function SiteNav() {
   const signedIn = !!user
   return (
     <nav className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-2 px-5 py-5">
-      <Link href="/" className="font-db-serif text-lg font-bold text-db-accent">
-        Family Case Review
-      </Link>
+      <BrandLogo size="nav" />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
         <Link href="/how-it-works" className="hover:underline">
           {t.how}

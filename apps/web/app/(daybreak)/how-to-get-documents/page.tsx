@@ -18,7 +18,7 @@ export default function DocumentsGuide() {
     <main className="mx-auto max-w-xl px-5 py-8">
       <div className="flex items-center justify-between">
         <Link href="/" className="font-db-serif font-bold text-db-accent">
-          Family Case Review
+          Snot Nose Legal
         </Link>
         <LangSwitch />
       </div>

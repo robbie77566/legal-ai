@@ -174,7 +174,7 @@ export async function fulfillCheckoutSession(session: {
   const caseId = await withTenant(tenantId, async (tx) => {
     const created = await tx.case.create({
       data: {
-        title: 'Family Case Review',
+        title: 'Case review',
         tenantId,
         lane: setup.lane ?? undefined,
         vehicle: setup.vehicle ?? undefined,

@@ -773,7 +773,7 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     return {
       storage,
       email: process.env.RESEND_API_KEY
-        ? { configured: true, from: process.env.EMAIL_FROM ?? 'Family Case Review <noreply@snotnoselegal.com>' }
+        ? { configured: true, from: process.env.EMAIL_FROM ?? 'Snot Nose Legal <noreply@snotnoselegal.com>' }
         : { configured: false, from: null },
       stripe: !stripeKey ? 'unset' : stripeKey.startsWith('sk_live_') ? 'live' : 'test',
       stripeWebhook: !!process.env.STRIPE_WEBHOOK_SECRET,

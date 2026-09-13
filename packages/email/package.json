@@ -5,6 +5,7 @@
   "main": "./index.ts",
   "types": "./index.ts",
   "dependencies": {
+    "@hg/case-lifecycle": "workspace:*",
     "resend": "^4.0.0"
   },
   "devDependencies": {

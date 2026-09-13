@@ -1,0 +1,1 @@
+Place the brand logo here as `logo.png` (the PNG supplied on 2026-09-13, white background). The PDF cover draws it when present and falls back to the typographic lockup otherwise. Keep the same file at `apps/web/public/brand/logo.png` for the web app. See docs/design/brand.md.

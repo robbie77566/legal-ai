@@ -6,6 +6,7 @@ import CtaLink from '../../../components/ab/CtaLink'
 import PaletteExperiment from '../../../components/ab/PaletteExperiment'
 import { useContent, LangSwitch } from '../../../lib/i18n'
 import { LANDING_CONTENT as L } from '../../../lib/content/landing'
+import BrandLogo from '../../../components/daybreak/BrandLogo'
 
 /**
  * Daybreak landing (landing_page_spec.md §2). The conversion event is the
@@ -34,7 +35,7 @@ export default function DaybreakLanding() {
       </div>
 
       <nav className="flex items-center justify-between gap-2 py-5">
-        <span className="font-db-serif text-lg font-bold text-db-accent">Family Case Review</span>
+        <BrandLogo size="nav" />
         <div className="flex items-center gap-2">
           <Link href="/auth/signin" className="text-sm text-db-muted underline" data-testid="nav-signin">
             {t.signIn}

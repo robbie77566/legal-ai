@@ -225,6 +225,6 @@ export async function staffReportPdf(caseId: string, versionNo?: number) {
       possibleIssues: visible.filter((f) => f.severity !== 'dispositive'),
       droppedByReverification: failed.length,
     });
-    return { pdf, versionNo: report.versionNo, tenantId: kase.tenantId, filename: `family-case-review-${caseId}-v${report.versionNo}.pdf` };
+    return { pdf, versionNo: report.versionNo, tenantId: kase.tenantId, filename: `snot-nose-legal-review-${caseId}-v${report.versionNo}.pdf` };
   });
 }

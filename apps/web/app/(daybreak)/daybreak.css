@@ -10,8 +10,12 @@
   --db-ink: #1a2433;
   --db-muted: #55637a;
   --db-line: #dbe2ec;
-  --db-accent: #1f5c99; /* white-on-accent ≥ 5.5:1 (mobile/CTA contrast) */
-  --db-accent-soft: #e3edf8;
+  /* Brand (2026-09-13, from the logo): ink carries the calls to action,
+     the highlighter is the signature mark — decoration, never text on white. */
+  --db-accent: #111318; /* white-on-ink 18:1 */
+  --db-accent-soft: #f6ffb8; /* pale highlighter */
+  --db-charcoal: #2b2f36;
+  --db-highlight: #e6ff3b;
   --db-signal: #1e7a3d;
   --db-review: #8a6206;
   --db-none: #5b6472;
@@ -32,8 +36,10 @@
     --db-ink: #e6ebf2;
     --db-muted: #93a1b5;
     --db-line: #28323f;
-    --db-accent: #5b9bd5;
-    --db-accent-soft: #14263c;
+    --db-accent: #e6ff3b; /* highlighter on dark; dark text sits on it */
+    --db-accent-soft: #2a2e12;
+    --db-charcoal: #d7dbe3;
+    --db-highlight: #e6ff3b;
     --db-signal: #3fb950;
     --db-review: #d29922;
     --db-none: #96a0ae;
@@ -46,4 +52,11 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* The highlighter stroke from the logo — the one decorative mark the brand
+   allows. Behind text only; the text keeps its own color and contrast. */
+.daybreak .db-hl {
+  background-image: linear-gradient(transparent 58%, var(--db-highlight) 58%, var(--db-highlight) 94%, transparent 94%);
+  padding: 0 0.15em;
 }

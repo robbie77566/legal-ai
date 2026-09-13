@@ -1,3 +1,4 @@
+import { BRAND } from '@hg/case-lifecycle';
 /**
  * Transactional email (M2, ENG-9, auth design Phase 2).
  *
@@ -18,7 +19,7 @@ export interface EmailProvider {
   send(msg: EmailMessage): Promise<{ delivered: boolean; id?: string; error?: string }>;
 }
 
-const FROM = () => process.env.EMAIL_FROM ?? 'Family Case Review <noreply@snotnoselegal.com>';
+const FROM = () => process.env.EMAIL_FROM ?? `${BRAND.name} <noreply@snotnoselegal.com>`;
 
 function buildProvider(): EmailProvider {
   const key = process.env.RESEND_API_KEY;
@@ -60,7 +61,7 @@ export function __setEmailProviderForTests(p: EmailProvider | undefined) {
 }
 
 const FOOTER =
-  '\n\n—\nFamily Case Review is a service of Snot Nose Legal — snotnoselegal.com. We are not a law firm and this is not legal advice. Questions? Just reply to this email.';
+  `\n\n—\n${BRAND.name} · ${BRAND.tagline} · ${BRAND.site}. We are not a law firm and this is not legal advice. Questions? Just reply to this email.`;
 
 async function send(msg: EmailMessage): Promise<{ delivered: boolean; id?: string; error?: string }> {
   try {
@@ -78,7 +79,7 @@ async function send(msg: EmailMessage): Promise<{ delivered: boolean; id?: strin
 export function sendTestEmail(to: string) {
   return send({
     to,
-    subject: 'Family Case Review — email transport test',
+    subject: `${BRAND.name} — email transport test`,
     text: `This is a test message from the operations console, sent ${new Date().toISOString()}. If you are reading it, transactional email is working.`,
   });
 }
@@ -86,7 +87,7 @@ export function sendTestEmail(to: string) {
 export function sendReceipt(to: string, opts: { amountCents: number; caseUrl?: string }) {
   return send({
     to,
-    subject: 'Your Family Case Review — payment received',
+    subject: 'Your case review — payment received',
     text: `Thank you. Your payment of $${(opts.amountCents / 100).toFixed(2)} is received and your case is set up.
 
 What happens next: confirm a few details about the case (most are already filled in from your free check), and we'll build your personal document checklist — with help for getting every document on it. Send documents at your own pace; your review clock only starts when you tell us your records are complete.${
@@ -165,7 +166,7 @@ export function sendReportUpdated(to: string, opts: { caseUrl: string; versionNo
   return send({
     to,
     subject: `Your report has been updated (version ${opts.versionNo})`,
-    text: `We have released an updated version of your Family Case Review report.
+    text: `We have released an updated version of your case review report.
 
 What we found has not changed: the same findings, checked word-for-word against the same record. What is different in this version:
 
@@ -193,7 +194,7 @@ export function sendFeedbackFollowup(to: string, opts: { surveyUrl: string }) {
     to,
     subject: 'One quick question about your report',
     text:
-      "It's been about a week since your Family Case Review report was ready. However it turned out, we want to know if we did our job well.\n\n" +
+      "It's been about a week since your case review report was ready. However it turned out, we want to know if we did our job well.\n\n" +
       'Two quick questions (30 seconds, no sign-in tricks — the link opens your report page):\n' +
       `${opts.surveyUrl}\n\n` +
       'Thank you — every answer is read personally.',
@@ -211,10 +212,10 @@ export function sendInvite(
 ) {
   return send({
     to,
-    subject: 'You have been added to the Family Case Review console',
+    subject: `You have been added to the ${BRAND.name} console`,
     text: `${opts.name ? `Hi ${opts.name},` : 'Hello,'}
 
-${opts.invitedBy} added you to the Family Case Review console as ${opts.roleLabel}.
+${opts.invitedBy} added you to the ${BRAND.name} console as ${opts.roleLabel}.
 
 To get in:
 
@@ -277,7 +278,7 @@ export function sendEmailChangeConfirm(to: string, opts: { confirmUrl: string })
   return send({
     to,
     subject: 'Confirm your new email address',
-    text: `Someone — we hope you — asked to move a Family Case Review account to this address.
+    text: `Someone — we hope you — asked to move a ${BRAND.name} account to this address.
 
 Confirm it here (the link works for 24 hours):
 ${opts.confirmUrl}
@@ -290,7 +291,7 @@ export function sendEmailChangeNotice(to: string, opts: { newEmail: string }) {
   return send({
     to,
     subject: 'Your account email is changing',
-    text: `A request was made to change the email on your Family Case Review account to ${opts.newEmail}. Nothing changes until that address confirms.
+    text: `A request was made to change the email on your ${BRAND.name} account to ${opts.newEmail}. Nothing changes until that address confirms.
 
 If this wasn't you, sign in and change your password now, then reply to this email so we can help.`,
   });

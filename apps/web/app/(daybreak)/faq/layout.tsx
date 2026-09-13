@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { SITE_FAQ_CONTENT } from '../../../lib/content/site-faq'
 
 export const metadata: Metadata = {
-  title: 'FAQ — Family Case Review',
+  title: 'FAQ — Snot Nose Legal',
   description:
     'How long the review takes, what file formats work, what happens if we find nothing, how your data is handled, and how paying in installments works.',
 }

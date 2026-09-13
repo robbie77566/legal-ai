@@ -106,7 +106,7 @@ export const LANDING_CONTENT = {
       ],
     ] as [string, string][],
     footerLegal:
-      'Family Case Review is a service of Snot Nose Legal. Snot Nose Legal is not a law firm and does not provide legal advice. Reports are information about court records, prepared by AI built for this purpose, checked by automated quality gates and reviewed by staff when needed, for use in consultation with a licensed attorney.',
+      'Snot Nose Legal is not a law firm and does not provide legal advice. Reports are information about court records, prepared by AI built for this purpose, checked by automated quality gates and reviewed by staff when needed, for use in consultation with a licensed attorney.',
     staffSignIn: 'Staff sign in',
   },
   es: {
@@ -217,7 +217,7 @@ export const LANDING_CONTENT = {
       ],
     ] as [string, string][],
     footerLegal:
-      'Family Case Review es un servicio de Snot Nose Legal. Snot Nose Legal no es un bufete de abogados y no ofrece asesoría legal. Los reportes son información sobre expedientes judiciales, preparados por inteligencia artificial creada para este fin, verificados por controles de calidad automáticos y revisados por personal cuando es necesario, para usarse en consulta con un abogado con licencia.',
+      'Snot Nose Legal no es un bufete de abogados y no ofrece asesoría legal. Los reportes son información sobre expedientes judiciales, preparados por inteligencia artificial creada para este fin, verificados por controles de calidad automáticos y revisados por personal cuando es necesario, para usarse en consulta con un abogado con licencia.',
     staffSignIn: 'Acceso para el personal',
   },
 }

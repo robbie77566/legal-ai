@@ -199,7 +199,7 @@ export default function BuyPage() {
     <main className="mx-auto max-w-xl px-5 py-8">
       <nav className="mb-8">
         <Link href="/" className="font-db-serif font-bold text-db-accent">
-          Family Case Review
+          Snot Nose Legal
         </Link>
       </nav>
 
@@ -243,7 +243,7 @@ export default function BuyPage() {
           )}
           <div className="mt-6 rounded-xl border border-db-line bg-db-surface p-4">
             <div className="flex items-center justify-between">
-              <span className="font-semibold">Family Case Review</span>
+              <span className="font-semibold">Snot Nose Legal</span>
               <span className="font-db-serif text-lg font-bold">
                 {promo ? (
                   promo.newTotalCents === 0 ? (

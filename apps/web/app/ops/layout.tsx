@@ -46,7 +46,7 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-[#0B0E14] font-sans text-[#E6EDF3]">
       <header className="border-b border-[#30363D] px-6 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="font-serif text-lg font-bold text-[#D4AF37]">Operations</span>
+          <span className="font-serif text-lg font-bold text-[#D4AF37]">Snot Nose Legal · Operations</span>
           <nav data-testid="ops-nav" className="flex flex-wrap gap-1 text-sm">
             {nav.map(([href, label]) => {
               const active = href === '/ops' ? path === '/ops' : path.startsWith(href)

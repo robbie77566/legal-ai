@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import * as NextAuth from 'next-auth/react'
 import { apiFetch } from '@/lib/api'
+import BrandLogo from './BrandLogo'
 
 // Pages render this nav with or without a SessionProvider (and tests mock
 // next-auth/react partially), so resolve the context defensively: no
@@ -68,7 +69,7 @@ export default function FamilyNav() {
 
   return (
     <nav data-testid="family-nav" className="mx-auto flex max-w-xl items-center justify-between gap-3 px-5 py-4">
-      <Link href="/" className="font-db-serif text-lg font-bold text-db-accent">Family Case Review</Link>
+      <BrandLogo size="nav" />
       {user ? (
         <div ref={ref} className="relative flex items-center gap-1">
           <span className="md:hidden"><NamePill name={user.name} email={user.email} compact /></span>

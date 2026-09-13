@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { BRAND } from '@hg/case-lifecycle'
 
 /**
  * Daybreak site footer — quiet legal ground on every consumer page: who
@@ -13,10 +14,9 @@ export default function SiteFooter() {
     <footer className="mt-12 border-t border-db-line pb-24 pt-8 sm:pb-8">
       <div className="mx-auto max-w-2xl space-y-3 px-5 text-sm text-db-muted">
         <p>
-          <span className="font-db-serif font-semibold text-db-ink">Family Case Review</span> — a
-          service of Snot Nose Legal, operated by{' '}
-          <a href="https://tangentsolutionz.com" className="underline" rel="noopener">
-            Tangent Solutions LLC
+          <span className="font-db-serif font-semibold text-db-ink">{BRAND.name}</span> · {BRAND.tagline} — operated by{' '}
+          <a href={BRAND.operatorUrl} className="underline" rel="noopener">
+            {BRAND.operator}
           </a>
           .
         </p>

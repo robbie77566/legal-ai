@@ -11,6 +11,7 @@ import SiteNav from './SiteNav'
 import ReturningLine from '../daybreak/ReturningLine'
 import { useContent } from '../../lib/i18n'
 import { HOME_CONTENT as H } from '../../lib/content/home'
+import { BRAND } from '@hg/case-lifecycle'
 
 export default function BrandHome() {
   const t = useContent(H)
@@ -19,10 +20,11 @@ export default function BrandHome() {
       <SiteNav />
 
       <header className="py-10">
-        <h1 className="font-db-serif text-4xl font-bold leading-tight">{t.heroTitle}</h1>
+        <p className="font-db-sans text-xs font-semibold uppercase tracking-[0.18em] text-db-muted" data-testid="brand-tagline">{BRAND.tagline}</p>
+        <h1 className="mt-3 font-db-serif text-4xl font-bold leading-tight">{t.heroTitle}</h1>
         <p className="mt-5 text-db-muted">
           {t.heroBody}
-          <strong className="text-db-ink">{t.heroPrice}</strong>
+          <strong className="db-hl text-db-ink">{t.heroPrice}</strong>
         </p>
         <Link
           href="/check"

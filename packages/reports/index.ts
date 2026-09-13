@@ -1,5 +1,7 @@
 import PDFDocument from 'pdfkit';
-import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND } from '@hg/case-lifecycle';
+import fs from 'node:fs';
+import path from 'node:path';
+import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, BRAND } from '@hg/case-lifecycle';
 
 /**
  * ENG-11 report PDF (M5): renders the QA-approved findings snapshot —
@@ -43,7 +45,15 @@ export interface DeadlinePostureView {
 const PALETTES = {
   amber: { accent: '#7a5f15', ink: '#1f2937' },
   harbor: { accent: '#1f5c99', ink: '#1a2433' },
+  /** The brand (2026-09-13): ink headings, a highlighter rule as the signature. */
+  snotnose: { accent: BRAND.colors.ink, ink: BRAND.colors.charcoal },
 } as const;
+
+/** The logo file, when the PNG has been placed next to this package (docs/design/brand.md). */
+export const LOGO_PATH = path.join(__dirname, 'assets', 'logo.png');
+export function logoAvailable(): boolean {
+  try { return fs.statSync(LOGO_PATH).isFile(); } catch { return false; }
+}
 export type ReportPalette = keyof typeof PALETTES;
 
 export interface ReportPdfInput {
@@ -80,7 +90,7 @@ export interface SummaryRowLike {
 
 export const SITE = 'snotnoselegal.com';
 const FOOTER =
-  `Family Case Review · ${SITE} · ` +
+  `${BRAND.name} · ${BRAND.tagline} · ${SITE} · ` +
   'This is an information report about the contents of a court record. It is not legal advice, ' +
   'does not create an attorney-client relationship, and is not protected by attorney-client privilege. ' +
   'Decisions about any filing should be made with a licensed attorney.';
@@ -108,12 +118,12 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
       size: 'LETTER',
       margins: { top: MARGIN, bottom: MARGIN + 28, left: MARGIN, right: MARGIN },
       info: {
-        Title: `Family Case Review — ${input.caseTitle}`,
-        Author: 'Family Case Review, a service of Snot Nose Legal (snotnoselegal.com)',
+        Title: `${BRAND.name} — case review — ${input.caseTitle}`,
+        Author: `${BRAND.name} (${SITE})`,
         Subject: `Report ${input.reportId} v${input.versionNo} (template ${input.templateVersion}) — snotnoselegal.com`,
       },
     });
-    const pal = PALETTES[input.palette ?? 'harbor'];
+    const pal = PALETTES[input.palette ?? 'snotnose'];
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -145,9 +155,17 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
     footer();
     doc.on('pageAdded', footer);
 
-    // ---- Cover header ----
-    doc.font('Helvetica-Bold').fontSize(20).fillColor(pal.accent).text('Family Case Review');
-    doc.font('Helvetica').fontSize(10).fillColor('#555555').text(`a service of Snot Nose Legal · ${SITE}`);
+    // ---- Cover header: the logo when the file is present, else the lockup ----
+    if (logoAvailable()) {
+      doc.image(LOGO_PATH, MARGIN, doc.y, { height: 64 });
+      doc.y += 72;
+    } else {
+      doc.font('Helvetica-Bold').fontSize(22).fillColor(BRAND.colors.ink).text(BRAND.name);
+    }
+    // The highlighter stroke — the brand's signature mark, under the name.
+    doc.save().rect(MARGIN, doc.y + 2, 150, 6).fill(BRAND.colors.highlight).restore();
+    doc.y += 12;
+    doc.font('Helvetica').fontSize(10).fillColor('#555555').text(`${BRAND.tagline} · ${SITE}`);
     doc.moveDown(0.8);
     doc.fontSize(12).fillColor(pal.ink).text(input.caseTitle);
     doc

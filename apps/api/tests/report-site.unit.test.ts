@@ -37,7 +37,8 @@ describe('report PDF names the site', () => {
     const mentions = text.split('snotnoselegal.com').length - 1;
     expect(pages).toBeGreaterThanOrEqual(2);
     expect(mentions).toBeGreaterThanOrEqual(pages + 2); // one footer per page + cover + closing note
-    expect(text).toContain('a service of Snot Nose Legal');
+    expect(text).toContain('Snot Nose Legal');
+    expect(text).toContain('Post-Conviction Case File Analytics');
     expect(text).toContain('are at snotnoselegal.com');
     expect(text).toContain('About this case');
     expect(text).toContain('The bottom line');
