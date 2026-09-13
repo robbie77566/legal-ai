@@ -19,10 +19,8 @@ export function BrandLockup({ size = 'nav', tagline = false }: { size?: keyof ty
   return (
     <span className="inline-flex flex-col leading-none" data-testid="brand-lockup" aria-label={BRAND.name}>
       <span className="font-db-marker text-db-ink" style={{ fontSize: script }}>Snot Nose</span>
-      <span
-        className="font-db-serif font-bold tracking-wide text-db-charcoal"
-        style={{ fontSize: serif, marginTop: -Math.round(h * 0.06), backgroundImage: 'linear-gradient(transparent 55%, var(--db-highlight) 55%, var(--db-highlight) 92%, transparent 92%)' }}
-      >
+      {/* The stroke sits under the word, never behind it (readability rule). */}
+      <span className="db-hl font-db-serif font-bold tracking-wide text-db-charcoal" style={{ fontSize: serif, marginTop: -Math.round(h * 0.06) }}>
         LEGAL
       </span>
       {tagline && <span className="mt-1 font-db-sans text-xs text-db-muted">{BRAND.tagline}</span>}

@@ -55,8 +55,14 @@
 }
 
 /* The highlighter stroke from the logo — the one decorative mark the brand
-   allows. Behind text only; the text keeps its own color and contrast. */
+   allows. READABILITY RULE (2026-09-13, the price was unreadable in dark
+   mode): the stroke sits UNDER the baseline and never behind the glyphs, so
+   text keeps its own color and contrast in both themes. */
 .daybreak .db-hl {
-  background-image: linear-gradient(transparent 58%, var(--db-highlight) 58%, var(--db-highlight) 94%, transparent 94%);
-  padding: 0 0.15em;
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-color: var(--db-highlight);
+  text-decoration-thickness: 0.28em;
+  text-underline-offset: 0.18em;
+  text-decoration-skip-ink: none;
 }
