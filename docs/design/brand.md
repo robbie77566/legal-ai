@@ -37,6 +37,6 @@ apps/web/public/brand/logo.png       # web: BrandLogo renders it at every size
 packages/reports/assets/logo.png     # PDF cover (pdfkit draws PNG directly)
 ```
 
-White background as supplied; ~2000 px wide is fine (the web serves it unoptimized, ≈ nav height 36 px, hero 88 px). A transparent-background version would let the dark theme show it on the dark surface — until then the lockup handles dark mode. Favicon: still the placeholder; an "SN" marker mark at 32 px is the next brand task.
+White background as supplied; ~2000 px wide is fine (the web serves it unoptimized, ≈ nav height 36 px, hero 88 px). A transparent-background version would let the dark theme show it on the dark surface — until then the lockup handles dark mode. **Favicon and touch icon (done 2026-09-13):** the mark is the logo's serif **L** with the highlighter band behind it and the foot dissolving into pixel squares — the one element of the logo that survives 16 px. `apps/web/app/icon.svg` (crisp in modern browsers), `favicon.ico` (16/32/48), `apple-icon.png` (180), and `public/brand/icon-512.png` (for a future manifest) share one geometry; regenerate the rasters with `python3 scripts/brand-icon.py` (Pillow, no fonts).
 
 All constants live in `packages/case-lifecycle/brand.ts` (`BRAND`, `NOT_A_LAW_FIRM`).
