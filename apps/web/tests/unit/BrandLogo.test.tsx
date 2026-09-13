@@ -13,6 +13,9 @@ describe('BrandLogo', () => {
     expect(img.getAttribute('src')).toBe('/brand/logo.png')
     expect(img.alt).toBe('Snot Nose Legal — Post-Conviction Case File Analytics')
     expect(img.closest('a')).toHaveAttribute('href', '/')
+    // Dark surfaces get the dark variant; light ones the transparent variant (2026-09-13).
+    const sources = Array.from(img.closest('picture')!.querySelectorAll('source')).map((s) => [s.getAttribute('srcset'), s.getAttribute('media')])
+    expect(sources).toEqual([['/brand/logo-dark.png', '(prefers-color-scheme: dark)'], ['/brand/logo-transparent.png', null]])
   })
   it('falls back to the typographic lockup when the file is missing', () => {
     render(<BrandLogo tagline />)

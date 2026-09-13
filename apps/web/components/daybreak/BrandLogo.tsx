@@ -37,8 +37,16 @@ export default function BrandLogo({ size = 'nav', href = '/', tagline = false, c
     <BrandLockup size={size} tagline={tagline} />
   ) : (
     <span className="inline-flex flex-col items-start">
-      {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimizer */}
-      <img src="/brand/logo.png" alt={`${BRAND.name} — ${BRAND.tagline}`} height={h} style={{ height: h, width: 'auto' }} onError={() => setBroken(true)} data-testid="brand-logo" />
+      {/* Dark theme (2026-09-13): logo-dark.png (ink lifted to paper, the
+          highlighter kept) on dark surfaces; the transparent variant on light.
+          Both are produced from logo.png by scripts/brand-logo-variants.py;
+          a missing variant falls back to logo.png, then to the lockup. */}
+      <picture>
+        <source srcSet="/brand/logo-dark.png" media="(prefers-color-scheme: dark)" />
+        <source srcSet="/brand/logo-transparent.png" />
+        {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimizer */}
+        <img src="/brand/logo.png" alt={`${BRAND.name} — ${BRAND.tagline}`} height={h} style={{ height: h, width: 'auto' }} onError={() => setBroken(true)} data-testid="brand-logo" />
+      </picture>
       {tagline && <span className="mt-1 font-db-sans text-xs text-db-muted">{BRAND.tagline}</span>}
     </span>
   )
