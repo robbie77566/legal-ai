@@ -107,6 +107,10 @@ export async function getCaseFile(caseId: string) {
         findings: (findingsByRun.get(run.id) ?? []).map((f) => ({
           id: f.id,
           category: f.category,
+          // Which trial-process screen grounded this, and any other screen
+          // that found the same passage (one issue, not one per screen).
+          screen: f.screen,
+          alsoFoundBy: f.alsoFoundBy,
           severity: f.severity,
           confidence: f.confidence,
           adjudication: f.adjudication,

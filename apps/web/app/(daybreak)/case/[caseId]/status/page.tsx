@@ -37,7 +37,13 @@ const SCREEN_NAMES: Record<string, string> = {
   plea_lane: 'problems with the guilty plea',
   voir_dire: 'jury selection problems',
 }
-const TOTAL_CHECKS = 6 // the running screen set (ANALYSIS_* config)
+/**
+ * Fallback only. The real total differs by lane (a trial record runs five
+ * screens, a plea case two) and arrives on every analysis.progress event as
+ * `screensTotal` — hardcoding 6 meant a trial case counted "5 of 6 checks
+ * finished · check 6 in progress" forever and never reached "All finished".
+ */
+const TOTAL_CHECKS_FALLBACK = 6
 const POLL_MS = 20_000
 
 /** The always-available "what's happening right now" copy per active stage —
@@ -68,9 +74,14 @@ export default function CaseStatus() {
   const [lastDetail, setLastDetail] = useState<string | null>(null)
   const [checksDone, setChecksDone] = useState<string[]>([])
   const [nowChecking, setNowChecking] = useState<{ name: string; sample: number; samplesTotal: number; index: number; total: number } | null>(null)
+  // The lane's real screen count, learned from the pipeline's own events.
+  const [screensTotal, setScreensTotal] = useState<number | null>(null)
   const [dates, setDates] = useState<{ started: string | null; readyBy: string | null }>({ started: null, readyBy: null })
   const [facts, setFacts] = useState<Facts | null>(null)
   const [tick, setTick] = useState(Date.now()) // re-renders the "N minutes ago" line
+
+  // Never promise fewer checks than the family has already watched finish.
+  const totalChecks = Math.max(screensTotal ?? TOTAL_CHECKS_FALLBACK, checksDone.length)
 
   useEffect(() => {
     // Base state + progress facts from the checklist endpoint — on load AND
@@ -111,6 +122,7 @@ export default function CaseStatus() {
         // Honest sub-detail: counts only, from the registry-validated payload
         if (msg.type === 'analysis.progress' && msg.payload) {
           const name = SCREEN_NAMES[msg.payload.screen as string]
+          if (typeof msg.payload.screensTotal === 'number') setScreensTotal(msg.payload.screensTotal)
           if (name) setNowChecking({ name, sample: msg.payload.sample, samplesTotal: msg.payload.samplesTotal, index: msg.payload.screenIndex, total: msg.payload.screensTotal })
         } else if (msg.type === 'screen.completed') {
           if (msg.payload?.volumesTotal) {
@@ -233,13 +245,13 @@ export default function CaseStatus() {
                   {isActive && stage.id === 'analyzing' && (
                     <span data-testid="checks-feed" className="mt-2 block text-sm">
                       <span className="font-semibold">
-                        {checksDone.length >= TOTAL_CHECKS
-                          ? `All ${TOTAL_CHECKS} checks finished`
+                        {checksDone.length >= totalChecks
+                          ? `All ${totalChecks} checks finished`
                           : nowChecking
                             ? `Now checking for ${nowChecking.name} (check ${nowChecking.index} of ${nowChecking.total}${nowChecking.samplesTotal > 1 ? `, pass ${nowChecking.sample} of ${nowChecking.samplesTotal}` : ''})`
                             : checksDone.length === 0
-                              ? `Check 1 of ${TOTAL_CHECKS} in progress`
-                              : `${checksDone.length} of ${TOTAL_CHECKS} checks finished · check ${checksDone.length + 1} in progress`}
+                              ? `Check 1 of ${totalChecks} in progress`
+                              : `${checksDone.length} of ${totalChecks} checks finished · check ${checksDone.length + 1} in progress`}
                       </span>
                       {checksDone.map((c) => (
                         <span key={c} className="mt-1 block text-db-muted">

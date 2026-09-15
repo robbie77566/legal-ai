@@ -322,14 +322,14 @@ describe('auto-QA (AUTO_APPROVE)', () => {
     // Disabled → no-op
     delete process.env.AUTO_APPROVE;
     const c1 = await mk('auto_off');
-    expect((await autoApproveCase(c1.id, tenantId, { runId: 'x', screensRun: 5, findingsPersisted: 1, droppedUngrounded: 0, screensExpected: 5 })).outcome).toBe('disabled');
+    expect((await autoApproveCase(c1.id, tenantId, { runId: 'x', screensRun: 5, findingsPersisted: 1, droppedUngrounded: 0, mergedAcrossScreens: 0, screensExpected: 5 })).outcome).toBe('disabled');
     expect((await prisma.case.findUniqueOrThrow({ where: { id: c1.id } })).status).toBe('QA_REVIEW');
 
     // Enabled, healthy → READY + report + audit + spotcheck(100%)
     process.env.AUTO_APPROVE = '1';
     process.env.AUTO_APPROVE_SPOTCHECK_PERCENT = '100';
     const c2 = await mk('auto_on');
-    const res = await autoApproveCase(c2.id, tenantId, { runId: 'x', screensRun: 5, findingsPersisted: 1, droppedUngrounded: 0, screensExpected: 5 });
+    const res = await autoApproveCase(c2.id, tenantId, { runId: 'x', screensRun: 5, findingsPersisted: 1, droppedUngrounded: 0, mergedAcrossScreens: 0, screensExpected: 5 });
     expect(res.outcome).toBe('approved');
     expect(res.spotcheck).toBe(true);
     expect((await prisma.case.findUniqueOrThrow({ where: { id: c2.id } })).status).toBe('READY');
@@ -337,7 +337,7 @@ describe('auto-QA (AUTO_APPROVE)', () => {
 
     // Quality gate: runaway drop ratio → HELD in QA_REVIEW
     const c3 = await mk('auto_held');
-    const held = await autoApproveCase(c3.id, tenantId, { runId: 'x', screensRun: 5, findingsPersisted: 2, droppedUngrounded: 10, screensExpected: 5 });
+    const held = await autoApproveCase(c3.id, tenantId, { runId: 'x', screensRun: 5, findingsPersisted: 2, droppedUngrounded: 10, mergedAcrossScreens: 0, screensExpected: 5 });
     expect(held.outcome).toBe('held');
     expect(held.reasons?.join()).toContain('drop ratio');
     expect((await prisma.case.findUniqueOrThrow({ where: { id: c3.id } })).status).toBe('QA_REVIEW');
@@ -421,7 +421,7 @@ describe('auto-QA holds: customer notice + admin queue (auto_qa_hold_workflow.md
         slaStartedAt: new Date(), accessList: { create: { userId, role: 'ADMIN' } },
       },
     });
-    const bad = { runId: 'x', screensRun: 3, findingsPersisted: 0, droppedUngrounded: 9, screensExpected: 5 };
+    const bad = { runId: 'x', screensRun: 3, findingsPersisted: 0, droppedUngrounded: 9, mergedAcrossScreens: 0, screensExpected: 5 };
     const h1 = await autoApproveCase(c.id, tenantId, bad);
     expect(h1.outcome).toBe('held');
     expect(h1.reasons?.length).toBeGreaterThan(1);

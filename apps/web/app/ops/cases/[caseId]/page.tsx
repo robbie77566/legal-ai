@@ -27,7 +27,7 @@ interface CaseFile {
   runs: Array<{
     id: string; runNo: number; startedAt: string; completedAt: string | null; screensDone: string[]
     findings: Array<{
-      id: string; category: string; severity: string; confidence: number; adjudication: string; provenance: string
+      id: string; category: string; screen: string | null; alsoFoundBy: string[]; severity: string; confidence: number; adjudication: string; provenance: string
       partAText: string; partBText: string; citations: Array<{ volume: string | null; page: number | null; line: number | null; excerpt: string }>
     }>
   }>
@@ -365,6 +365,10 @@ export default function CaseFilePage() {
                   <article key={f.id} className="space-y-2 border-b border-[#21262D] px-3 py-3 last:border-b-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <Chip tone="blue">{humanize(f.category).toUpperCase()}</Chip>
+                      {f.screen && <Chip tone="gold">{SCREEN_NAMES[f.screen] ?? humanize(f.screen)}</Chip>}
+                      {(f.alsoFoundBy ?? []).map((sc) => (
+                        <Chip key={sc}>also: {SCREEN_NAMES[sc] ?? humanize(sc)}</Chip>
+                      ))}
                       <Chip tone={f.severity === 'dispositive' ? 'bad' : f.severity === 'supportive' ? 'warn' : 'muted'}>{f.severity === 'dispositive' ? 'STRONG SIGNAL' : f.severity === 'supportive' ? 'POSSIBLE ISSUE' : 'BACKGROUND'}</Chip>
                       <Chip>conf {Math.round(f.confidence * 100)}%</Chip>
                       {f.adjudication === 'disagree' && <Chip tone="bad">ADJUDICATION DISAGREES</Chip>}

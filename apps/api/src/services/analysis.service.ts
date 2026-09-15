@@ -211,6 +211,8 @@ export interface AnalysisSummary {
   screensRun: number;
   findingsPersisted: number;
   droppedUngrounded: number;
+  /** Passages a second screen grounded that were folded into one finding. */
+  mergedAcrossScreens: number;
 }
 
 export interface AnalysisChunk {
@@ -367,6 +369,33 @@ export function groundUnion(
     }
   }
   return { grounded, dropped, agreements };
+}
+
+/** Normalized form used for passage comparison (whitespace/case-insensitive). */
+export const normalizeQuote = (q: string) => q.replace(/\s+/g, ' ').trim().toLowerCase();
+
+/**
+ * Is `quote` the same passage as one already kept for this chunk? Containment
+ * either way, matching the within-screen rule in groundUnion: screens quote
+ * the same moment at different lengths.
+ */
+export function findSamePassage<T extends { quote: string }>(
+  siblings: readonly T[],
+  quote: string
+): T | undefined {
+  const q = normalizeQuote(quote);
+  return siblings.find((k) => k.quote.includes(q) || q.includes(k.quote));
+}
+
+/** Does the incoming copy of a passage beat the one already kept? */
+export function isStrongerFinding(
+  incoming: { severity: string; confidence: number },
+  kept: { severity: string; confidence: number }
+): boolean {
+  const a = SEVERITY_RANK[incoming.severity as keyof typeof SEVERITY_RANK];
+  const b = SEVERITY_RANK[kept.severity as keyof typeof SEVERITY_RANK];
+  if (a !== b) return a < b;
+  return incoming.confidence > kept.confidence;
 }
 
 export async function executeScreen(
@@ -542,6 +571,26 @@ export async function runAnalysis(
   }
 
   let agreements = 0;
+  let mergedAcrossScreens = 0;
+
+  /**
+   * Cross-screen union. `groundUnion` collapses duplicates WITHIN one screen's
+   * samples, but every screen sweeps the whole record, so the same passage is
+   * routinely grounded by two of them — a seated biased juror is both an `iac`
+   * failure and a `voir_dire` finding. Persisted per screen, that reached the
+   * family as the same issue written twice under different labels.
+   *
+   * One passage is now one finding: the strongest copy wins the row, and every
+   * other screen that grounded it is recorded in `alsoFoundBy` — so the report
+   * can show the full spread of trial-process categories instead of repeating
+   * one issue.
+   */
+  const keptByChunk = new Map<string, Array<{
+    id: string; quote: string; category: string; severity: string; confidence: number;
+    screen: string; seenBy: Set<string>;
+  }>>();
+
+
   for (const screenId of SCREENS_BY_LANE[lane]) {
     const arrays: Parameters<typeof groundUnion>[0] = [];
     for (const m of models) {
@@ -583,7 +632,43 @@ export async function runAnalysis(
     await withTenant(tenantId, async (tx) => {
       for (const f of result.grounded) {
         const meta = (f.chunk.metadata ?? {}) as { volume?: string; page?: number; line?: number };
-        await tx.finding.create({
+        const q = normalizeQuote(f.quote);
+        const siblings = keptByChunk.get(f.chunk.id) ?? [];
+        // Same passage as something an earlier screen already grounded?
+        const dup = findSamePassage(siblings, f.quote);
+
+        if (dup) {
+          dup.seenBy.add(screenId);
+          const better = isStrongerFinding(f, dup);
+          if (better) {
+            dup.category = f.category;
+            dup.severity = f.severity;
+            dup.confidence = f.confidence;
+            dup.screen = screenId;
+          }
+          await tx.finding.update({
+            where: { id: dup.id },
+            data: {
+              screen: dup.screen,
+              alsoFoundBy: [...dup.seenBy].filter((sc) => sc !== dup.screen),
+              ...(better
+                ? {
+                    stableKey: sha256(`${f.category}:${f.chunk.id}:${f.quote}`).slice(0, 32),
+                    category: f.category,
+                    severity: f.severity,
+                    confidence: f.confidence,
+                    engine: f.engine ?? model.name,
+                    partAText: f.partA,
+                    partBText: f.partB,
+                  }
+                : {}),
+            },
+          });
+          mergedAcrossScreens++;
+          continue;
+        }
+
+        const created = await tx.finding.create({
           data: {
             runId: run.id,
             caseId,
@@ -594,6 +679,7 @@ export async function runAnalysis(
             confidence: f.confidence,
             adjudication: 'not_run',
             engine: f.engine ?? model.name,
+            screen: screenId,
             partAText: f.partA,
             partBText: f.partB,
             citations: {
@@ -608,7 +694,13 @@ export async function runAnalysis(
               },
             },
           },
+          select: { id: true },
         });
+        siblings.push({
+          id: created.id, quote: q, category: f.category, severity: f.severity,
+          confidence: f.confidence, screen: screenId, seenBy: new Set([screenId]),
+        });
+        keptByChunk.set(f.chunk.id, siblings);
         persisted++;
       }
       await appendCaseEvent(tx, {
@@ -641,7 +733,7 @@ export async function runAnalysis(
     await tx.analysisRun.update({ where: { id: run.id }, data: { completedAt: new Date() } });
   });
 
-  return { runId: run.id, screensRun: SCREENS_BY_LANE[lane].length, findingsPersisted: persisted, droppedUngrounded: dropped };
+  return { runId: run.id, screensRun: SCREENS_BY_LANE[lane].length, findingsPersisted: persisted, droppedUngrounded: dropped, mergedAcrossScreens };
 }
 
 /**

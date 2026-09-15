@@ -243,6 +243,8 @@ model Finding {
   confidence   Float
   adjudication String  @default("not_run") // agree | disagree | not_run
   engine       String? // which engine produced the kept copy (multi-engine union)
+  screen       String? // the screen that grounded the kept copy (iac | brady | …)
+  alsoFoundBy  String[] @default([]) // other screens that grounded the SAME passage
   s4Tags       String[] @default([])
   partAText    String
   partBText    String
