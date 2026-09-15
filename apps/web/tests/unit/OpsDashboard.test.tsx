@@ -24,8 +24,8 @@ const STATUS = {
 }
 const HOLDS = [{ caseId: 'c_h', title: 'Harris County · 2019', reasons: ['drop_ratio'], heldAt: new Date().toISOString(), slaRemainingHours: 3.5 }]
 const QUEUE = [
-  { id: 'c_1', title: 'Case review', label: 'Travis County · 2020', ref: '0000C1', status: 'AWAITING_DOCS', lane: 'TRIAL', daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: false, subsequentWrit: false },
-  { id: 'c_2', title: 'Case review', label: 'Bexar County · 2018', ref: '0000C2', status: 'ANALYZING', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: false },
+  { id: 'c_1', title: 'Case review', label: 'Travis County · 2020', ref: '0000C1', customerName: 'Maria Delgado', customerEmail: 'maria@example.com', status: 'AWAITING_DOCS', lane: 'TRIAL', daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: false, subsequentWrit: false },
+  { id: 'c_2', title: 'Case review', label: 'Bexar County · 2018', ref: '0000C2', customerName: null, customerEmail: 'j.ortiz@example.com', status: 'ANALYZING', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: false },
 ]
 const REQUESTS = { open: [{ id: 'q_1', caseId: 'c_2', caseTitle: 'Bexar County · 2018', type: 'REFUND', reason: 'unreadable_record', note: '3 of 9 scans unusable', amountCents: 14900, requestedByEmail: 'dana@snotnoselegal.com', decision: null, decidedByEmail: null, decisionNote: null, createdAt: new Date().toISOString(), decidedAt: null }], decided: [] }
 const calls: string[] = []
@@ -97,7 +97,7 @@ describe('ops overview', () => {
 
   it('case drawer groups routine vs irreversible, shows COGS, and gates delete behind the typed case reference', async () => {
     render(<OpsOverview />)
-    fireEvent.click(await screen.findByText('Bexar County · 2018'))
+    fireEvent.click(await screen.findByText('j.ortiz@example.com'))
     const drawer = await screen.findByTestId('case-drawer')
     await waitFor(() => expect(drawer).toHaveTextContent(/COGS \$4\.66/))
     expect(drawer).toHaveTextContent(/Routine/)
@@ -172,7 +172,7 @@ describe('drawer actions report next to the button (2026-09-09)', () => {
       return { ok: true, status: 200, json: async () => body } as Response
     }))
     render(<OpsOverview />)
-    fireEvent.click(await screen.findByText('Bexar County · 2018')) // ANALYZING → button shown
+    fireEvent.click(await screen.findByText('j.ortiz@example.com')) // ANALYZING → button shown
     const drawer = await screen.findByTestId('case-drawer')
     fireEvent.click(screen.getByTestId('resume-pipeline'))
     const result = await screen.findByTestId('drawer-result')

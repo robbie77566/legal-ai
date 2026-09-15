@@ -11,7 +11,7 @@ import { apiFetch } from '@/lib/api'
 import { useStaffRole } from '@/lib/staff-role'
 
 interface QueueRow {
-  id: string; title: string; label: string; ref: string; status: string; lane: string | null
+  id: string; title: string; label: string; ref: string; customerName: string | null; customerEmail: string | null; status: string; lane: string | null
   daysInStage: number; stalled: boolean; ocrHalt: boolean; delayOurs: boolean; subsequentWrit: boolean; updatedAt: string
 }
 const STAGE: Record<string, string> = {
@@ -35,6 +35,8 @@ export default function CasesPage() {
     const term = q.trim().toLowerCase()
     return rows
       .filter((c) => !term
+        || (c.customerName ?? '').toLowerCase().includes(term)
+        || (c.customerEmail ?? '').toLowerCase().includes(term)
         || (c.label ?? '').toLowerCase().includes(term)
         || (c.ref ?? '').toLowerCase().includes(term)
         || c.id.toLowerCase().includes(term)
@@ -50,7 +52,7 @@ export default function CasesPage() {
         <div className="flex items-center gap-2">
           <button onClick={() => setAttention(false)} className={`rounded px-2 py-1 text-xs ${!attention ? 'bg-[#161B22] text-[#D4AF37]' : 'text-[#8B949E]'}`}>All ({rows.length})</button>
           <button onClick={() => setAttention(true)} className={`rounded px-2 py-1 text-xs ${attention ? 'bg-[#161B22] text-[#D4AF37]' : 'text-[#8B949E]'}`}>Needs attention</button>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="County, case reference, or stage" aria-label="Find a case" className="w-72 rounded border border-[#30363D] bg-[#161B22] p-1.5 text-xs" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, email, county, reference, or stage" aria-label="Find a case" className="w-72 rounded border border-[#30363D] bg-[#161B22] p-1.5 text-xs" />
         </div>
       </div>
       <table className="mt-4 w-full border-collapse text-sm" data-testid="cases-table">
@@ -63,8 +65,12 @@ export default function CasesPage() {
           {shown.map((c) => (
             <tr key={c.id} className="border-b border-[#21262D]">
               <td className="py-2">
-                <Link href={`/ops/cases/${c.id}`} className="font-semibold hover:text-[#D4AF37]">{c.label || 'Review'}</Link>
-                <span className="ml-2 font-mono text-[11px] text-[#8B949E]">{c.ref}</span>
+                <Link href={`/ops/cases/${c.id}`} className="font-semibold hover:text-[#D4AF37]" data-testid={`case-who-${c.id}`}>
+                  {c.customerName || c.customerEmail || c.label || 'Review'}
+                </Link>
+                <div className="font-mono text-[11px] text-[#8B949E]">
+                  {c.customerName && c.customerEmail ? `${c.customerEmail} · ` : ''}{c.label} · {c.ref}
+                </div>
               </td>
               <td>{STAGE[c.status] ?? c.status}</td>
               <td className="text-right font-mono tabular-nums">{c.daysInStage}</td>

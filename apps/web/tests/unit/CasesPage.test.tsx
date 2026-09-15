@@ -7,8 +7,8 @@ import CasesPage from '@/app/ops/cases/page'
 
 /** Cases — the support surface: every case, searchable, linking to its case file. */
 const QUEUE = [
-  { id: 'c_1', title: 'Case review', label: 'Travis County · 2020', ref: '0000C1', status: 'AWAITING_DOCS', lane: 'TRIAL', daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: false, subsequentWrit: false, updatedAt: '2026-09-01T10:00:00Z' },
-  { id: 'c_2', title: 'Case review', label: 'Bexar County · 2018', ref: '0000C2', status: 'QA_REJECTED', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: true, updatedAt: '2026-09-07T10:00:00Z' },
+  { id: 'c_1', title: 'Case review', label: 'Travis County · 2020', ref: '0000C1', customerName: 'Maria Delgado', customerEmail: 'maria@example.com', status: 'AWAITING_DOCS', lane: 'TRIAL', daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: false, subsequentWrit: false, updatedAt: '2026-09-01T10:00:00Z' },
+  { id: 'c_2', title: 'Case review', label: 'Bexar County · 2018', ref: '0000C2', customerName: null, customerEmail: 'j.ortiz@example.com', status: 'QA_REJECTED', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: true, updatedAt: '2026-09-07T10:00:00Z' },
 ]
 beforeEach(() => {
   role.value = 'SUPPORT'
@@ -21,7 +21,7 @@ describe('cases page', () => {
     const table = await screen.findByTestId('cases-table')
     expect(table).toHaveTextContent(/Bexar County · 2018.*Travis County · 2020/) // newest first
     expect(table).toHaveTextContent(/Quality review/) // QA_REJECTED reads as the family sees it
-    expect(screen.getByRole('link', { name: 'Bexar County · 2018' })).toHaveAttribute('href', '/ops/cases/c_2')
+    expect(screen.getByRole('link', { name: 'j.ortiz@example.com' })).toHaveAttribute('href', '/ops/cases/c_2')
     fireEvent.change(screen.getByLabelText('Find a case'), { target: { value: 'travis' } })
     expect(table).not.toHaveTextContent(/Bexar/)
     expect(table).toHaveTextContent(/STALL/)
@@ -38,5 +38,12 @@ describe('cases page', () => {
     expect(await screen.findByText('Cost so far')).toBeInTheDocument()
     expect(await screen.findByTestId('cogs-c_1')).toHaveTextContent('$12.50')
     expect(screen.getByTestId('cogs-c_2')).toHaveTextContent('—')
+  })
+
+  it('names each case by the person who bought it — email when there is no name — never the constant title', async () => {
+    render(<CasesPage />)
+    expect(await screen.findByTestId('case-who-c_1')).toHaveTextContent('Maria Delgado')
+    expect(screen.getByTestId('case-who-c_2')).toHaveTextContent('j.ortiz@example.com')
+    expect(screen.queryByText('Case review')).toBeNull()
   })
 })

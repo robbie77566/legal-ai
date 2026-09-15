@@ -151,11 +151,21 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       },
       orderBy: { updatedAt: 'asc' },
     });
+    // Who the case belongs to. County + year names the conviction, but an
+    // admin recognises a case by the person who bought the review — the
+    // owner is the ADMIN CaseAccess row, exactly as the case file resolves it.
+    const owners = await prisma.caseAccess.findMany({
+      where: { caseId: { in: cases.map((c) => c.id) }, role: 'ADMIN' },
+      select: { caseId: true, user: { select: { email: true, name: true } } },
+    });
+    const ownerOf = new Map(owners.map((o) => [o.caseId, o.user]));
     const now = Date.now();
     return cases.map((c) => ({
       ...c,
-      // The queue identifies a case the way the family does (county + year),
-      // plus the reference they read off their email — `title` is a constant.
+      customerName: ownerOf.get(c.id)?.name || null,
+      customerEmail: ownerOf.get(c.id)?.email ?? null,
+      // The conviction (county + year) and the reference the family quotes —
+      // `title` is a constant and identifies nothing.
       label: caseLabel(c),
       ref: caseRef(c.id),
       daysInStage: Math.floor((now - c.updatedAt.getTime()) / 86_400_000),

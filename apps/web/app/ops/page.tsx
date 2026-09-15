@@ -27,7 +27,7 @@ interface Status {
 }
 interface Hold { caseId: string; title: string; ref: string; reasons: string[]; heldAt: string; slaRemainingHours: number }
 interface QueueRow {
-  id: string; title: string; label: string; ref: string; status: string; lane: string | null
+  id: string; title: string; label: string; ref: string; customerName: string | null; customerEmail: string | null; status: string; lane: string | null
   daysInStage: number; stalled: boolean; ocrHalt: boolean; delayOurs: boolean; subsequentWrit: boolean
 }
 interface TimelineEvent { id: string; type: string; payload: Record<string, unknown>; actor: string; createdAt: string }
@@ -166,7 +166,7 @@ export default function OpsOverview() {
           ))}
           {stalled.map((c) => (
             <button key={c.id} onClick={() => void open(c)} className="rounded border border-[#30363D] bg-[#0D1117] p-3 text-left">
-              <div className="text-sm font-semibold">{c.label || 'Review'} <span className="font-mono text-xs font-normal text-[#8B949E]">{c.ref}</span></div>
+              <div className="text-sm font-semibold">{c.customerName || c.customerEmail || c.label || 'Review'} <span className="font-mono text-xs font-normal text-[#8B949E]">{c.label} · {c.ref}</span></div>
               <div className="mt-1 text-xs text-[#8B949E]">
                 {c.ocrHalt ? 'OCR halted — bad-scan cohort; decide re-scan vs proceed' : `Stalled ${c.daysInStage} days awaiting documents`}
               </div>
@@ -275,7 +275,7 @@ export default function OpsOverview() {
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id} onClick={() => void open(c)} className={`cursor-pointer border-b border-[#161B22] hover:bg-[#161B22] ${selected?.id === c.id ? 'bg-[#161B22]' : ''}`}>
-                  <td className="py-2 pr-3">{c.label || 'Review'} <span className="font-mono text-xs text-[#8B949E]">{c.ref}</span></td>
+                  <td className="py-2 pr-3">{c.customerName || c.customerEmail || c.label || 'Review'} <span className="font-mono text-xs text-[#8B949E]">{c.label} · {c.ref}</span></td>
                   <td className="py-2 pr-3 font-mono text-xs">{c.status}</td>
                   <td className="py-2 pr-3 font-mono">{c.daysInStage}</td>
                   <td className="space-x-1 py-2">
@@ -294,7 +294,7 @@ export default function OpsOverview() {
             {selected ? (
               <div className="rounded border border-[#30363D] bg-[#161B22] p-4" data-testid="case-drawer">
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-semibold">{selected.label || 'Review'} <span className="font-mono text-sm font-normal text-[#8B949E]">{selected.ref}</span></h3>
+                  <h3 className="font-semibold">{selected.customerName || selected.customerEmail || selected.label || 'Review'} <span className="font-mono text-sm font-normal text-[#8B949E]">{selected.label} · {selected.ref}</span></h3>
                   <Link href={`/ops/cases/${selected.id}`} className="shrink-0 text-xs text-[#3B82F6] underline" data-testid="open-case-file">Open case file →</Link>
                 </div>
                 <p className="mt-1 text-xs text-[#8B949E]">

@@ -7,7 +7,7 @@ vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { role: '
 
 const QUEUE = [
   {
-    id: 'c1', title: 'Case review', label: 'Harris County · 2019', ref: 'ABC123', status: 'AWAITING_DOCS', lane: 'TRIAL',
+    id: 'c1', title: 'Case review', label: 'Harris County · 2019', ref: 'ABC123', customerName: 'Maria Delgado', customerEmail: 'maria@example.com', status: 'AWAITING_DOCS', lane: 'TRIAL',
     daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: true, subsequentWrit: true,
   },
 ]
@@ -44,7 +44,7 @@ describe('Ops console (US-9)', () => {
     expect(screen.getByText('§4')).toBeInTheDocument()
 
     // The stalled case appears in "Needs you now" AND the table — open via the table row.
-    fireEvent.click(screen.getAllByText('Harris County · 2019').at(-1)!)
+    fireEvent.click(screen.getAllByText('Maria Delgado').at(-1)!)
     await waitFor(() => expect(screen.getByText('delay ours marked')).toBeInTheDocument()) // de-snaked
     expect(screen.getByRole('button', { name: /Delete \(OPS-4\)/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /E-6 disclosure archive/ })).toBeInTheDocument()
@@ -54,7 +54,7 @@ describe('Ops console (US-9)', () => {
 
   it('the delete confirmation needs the case reference — not the title every case shares', async () => {
     render(<OpsConsole />)
-    fireEvent.click((await screen.findAllByText('Harris County · 2019')).at(-1)!)
+    fireEvent.click((await screen.findAllByText('Maria Delgado')).at(-1)!)
     await waitFor(() => expect(screen.getByTestId('case-drawer')).toBeInTheDocument())
     const box = screen.getByTestId('delete-typed')
     const del = screen.getByTestId('delete-case')
