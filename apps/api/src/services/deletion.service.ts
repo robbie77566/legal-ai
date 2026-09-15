@@ -107,6 +107,8 @@ export async function deleteAccount(userId: string, actor: string) {
     if (await deleteCaseScoped(c.id, actor)) casesDeleted.push(c.id);
   }
   const sharesRemoved = (await prisma.caseAccess.deleteMany({ where: { userId } })).count;
+  // Behavioural data goes with the account; nothing retains it by design.
+  const visitsRemoved = (await prisma.userVisit.deleteMany({ where: { userId } })).count;
 
   const originalEmail = user.email;
   await prisma.user.update({
@@ -116,6 +118,8 @@ export async function deleteAccount(userId: string, actor: string) {
       name: null,
       passwordHash: crypto.randomBytes(32).toString('hex'), // never matches any password
       passwordChangedAt: new Date(), // session-invalidation guard kills live sessions
+      lastLoginAt: null,
+      loginCount: 0,
       resetToken: null,
       resetExpires: null,
       inviteToken: null,
@@ -124,5 +128,5 @@ export async function deleteAccount(userId: string, actor: string) {
     },
   });
 
-  return { originalEmail, casesDeleted, sharesRemoved };
+  return { originalEmail, casesDeleted, sharesRemoved, visitsRemoved };
 }

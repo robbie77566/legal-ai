@@ -738,15 +738,25 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     const { q } = request.query as { q?: string };
     const users = await prisma.user.findMany({
       where: { role: 'CLIENT', ...(q ? { email: { contains: q, mode: 'insensitive' } } : {}) },
-      select: { id: true, email: true, name: true, createdAt: true, deletedAt: true, tenantId: true },
+      select: { id: true, email: true, name: true, createdAt: true, deletedAt: true, tenantId: true, lastLoginAt: true, loginCount: true },
       take: 100,
       orderBy: { createdAt: 'desc' },
     });
+    // Activity: last sign-in comes off the user row (authorize() stamps it);
+    // visits and time on site roll up from UserVisit in one query.
+    const { visitSummary } = await import('../services/visits.service');
+    const activity = await visitSummary(users.map((u) => u.id));
     return Promise.all(
-      users.map(async (u) => ({
-        ...u,
-        cases: await prisma.case.count({ where: { tenantId: u.tenantId, accessList: { some: { userId: u.id } } } }),
-      }))
+      users.map(async (u) => {
+        const a = activity.get(u.id);
+        return {
+          ...u,
+          cases: await prisma.case.count({ where: { tenantId: u.tenantId, accessList: { some: { userId: u.id } } } }),
+          visits: a?.visits ?? 0,
+          avgSecondsOnSite: a?.avgSeconds ?? null,
+          lastSeenAt: a?.lastSeenAt ?? null,
+        };
+      })
     );
   });
 

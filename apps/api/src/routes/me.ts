@@ -220,6 +220,16 @@ export default async function meRoutes(fastify: FastifyInstance) {
 
   // Deletion is a request (your_account §8): an Admin runs the scoped
   // deletion; a review mid-pipeline is finished or refunded first.
+  // Visit heartbeat for the admin's Accounts page. The web app posts on
+  // every page (pageview) and every minute the tab is visible; the service
+  // folds beats within 30 minutes into one visit. Any signed-in role.
+  fastify.post('/visit', { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } }, async (request) => {
+    const { userId, tenantId } = request.auth;
+    const { pageview } = z.object({ pageview: z.boolean().optional() }).parse(request.body ?? {});
+    const { touchVisit } = await import('../services/visits.service');
+    return touchVisit(userId, tenantId, { pageview: pageview ?? false });
+  });
+
   fastify.post('/delete-request', async (request, reply) => {
     const { userId } = request.auth;
     const access = await prisma.caseAccess.findMany({ where: { userId }, select: { caseId: true } });

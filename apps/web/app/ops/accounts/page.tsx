@@ -6,6 +6,7 @@
  *  never a one-misclick action. */
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { formatDuration, formatWhen } from '@/lib/duration'
 
 interface Account {
   id: string
@@ -14,6 +15,11 @@ interface Account {
   createdAt: string
   deletedAt: string | null
   cases: number
+  lastLoginAt: string | null
+  loginCount: number
+  visits: number
+  avgSecondsOnSite: number | null
+  lastSeenAt: string | null
 }
 
 export default function AccountAdmin() {
@@ -88,6 +94,9 @@ export default function AccountAdmin() {
               <th className="py-2">Email</th>
               <th>Name</th>
               <th>Cases</th>
+              <th>Last sign-in</th>
+              <th>Visits</th>
+              <th>Avg. time on site</th>
               <th>Created</th>
               <th></th>
             </tr>
@@ -98,6 +107,15 @@ export default function AccountAdmin() {
                 <td className="py-2 font-mono text-xs">{a.email}</td>
                 <td>{a.name ?? '—'}</td>
                 <td>{a.cases}</td>
+                <td data-testid={`last-login-${a.id}`}>
+                  {formatWhen(a.lastLoginAt)}
+                  {a.loginCount > 0 && <div className="text-[11px] text-[#8B949E]">{a.loginCount} sign-in{a.loginCount === 1 ? '' : 's'}</div>}
+                </td>
+                <td data-testid={`visits-${a.id}`}>
+                  {a.visits}
+                  {a.lastSeenAt && <div className="text-[11px] text-[#8B949E]">last seen {formatWhen(a.lastSeenAt)}</div>}
+                </td>
+                <td className="font-mono text-xs" data-testid={`avg-time-${a.id}`}>{formatDuration(a.avgSecondsOnSite)}</td>
                 <td>{new Date(a.createdAt).toLocaleDateString()}</td>
                 <td className="text-right">
                   {a.deletedAt ? (

@@ -111,6 +111,17 @@ export const authOptions: NextAuthOptions = {
 
         clearRateLimit(email);
 
+        // Last sign-in for the admin's Accounts page. Telemetry never blocks
+        // a sign-in: a failure here is logged and the session is still issued.
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date(), loginCount: { increment: 1 } },
+          });
+        } catch (err) {
+          console.error('[Auth] could not record sign-in time:', err);
+        }
+
         return {
           id: user.id,
           email: user.email,

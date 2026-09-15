@@ -351,6 +351,10 @@ model User {
   caseAccess          CaseAccess[]
 
   passwordChangedAt   DateTime?
+  // Activity for the admin's Accounts page: set by authorize() on every
+  // successful credential sign-in. Visits live in UserVisit.
+  lastLoginAt         DateTime?
+  loginCount          Int         @default(0)
   deletedAt           DateTime? // account deletion (anonymized row; ledger FKs survive)
   // Email change (your_account spec U5): the new address is held until its
   // owner confirms from a link sent to it; sign-in keeps using `email`.
@@ -566,4 +570,19 @@ model GraphState {
   created_at    DateTime @default(now())
 
   @@id([thread_id, checkpoint_id])
+}
+
+// One row per visit — a run of signed-in activity with no gap over
+// VISIT_GAP_MS (visits.service). Fed by the web app's heartbeat (/me/visit).
+// userId is a plain reference like the ledgers, and the rows are deleted with
+// the account: they are behavioural data, not a record the business retains.
+model UserVisit {
+  id         String   @id @default(cuid())
+  userId     String
+  tenantId   String
+  startedAt  DateTime
+  lastSeenAt DateTime
+  pageViews  Int      @default(1)
+
+  @@index([userId, lastSeenAt])
 }
