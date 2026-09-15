@@ -3,6 +3,8 @@
 **Status:** Draft for decision · **Owner:** Founder / Product · **Decision forum:** Founding team + prospective investors · **Last updated:** 2026-08-29
 **Companion docs:** `snotnoselegal_market_study_mvp_gtm.pdf` (market study, competitor dossiers, GTM — the evidence base for §3) · `market_analysis.md` · `swot_analysis.md` · `../specifications/mvp_v1_prd.md` (what v1.0 is) · `../implementation/mvp_v1_implementation_plan.md` (what it costs to build) · `../specifications/product_roadmap.md` (v1.1–v4 sequencing) · `../architecture/cost_optimization_ollama.md` (COGS basis)
 
+> **Amendment (2026-09-15):** `professional_tier_expansion.md` re-cuts this case for two professional segments pursued ahead of roadmap v3 — public defender appellate attorneys and solo/small writ practices. Its base case adds ~$32k revenue and ~$14k contribution to year one and, more materially, seeds 23 professional seats twelve months earlier than §5.3 assumed. The recommendation in §1 below stands; §5.4's payroll-coverage arithmetic is revisited there.
+
 > **Scope of this document.** The market study established *that* a white space exists and *who* pays. This document is the investment decision: what it costs, what it returns, what must be true, when to stop. Figures marked `[estimated]` are modelled assumptions, not observed data; every driver is listed and individually adjustable in §11. Nothing here supersedes the PRD's product scope or the roadmap's sequencing.
 
 ---
