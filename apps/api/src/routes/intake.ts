@@ -79,7 +79,10 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       });
       return cases.map((c) => ({
         id: c.id,
-        title: caseLabel(c),
+        // The family never named this case, so their list always shows the
+        // conviction (or the day the review started) — never the DB title,
+        // even a real one. Staff surfaces are where a real title is honoured.
+        title: caseLabel({ id: c.id, county: c.county, convictionYear: c.convictionYear, createdAt: c.createdAt }),
         ref: caseRef(c.id),
         status: c.status,
         stage: customerView(c.status as CaseStatus, [
