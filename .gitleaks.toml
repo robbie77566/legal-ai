@@ -1,0 +1,18 @@
+# Secret scanning (CI "Secret scan (gitleaks)"). Default rules, plus an
+# allowlist for things that look like keys but are public by construction.
+title = "legal-ai"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Public identifiers that match the generic-api-key rule's shape"
+# Match against the whole line: the rule captures only the bare GUID, and a
+# bare-GUID allowlist would be far too broad. The URL context is the point.
+regexTarget = "line"
+regexes = [
+  # CMS page keys in cited URLs (e.g. tcdla.com ...FAQ.aspx?hkey=<guid>).
+  # A GUID in a public URL's query string is a page id, not a credential;
+  # it first tripped the scan on docs/business_case/professional_tier_expansion.md.
+  '''[?&](hkey|WebsiteKey)=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}''',
+]
