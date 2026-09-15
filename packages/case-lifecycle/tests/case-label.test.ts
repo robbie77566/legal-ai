@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { caseLabel, caseRef, caseLabelWithRef, caseMatchesTerm } from '../case-label'
+import { caseLabel, caseRef, caseLabelWithRef, caseMatchesTerm, isPlaceholderTitle } from '../case-label'
 
 /**
  * The bug these guard against: `Case.title` is the constant 'Case review', so
@@ -69,5 +69,22 @@ describe('label with reference', () => {
   it('reads as one line for a staff surface', () => {
     expect(caseLabelWithRef({ id: 'clq2x8k9k0000abc7f3', county: 'Harris', convictionYear: 2019 }))
       .toBe('Harris County · 2019 · ABC7F3')
+  })
+})
+
+describe('a real title wins; the placeholder never does', () => {
+  it('ignores the purchase-time placeholders and derives from the conviction', () => {
+    for (const t of ['Case review', 'Family Case Review', 'case review', ' Review ']) {
+      expect(caseLabel({ title: t, county: 'Harris', convictionYear: 2019 })).toBe('Harris County · 2019')
+    }
+  })
+  it('keeps a title that actually names the case — seeded fixtures, counsel-named matters', () => {
+    expect(caseLabel({ title: 'Whitfield — Travis County record', county: 'Harris', convictionYear: 2019 })).toBe('Whitfield — Travis County record')
+    expect(caseLabel({ title: 'money_123 Travis County record' })).toBe('money_123 Travis County record')
+  })
+  it('classifies placeholders', () => {
+    expect(isPlaceholderTitle('Case review')).toBe(true)
+    expect(isPlaceholderTitle(null)).toBe(true)
+    expect(isPlaceholderTitle('State v. Ortiz')).toBe(false)
   })
 })

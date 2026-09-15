@@ -367,11 +367,16 @@ export async function listPayments(opts: { status?: string; q?: string; includeT
   if (term) {
     const [users, cases] = await Promise.all([
       prisma.user.findMany({ where: { email: { contains: term, mode: 'insensitive' } }, select: { id: true }, take: 50 }),
-      // `title` is the constant 'Case review' — searching it matched every
-      // case or none. Staff search by what identifies a case: its county, or
-      // the short reference the family quotes from their email.
+      // Staff search by what identifies a case: a real title where one was
+      // set, the county, or the short reference the family quotes from their
+      // email. (Production titles are the purchase placeholder, so the title
+      // clause is inert there and only the other two do the work.)
       prisma.case.findMany({
-        where: { OR: [{ county: { contains: term, mode: 'insensitive' } }, { id: { endsWith: term.toLowerCase() } }] },
+        where: { OR: [
+          { title: { contains: term, mode: 'insensitive' } },
+          { county: { contains: term, mode: 'insensitive' } },
+          { id: { endsWith: term.toLowerCase() } },
+        ] },
         select: { id: true },
         take: 50,
       }),

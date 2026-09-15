@@ -75,15 +75,22 @@ export function registerAuth(fastify: FastifyInstance) {
     'onRequest',
     async (request: FastifyRequest, reply: FastifyReply) => {
       const path = request.url.split('?')[0]
-      if (PUBLIC_PATHS.has(path)) return
-      if (PUBLIC_PREFIXES.some((p) => path.startsWith(p))) return
+      const isPublic = PUBLIC_PATHS.has(path) || PUBLIC_PREFIXES.some((p) => path.startsWith(p))
 
       const token = extractToken(request)
       const identity = token ? await decodeSessionToken(token) : null
 
       if (!identity) {
+        // A public route serves the anonymous visitor; everything else refuses.
+        // A public route with NO identity attached must leave request.auth
+        // undefined, so the route can tell the two apart.
+        if (isPublic) return
         return reply.status(401).send({ error: 'Unauthorized' })
       }
+      // Public routes still get the identity when the caller has one: the
+      // promo preview applies the once-per-account rule to a signed-in
+      // customer, and skipping decode here silently made everyone anonymous
+      // (CI, 2026-09-15: "already used" came back 200 instead of 400).
 
       // Ops surfaces are ADMIN-only (Bull Board at /admin/queues).
       if (path.startsWith('/admin') && identity.role !== 'ADMIN') {

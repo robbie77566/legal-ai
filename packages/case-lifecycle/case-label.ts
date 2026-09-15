@@ -17,6 +17,8 @@
 /** Fields any caller can supply from a `Case` row; all optional so partial selects work. */
 export interface CaseLabelSource {
   id?: string | null
+  /** Honoured when it is a real name; the purchase-time placeholder is ignored. */
+  title?: string | null
   county?: string | null
   convictionYear?: number | null
   createdAt?: Date | string | null
@@ -39,7 +41,17 @@ export function caseRef(id: string | null | undefined): string {
  * the review started when the family has not told us the county/year yet
  * (they answer that in the interview, which can lag purchase).
  */
+/** The titles purchase stamps on every case — they name nothing. */
+const PLACEHOLDER_TITLES = new Set(['case review', 'family case review', 'review'])
+
+export function isPlaceholderTitle(title: string | null | undefined): boolean {
+  return !title || PLACEHOLDER_TITLES.has(title.trim().toLowerCase())
+}
+
 export function caseLabel(kase: CaseLabelSource): string {
+  // A case that was actually named keeps its name (seeded fixtures, and the
+  // professional tier's matters, which counsel titles themselves).
+  if (!isPlaceholderTitle(kase.title)) return kase.title!.trim()
   if (kase.county && kase.convictionYear) return `${kase.county} County · ${kase.convictionYear}`
   if (kase.county) return `${kase.county} County`
   if (kase.convictionYear) return `${kase.convictionYear} conviction`
