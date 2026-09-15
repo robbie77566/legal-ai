@@ -1,6 +1,7 @@
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { getStripe, lastReconciliation } from './payments.service';
 import { AuditService, LogAction } from './audit.service';
+import { caseLabel, caseRef } from '@hg/case-lifecycle';
 
 /**
  * Refunds and the Money page (OPS-2, payments_and_refunds spec).
@@ -295,7 +296,7 @@ async function joinNames(payments: Array<{ userId: string; caseId: string | null
   const caseIds = [...new Set(payments.map((p) => p.caseId).filter((c): c is string => !!c))];
   const [users, cases] = await Promise.all([
     userIds.length ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, email: true } }) : [],
-    caseIds.length ? prisma.case.findMany({ where: { id: { in: caseIds } }, select: { id: true, title: true, status: true } }) : [],
+    caseIds.length ? prisma.case.findMany({ where: { id: { in: caseIds } }, select: { id: true, title: true, status: true, county: true, convictionYear: true, createdAt: true } }) : [],
   ]);
   return {
     emailOf: new Map(users.map((u) => [u.id, u.email])),
@@ -303,13 +304,14 @@ async function joinNames(payments: Array<{ userId: string; caseId: string | null
   };
 }
 
-function shapePayment(p: Payment, emailOf: Map<string, string>, caseOf: Map<string, { title: string; status: string }>) {
+function shapePayment(p: Payment, emailOf: Map<string, string>, caseOf: Map<string, { id: string; title: string; status: string; county: string | null; convictionYear: number | null; createdAt: Date }>) {
   return {
     id: p.id,
     stripeId: p.stripeId,
     paymentIntentId: p.paymentIntentId,
     caseId: p.caseId,
-    caseTitle: p.caseId ? caseOf.get(p.caseId)?.title ?? '(deleted case)' : null,
+    caseTitle: p.caseId ? (() => { const c = caseOf.get(p.caseId!); return c ? caseLabel(c) : '(deleted case)'; })() : null,
+    caseRef: p.caseId ? caseRef(p.caseId) : null,
     caseStatus: p.caseId ? caseOf.get(p.caseId)?.status ?? null : null,
     customerEmail: emailOf.get(p.userId) ?? null,
     kind: p.kind,
@@ -365,7 +367,14 @@ export async function listPayments(opts: { status?: string; q?: string; includeT
   if (term) {
     const [users, cases] = await Promise.all([
       prisma.user.findMany({ where: { email: { contains: term, mode: 'insensitive' } }, select: { id: true }, take: 50 }),
-      prisma.case.findMany({ where: { title: { contains: term, mode: 'insensitive' } }, select: { id: true }, take: 50 }),
+      // `title` is the constant 'Case review' — searching it matched every
+      // case or none. Staff search by what identifies a case: its county, or
+      // the short reference the family quotes from their email.
+      prisma.case.findMany({
+        where: { OR: [{ county: { contains: term, mode: 'insensitive' } }, { id: { endsWith: term.toLowerCase() } }] },
+        select: { id: true },
+        take: 50,
+      }),
     ]);
     where.OR = [
       { userId: { in: users.map((u) => u.id) } },
@@ -401,7 +410,8 @@ export async function listRefunds(limit = 100) {
       paymentId: r.paymentId,
       stripeRefundId: r.stripeRefundId,
       caseId: r.caseId,
-      caseTitle: r.caseId ? caseOf.get(r.caseId)?.title ?? '(deleted case)' : null,
+      caseTitle: r.caseId ? (() => { const c = caseOf.get(r.caseId!); return c ? caseLabel(c) : '(deleted case)'; })() : null,
+      caseRef: r.caseId ? caseRef(r.caseId) : null,
       customerEmail: p ? emailOf.get(p.userId) ?? null : null,
       amountCents: r.amountCents,
       paymentAmountCents: p?.amountCents ?? null,

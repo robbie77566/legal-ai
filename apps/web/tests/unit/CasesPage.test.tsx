@@ -7,8 +7,8 @@ import CasesPage from '@/app/ops/cases/page'
 
 /** Cases — the support surface: every case, searchable, linking to its case file. */
 const QUEUE = [
-  { id: 'c_1', title: 'Travis County · 2020', status: 'AWAITING_DOCS', lane: 'TRIAL', daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: false, subsequentWrit: false, updatedAt: '2026-09-01T10:00:00Z' },
-  { id: 'c_2', title: 'Bexar County · 2018', status: 'QA_REJECTED', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: true, updatedAt: '2026-09-07T10:00:00Z' },
+  { id: 'c_1', title: 'Case review', label: 'Travis County · 2020', ref: '0000C1', status: 'AWAITING_DOCS', lane: 'TRIAL', daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: false, subsequentWrit: false, updatedAt: '2026-09-01T10:00:00Z' },
+  { id: 'c_2', title: 'Case review', label: 'Bexar County · 2018', ref: '0000C2', status: 'QA_REJECTED', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: true, updatedAt: '2026-09-07T10:00:00Z' },
 ]
 beforeEach(() => {
   role.value = 'SUPPORT'

@@ -16,7 +16,18 @@ export interface PromoCheck {
   reason?: string; // internal only — never sent to customers verbatim
 }
 
-export async function checkPromo(rawCode: string, userId: string): Promise<PromoCheck> {
+/**
+ * Everything about a code that is true regardless of who is asking: shape,
+ * existence, active, not expired, redemption slots left.
+ *
+ * Split out from `checkPromo` because the buy page offers the code field
+ * BEFORE the account step (promo_codes.md §3), and the spec's driving use
+ * case — free codes for families who do not have an account yet — could
+ * never pass a check that required a userId. A signed-out visitor gets this
+ * much; the per-account rule below is applied the moment we know who they
+ * are, and again, authoritatively, at checkout.
+ */
+export async function checkPromoCode(rawCode: string): Promise<PromoCheck> {
   const code = normalizeCode(rawCode);
   if (!CODE_SHAPE.test(code)) return { valid: false, reason: 'shape' };
   const promo = await prisma.promoCode.findUnique({ where: { code } });
@@ -25,9 +36,17 @@ export async function checkPromo(rawCode: string, userId: string): Promise<Promo
   if (promo.expiresAt && promo.expiresAt < new Date()) return { valid: false, reason: 'expired' };
   if (promo.maxRedemptions != null && promo.redeemedCount >= promo.maxRedemptions)
     return { valid: false, reason: 'limit' };
+  return { valid: true, amountOffCents: promo.amountOffCents };
+}
+
+/** The code check plus the one rule that needs identity: once per account. */
+export async function checkPromo(rawCode: string, userId: string): Promise<PromoCheck> {
+  const base = await checkPromoCode(rawCode);
+  if (!base.valid) return base;
+  const code = normalizeCode(rawCode);
   const priorUse = await prisma.payment.findFirst({ where: { userId, promoCode: code } });
   if (priorUse) return { valid: false, reason: 'already_used_by_user' };
-  return { valid: true, amountOffCents: promo.amountOffCents };
+  return base;
 }
 
 /** Atomically consume one redemption slot. Returns false when the cap is hit. */

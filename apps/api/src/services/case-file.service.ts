@@ -1,7 +1,7 @@
 import prisma, { withTenant } from '@hg/database';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { computeDeadlinePosture, type DeadlineInputs } from '@hg/case-lifecycle';
+import { computeDeadlinePosture, caseLabel, caseRef, type DeadlineInputs } from '@hg/case-lifecycle';
 import { s3, bucket } from './storage.service';
 import { verifyFindings } from './analysis.service';
 import { listSupportNotes, listRequests } from './staff-requests.service';
@@ -15,6 +15,7 @@ import { listSupportNotes, listRequests } from './staff-requests.service';
 
 const caseSelect = {
   id: true, title: true, status: true, lane: true, tenantId: true, subsequentWrit: true,
+  county: true, convictionYear: true,
   ocrHalt: true, delayOurs: true, expectedReadyAt: true, slaStartedAt: true, createdAt: true, updatedAt: true,
 } as const;
 
@@ -60,6 +61,9 @@ export async function getCaseFile(caseId: string) {
   return {
     case: {
       ...kase,
+      // What staff read on the case file, matching the family's own words.
+      label: caseLabel(kase),
+      ref: caseRef(kase.id),
       customerEmail: customer?.email ?? null,
       customerName: customer?.name ?? null,
     },
@@ -214,7 +218,7 @@ export async function staffReportPdf(caseId: string, versionNo?: number) {
       summary: summaryRowsList,
       summaryGap: await summaryGapForReport(caseId, summaryRowsList),
       rerunPriceCents: PRICES_CENTS.rerun,
-      caseTitle: kase.title,
+      caseTitle: caseLabel(kase),
       reportId: report.id,
       versionNo: report.versionNo,
       templateVersion: report.templateVersion,

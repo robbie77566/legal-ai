@@ -25,9 +25,9 @@ interface Status {
   retentionCandidates: number
   storage?: { ok: boolean; detail: string }
 }
-interface Hold { caseId: string; title: string; reasons: string[]; heldAt: string; slaRemainingHours: number }
+interface Hold { caseId: string; title: string; ref: string; reasons: string[]; heldAt: string; slaRemainingHours: number }
 interface QueueRow {
-  id: string; title: string; status: string; lane: string | null
+  id: string; title: string; label: string; ref: string; status: string; lane: string | null
   daysInStage: number; stalled: boolean; ocrHalt: boolean; delayOurs: boolean; subsequentWrit: boolean
 }
 interface TimelineEvent { id: string; type: string; payload: Record<string, unknown>; actor: string; createdAt: string }
@@ -151,7 +151,7 @@ export default function OpsOverview() {
             <div key={h.caseId} className="rounded border border-[#D29922]/60 bg-[#0D1117] p-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="text-sm font-semibold">{h.title}</div>
+                  <div className="text-sm font-semibold">{h.title} <span className="font-mono text-xs font-normal text-[#8B949E]">{h.ref}</span></div>
                   <div className="mt-1 text-xs text-[#8B949E]">Held: {h.reasons.join(', ') || 'quality gate'}</div>
                 </div>
                 <span className={`whitespace-nowrap text-xs font-mono ${h.slaRemainingHours < 4 ? 'text-[#F85149]' : 'text-[#D29922]'}`}>
@@ -166,7 +166,7 @@ export default function OpsOverview() {
           ))}
           {stalled.map((c) => (
             <button key={c.id} onClick={() => void open(c)} className="rounded border border-[#30363D] bg-[#0D1117] p-3 text-left">
-              <div className="text-sm font-semibold">{c.title}</div>
+              <div className="text-sm font-semibold">{c.label || 'Review'} <span className="font-mono text-xs font-normal text-[#8B949E]">{c.ref}</span></div>
               <div className="mt-1 text-xs text-[#8B949E]">
                 {c.ocrHalt ? 'OCR halted — bad-scan cohort; decide re-scan vs proceed' : `Stalled ${c.daysInStage} days awaiting documents`}
               </div>
@@ -275,7 +275,7 @@ export default function OpsOverview() {
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id} onClick={() => void open(c)} className={`cursor-pointer border-b border-[#161B22] hover:bg-[#161B22] ${selected?.id === c.id ? 'bg-[#161B22]' : ''}`}>
-                  <td className="py-2 pr-3">{c.title}</td>
+                  <td className="py-2 pr-3">{c.label || 'Review'} <span className="font-mono text-xs text-[#8B949E]">{c.ref}</span></td>
                   <td className="py-2 pr-3 font-mono text-xs">{c.status}</td>
                   <td className="py-2 pr-3 font-mono">{c.daysInStage}</td>
                   <td className="space-x-1 py-2">
@@ -294,7 +294,7 @@ export default function OpsOverview() {
             {selected ? (
               <div className="rounded border border-[#30363D] bg-[#161B22] p-4" data-testid="case-drawer">
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-semibold">{selected.title}</h3>
+                  <h3 className="font-semibold">{selected.label || 'Review'} <span className="font-mono text-sm font-normal text-[#8B949E]">{selected.ref}</span></h3>
                   <Link href={`/ops/cases/${selected.id}`} className="shrink-0 text-xs text-[#3B82F6] underline" data-testid="open-case-file">Open case file →</Link>
                 </div>
                 <p className="mt-1 text-xs text-[#8B949E]">
@@ -348,10 +348,10 @@ export default function OpsOverview() {
                 <div className="mt-4 text-[11px] uppercase tracking-wider text-[#F85149]">Irreversible</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <Link href={`/ops/money?case=${selected.id}`} className="rounded border border-[#D29922] px-2 py-1 text-xs text-[#D29922]">Refund…</Link>
-                  <input value={deleteTyped} onChange={(e) => setDeleteTyped(e.target.value)} placeholder="type the case title to enable delete" className="w-56 rounded border border-[#30363D] bg-[#0B0E14] p-1.5 font-mono text-xs" data-testid="delete-typed" />
+                  <input value={deleteTyped} onChange={(e) => setDeleteTyped(e.target.value)} placeholder="type the case reference to enable delete" className="w-56 rounded border border-[#30363D] bg-[#0B0E14] p-1.5 font-mono text-xs" data-testid="delete-typed" />
                   <button
                     onClick={() => void act('delete')}
-                    disabled={deleteTyped.trim() !== selected.title}
+                    disabled={deleteTyped.trim().toUpperCase() !== selected.ref}
                     className="rounded border border-[#F85149] px-2 py-1 text-xs text-[#F85149] disabled:opacity-40"
                     data-testid="delete-case"
                   >

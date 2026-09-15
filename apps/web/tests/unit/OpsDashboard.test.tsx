@@ -24,8 +24,8 @@ const STATUS = {
 }
 const HOLDS = [{ caseId: 'c_h', title: 'Harris County · 2019', reasons: ['drop_ratio'], heldAt: new Date().toISOString(), slaRemainingHours: 3.5 }]
 const QUEUE = [
-  { id: 'c_1', title: 'Travis County · 2020', status: 'AWAITING_DOCS', lane: 'TRIAL', daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: false, subsequentWrit: false },
-  { id: 'c_2', title: 'Bexar County · 2018', status: 'ANALYZING', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: false },
+  { id: 'c_1', title: 'Case review', label: 'Travis County · 2020', ref: '0000C1', status: 'AWAITING_DOCS', lane: 'TRIAL', daysInStage: 9, stalled: true, ocrHalt: false, delayOurs: false, subsequentWrit: false },
+  { id: 'c_2', title: 'Case review', label: 'Bexar County · 2018', ref: '0000C2', status: 'ANALYZING', lane: 'TRIAL', daysInStage: 1, stalled: false, ocrHalt: false, delayOurs: false, subsequentWrit: false },
 ]
 const REQUESTS = { open: [{ id: 'q_1', caseId: 'c_2', caseTitle: 'Bexar County · 2018', type: 'REFUND', reason: 'unreadable_record', note: '3 of 9 scans unusable', amountCents: 14900, requestedByEmail: 'dana@snotnoselegal.com', decision: null, decidedByEmail: null, decisionNote: null, createdAt: new Date().toISOString(), decidedAt: null }], decided: [] }
 const calls: string[] = []
@@ -95,7 +95,7 @@ describe('ops overview', () => {
     await waitFor(() => expect(calls.some((c) => c === 'POST http://localhost:3001/qa/cases/c_h/rerun')).toBe(true))
   })
 
-  it('case drawer groups routine vs irreversible, shows COGS, and gates delete behind the typed title', async () => {
+  it('case drawer groups routine vs irreversible, shows COGS, and gates delete behind the typed case reference', async () => {
     render(<OpsOverview />)
     fireEvent.click(await screen.findByText('Bexar County · 2018'))
     const drawer = await screen.findByTestId('case-drawer')
@@ -104,7 +104,11 @@ describe('ops overview', () => {
     expect(drawer).toHaveTextContent(/Irreversible/)
     const del = screen.getByTestId('delete-case')
     expect(del).toBeDisabled()
+    // The label is shared by every case from that county and year; only the
+    // reference identifies this one.
     fireEvent.change(screen.getByTestId('delete-typed'), { target: { value: 'Bexar County · 2018' } })
+    expect(del).toBeDisabled()
+    fireEvent.change(screen.getByTestId('delete-typed'), { target: { value: '0000C2' } })
     expect(del).not.toBeDisabled()
     expect(drawer).toHaveTextContent(/payment succeeded/) // de-snaked timeline
   })

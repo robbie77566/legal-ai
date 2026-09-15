@@ -15,7 +15,17 @@ declare module 'fastify' {
  *
  * Public paths are an explicit allowlist, not a pattern.
  */
-const PUBLIC_PATHS = new Set(['/', '/health', '/healthz', '/buy/account'])
+const PUBLIC_PATHS = new Set([
+  '/',
+  '/health',
+  '/healthz',
+  '/buy/account',
+  // The buy page offers the promo field before the account exists; this route
+  // only previews a code's own validity (never redeems, never reveals more
+  // than "valid / not valid") and is rate-limited in-route. Redemption and the
+  // once-per-account rule remain authenticated, at /checkout/session.
+  '/checkout/promo/validate',
+])
 
 // Prefix-public: anonymous S0 drafts (token-addressed) and Stripe webhooks
 // (signature-verified in-route).

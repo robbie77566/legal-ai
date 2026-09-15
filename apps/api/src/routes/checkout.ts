@@ -116,12 +116,21 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
 
   // Promo validation for the buy page: applied-state preview before any
   // payment step. Generic failure only (promo_codes.md §1.2, §4.5).
-  fastify.post('/checkout/promo/validate', async (request, reply) => {
-    const { userId, role } = request.auth;
-    if (role !== 'CLIENT') return reply.status(403).send({ error: 'Consumer purchases only' });
+  fastify.post('/checkout/promo/validate', {
+    // Public (see plugins/auth PUBLIC_PATHS) so the field works before the
+    // account step — so it is enumeration-throttled harder than the global
+    // limit: a guesser gets 10 tries a minute, a real customer needs two.
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    // Signed out at this point in the flow is the NORMAL case: the code field
+    // sits on the disclosure step, the account is created after it.
+    const auth = request.auth as typeof request.auth | undefined;
+    if (auth && auth.role !== 'CLIENT') return reply.status(403).send({ error: 'Consumer purchases only' });
     const { code } = z.object({ code: z.string().max(32) }).parse(request.body);
-    const { checkPromo, normalizeCode } = await import('../services/promo.service');
-    const check = await checkPromo(code, userId);
+    const { checkPromo, checkPromoCode, normalizeCode } = await import('../services/promo.service');
+    // With an account we can also apply the once-per-account rule now, rather
+    // than letting the customer discover it at the payment step.
+    const check = auth ? await checkPromo(code, auth.userId) : await checkPromoCode(code);
     if (!check.valid) {
       request.log.info({ code, reason: check.reason }, 'promo validate rejected');
       // One exception to the generic message (promo_codes.md §4.5): a code

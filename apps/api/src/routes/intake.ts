@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent, Prisma } from '@hg/database';
-import { computeDeadlinePosture, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
+import { computeDeadlinePosture, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
 import { verifyFindings } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 
@@ -79,7 +79,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       });
       return cases.map((c) => ({
         id: c.id,
-        title: c.county && c.convictionYear ? `${c.county} County · ${c.convictionYear}` : `Review started ${c.createdAt.toISOString().slice(0, 10)}`,
+        title: caseLabel(c),
+        ref: caseRef(c.id),
         status: c.status,
         stage: customerView(c.status as CaseStatus, [
           ...(c.ocrHalt ? (['OCR_HALT'] as const) : []),

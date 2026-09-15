@@ -11,7 +11,7 @@ const session = vi.hoisted(() => ({ role: 'SUPPORT' }))
 vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { role: session.role } }, status: 'authenticated' }) }))
 
 const FILE = {
-  case: { id: 'c_1', title: 'Whitfield — Travis County record', status: 'READY', lane: 'TRIAL', subsequentWrit: false, ocrHalt: false, delayOurs: true, expectedReadyAt: '2026-09-10T00:00:00Z', createdAt: '2026-08-27T19:52:00Z', customerEmail: 'j@x.com', customerName: 'J. Whitfield' },
+  case: { id: 'c_1', title: 'Case review', label: 'Travis County · 2020', ref: 'ABC001', status: 'READY', lane: 'TRIAL', subsequentWrit: false, ocrHalt: false, delayOurs: true, expectedReadyAt: '2026-09-10T00:00:00Z', createdAt: '2026-08-27T19:52:00Z', customerEmail: 'j@x.com', customerName: 'J. Whitfield' },
   meter: { billable: 412, duplicatesIgnored: 18 },
   documents: [
     { id: 'd_1', filename: 'RR_Vol1_VoirDire.pdf', receivedAt: '2026-08-27T19:52:00Z', pages: 142, billablePages: 142, ocrProvider: 'pdf-text', minOcrConfidence: 1, recognized: true, classificationConfirmed: true, quarantined: false, downloadable: true },
@@ -51,7 +51,8 @@ beforeEach(() => {
 describe('case file', () => {
   it('shows uploads with page counts, the quarantined file without a download, and the family-facing analysis', async () => {
     render(<CaseFilePage />)
-    expect(await screen.findByTestId('case-title')).toHaveTextContent('Whitfield — Travis County record')
+    expect(await screen.findByTestId('case-title')).toHaveTextContent('Travis County · 2020')
+    expect(screen.getByTestId('case-ref')).toHaveTextContent('ABC001')
     expect(screen.getByTestId('case-meta')).toHaveTextContent('j@x.com (J. Whitfield)')
     const files = screen.getByTestId('files')
     expect(files).toHaveTextContent(/412 billable pages/)

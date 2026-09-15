@@ -14,7 +14,7 @@ import { ago, describeActivity } from '@/lib/tracker'
 
 interface CaseFile {
   case: {
-    id: string; title: string; status: string; lane: string | null; subsequentWrit: boolean
+    id: string; title: string; label: string; ref: string; status: string; lane: string | null; subsequentWrit: boolean
     ocrHalt: boolean; delayOurs: boolean; expectedReadyAt: string | null; createdAt: string
     customerEmail: string | null; customerName: string | null
   }
@@ -188,7 +188,8 @@ export default function CaseFilePage() {
         <div>
           <p className="text-xs text-[#8B949E]"><Link href="/ops" className="underline">Overview</Link> / Case file</p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1 className="font-serif text-xl font-bold text-[#D4AF37]" data-testid="case-title">{c.title}</h1>
+            <h1 className="font-serif text-xl font-bold text-[#D4AF37]" data-testid="case-title">{c.label || 'Review'}</h1>
+            <span className="font-mono text-sm text-[#8B949E]" data-testid="case-ref">{c.ref}</span>
             <Chip tone="gold">{c.status}</Chip>
             {c.delayOurs && <Chip tone="bad">DELAY-OURS</Chip>}
             {c.ocrHalt && <Chip tone="warn">OCR HALT</Chip>}

@@ -4,6 +4,7 @@ import { lintPartA } from '../services/readability';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { AuditService, LogAction } from '../services/audit.service';
 import { verifyFindings } from '../services/analysis.service';
+import { caseLabel, caseRef } from '@hg/case-lifecycle';
 
 /**
  * QA console API (US-8). A STAFF surface: reviewers are platform staff
@@ -27,7 +28,7 @@ export default async function qaRoutes(fastify: FastifyInstance) {
   fastify.get('/queue', async () => {
     const cases = await prisma.case.findMany({
       where: { status: 'QA_REVIEW' },
-      select: { id: true, title: true, lane: true, subsequentWrit: true, tenantId: true, updatedAt: true },
+      select: { id: true, title: true, lane: true, subsequentWrit: true, tenantId: true, updatedAt: true, county: true, convictionYear: true, createdAt: true },
       orderBy: { updatedAt: 'asc' },
     });
     const counts = await prisma.finding.groupBy({
@@ -56,7 +57,7 @@ export default async function qaRoutes(fastify: FastifyInstance) {
         })
       : [];
     return {
-      case: { id: kase.id, title: kase.title, lane: kase.lane, status: kase.status, subsequentWrit: kase.subsequentWrit },
+      case: { id: kase.id, title: caseLabel(kase), ref: caseRef(kase.id), lane: kase.lane, status: kase.status, subsequentWrit: kase.subsequentWrit },
       run,
       findings: findings.map((f) => ({ ...f, readability: lintPartA(f.partAText) })),
     };
@@ -137,12 +138,13 @@ export default async function qaRoutes(fastify: FastifyInstance) {
     const auto = rows.filter((r) => (r.details as { decision?: string })?.decision === 'auto_approved');
     const cases = await prisma.case.findMany({
       where: { id: { in: auto.map((a) => a.caseId!).filter(Boolean) } },
-      select: { id: true, title: true, status: true },
+      select: { id: true, title: true, status: true, county: true, convictionYear: true, createdAt: true },
     });
     const byId = new Map(cases.map((c) => [c.id, c]));
     return auto.map((a) => ({
       caseId: a.caseId,
-      title: byId.get(a.caseId!)?.title ?? a.caseId,
+      title: (() => { const c = byId.get(a.caseId!); return c ? caseLabel(c) : a.caseId; })(),
+      ref: caseRef(a.caseId),
       status: byId.get(a.caseId!)?.status,
       approvedAt: a.createdAt,
       spotcheck: Boolean((a.details as { spotcheck?: boolean })?.spotcheck),
@@ -152,8 +154,8 @@ export default async function qaRoutes(fastify: FastifyInstance) {
   // Hold queue (auto_qa_hold_workflow.md R3): held cases with reasons and
   // the 24-hour countdown, most urgent first.
   fastify.get('/holds', async () => {
-    const held = await prisma.case.findMany({ where: { status: 'QA_REVIEW' }, select: { id: true, title: true, tenantId: true } });
-    const out: { caseId: string; title: string; reasons: string[]; heldAt: string; slaRemainingHours: number }[] = [];
+    const held = await prisma.case.findMany({ where: { status: 'QA_REVIEW' }, select: { id: true, title: true, tenantId: true, county: true, convictionYear: true, createdAt: true } });
+    const out: { caseId: string; title: string; ref: string; reasons: string[]; heldAt: string; slaRemainingHours: number }[] = [];
     for (const c of held) {
       const audits = await prisma.auditLog.findMany({
         where: { caseId: c.id, action: 'QA_DECISION' },
@@ -165,7 +167,8 @@ export default async function qaRoutes(fastify: FastifyInstance) {
       const heldAt = hold.createdAt;
       out.push({
         caseId: c.id,
-        title: c.title,
+        title: caseLabel(c),
+        ref: caseRef(c.id),
         reasons: ((hold.details as { reasons?: string[] })?.reasons) ?? [],
         heldAt: heldAt.toISOString(),
         slaRemainingHours: Math.round(((heldAt.getTime() + 24 * 3600_000) - Date.now()) / 3600_000 * 10) / 10,

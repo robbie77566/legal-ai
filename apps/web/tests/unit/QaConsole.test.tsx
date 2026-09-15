@@ -4,10 +4,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import QaConsole from '@/app/qa/page'
 
 const QUEUE = [
-  { id: 'c1', title: 'Family Case Review', lane: 'TRIAL', subsequentWrit: true, findingCount: 2, updatedAt: '' },
+  { id: 'c1', title: 'Harris County · 2019', lane: 'TRIAL', subsequentWrit: true, findingCount: 2, updatedAt: '' },
 ]
 const DETAIL = {
-  case: { id: 'c1', title: 'Family Case Review', lane: 'TRIAL', status: 'QA_REVIEW', subsequentWrit: true },
+  case: { id: 'c1', title: 'Harris County · 2019', lane: 'TRIAL', status: 'QA_REVIEW', subsequentWrit: true },
   run: { id: 'r1' },
   findings: [
     {
@@ -33,7 +33,7 @@ beforeEach(() => {
 describe('QA console (US-8)', () => {
   it('renders the queue and opens a case with citation, hash, and both report parts', async () => {
     render(<QaConsole />)
-    const row = await screen.findByText('Family Case Review')
+    const row = await screen.findByText('Harris County · 2019')
     fireEvent.click(row)
 
     await waitFor(() => expect(screen.getByText(/quoted record text/)).toBeInTheDocument())

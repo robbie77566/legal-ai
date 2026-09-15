@@ -1,6 +1,7 @@
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { AuditService, LogAction } from './audit.service';
 import { issueRefund, REFUND_REASONS, type RefundReason } from './refunds.service';
+import { caseLabel, caseRef } from '@hg/case-lifecycle';
 
 /**
  * OPS-6 contact log + the request-to-Admin flow (staff_console_access_model
@@ -62,7 +63,7 @@ export async function openRequest(args: {
   amountCents?: number;
   requestedBy: string;
 }): Promise<OpenRequestOutcome> {
-  const kase = await prisma.case.findUnique({ where: { id: args.caseId }, select: { tenantId: true, title: true } });
+  const kase = await prisma.case.findUnique({ where: { id: args.caseId }, select: { tenantId: true, title: true, county: true, convictionYear: true, createdAt: true } });
   if (!kase) return { ok: false, error: 'not_found' };
   const validReasons: readonly string[] = args.type === 'REFUND' ? REFUND_REASONS : DELETE_REASONS;
   if (!validReasons.includes(args.reason)) return { ok: false, error: 'bad_reason' };
@@ -100,7 +101,7 @@ export async function openRequest(args: {
     const { sendStaffRequest } = await import('@hg/email');
     for (const a of admins) {
       void sendStaffRequest(a.email, {
-        kind: args.type, caseTitle: kase.title, requestedBy: requester, reason: args.reason, note: args.note,
+        kind: args.type, caseTitle: caseLabel({ ...kase, id: args.caseId }), requestedBy: requester, reason: args.reason, note: args.note,
         consoleUrl: `${origin}/ops/cases/${args.caseId}`,
       });
     }
@@ -111,13 +112,14 @@ export async function openRequest(args: {
 
 async function shapeRequests(rows: Awaited<ReturnType<typeof prisma.staffRequest.findMany>>) {
   const caseIds = [...new Set(rows.map((r) => r.caseId))];
-  const cases = caseIds.length ? await prisma.case.findMany({ where: { id: { in: caseIds } }, select: { id: true, title: true, status: true } }) : [];
+  const cases = caseIds.length ? await prisma.case.findMany({ where: { id: { in: caseIds } }, select: { id: true, title: true, status: true, county: true, convictionYear: true, createdAt: true } }) : [];
   const caseOf = new Map(cases.map((c) => [c.id, c]));
   const emailOf = await staffEmail(rows.flatMap((r) => [r.requestedBy, r.decidedBy ?? '']).filter(Boolean));
   return rows.map((r) => ({
     id: r.id,
     caseId: r.caseId,
-    caseTitle: caseOf.get(r.caseId)?.title ?? '(deleted case)',
+    caseTitle: (() => { const c = caseOf.get(r.caseId); return c ? caseLabel(c) : '(deleted case)'; })(),
+    caseRef: caseRef(r.caseId),
     caseStatus: caseOf.get(r.caseId)?.status ?? null,
     type: r.type,
     reason: r.reason,

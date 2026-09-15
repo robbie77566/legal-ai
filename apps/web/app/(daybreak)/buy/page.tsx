@@ -81,7 +81,6 @@ export default function BuyPage() {
       // Say what happened (2026-09-12: an admin testing a code got "isn't
       // valid" three times — the API had refused the STAFF session, not the code).
       if (res.status === 403) setPromoError('You’re signed in as a staff account, which can’t buy or use codes. Sign out, then try the code as a customer.')
-      else if (res.status === 401) setPromoError('Please sign in (or create your account below) before adding a code.')
       else if (res.status === 429) setPromoError('Too many tries — wait a minute and try again.')
       else {
         // The server's own words when it has them ("already used on this account"), else the generic line.
@@ -99,6 +98,28 @@ export default function BuyPage() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState('')  // live narration during the paying step
+
+  /**
+   * The code was applied before the account existed, so only its own validity
+   * could be checked. Now that there is an identity, re-check it — a code this
+   * account already used must say so HERE, not as a dead-end failure on the
+   * payment step.  Returns the code still safe to send to checkout.
+   */
+  const confirmPromoWithIdentity = async (): Promise<string | undefined> => {
+    if (!promo) return undefined
+    const res = await apiFetch('/checkout/promo/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: promo.code }),
+    })
+    if (res.ok) return promo.code
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    setPromo(null)
+    setPromoInput('')
+    setStep('disclosures')
+    setPromoError(body.error ?? "That code isn't valid — your review is $299.")
+    return undefined
+  }
 
   const startCheckout = async () => {
     // Ack is recorded with identity, then the session opens Stripe Checkout.
@@ -120,6 +141,16 @@ export default function BuyPage() {
       throw new Error(body.error ?? `Could not record your acknowledgment (error ${ackRes.status}) — please try again.`)
     }
 
+    setPhase('Checking your code…')
+    const confirmedCode = await confirmPromoWithIdentity()
+    if (promo && !confirmedCode) {
+      // confirmPromoWithIdentity has already explained why and returned the
+      // customer to the summary with the full price showing.
+      setBusy(false)
+      setPhase('')
+      return
+    }
+
     setPhase('Preparing secure checkout…')
     const draftToken = sessionStorage.getItem('snl_draft_token') ?? undefined
     const res = await apiFetch('/checkout/session', {
@@ -128,7 +159,7 @@ export default function BuyPage() {
       body: JSON.stringify({
         kind: 'review',
         ...(draftToken ? { draftToken } : {}),
-        ...(promo ? { promoCode: promo.code } : {}),
+        ...(confirmedCode ? { promoCode: confirmedCode } : {}),
       }),
     })
     if (res.status === 503) {

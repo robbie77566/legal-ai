@@ -9,6 +9,7 @@ import {
 import {
   NOTE_CHANNELS, REQUEST_TYPES, addSupportNote, openRequest, listRequests, decideRequest,
 } from '../services/staff-requests.service';
+import { caseLabel, caseRef } from '@hg/case-lifecycle';
 
 /**
  * Ops console API (US-9, OPS-1..7) — ADMIN-only staff surface. Reads use the
@@ -145,6 +146,7 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       select: {
         id: true, title: true, status: true, lane: true, tenantId: true,
         subsequentWrit: true, ocrHalt: true, delayOurs: true,
+        county: true, convictionYear: true,
         slaStartedAt: true, updatedAt: true, createdAt: true,
       },
       orderBy: { updatedAt: 'asc' },
@@ -152,6 +154,10 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     const now = Date.now();
     return cases.map((c) => ({
       ...c,
+      // The queue identifies a case the way the family does (county + year),
+      // plus the reference they read off their email — `title` is a constant.
+      label: caseLabel(c),
+      ref: caseRef(c.id),
       daysInStage: Math.floor((now - c.updatedAt.getTime()) / 86_400_000),
       stalled:
         c.status === 'AWAITING_DOCS' &&
