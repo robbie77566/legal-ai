@@ -1,12 +1,13 @@
 'use client'
 
 /** Retention (ops_console_redesign.md J6/F5): cases past the 12-month
- *  window (NFR-3). Deletion stays a deliberate, per-case, typed-title act —
+ *  window (NFR-3). Deletion stays a deliberate, per-case act — the admin
+ *  types the case reference (unique per case; the title is a constant) —
  *  never a bulk sweep. */
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 
-interface Candidate { id: string; title: string; status: string; updatedAt: string }
+interface Candidate { id: string; title: string; label: string; ref: string; customerName: string | null; customerEmail: string | null; status: string; updatedAt: string }
 
 export default function OpsRetention() {
   const [data, setData] = useState<{ cutoff: string; count: number; cases: Candidate[] } | null>(null)
@@ -21,7 +22,7 @@ export default function OpsRetention() {
   const del = async (c: Candidate) => {
     const r = await apiFetch(`/ops/cases/${c.id}/delete`, { method: 'POST' })
     const body = await r.json().catch(() => ({}))
-    setNotice(r.ok ? `Deleted "${c.title}" — ledger, disclosure archive, and event skeleton retained by design.` : body.error ?? 'Deletion failed')
+    setNotice(r.ok ? `Deleted ${c.customerName || c.customerEmail || c.label} (${c.ref}) — ledger, disclosure archive, and event skeleton retained by design.` : body.error ?? 'Deletion failed')
     await load()
   }
 
@@ -29,7 +30,7 @@ export default function OpsRetention() {
     <div>
       <h1 className="font-serif text-lg font-bold text-[#D4AF37]">Retention</h1>
       <p className="mt-1 text-sm text-[#8B949E]">
-        Delivered or refunded cases untouched for 12 months{data && ` (before ${data.cutoff.slice(0, 10)})`}. Each deletion is a deliberate decision — type the case title to enable it.
+        Delivered or refunded cases untouched for 12 months{data && ` (before ${data.cutoff.slice(0, 10)})`}. Each deletion is a deliberate decision — type the case reference to enable it.
       </p>
       {notice && <p className="mt-3 text-sm text-[#D29922]">{notice}</p>}
       {data && data.count === 0 && <p className="mt-4 rounded border border-[#30363D] bg-[#0D1117] p-4 text-sm text-[#8B949E]">Nothing past the retention window.</p>}
@@ -43,12 +44,15 @@ export default function OpsRetention() {
           <tbody>
             {data.cases.map((c) => (
               <tr key={c.id} className="border-b border-[#161B22]">
-                <td className="py-2 pr-3">{c.title}</td>
+                <td className="py-2 pr-3">
+                  <div className="font-semibold">{c.customerName || c.customerEmail || c.label || 'Review'}</div>
+                  <div className="font-mono text-[11px] text-[#8B949E]">{c.customerName && c.customerEmail ? `${c.customerEmail} · ` : ''}{c.label} · {c.ref}</div>
+                </td>
                 <td className="py-2 pr-3 font-mono text-xs">{c.status}</td>
                 <td className="py-2 pr-3 text-xs text-[#8B949E]">{new Date(c.updatedAt).toLocaleDateString()}</td>
                 <td className="space-x-2 py-2 text-right">
-                  <input value={typed[c.id] ?? ''} onChange={(e) => setTyped({ ...typed, [c.id]: e.target.value })} placeholder="type title to enable" className="w-48 rounded border border-[#30363D] bg-[#0B0E14] p-1 font-mono text-xs" />
-                  <button onClick={() => void del(c)} disabled={(typed[c.id] ?? '').trim() !== c.title} className="rounded border border-[#F85149] px-2 py-1 text-xs text-[#F85149] disabled:opacity-40">Delete (OPS-4)</button>
+                  <input value={typed[c.id] ?? ''} onChange={(e) => setTyped({ ...typed, [c.id]: e.target.value })} placeholder="type reference to enable" className="w-48 rounded border border-[#30363D] bg-[#0B0E14] p-1 font-mono text-xs" />
+                  <button onClick={() => void del(c)} disabled={(typed[c.id] ?? '').trim().toUpperCase() !== c.ref} className="rounded border border-[#F85149] px-2 py-1 text-xs text-[#F85149] disabled:opacity-40">Delete (OPS-4)</button>
                 </td>
               </tr>
             ))}

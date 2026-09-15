@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 
 interface Row {
-  id: string; caseId: string; title: string; clarity: number | null; recommend: string | null
+  id: string; caseId: string; title: string; label: string | null; ref: string; clarity: number | null; recommend: string | null
   sharedWithLawyer: string | null; decidedText: string | null; objectionText: string | null; updatedAt: string
 }
 
@@ -35,7 +35,7 @@ export default function OpsFeedback() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-b border-[#161B22] align-top">
-                <td className="py-2 pr-3">{r.title}<div className="text-[11px] text-[#8B949E]">{new Date(r.updatedAt).toLocaleDateString()}</div></td>
+                <td className="py-2 pr-3">{r.title}<div className="font-mono text-[11px] text-[#8B949E]">{r.label ? `${r.label} · ` : ''}{r.ref} · {new Date(r.updatedAt).toLocaleDateString()}</div></td>
                 <td className="py-2 pr-3 font-mono">{r.clarity ?? '—'}</td>
                 <td className="py-2 pr-3">{r.recommend ?? '—'}</td>
                 <td className="py-2 pr-3">{r.sharedWithLawyer ?? '—'}</td>

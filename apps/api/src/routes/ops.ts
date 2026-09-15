@@ -200,11 +200,29 @@ export default async function opsRoutes(fastify: FastifyInstance) {
         status: { in: ['READY', 'DELIVERED', 'REFUNDED'] },
         updatedAt: { lt: cutoff },
       },
-      select: { id: true, title: true, status: true, tenantId: true, updatedAt: true },
+      select: { id: true, title: true, status: true, tenantId: true, updatedAt: true, county: true, convictionYear: true, createdAt: true },
       orderBy: { updatedAt: 'asc' },
       take: 200,
     });
-    return { cutoff: cutoff.toISOString(), count: cases.length, cases };
+    // Same identity as the queue: the person who bought the review, then the
+    // conviction and the reference. A typed-title delete guard was no guard at
+    // all while every title was the same constant.
+    const owners = await prisma.caseAccess.findMany({
+      where: { caseId: { in: cases.map((c) => c.id) }, role: 'ADMIN' },
+      select: { caseId: true, user: { select: { email: true, name: true } } },
+    });
+    const ownerOf = new Map(owners.map((o) => [o.caseId, o.user]));
+    return {
+      cutoff: cutoff.toISOString(),
+      count: cases.length,
+      cases: cases.map((c) => ({
+        ...c,
+        label: caseLabel(c),
+        ref: caseRef(c.id),
+        customerName: ownerOf.get(c.id)?.name || null,
+        customerEmail: ownerOf.get(c.id)?.email ?? null,
+      })),
+    };
   });
 
   // Alert drill (readiness P0-10): a deliberate, ADMIN-gated error to
@@ -286,10 +304,20 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     const rows = await prisma.caseFeedback.findMany({ orderBy: { updatedAt: 'desc' }, take: 200 });
     const cases = await prisma.case.findMany({
       where: { id: { in: rows.map((r) => r.caseId) } },
-      select: { id: true, title: true },
+      select: { id: true, title: true, county: true, convictionYear: true, createdAt: true },
     });
-    const byId = new Map(cases.map((c) => [c.id, c.title]));
-    return rows.map((r) => ({ ...r, title: byId.get(r.caseId) ?? r.caseId }));
+    const owners = await prisma.caseAccess.findMany({
+      where: { caseId: { in: cases.map((c) => c.id) }, role: 'ADMIN' },
+      select: { caseId: true, user: { select: { email: true, name: true } } },
+    });
+    const ownerOf = new Map(owners.map((o) => [o.caseId, o.user]));
+    const byId = new Map(cases.map((c) => [c.id, c]));
+    // The founder reads feedback by who wrote it — `title` is a constant.
+    return rows.map((r) => {
+      const c = byId.get(r.caseId);
+      const who = ownerOf.get(r.caseId);
+      return { ...r, title: who?.name || who?.email || (c ? caseLabel(c) : r.caseId), label: c ? caseLabel(c) : null, ref: caseRef(r.caseId) };
+    });
   });
 
   // NFR-4: per-case COGS is a single query — tokens/pages are ground
