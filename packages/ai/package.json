@@ -8,7 +8,7 @@
     "@hg/database": "workspace:*",
     "@lancedb/lancedb": "latest",
     "@langchain/community": "latest",
-    "@langchain/core": "^1.2.9",
+    "@langchain/core": "^1.2.11",
     "@langchain/google-genai": "latest",
     "@langchain/langgraph": "latest",
     "@langchain/langgraph-checkpoint": "^1.1.5",
