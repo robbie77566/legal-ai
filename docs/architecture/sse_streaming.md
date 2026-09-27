@@ -50,6 +50,8 @@ Progress events must never leak across cases or tenants. Before subscribing, the
 2. Confirm the authenticated user has `CaseAccess` to `:id` **and** that the case belongs to the token's tenant.
 3. Subscribe only to that case's channel — never a pattern subscription.
 
+**Facts and pulses (2026-09-27).** The customer channel carries CaseEvents only, published by the transactional outbox and nothing else. The long silences *between* events (a 20-minute model call, a batch poll, a Textract job) are covered by *pulses* — ephemeral liveness messages (`{ kind: 'pulse', step, phase, at }`) that `apps/api/src/services/progress-pulse.service.ts` publishes on `case-pulse:{caseId}` and mirrors to a short-TTL key for cold loads. The route subscribes to both channels and writes both to the one stream; the page distinguishes them by `kind`. Design: `docs/design/status_page_live_feedback.md`.
+
 Two channels exist per case: the **customer channel** carries only the customer-visible stage mapping and honest sub-detail (derived from `CaseEvent` projections — `mvp_v1_system_design.md` §9) and never legal content pre-QA; internal consoles may subscribe to a verbose diagnostic channel gated to staff roles. SSE event delay p95 < 60s is an SLO (`internal_operations_spec.md` SRE-1).
 
 ```typescript

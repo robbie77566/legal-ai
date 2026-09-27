@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
+import { beginStep } from './progress-pulse.service';
 
 /**
  * Real digitization (M3, replacing the register's last mocked worker):
@@ -20,7 +21,8 @@ export interface PageExtraction {
 }
 
 export interface Extractor {
-  extract(input: { bytes: Buffer; filename: string; s3Key: string }): Promise<PageExtraction[]>;
+  /** `onProgress` is called whenever a slow extraction is still alive (each Textract poll). */
+  extract(input: { bytes: Buffer; filename: string; s3Key: string; onProgress?: () => void }): Promise<PageExtraction[]>;
 }
 
 const LOW_CONFIDENCE = 0.6;
@@ -51,7 +53,7 @@ export async function extractPdfText(bytes: Buffer): Promise<PageExtraction[] | 
 
 export function buildDefaultExtractor(): Extractor {
   return {
-    async extract({ bytes, filename, s3Key }) {
+    async extract({ bytes, filename, s3Key, onProgress }) {
       if (filename.toLowerCase().endsWith('.pdf')) {
         const born = await extractPdfText(bytes);
         if (born) return born;
@@ -89,6 +91,7 @@ export function buildDefaultExtractor(): Extractor {
         let pollGraceLeft = 12;
         for (let i = 0; i < 120; i++) {
           await new Promise((r) => setTimeout(r, 5000));
+          onProgress?.();
           const pageMap = new Map<number, { texts: string[]; confs: number[] }>();
           let next: string | undefined;
           let first;
@@ -349,11 +352,24 @@ export async function digitizeDocument(
     }
   }
 
-  const extracted = await opts.extractor.extract({
-    bytes: opts.bytes,
-    filename: doc.filename,
-    s3Key: opts.s3Key,
-  });
+  // Status page: a scanned volume is minutes of silence between "uploaded"
+  // and "read" — a durable start marker (cold loads) and a pulse per poll.
+  await withTenant(tenantId, (tx) =>
+    appendCaseEvent(tx, { caseId, tenantId, type: 'doc.ocr_started', payload: { documentId }, actor: 'digitize' })
+  );
+  const step = beginStep(caseId, { stage: 'digitizing', label: 'document', documentId }, 'reading', `${caseId}#${documentId}`);
+  let extracted: PageExtraction[];
+  try {
+    extracted = await opts.extractor.extract({
+      bytes: opts.bytes,
+      filename: doc.filename,
+      s3Key: opts.s3Key,
+      onProgress: () => step.pulse('reading'),
+    });
+  } catch (e) {
+    step.end();
+    throw e;
+  }
 
   // Classification runs BEFORE the transaction (a model call inside a DB tx
   // would pin the connection for seconds). No injected classifier -> the
@@ -375,6 +391,7 @@ export async function digitizeDocument(
     });
   }
 
+  step.pulse('saving');
   return withTenant(tenantId, async (tx) => {
     // Re-run safety: this document's prior digitization is replaced whole.
     await tx.documentChunk.deleteMany({ where: { documentId } });
@@ -511,7 +528,7 @@ export async function digitizeDocument(
       halted,
       suggestedKind,
     };
-  });
+  }).finally(() => step.end());
 }
 
 /** The single billable-page authority (ENG-3): meter, billing, refunds all read this. */

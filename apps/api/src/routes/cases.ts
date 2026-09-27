@@ -239,12 +239,16 @@ export default async function casesRoutes(fastify: FastifyInstance) {
     reply.raw.flushHeaders();
 
     const subscriber = createConnection();
+    // Facts (outbox-published CaseEvents) and pulses (worker liveness between
+    // facts — progress-pulse.service) share the one stream; the page tells
+    // them apart by `kind: 'pulse'`.
     const channel = `case-progress:${id}`;
+    const pulses = `case-pulse:${id}`;
 
-    await subscriber.subscribe(channel);
+    await subscriber.subscribe(channel, pulses);
 
     subscriber.on('message', (ch, message) => {
-      if (ch === channel) {
+      if (ch === channel || ch === pulses) {
         reply.raw.write(`data: ${message}\n\n`);
       }
     });
@@ -255,7 +259,7 @@ export default async function casesRoutes(fastify: FastifyInstance) {
     // Cleanup on disconnect
     request.raw.on('close', () => {
       clearInterval(heartbeat);
-      subscriber.unsubscribe(channel);
+      subscriber.unsubscribe(channel, pulses);
       subscriber.quit();
     });
   });

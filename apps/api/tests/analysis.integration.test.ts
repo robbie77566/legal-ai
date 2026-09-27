@@ -289,6 +289,11 @@ describe('batch path (invokeMany seam)', () => {
     const { screensForLane } = await import('../src/services/analysis.service');
     expect(seenKeys.length).toBe(screensForLane('TRIAL').length);
     expect(seenKeys).toContain('voir_dire__0');
+    // Live feedback (2026-09-27): the batch is a named phase with the
+    // request count, so the status page can say what it is waiting on.
+    const phases = await prisma.caseEvent.findMany({ where: { caseId: c2.id, type: 'analysis.phase' }, orderBy: { id: 'asc' } });
+    expect(phases.map((e) => (e.payload as { phase: string }).phase)).toEqual(['context', 'summary', 'batch']);
+    expect(phases[2].payload).toMatchObject({ screensTotal: screensForLane('TRIAL').length, requestsTotal: screensForLane('TRIAL').length });
     expect(summary.findingsPersisted).toBe(1);
     const f = await prisma.finding.findFirstOrThrow({ where: { caseId: c2.id }, include: { citations: true } });
     expect(f.citations[0].chunkId).toBe(chunk.id);
@@ -538,6 +543,13 @@ describe('runAnalysis (FR-6 grounding + state machine)', () => {
     expect(first).toMatchObject({ sample: 1, samplesTotal: 1, screenIndex: 1 });
     expect(first.screensTotal).toBe(screensDone);
     expect(Number(progress[0].id)).toBeLessThan(Number((await prisma.caseEvent.findFirstOrThrow({ where: { caseId, type: 'screen.completed' }, orderBy: { id: 'asc' } })).id));
+
+    // Live feedback (2026-09-27): the phases BEFORE the first check are
+    // durable facts, in order, and precede the first analysis.progress.
+    const phases = await prisma.caseEvent.findMany({ where: { caseId, type: 'analysis.phase' }, orderBy: { id: 'asc' } });
+    expect(phases.map((e) => (e.payload as { phase: string }).phase)).toEqual(['context', 'summary']);
+    expect((phases[0].payload as { screensTotal: number }).screensTotal).toBe(screensDone);
+    expect(Number(phases[1].id)).toBeLessThan(Number(progress[0].id));
   });
 
   it('customer report is 404 before QA approves — nothing legal leaks pre-QA', async () => {

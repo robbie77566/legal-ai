@@ -2,12 +2,24 @@
 
 import Link from 'next/link'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { apiFetch, apiEventSource } from '@/lib/api'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
-import { trackerModel, describeActivity, ago, formatCivilDate, type TrackerModel } from '@/lib/tracker'
+import { trackerModel, describeActivity, describeActivityItem, ago, agoFine, formatCivilDate, type TrackerModel } from '@/lib/tracker'
+import {
+  emptyFeed,
+  feedFromFacts,
+  applyMessage,
+  timelineOf,
+  describeRightNow,
+  checkRows,
+  typicalMinutes,
+  stalledMinutes,
+  type FeedState,
+  type ProgressFactsLike,
+} from '@/lib/progress-feed'
 import type { CustomerView } from '@hg/case-lifecycle'
 
 /**
@@ -20,6 +32,13 @@ import type { CustomerView } from '@hg/case-lifecycle'
  * silent. It polls the checklist facts every 20s as a floor under the live
  * stream, always shows the newest thing the system did and how long ago,
  * and says plainly that it is safe to leave — an email with a link follows.
+ *
+ * 2026-09-27 (live feedback): the long silences INSIDE a stage are covered
+ * too. The worker pulses which step it is on, in which phase, since when
+ * (lib/progress-feed); the page shows "right now", the whole plan of checks
+ * with each one's state, how long checks have been taking on this record,
+ * a "last signal" clock, an honest "taking longer than usual" line, and
+ * everything the system has done so far. Still never a finding count.
  */
 /**
  * Plain-language names for the analysis checks (upload_page_ux_review.md §2).
@@ -41,11 +60,14 @@ const SCREEN_NAMES: Record<string, string> = {
 /**
  * Fallback only. The real total differs by lane (a trial record runs five
  * screens, a plea case two) and arrives on every analysis.progress event as
- * `screensTotal` — hardcoding 6 meant a trial case counted "5 of 6 checks
- * finished · check 6 in progress" forever and never reached "All finished".
+ * `screensTotal` (and, since 2026-09-27, as the server's `screensPlanned`)
+ * — hardcoding 6 meant a trial case counted "5 of 6 checks finished ·
+ * check 6 in progress" forever and never reached "All finished".
  */
 const TOTAL_CHECKS_FALLBACK = 6
 const POLL_MS = 20_000
+/** The "N seconds ago" clocks re-render this often while work is running. */
+const CLOCK_MS = 5_000
 
 /** The always-available "what's happening right now" copy per active stage —
  * a cold page load mid-analysis must explain itself without waiting for the
@@ -59,11 +81,10 @@ const STAGE_EXPLAINERS: Record<string, string> = {
     'The analysis is done. The report is now going through its quality checks before it’s released to you.',
 }
 
-type Facts = {
+type Facts = ProgressFactsLike & {
   pagesDigitized: number
   documentsProcessed: number
   documentsTotal: number
-  checksDone?: string[]
   lastActivityAt?: string | null
   lastActivityType?: string | null
 }
@@ -73,16 +94,10 @@ export default function CaseStatus() {
   const { data: session } = useSession()
   const [view, setView] = useState<CustomerView | null>(null)
   const [lastDetail, setLastDetail] = useState<string | null>(null)
-  const [checksDone, setChecksDone] = useState<string[]>([])
-  const [nowChecking, setNowChecking] = useState<{ name: string; sample: number; samplesTotal: number; index: number; total: number } | null>(null)
-  // The lane's real screen count, learned from the pipeline's own events.
-  const [screensTotal, setScreensTotal] = useState<number | null>(null)
   const [dates, setDates] = useState<{ started: string | null; readyBy: string | null }>({ started: null, readyBy: null })
   const [facts, setFacts] = useState<Facts | null>(null)
-  const [tick, setTick] = useState(Date.now()) // re-renders the "N minutes ago" line
-
-  // Never promise fewer checks than the family has already watched finish.
-  const totalChecks = Math.max(screensTotal ?? TOTAL_CHECKS_FALLBACK, checksDone.length)
+  const [feed, setFeed] = useState<FeedState>(emptyFeed)
+  const [tick, setTick] = useState(Date.now()) // re-renders the "N minutes ago" lines
 
   useEffect(() => {
     // Base state + progress facts from the checklist endpoint — on load AND
@@ -98,39 +113,29 @@ export default function CaseStatus() {
           setDates({ started: d.slaStartedAt ?? null, readyBy: d.expectedReadyAt ?? null })
           if (d.progressFacts) {
             setFacts(d.progressFacts)
-            const seeded = ((d.progressFacts.checksDone ?? []) as string[])
-              .map((k) => SCREEN_NAMES[k])
-              .filter(Boolean)
-            if (seeded.length) setChecksDone((prev) => [...new Set([...seeded, ...prev])])
+            setFeed((prev) => feedFromFacts(prev, d.progressFacts))
           }
           setTick(Date.now())
         })
         .catch(() => {})
     void load()
     const poll = setInterval(() => void load(), POLL_MS)
-    const clock = setInterval(() => setTick(Date.now()), 30_000)
+    const clock = setInterval(() => setTick(Date.now()), CLOCK_MS)
 
     const es = apiEventSource(`/cases/${caseId}/progress`)
     es.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data)
         if (msg.customer) setView(msg.customer)
-        // Any live event IS activity — reflect it immediately.
+        // Facts and pulses both fold into the feed (lib/progress-feed).
+        setFeed((prev) => applyMessage(prev, msg))
+        // Any live FACT is activity — reflect it immediately.
         if (typeof msg.type === 'string') {
           setFacts((prev) => ({ ...(prev ?? { pagesDigitized: 0, documentsProcessed: 0, documentsTotal: 0 }), lastActivityAt: new Date().toISOString(), lastActivityType: msg.type }))
-          setTick(Date.now())
         }
-        // Honest sub-detail: counts only, from the registry-validated payload
-        if (msg.type === 'analysis.progress' && msg.payload) {
-          const name = SCREEN_NAMES[msg.payload.screen as string]
-          if (typeof msg.payload.screensTotal === 'number') setScreensTotal(msg.payload.screensTotal)
-          if (name) setNowChecking({ name, sample: msg.payload.sample, samplesTotal: msg.payload.samplesTotal, index: msg.payload.screenIndex, total: msg.payload.screensTotal })
-        } else if (msg.type === 'screen.completed') {
-          if (msg.payload?.volumesTotal) {
-            setLastDetail(`Volume ${msg.payload.volumesRead} of ${msg.payload.volumesTotal} read`)
-          }
-          const name = SCREEN_NAMES[msg.payload?.screen as string]
-          if (name) setChecksDone((prev) => (prev.includes(name) ? prev : [...prev, name]))
+        setTick(Date.now())
+        if (msg.type === 'screen.completed' && msg.payload?.volumesTotal) {
+          setLastDetail(`Volume ${msg.payload.volumesRead} of ${msg.payload.volumesTotal} read`)
         } else if (msg.type === 'doc.ocr_done' && typeof msg.payload?.pages === 'number') {
           setLastDetail(`${msg.payload.pages} pages digitized`)
           void load() // refresh the running totals right away
@@ -150,6 +155,21 @@ export default function CaseStatus() {
   const model: TrackerModel | null = view ? trackerModel(view) : null
   const working = !!model && model.activeIndex >= 0 && !model.delivered
   const email = session?.user?.email ?? null
+  const activeStage = model && working ? model.stages[model.activeIndex]?.id ?? null : null
+
+  // Derived from the feed — what is done, what is running, what is next.
+  const timeline = useMemo(() => timelineOf(feed), [feed])
+  const checksDone = timeline.checksDone.map((k) => SCREEN_NAMES[k]).filter(Boolean)
+  const nowChecking = timeline.nowChecking
+    ? { name: SCREEN_NAMES[timeline.nowChecking.screen], ...timeline.nowChecking }
+    : null
+  // Never promise fewer checks than the family has already watched finish.
+  const totalChecks = Math.max(timeline.screensTotal ?? feed.step?.screensTotal ?? (feed.screensPlanned.length || TOTAL_CHECKS_FALLBACK), checksDone.length)
+  const rightNow = describeRightNow(feed, SCREEN_NAMES, tick)
+  const rows = checkRows(feed, SCREEN_NAMES, tick)
+  const typical = typicalMinutes(feed)
+  const stalled = stalledMinutes(feed, activeStage, tick)
+  const signalAt = feed.lastSignalAt ?? facts?.lastActivityAt ?? null
 
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
@@ -194,6 +214,21 @@ export default function CaseStatus() {
           Still working — {ago(facts.lastActivityAt, tick)} it {describeActivity(facts.lastActivityType)}.
         </p>
       )}
+      {/* The live signal clock: the worker itself pulses while it works, so
+          this reads in seconds even mid-way through a 20-minute check. */}
+      {working && signalAt && (
+        <p data-testid="signal-clock" className="mt-1 text-xs text-db-muted">
+          Last signal from the system: {agoFine(signalAt, tick)}.
+        </p>
+      )}
+      {/* Honest, not alarming: the system retries on its own, and the
+          family will be emailed if anything needs them. */}
+      {working && stalled != null && (
+        <p data-testid="taking-longer" className="mt-3 rounded-xl border border-db-line bg-db-surface p-3 text-sm">
+          This step is taking longer than usual — no signal for {stalled} minutes. Your review is safe: the system
+          retries on its own, and we&rsquo;ll email you if anything needs your attention.
+        </p>
+      )}
 
       {!model && <p className="mt-6 text-db-muted">Loading…</p>}
 
@@ -218,7 +253,7 @@ export default function CaseStatus() {
                     background: isDone || isActive ? 'var(--db-accent)' : 'var(--db-line)',
                   }}
                 />
-                <span>
+                <span className="min-w-0 flex-1">
                   <span className={isActive || isDone ? 'font-semibold' : 'text-db-muted'}>
                     {stage.label}
                   </span>
@@ -235,6 +270,22 @@ export default function CaseStatus() {
                       {facts.pagesDigitized.toLocaleString()} pages read so far, across {facts.documentsProcessed} of {facts.documentsTotal} documents
                     </span>
                   )}
+                  {/* Right now — the worker's own account of the step it is
+                      on, its phase, and how long it has been at it. */}
+                  {isActive && (stage.id === 'digitizing' || stage.id === 'analyzing') && rightNow && (
+                    <span data-testid="right-now" className="mt-2 block rounded-lg border-2 border-db-accent bg-db-accent-soft p-3 text-sm">
+                      <span className="block font-semibold">
+                        <span aria-hidden className="db-breathe mr-2 inline-block h-2 w-2 rounded-full align-middle" style={{ background: 'var(--db-accent)' }} />
+                        {rightNow.headline}
+                      </span>
+                      {rightNow.detail && <span className="mt-1 block text-db-muted">{rightNow.detail}</span>}
+                      {stage.id === 'analyzing' && typical != null && (
+                        <span className="mt-1 block text-db-muted" data-testid="typical-check">
+                          On this record, finished checks have taken about {typical} min each.
+                        </span>
+                      )}
+                    </span>
+                  )}
                   {/* What's happening right now (upload_page_ux_review.md §2):
                       silence during a long stage reads as "nothing is
                       happening" — the panel explains, the feed proves. */}
@@ -248,17 +299,22 @@ export default function CaseStatus() {
                       <span className="font-semibold">
                         {checksDone.length >= totalChecks
                           ? `All ${totalChecks} checks finished`
-                          : nowChecking
-                            ? `Now checking for ${nowChecking.name} (check ${nowChecking.index} of ${nowChecking.total}${nowChecking.samplesTotal > 1 ? `, pass ${nowChecking.sample} of ${nowChecking.samplesTotal}` : ''})`
+                          : nowChecking?.name
+                            ? `Now checking for ${nowChecking.name} (check ${nowChecking.screenIndex} of ${nowChecking.screensTotal || totalChecks}${nowChecking.samplesTotal > 1 ? `, pass ${nowChecking.sample} of ${nowChecking.samplesTotal}` : ''})`
                             : checksDone.length === 0
                               ? `Check 1 of ${totalChecks} in progress`
                               : `${checksDone.length} of ${totalChecks} checks finished · check ${checksDone.length + 1} in progress`}
                       </span>
-                      {checksDone.map((c) => (
-                        <span key={c} className="mt-1 block text-db-muted">
-                          ✓ Finished checking for {c}
-                        </span>
-                      ))}
+                      {/* The whole plan — done, running, still to come. */}
+                      <span className="mt-1 block" data-testid="check-plan">
+                        {rows.map((r) => (
+                          <span key={r.screen} className="mt-1 block text-db-muted" data-status={r.status}>
+                            {r.status === 'done' && <>✓ Finished checking for {r.name}{r.minutes != null ? ` (took ${r.minutes} min)` : ''}</>}
+                            {r.status === 'running' && <>● Now checking for {r.name}{r.minutes != null ? ` — ${r.minutes} min so far` : ''}</>}
+                            {r.status === 'pending' && <>○ Still to come: {r.name}</>}
+                          </span>
+                        ))}
+                      </span>
                     </span>
                   )}
                 </span>
@@ -266,6 +322,22 @@ export default function CaseStatus() {
             )
           })}
         </ol>
+      )}
+
+      {/* Everything the system has done so far — a plain-words log of the
+          durable events, newest first. Never a count of findings. */}
+      {model && model.activeIndex >= 0 && feed.activity.length > 0 && (
+        <details className="mt-6 rounded-xl border border-db-line bg-db-surface p-4 text-sm" data-testid="activity-log">
+          <summary className="cursor-pointer font-semibold">Everything the system has done so far ({feed.activity.length})</summary>
+          <ol className="mt-3 space-y-1">
+            {feed.activity.map((a, i) => (
+              <li key={`${a.at}-${a.type}-${i}`} className="flex gap-3 text-db-muted">
+                <span className="w-24 shrink-0 font-db-mono text-xs">{new Date(a.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                <span>{describeActivityItem(a, SCREEN_NAMES)}</span>
+              </li>
+            ))}
+          </ol>
+        </details>
       )}
 
       {model?.delivered && (

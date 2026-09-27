@@ -1,9 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent, Prisma } from '@hg/database';
-import { computeDeadlinePosture, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
-import { verifyFindings } from '../services/analysis.service';
+import { computeDeadlinePosture, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, analysisTimeline, activityItem, runEventItem, CUSTOMER_ACTIVITY_TYPES, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
+import { verifyFindings, screensForLane } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
+import { lastPulse } from '../services/progress-pulse.service';
 
 /**
  * S2 intake: interview → personalized checklist → the explicit, celebrated
@@ -220,31 +221,55 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         orderBy: { startedAt: 'desc' },
         select: { startedAt: true },
       });
-      const screenEvents = latestRun
+      // One run's analysis events, oldest first → what is done, what is
+      // running (and since when), and which pre-check phase is on.
+      const runEvents = latestRun
         ? await tx.caseEvent.findMany({
-            where: { caseId: id, type: 'screen.completed', createdAt: { gte: latestRun.startedAt } },
-            select: { payload: true },
+            where: {
+              caseId: id,
+              createdAt: { gte: latestRun.startedAt },
+              type: { in: ['analysis.phase', 'analysis.progress', 'screen.completed'] },
+            },
+            orderBy: { id: 'asc' },
+            select: { type: true, payload: true, createdAt: true },
           })
         : [];
-      const checksDone = [
-        ...new Set(
-          screenEvents
-            .map((e) => (e.payload as { screen?: string }).screen)
-            .filter((s): s is string => typeof s === 'string')
-        ),
-      ];
+      const timeline = analysisTimeline(runEvents);
       const pagesDigitized = await tx.documentPage.count({ where: { document: { caseId: id } } });
       const documentsTotal = await tx.document.count({ where: { caseId: id, quarantined: false } });
       const processedDocs = await tx.documentPage.groupBy({ by: ['documentId'], where: { document: { caseId: id } } });
+      // The document being read right now: the newest doc.ocr_started with
+      // no doc.ocr_done for that document after it.
+      const lastStarted = await tx.caseEvent.findFirst({
+        where: { caseId: id, type: 'doc.ocr_started' },
+        orderBy: { id: 'desc' },
+        select: { id: true, payload: true, createdAt: true },
+      });
+      const startedDocId = (lastStarted?.payload as { documentId?: string } | null)?.documentId;
+      const startedDone =
+        lastStarted && startedDocId
+          ? await tx.caseEvent.findFirst({
+              where: { caseId: id, type: 'doc.ocr_done', id: { gt: lastStarted.id }, payload: { path: ['documentId'], equals: startedDocId } },
+              select: { id: true },
+            })
+          : null;
+      const documentInProgress = lastStarted && !startedDone ? { startedAt: lastStarted.createdAt } : null;
       // "Is anything happening?" — the single most reassuring fact during a
       // long stage (2026-09-06: a 2 GB record looked locked up). The newest
-      // pipeline event, so the page can say "last activity 3 minutes ago:
-      // finished reading a document" even when the live stream is silent.
-      const lastEvent = await tx.caseEvent.findFirst({
-        where: { caseId: id },
-        orderBy: { createdAt: 'desc' },
-        select: { type: true, createdAt: true },
+      // customer-safe pipeline events, so the page can say "3 minutes ago
+      // it finished reading a document" even when the live stream is
+      // silent, and list everything the system has done so far.
+      const recent = await tx.caseEvent.findMany({
+        where: { caseId: id, type: { in: [...CUSTOMER_ACTIVITY_TYPES] } },
+        orderBy: { id: 'desc' },
+        take: 30,
+        select: { type: true, payload: true, createdAt: true },
       });
+      const recentActivity = recent.map(activityItem);
+      const lastEvent = recent[0] ?? null;
+      // The worker's live pulse, mirrored in Redis (progress-pulse.service):
+      // a cold load mid-check says "reading the record, 6 min so far" too.
+      const livePulse = await lastPulse(id);
 
       // What the family told us (customer_journey_ux_review §3) and whether
       // this is a paid re-run of a finished review (US-6).
@@ -273,10 +298,23 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
           pagesDigitized,
           documentsProcessed: processedDocs.length,
           documentsTotal,
-          checksDone,
+          documentInProgress,
+          checksDone: timeline.checksDone,
+          // The lane's full plan, so the page can show every check — done,
+          // running, or still to come — instead of only the finished ones.
+          screensPlanned: screensForLane(kase.lane === 'PLEA' ? 'PLEA' : 'TRIAL'),
+          checks: timeline.checks,
+          nowChecking: timeline.nowChecking,
+          phase: timeline.phase,
+          requestsTotal: timeline.requestsTotal,
+          // The same events, projected (enums and counts only), so the page
+          // re-folds the timeline as live ones arrive instead of guessing.
+          runEvents: runEvents.map(runEventItem),
           analysisStartedAt: latestRun?.startedAt ?? null,
           lastActivityAt: lastEvent?.createdAt ?? null,
           lastActivityType: lastEvent?.type ?? null,
+          recentActivity,
+          livePulse,
         },
       };
     });

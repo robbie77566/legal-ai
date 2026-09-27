@@ -162,6 +162,10 @@ describe('born-digital PDF digitization (pdf-parse, no network)', () => {
     expect((chunks[0].metadata as { page: number }).page).toBeGreaterThan(0);
 
     expect(await prisma.caseEvent.count({ where: { caseId, type: 'doc.ocr_done' } })).toBe(1);
+    // Live feedback (2026-09-27): a start marker precedes the done event.
+    const started = await prisma.caseEvent.findFirstOrThrow({ where: { caseId, type: 'doc.ocr_started' }, orderBy: { id: 'asc' } });
+    expect(started.payload).toEqual({ documentId: doc.id });
+    expect(Number(started.id)).toBeLessThan(Number((await prisma.caseEvent.findFirstOrThrow({ where: { caseId, type: 'doc.ocr_done' } })).id));
 
     // Echo-back: "REPORTER'S RECORD" text classifies to the rr_volume item
     expect(summary.suggestedKind).toBe('rr_volume');

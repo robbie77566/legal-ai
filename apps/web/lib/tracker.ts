@@ -54,6 +54,7 @@ export function trackerModel(view: CustomerView): TrackerModel {
 const ACTIVITY_WORDS: Record<string, string> = {
   'doc.uploaded': 'received one of your documents',
   'zip.ingested': 'unpacked your ZIP file',
+  'doc.ocr_started': 'started reading a document',
   'doc.ocr_done': 'finished reading a document',
   'doc.classified': 'worked out what kind of document one of them is',
   'doc.confirmed': 'confirmed a document',
@@ -62,11 +63,19 @@ const ACTIVITY_WORDS: Record<string, string> = {
   'stage.entered': 'moved on to the next step',
   'ocr.halted': 'paused to check reading quality',
   'ocr.resumed': 'resumed reading',
+  'analysis.phase': 'started getting to know the record',
   'analysis.progress': 'started one of the checks',
   'screen.completed': 'finished one of the checks',
   'adjudication.completed': 'finished comparing results',
   'hold.set': 'sent the report for a closer look',
   'hold.cleared': 'cleared the closer look',
+  'qa.approved': 'approved the report',
+  'report.rendered': 'prepared your report',
+  'report.delivered': 'sent your report',
+  'pipeline.resumed': 'picked the work back up',
+  'delay.ours_marked': 'noted a delay on our side',
+  'delay.ours_cleared': 'cleared the delay',
+  'rerun.purchased': 'set up a fresh review',
   'interview.completed': 'saved your answers',
   'case.created': 'set up your case',
 }
@@ -74,6 +83,31 @@ const ACTIVITY_WORDS: Record<string, string> = {
 export function describeActivity(type: string | null | undefined): string {
   if (!type) return 'started'
   return ACTIVITY_WORDS[type] ?? 'made progress'
+}
+
+/** The phase names in the family's words — for the activity log's check lines. */
+const PHASE_ACTIVITY: Record<string, string> = {
+  context: 'started getting to know the record',
+  summary: 'started pulling the key facts for your report',
+  batch: 'sent every check to run at once',
+}
+
+/** One activity-log line: the event plus the check or phase it names, never a count. */
+export function describeActivityItem(item: { type: string; screen?: string; phase?: string }, screenNames: Record<string, string>): string {
+  const name = item.screen ? screenNames[item.screen] : undefined
+  if (item.type === 'screen.completed' && name) return `finished checking for ${name}`
+  if (item.type === 'analysis.progress' && name) return `started checking for ${name}`
+  if (item.type === 'analysis.phase' && item.phase && PHASE_ACTIVITY[item.phase]) return PHASE_ACTIVITY[item.phase]
+  return describeActivity(item.type)
+}
+
+/** Finer than ago(): "8 seconds ago" — for the live signal clock. */
+export function agoFine(iso: string | null | undefined, now = Date.now()): string {
+  if (!iso) return ''
+  const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000))
+  if (s < 5) return 'just now'
+  if (s < 60) return `${s} seconds ago`
+  return ago(iso, now)
 }
 
 /** "just now" / "4 minutes ago" / "2 hours ago" — honest, coarse. */

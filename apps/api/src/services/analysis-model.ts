@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { AnalysisModel } from './analysis.service';
 import { recordModelCost } from './costs.service';
 import { FIXED_SYSTEM, buildMessages, prewarmCache, prewarmEnabled } from './analysis-request';
+import { pulse } from './progress-pulse.service';
 
 /**
  * The live/batch Anthropic-backed AnalysisModel (moved out of the worker on
@@ -27,21 +28,31 @@ export function buildModel(caseId: string, tenantId: string, modelName: string):
    * handled by US instead: one client-side retry on the fallback engine,
    * then an empty sample.
    */
-  const streamOnce = async (model: string, screenInstruction: string, record: string) =>
-    client.messages
-      .stream({
-        model,
-        max_tokens: 32000, // Fable comparison hit 16k mid-array; verbose models need headroom
-        system: FIXED_SYSTEM,
-        // Live-sequential: screens run one after another within minutes,
-        // so the 5-minute cache (1.25× write) is enough; screens 2..n read.
-        messages: buildMessages(record, screenInstruction, '5m'),
-      })
-      .finalMessage();
+  const streamOnce = async (model: string, screenInstruction: string, record: string) => {
+    const stream = client.messages.stream({
+      model,
+      max_tokens: 32000, // Fable comparison hit 16k mid-array; verbose models need headroom
+      system: FIXED_SYSTEM,
+      // Live-sequential: screens run one after another within minutes,
+      // so the 5-minute cache (1.25× write) is enough; screens 2..n read.
+      messages: buildMessages(record, screenInstruction, '5m'),
+    });
+    // Status-page pulse: the first streamed token turns "reading the
+    // record" into "writing up what it found" on the family's page.
+    let firstText = true;
+    stream.on('text', () => {
+      if (firstText) {
+        firstText = false;
+        pulse(caseId, 'writing');
+      }
+    });
+    return stream.finalMessage();
+  };
 
   const FALLBACK_ENGINE = process.env.ANALYSIS_FALLBACK_MODEL ?? (modelName.startsWith('claude-opus') ? '' : 'claude-opus-5');
 
   const liveInvoke = async (screenInstruction: string, record: string): Promise<string> => {
+      pulse(caseId, 'reading');
       let response = await streamOnce(modelName, screenInstruction, record);
       if (response.stop_reason === 'refusal' && FALLBACK_ENGINE) {
         console.warn(`[analysis] ${modelName} refused a screen (category: ${response.stop_details?.category ?? 'unknown'}) — retrying once on ${FALLBACK_ENGINE}`);
@@ -120,6 +131,7 @@ export function buildModel(caseId: string, tenantId: string, modelName: string):
       // re-wrote a 696k record; writes were 88% of the run's cost).
       if (prewarmEnabled()) {
         try {
+          pulse(caseId, 'reading');
           const u = await prewarmCache(client, modelName, record);
           console.log(`[analysis] cache pre-warm (1h) — cache_write:${u.cacheWriteTokens} cache_read:${u.cacheReadTokens} in:${u.inputTokens}`);
           void recordModelCost({
@@ -143,10 +155,15 @@ export function buildModel(caseId: string, tenantId: string, modelName: string):
         })),
       });
       console.log(`[analysis] batch ${batch.id}: ${requests.length} requests submitted`);
+      pulse(caseId, 'waiting', { done: 0, total: requests.length });
 
       const started = Date.now();
       let b = batch;
       while (b.processing_status === 'in_progress') {
+        // Every poll is a pulse: the family's page shows passes returned
+        // so far, and the "last signal" clock never runs past 30 s.
+        const rc = b.request_counts;
+        pulse(caseId, 'waiting', { done: rc.succeeded + rc.errored + rc.canceled + rc.expired, total: requests.length });
         if (Date.now() - started > budgetMs) {
           console.warn(`[analysis] batch ${batch.id} over budget — cancelling, falling back live`);
           await client.messages.batches.cancel(batch.id).catch(() => {});
@@ -157,6 +174,7 @@ export function buildModel(caseId: string, tenantId: string, modelName: string):
       }
 
       if (b.processing_status === 'ended') {
+        pulse(caseId, 'saving', { done: requests.length, total: requests.length });
         for await (const entry of await client.messages.batches.results(batch.id)) {
           if (entry.result.type !== 'succeeded') {
             console.warn(`[analysis] batch item ${entry.custom_id}: ${entry.result.type}`);

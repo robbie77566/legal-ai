@@ -213,3 +213,117 @@ describe('status page — proof of life and "safe to leave" (round 4, 2026-09-06
     expect(screen.getByTestId('last-activity')).toHaveTextContent(/just now it started one of the checks/)
   })
 })
+
+describe('status page — live feedback inside a stage (2026-09-27)', () => {
+  const NOW = Date.now()
+  const min = (m: number) => new Date(NOW - m * 60_000).toISOString()
+
+  it('cold load mid-check: the mirrored pulse says which check, which phase, how long; the plan lists every check', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          customer: { stage: 'analyzing', overlay: null },
+          progressFacts: {
+            pagesDigitized: 900, documentsProcessed: 4, documentsTotal: 4,
+            screensPlanned: ['preserved_error', 'iac', 'brady', 'junk_science', 'sentencing', 'voir_dire', 'identification'],
+            runEvents: [
+              { type: 'analysis.progress', at: min(30), payload: { screen: 'preserved_error', screenIndex: 1, screensTotal: 7 } },
+              { type: 'screen.completed', at: min(16), payload: { screen: 'preserved_error' } },
+              { type: 'analysis.progress', at: min(16), payload: { screen: 'iac', sample: 1, samplesTotal: 2, screenIndex: 2, screensTotal: 7 } },
+            ],
+            lastActivityAt: min(16), lastActivityType: 'analysis.progress',
+            livePulse: { kind: 'pulse', at: new Date(NOW - 8_000).toISOString(), phase: 'writing', step: { stage: 'analyzing', label: 'check', screen: 'iac', sample: 1, samplesTotal: 2, screenIndex: 2, screensTotal: 7, startedAt: min(16) } },
+            recentActivity: [
+              { type: 'analysis.progress', at: min(16), screen: 'iac' },
+              { type: 'screen.completed', at: min(16), screen: 'preserved_error' },
+              { type: 'analysis.phase', at: min(35), phase: 'context' },
+            ],
+          },
+        }),
+      }) as Response)
+    )
+    render(<CaseStatus />)
+    const now = await screen.findByTestId('right-now')
+    expect(now).toHaveTextContent('Check 2 of 7: how well the defense lawyer did their job, pass 1 of 2')
+    expect(now).toHaveTextContent('Now writing up what it found (16 min so far).')
+    expect(screen.getByTestId('typical-check')).toHaveTextContent('finished checks have taken about 14 min each')
+    expect(screen.getByTestId('signal-clock')).toHaveTextContent(/Last signal from the system: \d+ seconds ago/)
+    const plan = screen.getByTestId('check-plan')
+    expect(plan).toHaveTextContent('✓ Finished checking for mistakes the defense lawyer objected to at trial (took 14 min)')
+    expect(plan).toHaveTextContent('● Now checking for how well the defense lawyer did their job — 16 min so far')
+    expect(plan).toHaveTextContent('○ Still to come: how the person was identified')
+    expect(plan.querySelectorAll('[data-status="pending"]')).toHaveLength(5)
+    expect(screen.getByTestId('checks-feed')).toHaveTextContent('Now checking for how well the defense lawyer did their job (check 2 of 7, pass 1 of 2)')
+    const log = screen.getByTestId('activity-log')
+    expect(log).toHaveTextContent('Everything the system has done so far (3)')
+    expect(log).toHaveTextContent('started checking for how well the defense lawyer did their job')
+    expect(log).toHaveTextContent('started getting to know the record')
+    expect(screen.queryByTestId('taking-longer')).toBeNull()
+  })
+
+  it('a live pulse moves the "right now" line and the signal clock without being treated as a fact', async () => {
+    render(<CaseStatus />)
+    await screen.findByTestId('stage-explainer')
+    act(() => {
+      sseInstance!.onmessage!({ data: JSON.stringify({ kind: 'pulse', caseId: 'case_1', at: new Date().toISOString(), phase: 'reading', step: { stage: 'analyzing', label: 'context', screensTotal: 7, startedAt: min(2) } }) })
+    })
+    const now = await screen.findByTestId('right-now')
+    expect(now).toHaveTextContent('Getting to know the record')
+    expect(now).toHaveTextContent(/2 min so far/)
+    expect(screen.getByTestId('signal-clock')).toHaveTextContent('Last signal from the system: just now')
+    // A pulse is not activity: the "Still working — … it …" line needs a fact.
+    expect(screen.queryByTestId('last-activity')).toBeNull()
+    expect(screen.getByTestId('checks-feed')).toHaveTextContent('Check 1 of 7 in progress')
+  })
+
+  it('production batch: the wait is named and each poll reports passes returned', async () => {
+    render(<CaseStatus />)
+    await screen.findByTestId('stage-explainer')
+    act(() => {
+      sseInstance!.onmessage!({ data: JSON.stringify({ type: 'analysis.phase', at: min(20), payload: { phase: 'batch', screensTotal: 7, requestsTotal: 14 } }) })
+      sseInstance!.onmessage!({ data: JSON.stringify({ kind: 'pulse', at: new Date().toISOString(), phase: 'waiting', step: { stage: 'analyzing', label: 'batch', screensTotal: 7, done: 5, total: 14, startedAt: min(20) } }) })
+    })
+    const now = await screen.findByTestId('right-now')
+    expect(now).toHaveTextContent('Running every check on the record')
+    expect(now).toHaveTextContent('All 7 checks are running at the same time. 5 of 14 passes have come back. (20 min so far)')
+    expect(screen.getByTestId('last-activity')).toHaveTextContent(/it sent every check to run at once|it started getting to know the record/)
+  })
+
+  it('digitizing: says which document is being read and for how long', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          customer: { stage: 'digitizing', overlay: null },
+          progressFacts: { pagesDigitized: 300, documentsProcessed: 2, documentsTotal: 5, documentInProgress: { startedAt: min(4) }, lastActivityAt: min(4), lastActivityType: 'doc.ocr_started' },
+        }),
+      }) as Response)
+    )
+    render(<CaseStatus />)
+    const now = await screen.findByTestId('right-now')
+    expect(now).toHaveTextContent('Reading one of your documents')
+    expect(now).toHaveTextContent('Started 4 min ago. Scanned pages take longer than typed ones.')
+    expect(screen.getByTestId('last-activity')).toHaveTextContent(/4 minutes ago it started reading a document/)
+  })
+
+  it('a long silence is named honestly, with the retry and the email promise', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          customer: { stage: 'analyzing', overlay: null },
+          progressFacts: { pagesDigitized: 1, documentsProcessed: 1, documentsTotal: 1, lastActivityAt: min(50), lastActivityType: 'analysis.progress', livePulse: null },
+        }),
+      }) as Response)
+    )
+    render(<CaseStatus />)
+    const warn = await screen.findByTestId('taking-longer')
+    expect(warn).toHaveTextContent('no signal for 50 minutes')
+    expect(warn).toHaveTextContent(/retries on its own/)
+    expect(warn).toHaveTextContent(/email you/)
+  })
+})

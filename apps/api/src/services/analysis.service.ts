@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { CaseSummarySchema, normalizePreserved, normalizeHarmStandard, vehicleFor, type CaseSummary } from '@hg/case-lifecycle';
 import { withTenant, appendCaseEvent } from '@hg/database';
+import { beginStep, pulse, endStep } from './progress-pulse.service';
 
 /**
  * The analysis orchestrator (system design §6, ENG-2). Drives the case
@@ -557,6 +558,40 @@ export async function buildContextHeader(model: AnalysisModel, record: string): 
   }
 }
 
+/** Durable start marker for a pre-check phase (status page cold loads). */
+async function markPhase(
+  caseId: string,
+  tenantId: string,
+  phase: 'context' | 'summary' | 'batch',
+  screensTotal: number,
+  requestsTotal?: number
+): Promise<void> {
+  await withTenant(tenantId, (tx) =>
+    appendCaseEvent(tx, {
+      caseId, tenantId, type: 'analysis.phase',
+      payload: { phase, screensTotal, ...(requestsTotal != null ? { requestsTotal } : {}) },
+      actor: 'pipeline',
+    })
+  );
+}
+
+/**
+ * Whatever happens inside a run, its live pulse ends with it — a crashed
+ * run must not keep telling the family "reading the record" until the
+ * retry begins.
+ */
+export async function runAnalysis(
+  caseId: string,
+  tenantId: string,
+  modelOrModels: AnalysisModel | AnalysisModel[]
+): Promise<AnalysisSummary> {
+  try {
+    return await runAnalysisInner(caseId, tenantId, modelOrModels);
+  } finally {
+    endStep(caseId);
+  }
+}
+
 /**
  * Transaction shape (learned the expensive way on the first live run):
  * model calls run OUTSIDE any transaction — a Prisma interactive
@@ -565,7 +600,7 @@ export async function buildContextHeader(model: AnalysisModel, record: string): 
  * own short transaction, so `screen.completed` events reach the tracker as
  * they happen and a late crash never rolls back earlier screens' work.
  */
-export async function runAnalysis(
+async function runAnalysisInner(
   caseId: string,
   tenantId: string,
   modelOrModels: AnalysisModel | AnalysisModel[]
@@ -622,11 +657,18 @@ export async function runAnalysis(
   let persisted = 0;
   let dropped = 0;
 
+  // Status page: the phases before the first check used to be silence —
+  // a durable marker each (cold loads) plus a live pulse (liveness).
+  const screensTotal = screensForLane(lane).length;
+  await markPhase(caseId, tenantId, 'context', screensTotal);
+  beginStep(caseId, { stage: 'analyzing', label: 'context', screensTotal });
   // Context pre-pass: outside any transaction, one cached-read call.
   const contextHeader = await buildContextHeader(model, record);
   if (contextHeader) console.log(`[analysis] context header: ${contextHeader.slice(0, 160)}…`);
   // Case summary for the report header — persisted on the run so every
   // report version renders the summary its findings were built alongside.
+  await markPhase(caseId, tenantId, 'summary', screensTotal);
+  beginStep(caseId, { stage: 'analyzing', label: 'summary', screensTotal });
   const caseSummary = await buildCaseSummary(model, record, chunks);
   if (caseSummary) {
     await withTenant(tenantId, (tx) => tx.analysisRun.update({ where: { id: run.id }, data: { summary: caseSummary as object } }));
@@ -666,6 +708,12 @@ export async function runAnalysis(
   const batchByEngine = new Map<string, Map<string, string>>();
   for (const m of models) {
     if (!m.invokeMany || !batchAllowed) continue;
+    // Production's usual path: every check goes out at once and nothing
+    // per check comes back until the batch ends — the page needs to know
+    // it is waiting on N passes, and the batch runner pulses each poll.
+    const requestsTotal = screensTotal * samples;
+    await markPhase(caseId, tenantId, 'batch', screensTotal, requestsTotal);
+    beginStep(caseId, { stage: 'analyzing', label: 'batch', screensTotal, done: 0, total: requestsTotal }, 'waiting');
     batchByEngine.set(
       m.name,
       await m.invokeMany(
@@ -730,11 +778,17 @@ export async function runAnalysis(
               actor: 'pipeline',
             })
           );
+          beginStep(caseId, {
+            stage: 'analyzing', label: 'check', screen: screenId,
+            sample: n + 1, samplesTotal: samples,
+            screenIndex: screensForLane(lane).indexOf(screenId) + 1, screensTotal,
+          });
           const res = await invokeValidated(m, instruction, record);
           arrays.push(res.findings.map((f) => ({ ...f, engine: m.name })));
         }
       }
     }
+    pulse(caseId, 'saving');
     const result = groundUnion(arrays, chunks);
     agreements += result.agreements;
     dropped += result.dropped;

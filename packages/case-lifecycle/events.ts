@@ -70,6 +70,9 @@ export const CASE_EVENT_SCHEMAS = {
   'doc.ocr_done': {
     1: z.object({ documentId: id, pages: count, lowConfidencePages: count }).strict(),
   },
+  // Live-feedback start marker (status page, 2026-09-27): a scanned volume
+  // is minutes of silence between "uploaded" and "read" without it.
+  'doc.ocr_started': { 1: z.object({ documentId: id }).strict() },
   'doc.classified': {
     1: z.object({ documentId: id, checklistItemId: id.optional() }).strict(),
   },
@@ -89,6 +92,21 @@ export const CASE_EVENT_SCHEMAS = {
   // record takes 15–20 min on Fable and nothing was recorded until it
   // finished — the status page and the ops card read as "stopped". Emitted
   // before each model call: which check, which sample.
+  // The phases BEFORE the first check (status page, 2026-09-27): the
+  // context pre-pass, the case summary, and — in production — the batch
+  // that runs every check at once and reports nothing per check until it
+  // ends. Durable so a cold load can say what is happening; the per-second
+  // liveness between these facts is a pulse (progress-pulse.service), not
+  // an event.
+  'analysis.phase': {
+    1: z
+      .object({
+        phase: z.enum(['context', 'summary', 'batch']),
+        screensTotal: count,
+        requestsTotal: count.optional(),
+      })
+      .strict(),
+  },
   'analysis.progress': {
     1: z
       .object({
