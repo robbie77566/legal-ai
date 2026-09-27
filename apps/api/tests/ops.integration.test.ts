@@ -173,6 +173,79 @@ describe('OPS-4 scoped deletion — the retention matrix by assertion', () => {
   });
 });
 
+describe('OPS: eval gate from the console (2026-09-27)', () => {
+  let doneId: string;
+  beforeAll(async () => {
+    const c = await prisma.case.create({
+      data: { title: `${run}_done`, tenantId, status: 'DELIVERED', lane: 'TRIAL', accessList: { create: { userId, role: 'ADMIN' } } },
+    });
+    doneId = c.id;
+    const doc = await prisma.document.create({ data: { filename: 'rr.pdf', caseId: doneId, s3Key: `cases/${doneId}/rr.pdf` } });
+    await prisma.documentChunk.create({ data: { documentId: doc.id, content: `${run} chunk`, metadata: {} } });
+    const r = await prisma.analysisRun.create({ data: { caseId: doneId, tenantId, runNo: 1, modelConfig: { model: 'claude-fable-5-1', screens: 'v2', promptHash: 'abc123def' }, completedAt: new Date() } });
+    // One finding that satisfies the first Gary canary (confrontation + Solis).
+    await prisma.finding.create({
+      data: {
+        runId: r.id, caseId: doneId, tenantId, stableKey: `${run}_canary`, category: 'confrontation',
+        severity: 'dispositive', confidence: 0.9, partAText: 'a', partBText: 'Confrontation Clause objection to surrogate analyst Solis testifying to bench work.', preserved: 'yes',
+      },
+    });
+  });
+  afterAll(async () => {
+    const ids = (await prisma.case.findMany({ where: { tenantId, title: `${run}_done` }, select: { id: true } })).map((c) => c.id);
+    await prisma.findingCitation.deleteMany({ where: { finding: { caseId: { in: ids } } } });
+    await prisma.finding.deleteMany({ where: { caseId: { in: ids } } });
+    await prisma.analysisRun.deleteMany({ where: { caseId: { in: ids } } });
+    await prisma.documentChunk.deleteMany({ where: { document: { caseId: { in: ids } } } });
+    await prisma.document.deleteMany({ where: { caseId: { in: ids } } });
+    await prisma.caseAccess.deleteMany({ where: { caseId: { in: ids } } });
+    await prisma.case.deleteMany({ where: { id: { in: ids } } });
+  });
+
+  it('lists the committed ledgers (ADMIN only)', async () => {
+    const res = await fastify.inject({ method: 'GET', url: '/ops/eval/ledgers', headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().map((l: { name: string }) => l.name)).toContain('gary');
+    const client = await fastify.inject({ method: 'GET', url: '/ops/eval/ledgers', headers: { cookie: clientCookie } });
+    expect(client.statusCode).toBe(403);
+  });
+
+  it('scores the latest completed run: the run identity, found and missed canaries, and the pass rule', async () => {
+    const res = await fastify.inject({ method: 'GET', url: `/ops/cases/${doneId}/eval?ledger=gary`, headers: { cookie: adminCookie } });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.run).toMatchObject({ runNo: 1, model: 'claude-fable-5-1', promptSet: 'v2', promptHash: 'abc123def', findings: 1 });
+    expect(body.card.found.map((f: { id: string }) => f.id)).toEqual(['surrogate-dna-confrontation']);
+    expect(body.card.missed.length).toBe(body.card.mustFindTotal - 1);
+    expect(body.pass).toBe(false);
+    const missing = await fastify.inject({ method: 'GET', url: `/ops/cases/${doneId}/eval?ledger=nope`, headers: { cookie: adminCookie } });
+    expect(missing.statusCode).toBe(404);
+    const noRun = await fastify.inject({ method: 'GET', url: `/ops/cases/${caseId}/eval?ledger=gary`, headers: { cookie: adminCookie } });
+    expect(noRun.statusCode).toBe(409);
+  });
+
+  it('re-runs a finished case: walks the legal re-run path, records why, queues the analysis; refuses a running case', async () => {
+    resumeMock.state = 'completed';
+    resumeMock.enqueueAnalysis.mockClear();
+    const res = await fastify.inject({ method: 'POST', url: `/ops/cases/${doneId}/reanalyze`, headers: { cookie: adminCookie }, payload: { reason: 'eval' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true, runNo: 2 });
+    expect(resumeMock.enqueueAnalysis).toHaveBeenCalledWith(doneId, tenantId);
+    const kase = await prisma.case.findUniqueOrThrow({ where: { id: doneId } });
+    expect(kase.status).toBe('DOCS_COMPLETE');
+    expect(kase.expectedReadyAt).not.toBeNull();
+    const events = await prisma.caseEvent.findMany({ where: { caseId: doneId }, orderBy: { id: 'asc' } });
+    const types = events.map((e) => e.type);
+    expect(types.slice(-3)).toEqual(['analysis.rerun_requested', 'stage.entered', 'stage.entered']);
+    expect(events.at(-3)!.payload).toEqual({ reason: 'eval', priorRuns: 1 });
+    const again = await fastify.inject({ method: 'POST', url: `/ops/cases/${doneId}/reanalyze`, headers: { cookie: adminCookie }, payload: {} });
+    expect(again.statusCode).toBe(409);
+    expect(again.json().error).toMatch(/DOCS_COMPLETE/);
+    const support = await fastify.inject({ method: 'POST', url: `/ops/cases/${doneId}/reanalyze`, headers: { cookie: clientCookie }, payload: {} });
+    expect(support.statusCode).toBe(403);
+  });
+});
+
 describe('OPS: resume a stuck pipeline (2026-09-07)', () => {
   let stuckId: string;
   beforeAll(async () => {

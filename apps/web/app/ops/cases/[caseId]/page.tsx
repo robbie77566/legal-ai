@@ -64,6 +64,13 @@ const SCREEN_NAMES: Record<string, string> = {
 const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 const humanize = (s: string) => s.replace(/[._]/g, ' ')
 
+interface EvalResult {
+  ledger: { name: string; caseTitle: string; provenance: string }
+  run: { id: string; runNo: number; completedAt: string | null; model: string | null; promptSet: string | null; promptHash: string | null; findings: number }
+  card: { mustFindTotal: number; recall: number; precision: number | null; found: { id: string; by: string[] }[]; missed: { id: string; note: string }[] }
+  pass: boolean
+}
+
 function Chip({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'ok' | 'warn' | 'bad' | 'blue' | 'gold' }) {
   const color = { muted: '#8B949E', ok: '#3FB950', warn: '#D29922', bad: '#F85149', blue: '#3B82F6', gold: '#D4AF37' }[tone]
   return <span className="rounded bg-[#21262D] px-1.5 py-0.5 font-mono text-[11px] font-semibold" style={{ color }}>{children}</span>
@@ -79,6 +86,12 @@ export default function CaseFilePage() {
   // the case page itself, refreshed every 20s while the case is running.
   const [pipeline, setPipeline] = useState<Pipeline | null>(null)
   const [resumeResult, setResumeResult] = useState('')
+  // Eval gate (2026-09-27): score the latest run against an attorney ledger
+  // and re-run a finished case, from here — no developer box.
+  const [ledgers, setLedgers] = useState<{ name: string; caseTitle: string; mustFind: number }[]>([])
+  const [ledger, setLedger] = useState('')
+  const [evalResult, setEvalResult] = useState<EvalResult | null>(null)
+  const [evalNotice, setEvalNotice] = useState('')
   const [republishResult, setRepublishResult] = useState('')
   const [tick, setTick] = useState(Date.now())
   const [delayDate, setDelayDate] = useState('')
@@ -106,6 +119,38 @@ export default function CaseFilePage() {
     setTick(Date.now())
   }, [caseId])
   useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    if (role !== 'ADMIN') return
+    void apiFetch('/ops/eval/ledgers').then(async (r) => {
+      const d = r.ok ? await r.json().catch(() => null) : null
+      if (Array.isArray(d)) { setLedgers(d); setLedger((cur) => cur || d[0]?.name || '') }
+    }).catch(() => {})
+  }, [role])
+
+  const scoreRun = async () => {
+    if (!ledger) return
+    setEvalNotice('Scoring…'); setEvalResult(null)
+    try {
+      const r = await apiFetch(`/ops/cases/${caseId}/eval?ledger=${encodeURIComponent(ledger)}`)
+      const d = await r.json().catch(() => ({}))
+      if (r.ok) { setEvalResult(d as EvalResult); setEvalNotice('') } else setEvalNotice(d.error ?? `Scoring failed (${r.status})`)
+    } catch (e) {
+      setEvalNotice(`Scoring failed — the request didn’t reach the API (${(e as Error).message}).`)
+    }
+  }
+
+  const reanalyze = async () => {
+    if (!window.confirm('Run the analysis again on this finished case, on the prompt set and engine production is configured with now? A new report version will be released by QA and the account holder will be emailed when it is ready. Use this for the eval gate on reference cases, or a quality re-run.')) return
+    setEvalNotice('Queuing the re-run…')
+    try {
+      const r = await apiFetch(`/ops/cases/${caseId}/reanalyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'eval' }) })
+      const d = await r.json().catch(() => ({}))
+      setEvalNotice(r.ok ? `Run ${d.runNo} queued. Watch the pipeline card here or the family's status page; score it once it completes.` : d.error ?? `Re-run failed (${r.status})`)
+    } catch (e) {
+      setEvalNotice(`Re-run failed — the request didn’t reach the API (${(e as Error).message}).`)
+    }
+    await load()
+  }
   // Poll while running so the page shows movement without a manual reload.
   useEffect(() => {
     if (!pipeline?.running) return
@@ -216,6 +261,39 @@ export default function CaseFilePage() {
         </div>
       </div>
       {notice && <p className="mt-2 text-sm text-[#D29922]" data-testid="notice">{notice}</p>}
+
+      {role === 'ADMIN' && (
+        <div data-testid="eval-card" className="mt-3 rounded border border-[#30363D] bg-[#0D1117] p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">Eval gate</span>
+            <span className="text-[#8B949E]">· score the latest completed run against an attorney ledger (NFR-1: every canary found)</span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <select value={ledger} onChange={(e) => setLedger(e.target.value)} className="rounded border border-[#30363D] bg-[#161B22] px-2 py-1 text-xs" data-testid="eval-ledger" aria-label="Ledger">
+              {ledgers.length === 0 && <option value="">No ledgers found</option>}
+              {ledgers.map((l) => <option key={l.name} value={l.name}>{l.name} — {l.caseTitle} ({l.mustFind} canaries)</option>)}
+            </select>
+            <button onClick={() => void scoreRun()} disabled={!ledger} className="rounded border border-[#3B82F6] px-2 py-1 text-xs text-[#3B82F6] disabled:opacity-50" data-testid="eval-score">Score latest run</button>
+            {(c.status === 'READY' || c.status === 'DELIVERED') && !running && (
+              <button onClick={() => void reanalyze()} className="ml-auto rounded border border-[#D29922] px-2 py-1 text-xs text-[#D29922]" data-testid="eval-reanalyze">Run the analysis again (new report version, emails the account holder)</button>
+            )}
+          </div>
+          {evalNotice && <p role="status" data-testid="eval-notice" className="mt-2 rounded border border-[#D29922] bg-[#D29922]/10 px-3 py-2 text-xs text-[#D29922]">{evalNotice}</p>}
+          {evalResult && (
+            <div data-testid="eval-result" data-pass={String(evalResult.pass)} className="mt-2 rounded border px-3 py-2 text-xs" style={{ borderColor: evalResult.pass ? '#3FB950' : '#F85149' }}>
+              <p className="font-semibold" style={{ color: evalResult.pass ? '#3FB950' : '#F85149' }}>
+                {evalResult.pass ? 'EVAL GREEN' : 'EVAL RED'} · recall {Math.round(evalResult.card.recall * 100)}% ({evalResult.card.found.length}/{evalResult.card.mustFindTotal})
+                {evalResult.card.precision != null && <> · precision {Math.round(evalResult.card.precision * 100)}%</>}
+              </p>
+              <p className="mt-1 text-[#8B949E]">
+                Run {evalResult.run.runNo} · {evalResult.run.model ?? 'engine ?'} · prompt set {evalResult.run.promptSet ?? '?'}{evalResult.run.promptHash ? ` (${evalResult.run.promptHash.slice(0, 8)})` : ''} · {evalResult.run.findings} findings · completed {evalResult.run.completedAt ? new Date(evalResult.run.completedAt).toLocaleString() : '—'} · ledger: {evalResult.ledger.caseTitle}
+              </p>
+              {evalResult.card.found.map((f) => <p key={f.id} className="mt-1 text-[#3FB950]">FOUND {f.id} (findings {f.by.join(', ')})</p>)}
+              {evalResult.card.missed.map((m) => <p key={m.id} className="mt-1 text-[#F85149]">MISSED {m.id} — {m.note}</p>)}
+            </div>
+          )}
+        </div>
+      )}
 
       {running && (
         <div

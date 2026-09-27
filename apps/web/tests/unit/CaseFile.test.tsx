@@ -38,6 +38,9 @@ beforeEach(() => {
       : u.endsWith('/pipeline') ? PIPELINE
       : u.endsWith('/report/republish') ? { ok: true, fromVersion: 1, toVersion: 2, templateVersion: 'AB-v2', notes: ['x'], emailed: true }
       : u.endsWith('/resume') ? { ok: true, analysisEnqueued: true, redigitized: 0, undigitized: 0, priorJobState: 'failed' }
+      : u.endsWith('/eval/ledgers') ? [{ name: 'gary', caseTitle: 'San Jacinto CR13893', mustFind: 5 }]
+      : u.includes('/eval?ledger=') ? { ledger: { name: 'gary', caseTitle: 'San Jacinto CR13893', provenance: 'signed' }, run: { id: 'r_1', runNo: 1, completedAt: '2026-08-30T13:00:00Z', model: 'claude-fable-5-1', promptSet: 'v2', promptHash: 'abc123def456', findings: 9 }, card: { mustFindTotal: 5, recall: 0.8, precision: null, found: [{ id: 'a', by: ['x1'] }, { id: 'b', by: ['x2'] }, { id: 'c', by: ['x3'] }, { id: 'd', by: ['x4'] }], missed: [{ id: 'cell-site-unqualified', note: 'Unqualified cell-site testimony' }] }, pass: false }
+      : u.endsWith('/reanalyze') ? { ok: true, runNo: 2, priorJobState: 'completed' }
       : u.endsWith('/timeline') ? [{ id: 'e1', type: 'report.rendered', actor: 'marcus', createdAt: '2026-09-05T10:00:00Z' }]
       : u.endsWith('/download') ? { url: 'https://s3.example/signed', filename: 'RR_Vol1_VoirDire.pdf' }
       : u.endsWith('/contact') ? { id: 'n_2' }
@@ -187,5 +190,33 @@ describe('case file — live pipeline card (2026-09-09)', () => {
     render(<CaseFilePage />)
     await screen.findByTestId('case-title')
     expect(screen.queryByTestId('republish-report')).toBeNull()
+  })
+})
+
+describe('eval gate from the console (2026-09-27)', () => {
+  it('ADMIN scores the latest run against a ledger and can re-run a finished case; SUPPORT sees neither', async () => {
+    session.role = 'SUPPORT'
+    render(<CaseFilePage />)
+    await screen.findByTestId('case-title')
+    expect(screen.queryByTestId('eval-card')).toBeNull()
+
+    session.role = 'ADMIN'
+    render(<CaseFilePage />)
+    const card = await screen.findByTestId('eval-card')
+    await waitFor(() => expect(screen.getByTestId('eval-ledger')).toHaveTextContent(/gary — San Jacinto CR13893 \(5 canaries\)/))
+    fireEvent.click(screen.getByTestId('eval-score'))
+    const result = await screen.findByTestId('eval-result')
+    expect(result).toHaveAttribute('data-pass', 'false')
+    expect(result).toHaveTextContent('EVAL RED · recall 80% (4/5)')
+    expect(result).toHaveTextContent(/Run 1 · claude-fable-5-1 · prompt set v2 \(abc123de\) · 9 findings/)
+    expect(result).toHaveTextContent('MISSED cell-site-unqualified — Unqualified cell-site testimony')
+    expect(calls.some((c) => c === 'GET http://localhost:3001/ops/cases/c_1/eval?ledger=gary')).toBe(true)
+
+    // READY case, not running → the re-run button; confirm, then the queued run number.
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    fireEvent.click(screen.getByTestId('eval-reanalyze'))
+    await waitFor(() => expect(screen.getByTestId('eval-notice')).toHaveTextContent(/Run 2 queued/))
+    expect(calls.some((c) => c === 'POST http://localhost:3001/ops/cases/c_1/reanalyze')).toBe(true)
+    expect(card).toContainElement(screen.getByTestId('eval-notice'))
   })
 })

@@ -9,7 +9,8 @@ import {
 import {
   NOTE_CHANNELS, REQUEST_TYPES, addSupportNote, openRequest, listRequests, decideRequest,
 } from '../services/staff-requests.service';
-import { caseLabel, caseRef } from '@hg/case-lifecycle';
+import { caseLabel, caseRef, expectedReadyDate } from '@hg/case-lifecycle';
+import { listLedgers, scoreCaseRun } from '../services/eval-gate.service';
 
 /**
  * Ops console API (US-9, OPS-1..7) — ADMIN-only staff surface. Reads use the
@@ -630,6 +631,84 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     });
     request.log.info({ caseId: id, redigitized, analysisEnqueued, priorJobState }, 'pipeline resumed by ops');
     return { ok: true, redigitized, analysisEnqueued, priorJobState, undigitized: docs.length };
+  });
+
+  // ── Eval gate from the console (2026-09-27) ─────────────────────────
+  // The NFR-1 rule — a prompt or model change re-passes the attorney
+  // ledger before it serves families — used to need a developer box:
+  // scripts/eval-run.ts. Same scorer, same ledgers, now a button.
+  fastify.get('/eval/ledgers', async () => listLedgers());
+
+  fastify.get('/cases/:id/eval', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const q = z.object({ ledger: z.string().min(1).max(40), runId: z.string().max(64).optional() }).safeParse(request.query);
+    if (!q.success) return reply.status(400).send({ error: 'ledger is required' });
+    const kase = await prisma.case.findUnique({ where: { id }, select: { id: true, tenantId: true } });
+    if (!kase) return reply.status(404).send({ error: 'Not found' });
+    const result = await scoreCaseRun(id, q.data.ledger, q.data.runId);
+    if ('error' in result) {
+      return reply.status(result.error === 'no_ledger' ? 404 : 409).send({
+        error: result.error === 'no_ledger' ? `No ledger named ${q.data.ledger}` : 'This case has no completed analysis run to score',
+      });
+    }
+    await AuditService.log({
+      tenantId: kase.tenantId, caseId: id, action: LogAction.CASE_ACCESS, userId: request.auth.userId,
+      details: { op: 'eval_scored', ledger: q.data.ledger, runId: result.run.id, recall: result.card.recall, pass: result.pass },
+    });
+    return result;
+  });
+
+  // Run the analysis again on a FINISHED case, without a purchase: the
+  // eval gate needs a fresh run on the new prompt set, and ops sometimes
+  // needs a quality re-run. Walks the same legal path a paid re-run does
+  // (READY/DELIVERED → AWAITING_DOCS → DOCS_COMPLETE) on the record already
+  // digitized, then queues the analysis. Auto-QA will release a NEW report
+  // version and email the account holder when it is ready — the console
+  // says so before the button is pressed.
+  fastify.post('/cases/:id/reanalyze', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = z.object({ reason: z.enum(['eval', 'quality']).default('eval') }).safeParse(request.body ?? {});
+    if (!body.success) return reply.status(400).send({ error: 'reason must be eval or quality' });
+    const kase = await prisma.case.findUnique({ where: { id } });
+    if (!kase) return reply.status(404).send({ error: 'Not found' });
+    if (!['READY', 'DELIVERED'].includes(kase.status)) {
+      return reply.status(409).send({ error: `Only a finished review can be run again — case is ${kase.status}` });
+    }
+    const chunks = await prisma.documentChunk.count({ where: { document: { caseId: id, quarantined: false } } });
+    if (chunks === 0) return reply.status(409).send({ error: 'No digitized text on this case — nothing to analyze' });
+    const priorRuns = await prisma.analysisRun.count({ where: { caseId: id } });
+
+    const q = await import('../services/queue');
+    const job = await q.analysisQueue.getJob(`analysis-${id}`);
+    const jobState = job ? await job.getState() : 'none';
+    if (['active', 'waiting', 'delayed', 'prioritized', 'waiting-children'].includes(jobState)) {
+      return reply.status(409).send({ error: `An analysis job is already ${jobState}`, jobState });
+    }
+    if (job) await job.remove().catch(() => {}); // a completed job holds the id otherwise
+
+    await withTenant(kase.tenantId, async (tx) => {
+      await appendCaseEvent(tx, {
+        caseId: id, tenantId: kase.tenantId, type: 'analysis.rerun_requested',
+        payload: { reason: body.data.reason, priorRuns }, actor: request.auth.userId,
+      });
+      await appendCaseEvent(tx, {
+        caseId: id, tenantId: kase.tenantId, type: 'stage.entered', payload: { status: 'AWAITING_DOCS' },
+        actor: request.auth.userId, transition: 'AWAITING_DOCS',
+      });
+      await appendCaseEvent(tx, {
+        caseId: id, tenantId: kase.tenantId, type: 'stage.entered', payload: { status: 'DOCS_COMPLETE' },
+        actor: request.auth.userId, transition: 'DOCS_COMPLETE',
+      });
+      // An honest date for the tracker: this run starts now.
+      await tx.case.update({ where: { id }, data: { expectedReadyAt: new Date(`${expectedReadyDate(new Date())}T00:00:00Z`) } });
+    });
+    await q.enqueueAnalysis(id, kase.tenantId);
+    await AuditService.log({
+      tenantId: kase.tenantId, caseId: id, action: LogAction.CASE_ACCESS, userId: request.auth.userId,
+      details: { op: 'reanalyze', reason: body.data.reason, priorRuns, priorJobState: jobState },
+    });
+    request.log.info({ caseId: id, reason: body.data.reason, priorRuns }, 'analysis re-run requested by ops');
+    return { ok: true, runNo: priorRuns + 1, priorJobState: jobState };
   });
 
   // OPS-2: audited, Stripe-linked refund — full or partial, any paid kind.

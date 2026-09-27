@@ -153,6 +153,11 @@ export const CASE_EVENT_SCHEMAS = {
   'email.bounced': { 1: z.object({ emailKind: z.string().max(64) }).strict() },
   'delay.ours_marked': { 1: z.object({ extendedToDate: z.string().date() }).strict() },
   'delay.ours_cleared': { 1: z.object({}).strict() },
+  // Ops "Run the analysis again" on a finished case (2026-09-27): the eval
+  // gate and quality re-runs without a developer box. Counts only.
+  'analysis.rerun_requested': {
+    1: z.object({ reason: z.enum(['eval', 'quality']), priorRuns: count }).strict(),
+  },
   // Ops "Resume stuck pipeline" (2026-09-07): a job that died twice leaves
   // the case's status claiming it is running — this records the restart.
   'pipeline.resumed': {
