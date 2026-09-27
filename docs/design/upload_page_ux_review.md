@@ -98,6 +98,47 @@ Not done (tracked): the same readiness on the ops case page and in the records-c
 
 Not done (tracked): resumable multipart for very large files (the `UploadSession` model exists; the page still sends one PUT per file), and a Wake Lock request while a PUT is in flight (Chrome/Android only today).
 
+## 4d. Round 7 — "it's a little confusing" (2026-09-27, PO report)
+
+**What was reported.** Signing in and landing on the documents page, the
+founder could not tell at a glance (a) whether the documents already here were
+enough to run, and (b) which files had already been uploaded — the file list
+sat collapsed at the bottom, below the checklist and the echo-back cards, so
+re-uploading the same volume was the natural mistake.
+
+**What changed.** The page now answers three questions in order, one card
+each, then Step 2:
+
+1. **What the review needs** (`checklist-card`) — the verdict first
+   ("✓ You have what the review needs" / "Not enough yet — the review depends
+   on: …"), then the found-count bar, then every item in one list: still-needed
+   rows grouped essential → strengthens → helpful with the tier chip, the
+   consequence and where to get it inside the row; received rows below, ticked.
+   One list, one answer, instead of a progress header, a readiness line, a
+   still-needed box and a received box competing for the eye.
+2. **Add your documents** (`zip-card`) — unchanged behaviour, tidier: the
+   button beside the heading, the ZIP explainer folded.
+3. **Your files** (`your-files`) — moved to sit DIRECTLY under the upload
+   zone, open by default, captioned "Already uploaded — no need to send these
+   again". Each row says what we recognized the file as; the echo-back
+   "did we name this right?" lives in the row (the family sees one file, one
+   answer), unnamed files can be named there, and the page meter closes the
+   card. Quarantined files are listed here too.
+4. **Duplicate guard** — choosing a file whose name matches one already
+   here asks "Upload it again anyway?"; declining skips it and says so
+   (`upload-skipped`). The pipeline already ignored duplicate pages; the
+   guard removes the doubt that caused the re-upload in the first place.
+
+"About this case" moves to the bottom as a folded card; the checklist header
+carries the one-line "Built for a trial in Travis County. Not right?" instead.
+Visual rules kept: ink for actions, the highlighter tint only for the one
+positive verdict and the quick-check block, red only for urgency, one
+dashed border (the drop zone), one accent border (Step 2).
+
+**Sign-in landing.** `/go` → `/account` → the review card's "Continue your
+checklist" → this page. The landing itself was not the confusion; the page
+was.
+
 ## 5. Out of scope, tracked
 
 F8/F9 above; Spanish for both surfaces (the recorded i18n P1 gap); replaying missed activity-feed lines on reconnect (needs a customer-safe events endpoint — today a mid-analysis page load gets the panel, new lines from the next event on).

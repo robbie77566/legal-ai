@@ -12,6 +12,18 @@ import { checklistReadiness, docPriority, TIERS, TIER_META, type DocTier } from 
  * S2/S3 checklist home (UI spec §5.4–5.5): per-item upload embedded in the
  * checklist, the shoebox path first-class, and the explicit celebrated
  * "records complete" moment that starts the clock.
+ *
+ * Layout (UX round 7, 2026-09-27 — "it's a little confusing"): the page
+ * answers three questions in order, each in one card.
+ *   1. What does the review need, and is what I have enough?  → checklist
+ *      card: the verdict on top, every item in one list (essential first),
+ *      received items ticked, still-needed items with where to get them.
+ *   2. How do I add more?                                     → upload card.
+ *   3. What have I already sent?                              → "Your files"
+ *      DIRECTLY under the upload, open by default, each file with what we
+ *      recognized it as — so nobody uploads the same file twice. A file
+ *      whose name matches one already here asks before uploading again.
+ *   Then Step 2, the run. Secondary facts ("About this case") sit last.
  */
 
 interface ChecklistItem {
@@ -80,6 +92,9 @@ export default function CaseDocuments() {
   const activeXhr = useRef<XMLHttpRequest | null>(null)
   const cancelled = useRef(false)
   const [failedFiles, setFailedFiles] = useState<File[]>([])
+  // Files the family chose not to upload again because a file with the
+  // same name is already here (UX round 7).
+  const [skipped, setSkipped] = useState<string[]>([])
   const [pollBudget, setPollBudget] = useState(0)
   const [confirmRun, setConfirmRun] = useState(false)
   // Document priority: one computation per checklist load, used by the
@@ -197,9 +212,22 @@ export default function CaseDocuments() {
 
   // One entry point for everything (F1): ZIPs route to the bulk path, other
   // files upload sequentially so a mid-batch failure keeps its progress.
-  const handleFiles = async (files: File[]) => {
+  const handleFiles = async (chosen: File[]) => {
     const failed: File[] = []
     setFailedFiles([])
+    // Same name as a file already here? Ask before sending it again. The
+    // pipeline ignores duplicate pages anyway, but a second copy on the
+    // list is what made families unsure whether the first one arrived.
+    const already = new Set((data?.documents ?? []).filter((d) => !d.quarantined).map((d) => d.filename))
+    const skippedNow: string[] = []
+    const files = chosen.filter((f) => {
+      if (!already.has(f.name)) return true
+      if (window.confirm(`${f.name} is already in your files below. Upload it again anyway?`)) return true
+      skippedNow.push(f.name)
+      return false
+    })
+    setSkipped(skippedNow)
+    if (files.length === 0) return
     try {
       for (let i = 0; i < files.length; i++) {
         const f = files[i]
@@ -324,12 +352,45 @@ export default function CaseDocuments() {
     )
   }
 
+  const items = data?.items ?? []
+  const needed = items.filter((i) => i.state === 'NEEDED')
+  const received = items.filter((i) => i.state !== 'NEEDED')
+  const files = (data?.documents ?? []).filter((d) => !d.quarantined)
+  const quarantined = (data?.documents ?? []).filter((d) => d.quarantined)
+  const itemLabel = (id: string | null) => items.find((i) => i.id === id)?.label ?? null
+  const factLine = (k: string) => data?.factLines?.find((l) => l.key === k)?.value ?? null
+  const builtFor = (() => {
+    const how = factLine('trialOrPlea'); const where = factLine('conviction')?.split(' · ')[0]; const prior = factLine('priorWrit')
+    if (!how && !where) return null
+    return `Built for ${how === 'A trial' ? 'a trial' : how ? 'a plea' : 'a conviction'}${where ? ` in ${where}` : ''}${prior?.startsWith('Yes') ? ', with a prior writ' : ''}.`
+  })()
+  const editable = data?.status === 'AWAITING_DOCS'
+  const busy = uploading !== null || zipBusy !== null
+
+  /** One picker for "which document is this?" — echo-back fixes and unnamed files alike. */
+  const ItemPicker = ({ docId }: { docId: string }) => (
+    <div className="mt-2 rounded-lg border border-db-line p-3" data-testid={`name-file-picker-${docId}`}>
+      <p className="text-sm font-semibold">Which document is this?</p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {items.map((i) => (
+          <button key={i.id} onClick={() => void verdict(docId, 'correct', i.id)} className="rounded-lg border border-db-line px-3 py-2 text-left text-sm hover:border-db-accent">
+            {i.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
       <CaseNav caseId={caseId} current="documents" />
       <h1 className="font-db-serif text-2xl font-semibold">Your documents</h1>
+      <p className="mt-1 text-sm text-db-muted">
+        Any order, your own pace — we recognize each document and check it off for you. Uploading is always free; the review runs once, when you say so.
+      </p>
+
       {data?.rerun && (
-        <div data-testid="rerun-banner" className="mt-3 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4 text-sm">
+        <div data-testid="rerun-banner" className="mt-4 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4 text-sm">
           <p className="font-semibold">This is a re-run.</p>
           <p className="mt-1">
             Your report{data.rerun.lastReportAt ? ` from ${new Date(data.rerun.lastReportAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}` : ''} still stands and stays available.
@@ -337,83 +398,17 @@ export default function CaseDocuments() {
           </p>
         </div>
       )}
+
       {/* F11: the phase model, always visible — collecting is free and
           iterative; running the review is the (charged) commitment. */}
-      <p className="mt-2 text-sm" data-testid="phase-steps">
-        <span className="rounded-full bg-db-accent px-2.5 py-0.5 font-semibold text-db-surface">Step 1 · Collect &amp; upload</span>
-        <span className="mx-2 text-db-muted">then</span>
-        <span className="rounded-full border border-db-line px-2.5 py-0.5 font-semibold text-db-muted">Step 2 · Run your review</span>
-      </p>
-      {/* F2: the single highest-leverage motivator on a multi-visit task —
-          "how close am I?" — always answered first. */}
-      {data && data.items.length > 0 && (
-        <div className="mt-3" data-testid="doc-progress">
-          <p className="text-sm font-semibold">
-            Documents found: {data.items.filter((i) => i.state !== 'NEEDED').length} of {data.items.length}
-          </p>
-          <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--db-line)' }}>
-            <div
-              className="h-full rounded-full transition-all"
-              style={{
-                background: 'var(--db-accent)',
-                width: `${Math.round((data.items.filter((i) => i.state !== 'NEEDED').length / data.items.length) * 100)}%`,
-              }}
-            />
-          </div>
-          <p className="mt-1 text-sm text-db-muted">
-            Any order, your own pace — we recognize each document and check it off for you.
-          </p>
-          {/* Document priority (PO, 2026-09-12): the question is not "how
-              many" but "is it enough" — answered here, in one line. */}
-          {readiness && (readiness.enough ? (
-            <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--db-signal)' }} data-testid="readiness" data-enough="true">
-              ✓ You have what the review needs.{readiness.missing.strengthens.length + readiness.missing.helpful.length > 0 ? ' The rest would make it stronger — get what you can.' : ''}
-            </p>
-          ) : (
-            <p className="mt-2 text-sm font-semibold" style={{ color: 'var(--db-urgent)' }} data-testid="readiness" data-enough="false">
-              Not enough yet — the review depends on: {readiness.missing.essential.map((m) => m.label).join(', ')}.
-              {unnamed.length > 0 && pollBudget === 0 && (
-                <span className="block font-normal text-db-ink" data-testid="readiness-unnamed">
-                  We could not name {unnamed.length} of your files. If one of them is what is missing, name it under &ldquo;Your files&rdquo; below.
-                </span>
-              )}
-            </p>
-          ))}
-        </div>
-      )}
-      {data?.factLines?.some((l) => l.value) && (
-        <details data-testid="about-case" className="mt-4 rounded-xl border border-db-line bg-db-surface p-4 text-sm">
-          <summary className="cursor-pointer font-semibold">
-            About this case
-            <span className="ml-2 font-normal text-db-muted">
-              {data.factLines.find((l) => l.key === 'conviction')?.value ?? ''}
-              {data.factLines.find((l) => l.key === 'trialOrPlea')?.value ? ` · ${data.factLines.find((l) => l.key === 'trialOrPlea')!.value}` : ''}
-            </span>
-          </summary>
-          <p className="mt-2 text-xs text-db-muted">Your checklist is built from these answers.</p>
-          {data.facts?.source?.carriedFromCaseId && (
-            <p className="mt-1 text-xs" data-testid="carried-over">
-              County, year and dates were carried over from your earlier review so you were not asked again.{' '}
-              {data.status === 'AWAITING_DOCS' && <>Not the same case? <Link href={`/case/${caseId}/interview`} className="text-db-accent underline">Change the details</Link>.</>}
-            </p>
-          )}
-          <dl className="mt-2 grid grid-cols-[minmax(0,40%)_1fr] gap-x-4 gap-y-1.5">
-            {data.factLines.filter((l) => l.value).map((l) => (
-              <div key={l.key} className="contents">
-                <dt className="text-db-muted">{l.label}</dt>
-                <dd>{l.value}{l.derived && <span className="ml-1 text-xs text-db-muted">(chosen from your answers)</span>}</dd>
-              </div>
-            ))}
-          </dl>
-          {data.status === 'AWAITING_DOCS' ? (
-            <Link href={`/case/${caseId}/interview`} className="mt-3 inline-block text-db-accent underline">Not right? Change the details</Link>
-          ) : (
-            <p className="mt-3 text-xs text-db-muted">Locked — this review was built on these answers. A re-run is where they can change.</p>
-          )}
-        </details>
-      )}
+      <ol className="mt-4 flex flex-wrap items-center gap-2 text-sm" data-testid="phase-steps" aria-label="Steps">
+        <li className="rounded-full bg-db-accent px-3 py-1 font-semibold text-db-surface">Step 1 · Collect &amp; upload</li>
+        <li aria-hidden className="text-db-muted">→</li>
+        <li className="rounded-full border border-db-line px-3 py-1 font-semibold text-db-muted">Step 2 · Run your review</li>
+      </ol>
+
       {error && (
-        <p role="alert" data-testid="upload-error" className="mt-3 text-sm" style={{ color: 'var(--db-urgent)' }}>
+        <p role="alert" data-testid="upload-error" className="mt-4 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--db-urgent)', color: 'var(--db-urgent)' }}>
           {error}
           {failedFiles.length > 0 && !progress && (
             <button
@@ -428,23 +423,142 @@ export default function CaseDocuments() {
         </p>
       )}
 
-      {/* F1: ONE upload zone that takes anything — PDFs, photos, or a ZIP of
-          everything (bulk_zip_upload.md). The shoebox promise lives here too. */}
+      {/* ── 1. What the review needs — the verdict, then every item ── */}
+      {data && items.length > 0 && (
+        <section data-testid="checklist-card" className="mt-5 overflow-hidden rounded-xl border border-db-line bg-db-surface">
+          <div className="p-4">
+            <h2 className="font-db-serif text-lg font-semibold">What the review needs</h2>
+            {builtFor && (
+              <p className="mt-0.5 text-sm text-db-muted" data-testid="checklist-why">
+                {builtFor}{editable && <> <Link href={`/case/${caseId}/interview`} className="text-db-accent underline">Not right?</Link></>}
+              </p>
+            )}
+            {/* Document priority (PO, 2026-09-12): the question is not "how
+                many" but "is it enough" — answered first, in one line. */}
+            {readiness && (readiness.enough ? (
+              <p className="mt-3 rounded-lg bg-db-accent-soft px-3 py-2 text-sm font-semibold" style={{ color: 'var(--db-signal)' }} data-testid="readiness" data-enough="true">
+                ✓ You have what the review needs.{readiness.missing.strengthens.length + readiness.missing.helpful.length > 0 ? ' The rest would make it stronger — get what you can.' : ' You can start it whenever you are ready.'}
+              </p>
+            ) : (
+              <p className="mt-3 rounded-lg border px-3 py-2 text-sm font-semibold" style={{ borderColor: 'var(--db-urgent)', color: 'var(--db-urgent)' }} data-testid="readiness" data-enough="false">
+                Not enough yet — the review depends on: {readiness.missing.essential.map((m) => m.label).join(', ')}.
+                {unnamed.length > 0 && pollBudget === 0 && (
+                  <span className="mt-1 block font-normal text-db-ink" data-testid="readiness-unnamed">
+                    We could not name {unnamed.length} of your files. If one of them is what is missing, name it under &ldquo;Your files&rdquo; below.
+                  </span>
+                )}
+              </p>
+            ))}
+            {/* F2: "how close am I?" — always answered. */}
+            <div className="mt-3" data-testid="doc-progress">
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="font-semibold">Documents found: {received.length} of {items.length}</span>
+                <span className="text-db-muted">{needed.length === 0 ? 'Everything is here' : `${needed.length} still needed`}</span>
+              </div>
+              <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--db-line)' }}>
+                <div className="h-full rounded-full transition-all" style={{ background: 'var(--db-accent)', width: `${Math.round((received.length / items.length) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {/* F10/F12: what is left is the visible list — still-needed rows
+              first, grouped by tier (essential on top), with the how-to
+              inside each row; received rows below, one line each. */}
+          {needed.length > 0 && (
+            <div data-testid="still-needed" className="border-t border-db-line">
+              <div className="flex items-baseline justify-between gap-3 px-4 pb-1 pt-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-db-muted">Still needed ({needed.length})</h3>
+              </div>
+              <p className="px-4 pb-2 text-sm text-db-muted">
+                {needed.length <= 2
+                  ? 'If you can get these, upload each one on its own — a single PDF or a few photos is perfect.'
+                  : 'If you can gather these, put them all in one ZIP and send them in one go — or upload them one at a time.'}{' '}
+                Tap an item for who to ask.
+              </p>
+              <ul>
+                {TIERS.map((tier) => {
+                  const rows = needed.filter((i) => docPriority(i.kind).tier === tier)
+                  if (rows.length === 0) return null
+                  return (
+                    <li key={tier} data-testid={`tier-${tier}`}>
+                      <p className="border-y border-db-line bg-db-bg px-4 py-1 text-xs font-semibold" style={{ color: TIER_COLOR[tier] }}>{TIER_META[tier].heading}</p>
+                      <ul>
+                        {rows.map((item) => (
+                          <li key={item.id} className="border-b border-db-line last:border-b-0">
+                            <details>
+                              <summary className="flex cursor-pointer items-center gap-3 px-4 py-2.5">
+                                <span aria-hidden className="inline-block h-5 w-5 shrink-0 rounded-full border-2" style={{ borderColor: TIER_COLOR[tier] }} />
+                                <span className="min-w-0 flex-1 text-sm font-semibold">{item.label}</span>
+                                <span className="whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold" style={{ color: TIER_COLOR[tier], borderColor: TIER_COLOR[tier] }} data-testid={`tier-chip-${item.kind}`}>{TIER_META[tier].label}</span>
+                                <span aria-hidden className="text-db-muted">›</span>
+                              </summary>
+                              <div className="px-4 pb-3 pl-12 text-sm text-db-muted">
+                                <p className="text-db-ink" data-testid={`without-${item.kind}`}><span className="font-semibold">Without it:</span> {docPriority(item.kind).without}</p>
+                                <p className="mt-1"><span className="font-semibold">Where to get it:</span> {docPriority(item.kind).howTo}</p>
+                                <button
+                                  onClick={() => pickFile(item.label)}
+                                  disabled={busy}
+                                  className="mt-2 rounded-lg border border-db-accent px-3 py-1.5 text-sm font-semibold text-db-accent disabled:opacity-40"
+                                >
+                                  {uploading === item.label ? 'Uploading…' : 'Upload this document'}
+                                </button>
+                              </div>
+                            </details>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          {received.length > 0 && (
+            <div data-testid="received" className="border-t border-db-line">
+              <h3 className="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-db-muted">Received ({received.length})</h3>
+              <ul>
+                {received.map((item) => (
+                  <li key={item.id} className="flex items-center gap-3 border-t border-db-line px-4 py-2.5">
+                    <span aria-hidden className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold text-db-surface" style={{ background: item.state === 'PROBLEM' ? 'var(--db-urgent)' : 'var(--db-signal)' }}>{item.state === 'PROBLEM' ? '!' : '✓'}</span>
+                    <span className="min-w-0 flex-1 text-sm">{item.label}</span>
+                    <span className="whitespace-nowrap text-xs font-semibold" style={{ color: item.state === 'PROBLEM' ? 'var(--db-urgent)' : 'var(--db-signal)' }}>
+                      {item.state === 'PROBLEM' ? 'Needs attention' : item.state === 'CONFIRMED' ? '✓ Confirmed' : '✓ Received'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── 2. Add documents — ONE zone that takes anything (F1) ── */}
       <section
         data-testid="zip-card"
-        className="mt-6 rounded-xl border-2 border-dashed border-db-accent bg-db-surface p-4"
+        className="mt-4 rounded-xl border-2 border-dashed border-db-accent bg-db-surface p-4"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
-          const files = Array.from(e.dataTransfer.files ?? [])
-          if (files.length) void handleFiles(files)
+          const dropped = Array.from(e.dataTransfer.files ?? [])
+          if (dropped.length) void handleFiles(dropped)
         }}
       >
-        <h2 className="font-db-serif text-lg font-semibold">Add your documents</h2>
-        <p className="mt-1 text-sm text-db-muted">
-          PDFs and phone photos both work — several at once, or one <strong>ZIP file</strong>{' '}
-          with everything inside. Not sure what a paper is? Add it anyway.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-db-serif text-lg font-semibold">Add your documents</h2>
+            <p className="mt-0.5 text-sm text-db-muted">
+              PDFs and phone photos both work — several at once, or one <strong>ZIP file</strong> with everything inside. Not sure what a paper is? Add it anyway.
+            </p>
+          </div>
+          <button
+            onClick={() => fileInput.current?.click()}
+            disabled={busy}
+            className="w-full rounded-xl bg-db-accent px-5 py-3 font-semibold text-db-surface disabled:opacity-40 sm:w-auto sm:px-6"
+          >
+            {zipBusy === 'uploading' ? 'Uploading your ZIP…' : zipBusy === 'unpacking' ? 'Opening your ZIP…' : uploading !== null ? 'Uploading…' : 'Add files'}
+          </button>
+        </div>
         <details className="mt-2 text-sm text-db-muted">
           <summary className="cursor-pointer font-semibold text-db-ink">What&rsquo;s a ZIP file, and how do I make one?</summary>
           <p className="mt-2">
@@ -463,19 +577,6 @@ export default function CaseDocuments() {
             as well if a ZIP feels like too much.
           </p>
         </details>
-        <button
-          onClick={() => fileInput.current?.click()}
-          disabled={uploading !== null || zipBusy !== null}
-          className="mt-3 w-full rounded-xl bg-db-accent px-5 py-3 font-semibold text-db-surface disabled:opacity-40 sm:w-auto sm:px-6"
-        >
-          {zipBusy === 'uploading'
-            ? 'Uploading your ZIP…'
-            : zipBusy === 'unpacking'
-              ? 'Opening your ZIP…'
-              : uploading !== null
-                ? 'Uploading…'
-                : 'Add files'}
-        </button>
         {progress && (
           <div className="mt-3" data-testid="upload-progress">
             <p className="text-sm">
@@ -484,16 +585,18 @@ export default function CaseDocuments() {
               <span className="font-semibold">{progress.pct}%</span>
             </p>
             <div className="mt-1 h-2 w-full overflow-hidden rounded-full" style={{ background: 'var(--db-line)' }}>
-              <div
-                className="h-full rounded-full transition-all"
-                style={{ background: 'var(--db-accent)', width: `${progress.pct}%` }}
-              />
+              <div className="h-full rounded-full transition-all" style={{ background: 'var(--db-accent)', width: `${progress.pct}%` }} />
             </div>
             <p className="mt-1 text-sm text-db-muted">
               Keep this page open and your screen unlocked until the bar finishes — a slow connection is fine, it just takes longer; on a phone, locking the screen can pause the upload.
               <button type="button" onClick={cancelUpload} className="ml-2 font-semibold text-db-accent underline" data-testid="upload-cancel">Cancel</button>
             </p>
           </div>
+        )}
+        {skipped.length > 0 && !progress && (
+          <p className="mt-2 text-sm text-db-muted" data-testid="upload-skipped">
+            Skipped {skipped.join(', ')} — already in your files below.
+          </p>
         )}
         {zipBusy === 'unpacking' && (
           <p className="mt-2 text-sm text-db-muted" data-testid="zip-unpacking">
@@ -527,231 +630,113 @@ export default function CaseDocuments() {
           // Mobile reality: eight volumes should be ONE picker trip. No
           // `capture` attribute by design — forcing the camera would remove
           // the gallery/files option on Android pickers.
-          const files = Array.from(e.target.files ?? [])
-          if (files.length) void handleFiles(files)
+          const picked = Array.from(e.target.files ?? [])
+          if (picked.length) void handleFiles(picked)
           e.target.value = ''
         }}
       />
 
-      {/* Echo-back cards (UI spec §5.5): the pipeline's guess, the family's
-          verdict — grouped under one heading (F6) so they read as one task. */}
-      {data && data.documents.some((d) => d.suggestedChecklistItemId && !d.classificationConfirmed && !d.quarantined) && (
-        <h2 className="mt-6 font-db-serif text-lg font-semibold">Quick check — did we name these right?</h2>
-      )}
-      {data?.documents
-        .filter((d) => d.suggestedChecklistItemId && !d.classificationConfirmed && !d.quarantined)
-        .map((d) => {
-          const item = data.items.find((i) => i.id === d.suggestedChecklistItemId)
-          return (
-            <div key={d.id} data-testid="echoback" className="mt-4 rounded-xl border-2 border-db-accent bg-db-surface p-4">
-              <p>
-                <span className="font-db-mono text-sm text-db-muted">{d.filename}</span> — this looks
-                like <strong>{item?.label ?? 'one of your documents'}</strong>.
-              </p>
-              {correcting === d.id ? (
-                <div className="mt-3">
-                  <label className="text-sm font-semibold">What is it really?</label>
-                  <div className="mt-2 space-y-2">
-                    {data.items.map((i) => (
-                      <button
-                        key={i.id}
-                        onClick={() => void verdict(d.id, 'correct', i.id)}
-                        className="block w-full rounded-lg border border-db-line p-2 text-left text-sm hover:border-db-accent"
-                      >
-                        {i.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-3 flex gap-3">
-                  <button
-                    onClick={() => void verdict(d.id, 'confirm')}
-                    className="rounded-lg bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface"
-                  >
-                    That&rsquo;s right
-                  </button>
-                  <button
-                    onClick={() => setCorrecting(d.id)}
-                    className="rounded-lg border border-db-line px-4 py-2 text-sm"
-                  >
-                    No, let me fix it
-                  </button>
-                </div>
-              )}
-            </div>
-          )
-        })}
-
-      {/* Quarantine notice (ENG-4): honest, never alarming about their case */}
-      {data?.documents.filter((d) => d.quarantined).map((d) => (
-        <p key={d.id} role="alert" className="mt-4 rounded-xl border p-4 text-sm" style={{ borderColor: 'var(--db-urgent)', color: 'var(--db-urgent)' }}>
-          We couldn&rsquo;t accept <span className="font-db-mono">{d.filename}</span> — our safety
-          scan flagged the file itself (not your case). Try re-scanning or photographing those
-          pages and uploading again; your other documents are unaffected.
-        </p>
-      ))}
-
-
-      {/* F10/F12: what's left is the visible list — dense rows, still-needed
-          group open on top (with the how-to inside each row), received rows
-          collapsed to one line. */}
-      {data && data.items.some((i) => i.state === 'NEEDED') && (
-        <section data-testid="still-needed" className="mt-6 rounded-xl border border-db-line bg-db-surface">
-          <div className="border-b border-db-line p-4 pb-3">
-            <h2 className="font-db-serif text-lg font-semibold">
-              Still needed ({data.items.filter((i) => i.state === 'NEEDED').length})
-            </h2>
-            {(() => {
-              const line = (k: string) => data.factLines?.find((l) => l.key === k)?.value ?? null
-              const how = line('trialOrPlea'); const where = line('conviction')?.split(' · ')[0]; const prior = line('priorWrit')
-              if (!how && !where) return null
-              return (
-                <p className="mt-1 text-sm" data-testid="checklist-why">
-                  Built for {how === 'A trial' ? 'a trial' : how ? 'a plea' : 'a conviction'}{where ? ` in ${where}` : ''}{prior?.startsWith('Yes') ? ', with a prior writ' : ''}.
-                  {data.status === 'AWAITING_DOCS' && <> <Link href={`/case/${caseId}/interview`} className="text-db-accent underline">Not right?</Link></>}
-                </p>
-              )
-            })()}
-            <p className="mt-1 text-sm text-db-muted">
-              {data.items.filter((i) => i.state === 'NEEDED').length <= 2
-                ? 'If you can get these, upload each one on its own — a single PDF or a few photos is perfect.'
-                : 'If you can gather these, put them all in one ZIP and send them in one go — or upload them one at a time.'}{' '}
-              Tap an item for who to ask.
-            </p>
-          </div>
-          {/* Document priority (PO, 2026-09-12): essential first, then what
-              strengthens the review, then the nice-to-haves — the tier is
-              visible in the row, the consequence sits with the how-to. */}
-          <ul>
-            {TIERS.map((tier) => {
-              const rows = data.items.filter((i) => i.state === 'NEEDED' && docPriority(i.kind).tier === tier)
-              if (rows.length === 0) return null
-              return (
-                <li key={tier} data-testid={`tier-${tier}`}>
-                  <p className="border-b border-db-line bg-db-bg px-4 py-1.5 text-xs font-semibold" style={{ color: TIER_COLOR[tier] }}>{TIER_META[tier].heading}</p>
-                  <ul>
-                    {rows.map((item) => (
-              <li key={item.id} className="border-b border-db-line last:border-b-0">
-                <details>
-                  <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5">
-                    <span className="text-sm font-semibold">{item.label}</span>
-                    <span className="flex items-center gap-2 whitespace-nowrap text-xs font-semibold">
-                      <span className="rounded-full border px-2 py-0.5" style={{ color: TIER_COLOR[tier], borderColor: TIER_COLOR[tier] }} data-testid={`tier-chip-${item.kind}`}>{TIER_META[tier].label}</span>
-                      <span className="text-db-muted">›</span>
-                    </span>
-                  </summary>
-                  <div className="px-4 pb-3 text-sm text-db-muted">
-                    <p className="text-db-ink" data-testid={`without-${item.kind}`}><span className="font-semibold">Without it:</span> {docPriority(item.kind).without}</p>
-                    <p className="mt-1"><span className="font-semibold">Where to get it:</span> {docPriority(item.kind).howTo}</p>
-                    <button
-                      onClick={() => pickFile(item.label)}
-                      disabled={uploading !== null}
-                      className="mt-2 font-semibold text-db-accent underline disabled:opacity-40"
-                    >
-                      {uploading === item.label ? 'Uploading…' : 'Upload this document'}
-                    </button>
-                  </div>
-                </details>
-              </li>
-                    ))}
-                  </ul>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      )}
-
-      {data && data.items.some((i) => i.state !== 'NEEDED') && (
-        <section className="mt-3 rounded-xl border border-db-line bg-db-surface">
-          <ul>
-            {data.items.filter((i) => i.state !== 'NEEDED').map((item) => (
-              <li key={item.id} className="flex items-center justify-between gap-3 border-b border-db-line px-4 py-2.5 last:border-b-0">
-                <span className="text-sm">{item.label}</span>
-                <span
-                  className="whitespace-nowrap text-xs font-semibold"
-                  style={{ color: item.state === 'PROBLEM' ? 'var(--db-urgent)' : 'var(--db-accent)' }}
-                >
-                  {item.state === 'PROBLEM' ? 'Needs attention' : item.state === 'CONFIRMED' ? '✓ Confirmed' : '✓ Received'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* F3/F4: files live below the checklist, collapsed, each with its
-          processing state — "did my upload work?" answered at a glance. */}
-      {data && data.documents.filter((d) => !d.quarantined).length > 0 && (
-        <details className="mt-6 rounded-xl border border-db-line bg-db-surface p-4" open={unnamed.length > 0 && pollBudget === 0} data-testid="your-files">
-          <summary className="cursor-pointer font-db-serif text-lg font-semibold">
-            Your files ({data.documents.filter((d) => !d.quarantined).length})
+      {/* ── 3. Your files — right under the upload, open, one row per file
+             with what we recognized it as. Echo-back (UI spec §5.5) lives
+             in the row: the pipeline's guess, the family's verdict. ── */}
+      {data && (files.length > 0 || quarantined.length > 0) && (
+        <details className="mt-4 rounded-xl border border-db-line bg-db-surface" open data-testid="your-files">
+          <summary className="flex cursor-pointer items-baseline justify-between gap-3 p-4">
+            <span className="font-db-serif text-lg font-semibold">Your files ({files.length})</span>
+            <span className="text-xs text-db-muted">Already uploaded — no need to send these again</span>
           </summary>
-          <p className="mt-1 text-sm text-db-muted">
+          <p className="px-4 text-sm text-db-muted">
             Every file stays yours — download any of them to hand to a lawyer.
             {unnamed.length > 0 && pollBudget === 0 && ' A file we could not name still gets read — naming it just checks the right item off your list.'}
           </p>
-          <ul className="mt-3 space-y-2">
-            {data.documents.filter((d) => !d.quarantined).map((d) => (
-              <li key={d.id}>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 truncate font-db-mono text-sm">{d.filename}</span>
-                  <span className="flex items-center gap-3 whitespace-nowrap text-sm">
-                    <span className="text-db-muted">
-                      {d.suggestedChecklistItemId
-                        ? '✓ Recognized'
-                        : pollBudget > 0
-                          ? 'Reading it now…'
-                          : 'Received'}
-                    </span>
-                    {/* Engineering review (2026-09-12): a file the classifier
-                        could not name had no way to be named, so the
-                        readiness line could say "not enough" about a
-                        transcript that was already here. */}
-                    {!d.suggestedChecklistItemId && pollBudget === 0 && (
-                      <button onClick={() => setCorrecting(correcting === d.id ? null : d.id)} className="font-semibold text-db-accent underline" data-testid={`name-file-${d.id}`}>
-                        Name this file
-                      </button>
-                    )}
-                    <button onClick={() => void download(d.id)} className="font-semibold text-db-accent underline">
-                      Download
-                    </button>
-                  </span>
-                </div>
-                {correcting === d.id && !d.suggestedChecklistItemId && (
-                  <div className="mt-2 rounded-lg border border-db-line p-3" data-testid={`name-file-picker-${d.id}`}>
-                    <p className="text-sm font-semibold">Which document is this?</p>
-                    <div className="mt-2 space-y-2">
-                      {data.items.map((i) => (
-                        <button key={i.id} onClick={() => void verdict(d.id, 'correct', i.id)} className="block w-full rounded-lg border border-db-line p-2 text-left text-sm hover:border-db-accent">
-                          {i.label}
-                        </button>
-                      ))}
+          <ul className="mt-2 border-t border-db-line">
+            {files.map((d) => {
+              const label = itemLabel(d.suggestedChecklistItemId)
+              const askConfirm = !!d.suggestedChecklistItemId && !d.classificationConfirmed
+              return (
+                <li key={d.id} className="border-b border-db-line px-4 py-3 last:border-b-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-db-mono text-sm">{d.filename}</p>
+                      <p className="text-xs text-db-muted">
+                        {d.suggestedChecklistItemId
+                          ? `${d.classificationConfirmed ? '✓ Confirmed' : '✓ Recognized'}${label ? ` as ${label}` : ''}`
+                          : pollBudget > 0
+                            ? 'Reading it now…'
+                            : 'Received — we could not tell what it is'}
+                      </p>
                     </div>
+                    <span className="flex shrink-0 items-center gap-3 whitespace-nowrap text-sm">
+                      {/* Engineering review (2026-09-12): a file the classifier
+                          could not name had no way to be named. */}
+                      {!d.suggestedChecklistItemId && pollBudget === 0 && (
+                        <button onClick={() => setCorrecting(correcting === d.id ? null : d.id)} className="font-semibold text-db-accent underline" data-testid={`name-file-${d.id}`}>
+                          Name this file
+                        </button>
+                      )}
+                      <button onClick={() => void download(d.id)} className="font-semibold text-db-accent underline">
+                        Download
+                      </button>
+                    </span>
                   </div>
-                )}
+                  {askConfirm && (
+                    <div data-testid="echoback" className="mt-2 rounded-lg bg-db-accent-soft p-3 text-sm">
+                      <p>
+                        Quick check — this looks like <strong>{label ?? 'one of your documents'}</strong>. Did we name it right?
+                      </p>
+                      {correcting === d.id ? (
+                        <div className="mt-2">
+                          <label className="text-sm font-semibold">What is it really?</label>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            {items.map((i) => (
+                              <button key={i.id} onClick={() => void verdict(d.id, 'correct', i.id)} className="rounded-lg border border-db-line bg-db-surface px-3 py-2 text-left text-sm hover:border-db-accent">
+                                {i.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button onClick={() => void verdict(d.id, 'confirm')} className="rounded-lg bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface">
+                            That&rsquo;s right
+                          </button>
+                          <button onClick={() => setCorrecting(d.id)} className="rounded-lg border border-db-line bg-db-surface px-4 py-2 text-sm">
+                            No, let me fix it
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {correcting === d.id && !d.suggestedChecklistItemId && <ItemPicker docId={d.id} />}
+                </li>
+              )
+            })}
+            {/* Quarantine notice (ENG-4): honest, never alarming about their case */}
+            {quarantined.map((d) => (
+              <li key={d.id} role="alert" className="border-b border-db-line px-4 py-3 text-sm last:border-b-0" style={{ color: 'var(--db-urgent)' }}>
+                We couldn&rsquo;t accept <span className="font-db-mono">{d.filename}</span> — our safety
+                scan flagged the file itself (not your case). Try re-scanning or photographing those
+                pages and uploading again; your other documents are unaffected.
               </li>
             ))}
           </ul>
+          {/* Page meter (ENG-3): the same authority billing reads */}
+          {meter && meter.billable > 0 && (
+            <p className="border-t border-db-line px-4 py-3 text-sm">
+              <span className="font-db-mono">{meter.billable.toLocaleString()} / {meter.cap.toLocaleString()}</span> pages read so far
+              {meter.duplicatesIgnored > 0 && (
+                <span className="block text-db-muted">
+                  Duplicates ignored: {meter.duplicatesIgnored} — they don&rsquo;t count toward your
+                  pages, but we still read every page you send.
+                </span>
+              )}
+            </p>
+          )}
         </details>
       )}
 
-      {/* Page meter (ENG-3): the same authority billing reads */}
-      {meter && meter.billable > 0 && (
-        <p className="mt-6 rounded-lg border border-db-line bg-db-surface p-3 text-sm">
-          <span className="font-db-mono">{meter.billable.toLocaleString()} / {meter.cap.toLocaleString()}</span> pages
-          {meter.duplicatesIgnored > 0 && (
-            <span className="block text-db-muted">
-              Duplicates ignored: {meter.duplicatesIgnored} — they don&rsquo;t count toward your
-              pages, but we still read every page you send.
-            </span>
-          )}
-        </p>
-      )}
-
-      {/* F11/F14: Step 2 is its own moment — the charged commitment, with
-          the cost rule stated here, not first discovered inside the modal. */}
+      {/* ── Step 2: its own moment — the charged commitment, with the cost
+             rule stated here, not first discovered inside the modal. ── */}
       <section data-testid="run-review" className="mt-8 rounded-xl border-2 border-db-accent bg-db-surface p-4">
         <p className="text-sm">
           <span className="rounded-full bg-db-accent px-2.5 py-0.5 text-xs font-semibold text-db-surface">Step 2</span>{' '}
@@ -769,13 +754,13 @@ export default function CaseDocuments() {
             <strong>Not enough yet.</strong> The review depends on: {readiness.missing.essential.map((m) => m.label).join(', ')}. You can still run it on what is here, but it will only be able to check the paperwork.
           </p>
         )}
-        {data && data.items.some((i) => i.state === 'NEEDED') ? (
+        {needed.length > 0 ? (
           <button
             onClick={() => setConfirmRun(true)}
             disabled={!data || data.documents.length === 0}
             className="mt-3 w-full rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface disabled:opacity-40"
           >
-            {data?.rerun ? 'That\u2019s everything new I could get — start the re-run' : 'That\u2019s everything I could get — start the review'}
+            {data?.rerun ? 'That’s everything new I could get — start the re-run' : 'That’s everything I could get — start the review'}
           </button>
         ) : (
           <button
@@ -787,6 +772,39 @@ export default function CaseDocuments() {
           </button>
         )}
       </section>
+
+      {/* Secondary: what the checklist was built from. */}
+      {data?.factLines?.some((l) => l.value) && (
+        <details data-testid="about-case" className="mt-6 rounded-xl border border-db-line bg-db-surface p-4 text-sm">
+          <summary className="cursor-pointer font-semibold">
+            About this case
+            <span className="ml-2 font-normal text-db-muted">
+              {factLine('conviction') ?? ''}
+              {factLine('trialOrPlea') ? ` · ${factLine('trialOrPlea')}` : ''}
+            </span>
+          </summary>
+          <p className="mt-2 text-xs text-db-muted">Your checklist is built from these answers.</p>
+          {data.facts?.source?.carriedFromCaseId && (
+            <p className="mt-1 text-xs" data-testid="carried-over">
+              County, year and dates were carried over from your earlier review so you were not asked again.{' '}
+              {editable && <>Not the same case? <Link href={`/case/${caseId}/interview`} className="text-db-accent underline">Change the details</Link>.</>}
+            </p>
+          )}
+          <dl className="mt-2 grid grid-cols-[minmax(0,40%)_1fr] gap-x-4 gap-y-1.5">
+            {data.factLines.filter((l) => l.value).map((l) => (
+              <div key={l.key} className="contents">
+                <dt className="text-db-muted">{l.label}</dt>
+                <dd>{l.value}{l.derived && <span className="ml-1 text-xs text-db-muted">(chosen from your answers)</span>}</dd>
+              </div>
+            ))}
+          </dl>
+          {editable ? (
+            <Link href={`/case/${caseId}/interview`} className="mt-3 inline-block text-db-accent underline">Not right? Change the details</Link>
+          ) : (
+            <p className="mt-3 text-xs text-db-muted">Locked — this review was built on these answers. A re-run is where they can change.</p>
+          )}
+        </details>
+      )}
 
       {/* Informed run-anyway consent (bulk_zip_upload.md §UX): the review can
           run on a partial record, but the cost consequence is stated BEFORE

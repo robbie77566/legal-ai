@@ -383,3 +383,72 @@ describe('bulk ZIP + run-anyway consent (bulk_zip_upload.md)', () => {
     expect(screen.getByTestId('upload-retry')).toHaveTextContent('Retry a.pdf')
   })
 })
+
+describe('UX round 7 — one clear page: needs → upload → your files → run (2026-09-27)', () => {
+  it('orders the page so the files already here sit directly under the upload zone, open, and say so', async () => {
+    render(<CaseDocuments />)
+    const zip = await screen.findByTestId('zip-card')
+    const files = screen.getByTestId('your-files')
+    const run = screen.getByTestId('run-review')
+    const checklist = screen.getByTestId('checklist-card')
+    // DOM order: checklist, upload, your files, run.
+    expect(checklist.compareDocumentPosition(zip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(zip.compareDocumentPosition(files) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(files.compareDocumentPosition(run) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(files).toHaveAttribute('open')
+    expect(files).toHaveTextContent(/Already uploaded — no need to send these again/)
+    expect(files).toHaveTextContent(/vol3\.pdf/)
+    expect(files).toHaveTextContent(/Recognized as Reporter's record volumes/)
+  })
+
+  it('the checklist card answers "is it enough?" first, then lists every item — received ticked, still-needed with its tier', async () => {
+    render(<CaseDocuments />)
+    const card = await screen.findByTestId('checklist-card')
+    expect(card).toHaveTextContent(/What the review needs/)
+    const verdict = screen.getByTestId('readiness')
+    expect(card.compareDocumentPosition(verdict) & Node.DOCUMENT_POSITION_CONTAINED_BY).toBeTruthy()
+    expect(screen.getByTestId('doc-progress')).toHaveTextContent(/1 still needed/)
+    expect(screen.getByTestId('received')).toHaveTextContent("Reporter's record volumes")
+    expect(screen.getByTestId('received')).toHaveTextContent('✓ Received')
+    expect(screen.getByTestId('still-needed')).toHaveTextContent('Judgment and sentence')
+  })
+
+  it('a file with the same name as one already here asks first; declining skips it and uploads nothing', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => false))
+    const { container } = render(<CaseDocuments />)
+    await screen.findByTestId('zip-card')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File([new Uint8Array(10)], 'vol3.pdf', { type: 'application/pdf' })] } })
+    expect(await screen.findByTestId('upload-skipped')).toHaveTextContent('Skipped vol3.pdf — already in your files below.')
+    expect(window.confirm).toHaveBeenCalledWith('vol3.pdf is already in your files below. Upload it again anyway?')
+    expect(calls.some((c) => c.endsWith('/upload/url'))).toBe(false)
+  })
+
+  it('accepting the duplicate prompt uploads as normal; a new name never asks', async () => {
+    class FakeXhr {
+      upload: { onprogress: unknown } = { onprogress: null }
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      onabort: (() => void) | null = null
+      status = 200
+      open() {}
+      setRequestHeader() {}
+      send() { setTimeout(() => this.onload?.(), 0) }
+    }
+    vi.stubGlobal('XMLHttpRequest', FakeXhr as unknown as typeof XMLHttpRequest)
+    const confirm = vi.fn(() => true)
+    vi.stubGlobal('confirm', confirm)
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url); calls.push(`${init?.method ?? 'GET'} ${u}`)
+      const body = u.endsWith('/checklist') ? CHECKLIST : u.endsWith('/pages') ? METER : u.endsWith('/upload/url') ? { url: 'https://s3.example/put', s3Key: 'cases/case_1/x.pdf' } : { ok: true }
+      return { ok: true, json: async () => body } as Response
+    }))
+    const { container } = render(<CaseDocuments />)
+    await screen.findByTestId('zip-card')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File([new Uint8Array(10)], 'vol3.pdf', { type: 'application/pdf' }), new File([new Uint8Array(10)], 'new-judgment.pdf', { type: 'application/pdf' })] } })
+    await waitFor(() => expect(calls.filter((c) => c.endsWith('/upload/complete'))).toHaveLength(2))
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('upload-skipped')).toBeNull()
+  })
+})
