@@ -34,6 +34,7 @@ import { scoreRun, type EvalLedger, type ScorableFinding } from '../src/services
     partAText: f.partAText,
     partBText: f.partBText,
     pages: f.citations.map((c) => c.page).filter((p): p is number => p != null),
+    preserved: f.preserved ?? undefined,
   }));
 
   const card = scoreRun(ledger, findings);

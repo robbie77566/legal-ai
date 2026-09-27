@@ -74,6 +74,11 @@ services:
       # Gary/Brian comparisons found ~50% more issues with better verbatim quotes).
       - key: ANALYSIS_MODEL
         value: claude-fable-5-1
+      # Prompt set v2 (PO go-ahead 2026-09-27): preserved-error + identification
+      # screens and per-finding preservation / harm standard / vehicle fields.
+      # Rollback is this one value back to v1 — old findings render unchanged.
+      - key: ANALYSIS_PROMPT_SET
+        value: v2
       - key: ANALYSIS_SAMPLES
         value: "2"
       - key: ANALYSIS_BATCH

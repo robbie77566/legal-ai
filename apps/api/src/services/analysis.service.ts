@@ -93,8 +93,10 @@ const SCREENS_BY_LANE: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
  * v1 screens did not — a dedicated preserved-error scan (PRD FR-1), an
  * identification-procedure screen, structured per-finding fields, and a
  * severity calibration that knows the appellate harm standard. Selected by
- * ANALYSIS_PROMPT_SET; production defaults to v1 until the eval gate
- * (NFR-1) has been re-run on the new set — prompts are a model change.
+ * ANALYSIS_PROMPT_SET (render.yaml sets v2 since 2026-09-27). Without the
+ * variable, production falls back to v1 so a config rollback is one value;
+ * prompts are a model change under NFR-1, so re-score the Gary ledger
+ * after any change to a set.
  */
 const SCREENS_BY_LANE_V2: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
   TRIAL: ['preserved_error', 'iac', 'brady', 'junk_science', 'sentencing', 'voir_dire', 'identification'],
