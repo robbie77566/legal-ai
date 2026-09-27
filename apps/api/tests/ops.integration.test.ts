@@ -175,11 +175,16 @@ describe('OPS-4 scoped deletion — the retention matrix by assertion', () => {
 
 describe('OPS: eval gate from the console (2026-09-27)', () => {
   let doneId: string;
+  let noRunId: string;
   beforeAll(async () => {
     const c = await prisma.case.create({
       data: { title: `${run}_done`, tenantId, status: 'DELIVERED', lane: 'TRIAL', accessList: { create: { userId, role: 'ADMIN' } } },
     });
     doneId = c.id;
+    // A case with no completed run — scoring it has nothing to score.
+    noRunId = (await prisma.case.create({
+      data: { title: `${run}_norun`, tenantId, status: 'ANALYZING', lane: 'TRIAL', accessList: { create: { userId, role: 'ADMIN' } } },
+    })).id;
     const doc = await prisma.document.create({ data: { filename: 'rr.pdf', caseId: doneId, s3Key: `cases/${doneId}/rr.pdf` } });
     await prisma.documentChunk.create({ data: { documentId: doc.id, content: `${run} chunk`, metadata: {} } });
     const r = await prisma.analysisRun.create({ data: { caseId: doneId, tenantId, runNo: 1, modelConfig: { model: 'claude-fable-5-1', screens: 'v2', promptHash: 'abc123def' }, completedAt: new Date() } });
@@ -192,7 +197,9 @@ describe('OPS: eval gate from the console (2026-09-27)', () => {
     });
   });
   afterAll(async () => {
-    const ids = (await prisma.case.findMany({ where: { tenantId, title: `${run}_done` }, select: { id: true } })).map((c) => c.id);
+    // The resume tests below assert this spy was NOT called — leave it clean.
+    resumeMock.enqueueAnalysis.mockClear();
+    const ids = (await prisma.case.findMany({ where: { tenantId, title: { in: [`${run}_done`, `${run}_norun`] } }, select: { id: true } })).map((c) => c.id);
     await prisma.findingCitation.deleteMany({ where: { finding: { caseId: { in: ids } } } });
     await prisma.finding.deleteMany({ where: { caseId: { in: ids } } });
     await prisma.analysisRun.deleteMany({ where: { caseId: { in: ids } } });
@@ -220,7 +227,7 @@ describe('OPS: eval gate from the console (2026-09-27)', () => {
     expect(body.pass).toBe(false);
     const missing = await fastify.inject({ method: 'GET', url: `/ops/cases/${doneId}/eval?ledger=nope`, headers: { cookie: adminCookie } });
     expect(missing.statusCode).toBe(404);
-    const noRun = await fastify.inject({ method: 'GET', url: `/ops/cases/${caseId}/eval?ledger=gary`, headers: { cookie: adminCookie } });
+    const noRun = await fastify.inject({ method: 'GET', url: `/ops/cases/${noRunId}/eval?ledger=gary`, headers: { cookie: adminCookie } });
     expect(noRun.statusCode).toBe(409);
   });
 
