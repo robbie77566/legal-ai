@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import fs from 'node:fs';
 import path from 'node:path';
-import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, BRAND } from '@hg/case-lifecycle';
+import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, BRAND, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist, normalizePreserved } from '@hg/case-lifecycle';
 
 /**
  * ENG-11 report PDF (M5): renders the QA-approved findings snapshot —
@@ -24,6 +24,12 @@ export interface ReportFinding {
   partAText: string;
   partBText: string;
   citations: { volume: string | null; page: number | null; excerpt: string }[];
+  /** Prompt set v2 fields — absent on older snapshots, which render as before. */
+  preserved?: string;
+  harmStandard?: string;
+  vehicle?: string;
+  develop?: string;
+  dependsOn?: string[];
 }
 
 export interface DeadlinePostureView {
@@ -295,6 +301,14 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
       doc.moveDown(0.3);
       doc.font('Helvetica-Bold').fontSize(9).fillColor('#444444').text('For an attorney');
       doc.font('Helvetica').fontSize(9.5).fillColor('#222222').text(f.partBText);
+      if (hasStructuredFields(f)) {
+        // What a manual appellate review tracks per issue (prompt set v2).
+        doc.moveDown(0.2);
+        doc.font('Helvetica').fontSize(8.5).fillColor('#444444')
+          .text(`${preservedLabel(f.preserved)} · ${vehicleLabel(f.vehicle)} · ${harmLabel(f.harmStandard)}`);
+        if (f.develop) doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#444444').text('To develop: ', { continued: true }).font('Helvetica').text(f.develop);
+        if (f.dependsOn?.length) doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#8a4b00').text(`Depends on records not provided: ${f.dependsOn.join('; ')}`);
+      }
       for (const c of f.citations) {
         doc.moveDown(0.2);
         const where = [c.volume, c.page != null ? `p. ${c.page}` : null].filter(Boolean).join(' ');
@@ -325,6 +339,32 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
       doc.font('Helvetica-Bold').fontSize(13).fillColor(TONE_COLOR.review).text('Possible issues and background');
       doc.moveDown(0.4);
       for (const f of input.possibleIssues) renderFinding(f, n++);
+    }
+    // For counsel (prompt set v2): the ranked table and the investigation
+    // checklist a manual review ends with. Rendered only when the findings
+    // carry the fields, so older reports are unchanged.
+    const all = [...input.strongSignals, ...input.possibleIssues];
+    if (all.some(hasStructuredFields)) {
+      if (doc.y > doc.page.height - 220) doc.addPage();
+      doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('For counsel — issues by priority');
+      doc.font('Helvetica').fontSize(8.5).fillColor('#555555').text('Ordered by weight, then preservation, then the review standard. Preservation calls are the review\'s reading of the record and must be verified.');
+      doc.moveDown(0.4);
+      rankIssues(all).forEach((f, i) => {
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#222222').text(`${i + 1}. ${f.category.replace(/_/g, ' ')} — ${severityLabel(f.severity)}`);
+        doc.font('Helvetica').fontSize(8.5).fillColor('#444444').text(`${preservedLabel(f.preserved)} · ${vehicleLabel(f.vehicle)} · ${harmLabel(f.harmStandard)}`, { indent: 12 });
+      });
+      const checklist = investigationChecklist(all);
+      if (checklist.length) {
+        doc.moveDown(0.8);
+        if (doc.y > doc.page.height - 160) doc.addPage();
+        doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('Investigation checklist');
+        doc.font('Helvetica').fontSize(8.5).fillColor('#555555').text('What would need to be obtained or done to prove or rule out the issues above. For the attorney; not a recommendation to file anything.');
+        doc.moveDown(0.3);
+        checklist.forEach((item, i) => doc.font('Helvetica').fontSize(9.5).fillColor('#222222').text(`${i + 1}. ${item}`));
+      }
+      const unknown = all.filter((f) => normalizePreserved(f.preserved) === 'unknown').length;
+      if (unknown) doc.moveDown(0.3).font('Helvetica-Oblique').fontSize(8.5).fillColor('#555555').text(`${unknown} issue(s) carry no preservation call — the record excerpt did not show an objection and ruling.`);
+      doc.moveDown(1);
     }
     if (input.strongSignals.length + input.possibleIssues.length === 0) {
       doc

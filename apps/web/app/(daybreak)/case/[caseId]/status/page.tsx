@@ -36,6 +36,7 @@ const SCREEN_NAMES: Record<string, string> = {
   appeal_restoration: 'lost appeal rights',
   plea_lane: 'problems with the guilty plea',
   voir_dire: 'jury selection problems',
+  identification: 'how the person was identified',
 }
 /**
  * Fallback only. The real total differs by lane (a trial record runs five

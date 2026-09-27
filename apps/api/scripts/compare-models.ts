@@ -22,7 +22,7 @@ import {
   buildRecord,
   buildContextHeader,
   executeScreen,
-  SCREENS_BY_LANE,
+  screensForLane,
   type AnalysisChunk,
   type AnalysisModel,
   type ScreenFinding,
@@ -97,13 +97,13 @@ const norm = (q: string) => q.replace(/\s+/g, ' ').trim().toLowerCase();
   });
   const chunks: AnalysisChunk[] = docs.flatMap((d) => d.chunks);
   const record = buildRecord(chunks);
-  console.log(`record: ${chunks.length} chunks | challenger: ${challengerName} | screens: ${SCREENS_BY_LANE[lane].join(', ')}`);
+  console.log(`record: ${chunks.length} chunks | challenger: ${challengerName} | screens: ${screensForLane(lane).join(', ')}`);
 
   const challenger = buildChallenger(challengerName);
   const contextHeader = await buildContextHeader(challenger, record);
   if (contextHeader) console.log(`context: ${contextHeader.slice(0, 140)}…`);
   const challengerResults: Record<string, { grounded: ScreenFinding[]; dropped: number }> = {};
-  for (const screenId of SCREENS_BY_LANE[lane]) {
+  for (const screenId of screensForLane(lane)) {
     console.log(`\n=== screen: ${screenId} ===`);
     const started = Date.now();
     const samples = Math.min(3, Math.max(1, Number(process.env.ANALYSIS_SAMPLES ?? '1') || 1));

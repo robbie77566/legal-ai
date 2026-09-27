@@ -128,6 +128,11 @@ export async function autoApproveCase(
             provenance: f.provenance,
             partAText: f.partAText,
             partBText: f.partBText,
+            preserved: f.preserved ?? undefined,
+            harmStandard: f.harmStandard ?? undefined,
+            vehicle: f.vehicle ?? undefined,
+            develop: f.develop ?? undefined,
+            dependsOn: f.dependsOn ?? [],
             citations: f.citations.map((c) => ({
               volume: c.volume,
               page: c.page,

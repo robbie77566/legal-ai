@@ -28,6 +28,11 @@ interface Finding {
   partAText: string
   partBText: string
   citations: { volume: string | null; page: number | null; excerpt: string; excerptHash: string }[]
+  preserved?: string | null
+  harmStandard?: string | null
+  vehicle?: string | null
+  develop?: string | null
+  dependsOn?: string[]
 }
 
 export default function QaConsole() {
@@ -245,6 +250,13 @@ export default function QaConsole() {
 
                     <p className="mt-3 text-xs uppercase tracking-wider text-[#8B949E]">Part B (attorney)</p>
                     <p className="mt-1 text-sm text-[#8B949E]">{f.partBText}</p>
+                    {(f.preserved || f.vehicle || f.develop) && (
+                      <p className="mt-2 font-mono text-[11px] text-[#8B949E]" data-testid={`counsel-fields-${f.id}`}>
+                        preserved: {f.preserved ?? '—'} · vehicle: {f.vehicle ?? '—'} · harm: {f.harmStandard ?? '—'}
+                        {f.develop ? ` · develop: ${f.develop}` : ''}
+                        {f.dependsOn && f.dependsOn.length ? ` · depends on: ${f.dependsOn.join('; ')}` : ''}
+                      </p>
+                    )}
                   </li>
                 ))}
                 {findings.length === 0 && (

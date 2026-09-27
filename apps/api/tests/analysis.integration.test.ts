@@ -286,7 +286,8 @@ describe('batch path (invokeMany seam)', () => {
 
     const summary = await runAnalysis(c2.id, tenantId, batchModel);
     // TRIAL lane × ANALYSIS_SAMPLES=1 → one request per screen, all via the batch seam.
-    expect(seenKeys.length).toBe(5);
+    const { screensForLane } = await import('../src/services/analysis.service');
+    expect(seenKeys.length).toBe(screensForLane('TRIAL').length);
     expect(seenKeys).toContain('voir_dire__0');
     expect(summary.findingsPersisted).toBe(1);
     const f = await prisma.finding.findFirstOrThrow({ where: { caseId: c2.id }, include: { citations: true } });

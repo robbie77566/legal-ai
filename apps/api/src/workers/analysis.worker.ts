@@ -55,10 +55,10 @@ export const analysisWorker = new Worker(
     try {
       const { autoApproveCase, autoApproveEnabled } = await import('../services/auto-qa.service');
       if (autoApproveEnabled()) {
-        const { SCREENS_BY_LANE } = await import('../services/analysis.service');
+        const { screensForLane } = await import('../services/analysis.service');
         const kase = await (await import('@hg/database')).default.case.findUniqueOrThrow({ where: { id: caseId } });
         const lane = (kase.lane === 'PLEA' ? 'PLEA' : 'TRIAL') as 'TRIAL' | 'PLEA';
-        await autoApproveCase(caseId, tenantId, { ...summary, screensExpected: SCREENS_BY_LANE[lane].length });
+        await autoApproveCase(caseId, tenantId, { ...summary, screensExpected: screensForLane(lane).length });
       }
     } catch (e) {
       // Auto-QA failure leaves the case safely in QA_REVIEW for a human.

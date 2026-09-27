@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { z } from 'zod';
-import { CaseSummarySchema, type CaseSummary } from '@hg/case-lifecycle';
+import { CaseSummarySchema, normalizePreserved, normalizeHarmStandard, vehicleFor, type CaseSummary } from '@hg/case-lifecycle';
 import { withTenant, appendCaseEvent } from '@hg/database';
 
 /**
@@ -34,6 +34,13 @@ export interface AnalysisModel {
   invokeMany?(requests: { key: string; instruction: string }[], record: string): Promise<Map<string, string>>;
 }
 
+const clipped = (n: number) =>
+  z.preprocess((v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : undefined), z.string().optional());
+const stringList = (items: number, len: number) =>
+  z.preprocess(
+    (v) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0).map((x) => x.trim().slice(0, len)).slice(0, items) : undefined),
+    z.array(z.string()).optional()
+  );
 const FindingOutput = z.object({
   // Bounded free text, not an enum: the live Gary run proved the model's
   // specific labels ("Surrogate DNA analyst testimony / Confrontation…")
@@ -47,11 +54,19 @@ const FindingOutput = z.object({
   quote: z.string().min(8),
   partA: z.string().min(1).max(2000),
   partB: z.string().min(1).max(4000),
+  // Prompt set v2 (case-lifecycle/analysis-fields.ts). Lenient by design:
+  // a malformed or missing field is clipped or dropped, never a rejection —
+  // an enum rejection once voided four screens of good findings.
+  preserved: clipped(40),
+  preservedCite: clipped(600),
+  harmStandard: clipped(60),
+  develop: clipped(400),
+  dependsOn: stringList(6, 120),
 });
 const FindingsResponse = z.object({ findings: z.array(FindingOutput).max(50) });
 
 interface Screen {
-  id: 'iac' | 'brady' | 'junk_science' | 'sentencing' | 'plea_lane' | 'voir_dire';
+  id: 'iac' | 'brady' | 'junk_science' | 'sentencing' | 'plea_lane' | 'voir_dire' | 'preserved_error' | 'identification';
   system: string;
 }
 
@@ -63,12 +78,42 @@ const SCREENS: Record<Screen['id'], string> = {
   junk_science: `You are a forensic-science consultant screening expert and quasi-expert testimony under Tex. Code Crim. Proc. Art. 11.073 (discredited or materially refined science) and Kelly/Daubert reliability: bite marks, hair comparison, arson indicators, dog-scent lineups, bloodstain-pattern overreach, historical cell-site overstatement, overstated DNA/statistics (source attribution from likelihood ratios), shaken-baby/abusive-head-trauma disputes, riflings/toolmarks certainty claims, and ANY opinion offered by a witness the record shows unqualified (no training, first time testifying to the method, consumer-grade tools). Also flag surrogate-analyst Confrontation issues (Bullcoming/Smith v. Arizona) and scientific claims exceeding the underlying report. Sweep the ENTIRE record including voir dire of experts.`,
   sentencing: `You are auditing judgment and sentence for illegal-sentence and sentencing-error indicators. Check: punishment outside the statutory range for the offense as charged and found; enhancement defects (invalid or unproven priors, missing identity linkage, sequence errors under Tex. Penal Code 12.42); double-jeopardy multiple punishments (lesser-included counts, Blockburger); cumulation-order legality (Art. 42.08, Penal Code 3.03 limits); variance between oral pronouncement and written judgment (fines, costs, credits — oral controls); time-credit errors (compare booking/arrest dates to credit awarded); deadly-weapon-finding defects; parole-law jury instruction errors (Art. 37.07 4); court costs and fines against indigency findings. Quote the exact pronouncement and judgment language.`,
   plea_lane: `You are screening plea papers and the plea colloquy for involuntary-plea indicators: missing or defective admonishments (Art. 26.13 — range, immigration, sex-offender registration); judgment terms that do not match the plea agreement; absent judicial confession or stipulation; affirmative misadvice (immigration/Padilla, parole eligibility, probation eligibility); coercion signals in the colloquy; failure to establish competency; charge-bargain terms the sentence exceeds. Compare every promise recited on the record against the judgment.`,
+  preserved_error: `You are a Texas appellate attorney performing a preserved-error scan of the ENTIRE trial record for a direct appeal (four corners of the record). Track every objection to its ruling and the preservation posture under TRAP 33.1 (specific objection, ruling or refusal to rule, running objections, requests for instruction, motions for mistrial). Cover: Confrontation Clause (surrogate analysts, testimonial hearsay — Crawford, Bullcoming, Smith v. Arizona); hearsay rulings and whether the exception's PREDICATE is actually met (Art. 38.072 outcry requires a child under 14 or a disabled complainant — check the age; Rule 803(2) excited utterance requires the statement while still under stress of the event — check elapsed time and intervening events; Rule 803(4) medical diagnosis requires a treatment purpose); improper jury argument (burden-shifting, comment on failure to testify or to call witnesses, community expectation, striking at the defendant over counsel's shoulders) with the objection/instruction/mistrial sequence; vouching and bolstering (a witness's relationship with the prosecutor, prior 'expert' status, lists of joint cases, class-based truthfulness testimony); Rule 403/404(b) extraneous-offense rulings and notice; the jury charge (Almanza — objected vs. egregious harm); expert qualification rulings (701/702, Kelly/Daubert); sufficiency and directed-verdict rulings including venue. For each, state the objection, the ruling, the record page, whether it is preserved (yes / partial / no), and the harm standard that will govern review.`,
+  identification: `You are a Texas appellate attorney screening how the defendant was identified. Cover: pretrial identification procedures — photo arrays, photospreads, lineups, show-ups — and their construction (who assembled the array, whether the administrator knew the suspect, filler similarity, instructions given, the witness's certainty statement and its wording); any facial-recognition or database-driven suspect development that seeded the procedure; in-court identification and its independent basis; whether a motion to suppress the identification or a pretrial hearing exists and what it found; and the Neil v. Biggers / Manson v. Brathwaite reliability factors (opportunity to view, attention, prior description accuracy, certainty, time elapsed). Distinguish a record claim (objection or suppression motion made and ruled on) from counsel's failure to make one.`,
   voir_dire: `You are a Texas appellate attorney screening jury selection (voir dire) for juror-bias and preserved-error indicators. Cross-reference every venire member's disclosures against the case principals (victim, witnesses, law enforcement, parties) named in the CASE CONTEXT. Flag: relationships to principals (familial, employment, spouse-of — actual or implied bias, Art. 35.16); bias admissions followed by denied challenges for cause, absent challenges, or conclusory one-question rehabilitation; commitments hostile to rights (silence as guilt, presumption reversal, automatic credibility for officers); Batson indicators; panelists exposed to prejudicial information; truncated individual voir dire. For each flagged panelist, give their number AND trace whether the record shows them struck, excused, or SEATED (seating list and jury polls) — a seated biased juror is the highest-severity outcome.`,
 };
 
 const SCREENS_BY_LANE: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
   TRIAL: ['iac', 'brady', 'junk_science', 'sentencing', 'voir_dire'],
   PLEA: ['plea_lane', 'sentencing'],
+};
+
+/**
+ * Prompt set v2 (2026-09-27): what a manual appellate review does that the
+ * v1 screens did not — a dedicated preserved-error scan (PRD FR-1), an
+ * identification-procedure screen, structured per-finding fields, and a
+ * severity calibration that knows the appellate harm standard. Selected by
+ * ANALYSIS_PROMPT_SET; production defaults to v1 until the eval gate
+ * (NFR-1) has been re-run on the new set — prompts are a model change.
+ */
+const SCREENS_BY_LANE_V2: Record<'TRIAL' | 'PLEA', Screen['id'][]> = {
+  TRIAL: ['preserved_error', 'iac', 'brady', 'junk_science', 'sentencing', 'voir_dire', 'identification'],
+  PLEA: ['plea_lane', 'sentencing'],
+};
+export type PromptSet = 'v1' | 'v2';
+export function promptSet(): PromptSet {
+  const v = process.env.ANALYSIS_PROMPT_SET;
+  if (v === 'v1' || v === 'v2') return v;
+  return process.env.NODE_ENV === 'production' ? 'v1' : 'v2';
+}
+export function screensForLane(lane: 'TRIAL' | 'PLEA'): Screen['id'][] {
+  return (promptSet() === 'v2' ? SCREENS_BY_LANE_V2 : SCREENS_BY_LANE)[lane];
+}
+
+/** v2-only additions to existing screens; v1 prompts stay byte-identical. */
+const SCREEN_ADDENDA_V2: Partial<Record<Screen['id'], string>> = {
+  iac: `Also compare the State's narrative against the physical record: for each material fact the State asserted (what was bought, drunk, driven, sent, found), cite any exhibit or testimony that contradicts it, and note whether counsel used the contradiction; and flag counsel's failure to subpoena or demand a non-testifying analyst whose report came in through a surrogate, and the absence of a motion to suppress a suggestive identification.`,
+  brady: `Also list any State narrative fact that the exhibits contradict (surveillance video, receipts, records) and any test that could have been run and was not (toxicology, trace, DNA on a collected item) — untested evidence in State custody is a disclosure and investigation question.`,
 };
 
 /**
@@ -88,7 +133,17 @@ const SUMMARY_INSTRUCTIONS =
 
 const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. Severity calibration: "dispositive" = could plausibly justify relief or major posture change on its own (illegal sentence, seated biased juror, suppressed exculpatory evidence); "supportive" = strengthens a claim package but needs companions; "background" = context a lawyer should know. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
 
+const OUTPUT_INSTRUCTIONS_V2 = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|identification|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>","preserved":"yes|partial|no|unknown","preservedCite":"<VERBATIM objection or ruling text from the record, or omit>","harmStandard":"structural|constitutional|nonconstitutional|none","develop":"<one sentence, max 40 words: the record or investigation step that would prove or rule this out — obtain X, subpoena Y, compare Z>","dependsOn":["<a record or exhibit this finding needs that was not provided, e.g. Volume 6 exhibits>"]}]}. Severity calibration: "dispositive" = could plausibly justify relief or major posture change on its own (an illegal or void sentence, a seated biased juror, suppressed exculpatory evidence, a preserved constitutional error going to the core of the State's proof); "supportive" = strengthens a claim package but needs companions; "background" = context a lawyer should know. Weigh the review standard: a preserved constitutional error is reviewed under TRAP 44.2(a) — reversal unless the State shows it harmless beyond a reasonable doubt — and is at least supportive; a preserved non-constitutional error under 44.2(b) is supportive unless the record shows harm to a substantial right; an unpreserved record error is background unless structural, since it is reachable only through counsel's performance. "preserved" means an objection was made and ruled on; "partial" means a running or general objection, or an objection without a ruling. The quote MUST be copied character-for-character from one excerpt. Keep "develop" concrete and short. If nothing qualifies, return {"findings":[]}.`;
+
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
+
+/** Fingerprint of the prompt set actually used — stored on the run for reproducibility (ENG-8). */
+export function promptHash(set: PromptSet = promptSet()): string {
+  const screens = (set === 'v2' ? SCREENS_BY_LANE_V2 : SCREENS_BY_LANE).TRIAL.concat(SCREENS_BY_LANE.PLEA)
+    .map((id) => `${id}:${SCREENS[id]}${set === 'v2' ? SCREEN_ADDENDA_V2[id] ?? '' : ''}`)
+    .join('\n');
+  return sha256(`${set}\n${screens}\n${set === 'v2' ? OUTPUT_INSTRUCTIONS_V2 : OUTPUT_INSTRUCTIONS}`).slice(0, 12);
+}
 
 /**
  * Whitespace-normalized comparison for grounding: court transcripts break
@@ -266,6 +321,8 @@ const ANCHOR_PATTERNS: Partial<Record<Screen['id'], RegExp>> = {
   voir_dire: /\b(JUROR|VENIRE|panel member|strike|peremptor|challenge for cause)\b/i,
   sentencing: /\b(pronounce|consecutive|cumulat|stacked|credit for time|time credit|enhancement|habitual|deadly weapon)\b/i,
   iac: /\bobjection\b.{0,80}\b(overruled|sustained)\b/is,
+  preserved_error: /\bobjection\b.{0,80}\b(overruled|sustained|denied)\b|\brunning objection\b|\b(move|motion) for (a )?mistrial\b|\bnote (our|my) exception\b|\bcharge conference\b/is,
+  identification: /\b(photo\s?(array|spread|line-?up)|line-?up|six-?pack|facial recognition|identif(y|ied|ication)|show-?up|Biggers)\b/i,
   brady: /\b(not (?:been )?(?:disclosed|produced|turned over)|working file|withheld|never (?:tested|analyzed|examined)|lost|destroyed)\b/i,
 };
 
@@ -305,6 +362,12 @@ export interface ScreenFinding {
   chunk: AnalysisChunk;
   /** Engine that produced the kept copy (multi-engine union). */
   engine?: string;
+  // Prompt set v2 fields (optional — v1 findings never carry them).
+  preserved?: string;
+  preservedCite?: string;
+  harmStandard?: string;
+  develop?: string;
+  dependsOn?: string[];
 }
 
 /**
@@ -322,7 +385,9 @@ export function buildScreenInstruction(
 ): string {
   const prefix = contextHeader ? `${contextHeader}\n\n` : '';
   const anchors = buildAnchors(screenId, chunks, contextHeader);
-  return `${prefix}${SCREENS[screenId]}\n${anchors ? `${anchors}\n` : ''}${OUTPUT_INSTRUCTIONS}`;
+  const v2 = promptSet() === 'v2';
+  const addendum = v2 ? SCREEN_ADDENDA_V2[screenId] : undefined;
+  return `${prefix}${SCREENS[screenId]}${addendum ? `\n${addendum}` : ''}\n${anchors ? `${anchors}\n` : ''}${v2 ? OUTPUT_INSTRUCTIONS_V2 : OUTPUT_INSTRUCTIONS}`;
 }
 
 /**
@@ -398,6 +463,39 @@ export function isStrongerFinding(
   return incoming.confidence > kept.confidence;
 }
 
+/**
+ * The v2 fields as they are persisted. The preservation cite is kept only
+ * when it grounds verbatim somewhere in the record (an objection is usually
+ * in a different excerpt from the quoted passage), so a cite a lawyer reads
+ * is as trustworthy as the finding's own quote. `vehicle` is derived.
+ */
+export function structuredFields(
+  f: { category: string; preserved?: string; preservedCite?: string; harmStandard?: string; develop?: string; dependsOn?: string[] },
+  screenId: string,
+  chunks: AnalysisChunk[]
+): { preserved: string; preservedCite: string | null; harmStandard: string; vehicle: string; develop: string | null; dependsOn: string[] } {
+  const preserved = normalizePreserved(f.preserved);
+  const harmStandard = normalizeHarmStandard(f.harmStandard);
+  const cite = f.preservedCite && chunks.some((c) => quoteGrounds(c.content, f.preservedCite!)) ? f.preservedCite : null;
+  return {
+    preserved,
+    preservedCite: cite,
+    harmStandard,
+    vehicle: vehicleFor({ screen: screenId, category: f.category, preserved, harmStandard }),
+    develop: f.develop ?? null,
+    dependsOn: f.dependsOn ?? [],
+  };
+}
+
+const PRESERVED_STRENGTH: Record<string, number> = { yes: 3, partial: 2, no: 1, unknown: 0 };
+/** Between two screens' preservation calls, the stronger wins; a grounded cite breaks ties. */
+export function strongerPreserved(current: string, incoming: string, incomingHasCite: boolean): string {
+  const a = PRESERVED_STRENGTH[current] ?? 0, b = PRESERVED_STRENGTH[incoming] ?? 0;
+  if (b > a) return incoming;
+  if (b === a && incomingHasCite) return incoming;
+  return current;
+}
+
 export async function executeScreen(
   model: AnalysisModel,
   screenId: keyof typeof SCREENS,
@@ -414,7 +512,7 @@ export async function executeScreen(
   return groundUnion(arrays, chunks);
 }
 
-export { SCREENS_BY_LANE };
+export { SCREENS_BY_LANE, SCREENS_BY_LANE_V2 };
 
 /** The pre-pass itself — shared by the pipeline and compare-models. */
 /**
@@ -501,7 +599,7 @@ export async function runAnalysis(
 
     const runNo = (await tx.analysisRun.count({ where: { caseId } })) + 1;
     const created = await tx.analysisRun.create({
-      data: { caseId, tenantId, runNo, modelConfig: { model: model.name, screens: 'v1' } },
+      data: { caseId, tenantId, runNo, modelConfig: { model: model.name, screens: promptSet(), promptHash: promptHash() } },
     });
 
     if (kase.status === 'DOCS_COMPLETE') {
@@ -532,6 +630,16 @@ export async function runAnalysis(
     await withTenant(tenantId, (tx) => tx.analysisRun.update({ where: { id: run.id }, data: { summary: caseSummary as object } }));
     console.log(`[analysis] case summary: ${Object.keys(caseSummary).length} fact(s) grounded`);
   }
+  // v2: the judgment facts the summary already grounded verbatim ride into
+  // every screen's context — a review that stops at the verdict misses the
+  // punishment phase, where the strongest claims usually are.
+  const screenHeader =
+    promptSet() === 'v2' && caseSummary
+      ? [contextHeader,
+          caseSummary.sentence?.value ? `SENTENCE AS PRONOUNCED (from the record): ${caseSummary.sentence.value}` : '',
+          caseSummary.verdict?.value ? `VERDICT (from the record): ${caseSummary.verdict.value}` : '']
+          .filter(Boolean).join('\n')
+      : contextHeader;
 
   const samples = Math.min(3, Math.max(1, Number(process.env.ANALYSIS_SAMPLES ?? '1') || 1));
 
@@ -559,10 +667,10 @@ export async function runAnalysis(
     batchByEngine.set(
       m.name,
       await m.invokeMany(
-        SCREENS_BY_LANE[lane].flatMap((screenId) =>
+        screensForLane(lane).flatMap((screenId) =>
           Array.from({ length: samples }, (_, n) => ({
             key: `${screenId}__${n}`,
-            instruction: buildScreenInstruction(screenId, chunks, contextHeader),
+            instruction: buildScreenInstruction(screenId, chunks, screenHeader),
           }))
         ),
         record
@@ -588,10 +696,11 @@ export async function runAnalysis(
   const keptByChunk = new Map<string, Array<{
     id: string; quote: string; category: string; severity: string; confidence: number;
     screen: string; seenBy: Set<string>;
+    preserved: string; preservedCite?: string; dependsOn: string[];
   }>>();
 
 
-  for (const screenId of SCREENS_BY_LANE[lane]) {
+  for (const screenId of screensForLane(lane)) {
     const arrays: Parameters<typeof groundUnion>[0] = [];
     for (const m of models) {
       const batched = batchByEngine.get(m.name);
@@ -604,7 +713,7 @@ export async function runAnalysis(
         }
       } else {
         // Model call: minutes, OUTSIDE any transaction.
-        const instruction = buildScreenInstruction(screenId, chunks, contextHeader);
+        const instruction = buildScreenInstruction(screenId, chunks, screenHeader);
         for (let n = 0; n < samples; n++) {
           // Proof of life for a 15–20 minute call: recorded BEFORE the call,
           // in its own short tx, so the family's page and the ops card move.
@@ -614,7 +723,7 @@ export async function runAnalysis(
               payload: {
                 screen: (screenId === 'plea_lane' ? 'plea_lane' : screenId) as 'iac',
                 sample: n + 1, samplesTotal: samples,
-                screenIndex: SCREENS_BY_LANE[lane].indexOf(screenId) + 1, screensTotal: SCREENS_BY_LANE[lane].length,
+                screenIndex: screensForLane(lane).indexOf(screenId) + 1, screensTotal: screensForLane(lane).length,
               },
               actor: 'pipeline',
             })
@@ -646,11 +755,21 @@ export async function runAnalysis(
             dup.confidence = f.confidence;
             dup.screen = screenId;
           }
+          // v2 fields on a merge: preservation is a FACT, so the strongest
+          // grounded call from any screen wins; dependsOn unions; the
+          // winner's develop/harm ride with its text.
+          const incoming = structuredFields(f, screenId, chunks);
+          const mergedPreserved = strongerPreserved(dup.preserved, incoming.preserved, Boolean(incoming.preservedCite));
+          dup.dependsOn = [...new Set([...(dup.dependsOn ?? []), ...(incoming.dependsOn ?? [])])].slice(0, 8);
+          if (mergedPreserved !== dup.preserved) { dup.preserved = mergedPreserved; dup.preservedCite = incoming.preservedCite ?? undefined; }
           await tx.finding.update({
             where: { id: dup.id },
             data: {
               screen: dup.screen,
               alsoFoundBy: [...dup.seenBy].filter((sc) => sc !== dup.screen),
+              preserved: dup.preserved,
+              preservedCite: dup.preservedCite ?? null,
+              dependsOn: dup.dependsOn,
               ...(better
                 ? {
                     stableKey: sha256(`${f.category}:${f.chunk.id}:${f.quote}`).slice(0, 32),
@@ -660,6 +779,9 @@ export async function runAnalysis(
                     engine: f.engine ?? model.name,
                     partAText: f.partA,
                     partBText: f.partB,
+                    harmStandard: incoming.harmStandard,
+                    develop: incoming.develop ?? null,
+                    vehicle: vehicleFor({ screen: screenId, category: f.category, preserved: dup.preserved, harmStandard: incoming.harmStandard }),
                   }
                 : {}),
             },
@@ -668,6 +790,7 @@ export async function runAnalysis(
           continue;
         }
 
+        const v2 = structuredFields(f, screenId, chunks);
         const created = await tx.finding.create({
           data: {
             runId: run.id,
@@ -680,6 +803,7 @@ export async function runAnalysis(
             adjudication: 'not_run',
             engine: f.engine ?? model.name,
             screen: screenId,
+            ...v2,
             partAText: f.partA,
             partBText: f.partB,
             citations: {
@@ -699,6 +823,7 @@ export async function runAnalysis(
         siblings.push({
           id: created.id, quote: q, category: f.category, severity: f.severity,
           confidence: f.confidence, screen: screenId, seenBy: new Set([screenId]),
+          preserved: v2.preserved, preservedCite: v2.preservedCite ?? undefined, dependsOn: v2.dependsOn,
         });
         keptByChunk.set(f.chunk.id, siblings);
         persisted++;
@@ -733,7 +858,7 @@ export async function runAnalysis(
     await tx.analysisRun.update({ where: { id: run.id }, data: { completedAt: new Date() } });
   });
 
-  return { runId: run.id, screensRun: SCREENS_BY_LANE[lane].length, findingsPersisted: persisted, droppedUngrounded: dropped, mergedAcrossScreens };
+  return { runId: run.id, screensRun: screensForLane(lane).length, findingsPersisted: persisted, droppedUngrounded: dropped, mergedAcrossScreens };
 }
 
 /**

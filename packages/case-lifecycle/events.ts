@@ -92,7 +92,7 @@ export const CASE_EVENT_SCHEMAS = {
   'analysis.progress': {
     1: z
       .object({
-        screen: z.enum(['preserved_error', 'iac', 'brady', 'junk_science', 'sentencing', 'deadline', 'appeal_restoration', 'plea_lane', 'voir_dire']),
+        screen: z.enum(['preserved_error', 'iac', 'brady', 'junk_science', 'sentencing', 'deadline', 'appeal_restoration', 'plea_lane', 'voir_dire', 'identification']),
         sample: count,
         samplesTotal: count,
         screenIndex: count,
@@ -113,6 +113,7 @@ export const CASE_EVENT_SCHEMAS = {
           'appeal_restoration',
           'plea_lane',
           'voir_dire',
+          'identification',
         ]),
         // honest tracker sub-detail ("Volume 3 of 7 read") — counts only
         volumesRead: count.optional(),

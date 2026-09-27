@@ -544,6 +544,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     partAText: string;
     partBText: string;
     citations: { volume: string | null; page: number | null; excerpt: string }[];
+    preserved?: string; harmStandard?: string; vehicle?: string; develop?: string; dependsOn?: string[];
   }
 
   /**

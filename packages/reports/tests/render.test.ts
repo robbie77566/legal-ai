@@ -67,4 +67,26 @@ describe('renderReportPdf', () => {
     });
     expect(buf.subarray(0, 5).toString()).toBe('%PDF-');
   });
+
+  it('renders the counsel sections when findings carry the v2 fields, and stays silent when they do not', async () => {
+    const v2 = {
+      ...finding('supportive'),
+      preserved: 'yes', harmStandard: 'constitutional', vehicle: 'direct_appeal',
+      develop: 'Obtain State\'s Exhibits 33 through 37 to confirm which analyst prepared each.',
+      dependsOn: ['Volume 6 exhibits'],
+    };
+    const withFields = await renderReportPdf({
+      caseTitle: 'V2', reportId: 'rep_v2', versionNo: 1, templateVersion: 'AB-v2', renderedAt: new Date(), subsequentWritMode: false,
+      strongSignals: [{ ...finding('dispositive'), preserved: 'unknown', vehicle: 'either', harmStandard: 'none', develop: 'Obtain the judgment for each count.' }],
+      possibleIssues: [v2], droppedByReverification: 0,
+    });
+    expect(withFields.subarray(0, 5).toString()).toBe('%PDF-');
+    // pdfkit compresses page streams, so assert on size and validity rather than text.
+    const without = await renderReportPdf({
+      caseTitle: 'V1', reportId: 'rep_v1', versionNo: 1, templateVersion: 'AB-v2', renderedAt: new Date(), subsequentWritMode: false,
+      strongSignals: [finding('dispositive')], possibleIssues: [finding('supportive')], droppedByReverification: 0,
+    });
+    expect(withFields.length).toBeGreaterThan(without.length);
+    expect(without.toString('latin1')).toContain('%%EOF');
+  });
 });

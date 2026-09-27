@@ -59,6 +59,7 @@ const SCREEN_NAMES: Record<string, string> = {
   appeal_restoration: 'lost appeal rights',
   plea_lane: 'problems with the guilty plea',
   voir_dire: 'jury selection problems',
+  identification: 'how the person was identified',
 }
 const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 const humanize = (s: string) => s.replace(/[._]/g, ' ')

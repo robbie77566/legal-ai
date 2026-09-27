@@ -8,7 +8,7 @@ import CaseSummaryBlock, { type SummaryRow, type SummaryGap } from '../../../../
 import { getPaletteVariant } from '../../../../../lib/ab'
 import FeedbackCard from '../../../../../components/FeedbackCard'
 import { apiFetch } from '@/lib/api'
-import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND } from '@hg/case-lifecycle'
+import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist } from '@hg/case-lifecycle'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
 
 /**
@@ -25,6 +25,11 @@ interface ReportFinding {
   partAText: string
   partBText: string
   citations: { volume: string | null; page: number | null; excerpt: string }[]
+  preserved?: string
+  harmStandard?: string
+  vehicle?: string
+  develop?: string
+  dependsOn?: string[]
 }
 interface DeadlinePosture {
   finalityDate: string
@@ -89,8 +94,47 @@ function FindingCard({ f }: { f: ReportFinding }) {
       <details className="mt-2 text-sm text-db-muted">
         <summary className="cursor-pointer">For your lawyer (Part B)</summary>
         <p className="mt-1">{f.partBText}</p>
+        {hasStructuredFields(f) && (
+          <div className="mt-2 space-y-1 text-xs" data-testid="finding-counsel-fields">
+            <p>{preservedLabel(f.preserved)} · {vehicleLabel(f.vehicle)} · {harmLabel(f.harmStandard)}</p>
+            {f.develop && <p><span className="font-semibold">To develop:</span> {f.develop}</p>}
+            {f.dependsOn && f.dependsOn.length > 0 && <p style={{ color: 'var(--db-review)' }}>Depends on records not provided: {f.dependsOn.join('; ')}</p>}
+          </div>
+        )}
       </details>
     </div>
+  )
+}
+
+/** The two things a manual appellate review ends with — for the lawyer, not the family. */
+function CounselSection({ findings }: { findings: ReportFinding[] }) {
+  if (!findings.some(hasStructuredFields)) return null
+  const ranked = rankIssues(findings)
+  const checklist = investigationChecklist(findings)
+  return (
+    <section className="mt-8 rounded-xl border border-db-line bg-db-surface p-4 text-sm" data-testid="counsel-section">
+      <details>
+        <summary className="cursor-pointer font-semibold">For your lawyer: issues by priority and what to obtain</summary>
+        <p className="mt-2 text-db-muted">Ordered by weight, then preservation, then the review standard. Preservation calls are this review&rsquo;s reading of the record and must be verified by your lawyer.</p>
+        <ol className="mt-3 list-decimal space-y-2 pl-5" data-testid="ranked-issues">
+          {ranked.map((f, i) => (
+            <li key={i}>
+              <span className="font-semibold">{f.category.replace(/_/g, ' ')}</span>
+              <span className="block text-xs text-db-muted">{preservedLabel(f.preserved)} · {vehicleLabel(f.vehicle)} · {harmLabel(f.harmStandard)}</span>
+            </li>
+          ))}
+        </ol>
+        {checklist.length > 0 && (
+          <>
+            <h3 className="mt-4 font-semibold">Investigation checklist</h3>
+            <p className="text-xs text-db-muted">What would need to be obtained or done to prove or rule out the issues above. This is for the attorney; it is not a recommendation to file anything.</p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5" data-testid="investigation-checklist">
+              {checklist.map((item, i) => <li key={i}>{item}</li>)}
+            </ol>
+          </>
+        )}
+      </details>
+    </section>
   )
 }
 
@@ -365,6 +409,8 @@ export default function CaseReport() {
           </div>
         </section>
       )}
+
+      <CounselSection findings={[...data.strongSignals, ...data.possibleIssues]} />
 
       {nothingFound && (
         <section className="mt-8 rounded-xl border border-db-line bg-db-surface p-5">

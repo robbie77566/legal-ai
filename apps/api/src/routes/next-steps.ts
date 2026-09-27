@@ -168,7 +168,7 @@ export async function sharedReportRoutes(fastify: FastifyInstance) {
       if (!report) return reply.status(404).send({ error: 'This link is no longer available' });
 
       const snapshot = report.findingsSnapshot as {
-        findings: { id: string; category: string; severity: string; confidence?: number; partBText: string; citations: unknown[] }[];
+        findings: { id: string; category: string; severity: string; confidence?: number; partBText: string; citations: unknown[]; preserved?: string; harmStandard?: string; vehicle?: string; develop?: string; dependsOn?: string[] }[];
       };
       const { verified } = await verifyFindings(tx, snapshot.findings.map((f) => f.id));
 

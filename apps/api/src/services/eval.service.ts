@@ -19,6 +19,8 @@ export interface LedgerMustFind {
   anyOf?: string[];
   pageWindow?: { min: number; max: number };
   minSeverity?: 'dispositive' | 'supportive' | 'background';
+  /** v2: the finding must carry at least this preservation call (yes > partial > unknown > no). */
+  minPreserved?: 'yes' | 'partial';
 }
 
 export interface LedgerVerdict {
@@ -43,6 +45,7 @@ export interface ScorableFinding {
   partAText: string;
   partBText: string;
   pages: number[];
+  preserved?: string | null;
 }
 
 const SEV_RANK: Record<string, number> = { dispositive: 0, supportive: 1, background: 2 };
@@ -53,6 +56,10 @@ function matches(f: ScorableFinding, m: LedgerMustFind): boolean {
   if (m.anyOf && !m.anyOf.some((t) => hay.includes(t.toLowerCase()))) return false;
   if (m.pageWindow && !f.pages.some((p) => p >= m.pageWindow!.min && p <= m.pageWindow!.max)) return false;
   if (m.minSeverity && SEV_RANK[f.severity] > SEV_RANK[m.minSeverity]) return false;
+  if (m.minPreserved) {
+    const PRES: Record<string, number> = { yes: 0, partial: 1, unknown: 2, no: 3 };
+    if ((PRES[f.preserved ?? 'unknown'] ?? 2) > PRES[m.minPreserved]) return false;
+  }
   return true;
 }
 

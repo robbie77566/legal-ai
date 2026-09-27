@@ -4,7 +4,7 @@ import { lintPartA } from '../services/readability';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { AuditService, LogAction } from '../services/audit.service';
 import { verifyFindings } from '../services/analysis.service';
-import { caseLabel, caseRef } from '@hg/case-lifecycle';
+import { caseLabel, caseRef, PreservedSchema, vehicleFor } from '@hg/case-lifecycle';
 
 /**
  * QA console API (US-8). A STAFF surface: reviewers are platform staff
@@ -97,7 +97,12 @@ export default async function qaRoutes(fastify: FastifyInstance) {
   // Reading-level edits to Part A (US-8): provenance flips, audit-logged.
   fastify.patch('/findings/:findingId', async (request, reply) => {
     const { findingId } = request.params as { findingId: string };
-    const { partAText } = z.object({ partAText: z.string().min(1).max(2000) }).parse(request.body);
+    // A reviewer may correct the plain-English text and the preservation
+    // call (a fact they can check against the cite); the vehicle follows.
+    const { partAText, preserved } = z
+      .object({ partAText: z.string().min(1).max(2000).optional(), preserved: PreservedSchema.optional() })
+      .refine((b) => b.partAText !== undefined || b.preserved !== undefined, 'Nothing to change')
+      .parse(request.body);
 
     const finding = await prisma.finding.findUnique({ where: { id: findingId } });
     if (!finding) return reply.status(404).send({ error: 'Not found' });
@@ -105,7 +110,13 @@ export default async function qaRoutes(fastify: FastifyInstance) {
     const updated = await withTenant(finding.tenantId, async (tx) => {
       const u = await tx.finding.update({
         where: { id: findingId },
-        data: { partAText, provenance: 'ai_human_edited' },
+        data: {
+          ...(partAText !== undefined ? { partAText } : {}),
+          ...(preserved !== undefined
+            ? { preserved, vehicle: vehicleFor({ screen: finding.screen, category: finding.category, preserved, harmStandard: finding.harmStandard }) }
+            : {}),
+          provenance: 'ai_human_edited',
+        },
       });
       await appendCaseEvent(tx, {
         caseId: finding.caseId,
@@ -248,6 +259,11 @@ export default async function qaRoutes(fastify: FastifyInstance) {
               provenance: f.provenance,
               partAText: f.partAText,
               partBText: f.partBText,
+              preserved: f.preserved ?? undefined,
+              harmStandard: f.harmStandard ?? undefined,
+              vehicle: f.vehicle ?? undefined,
+              develop: f.develop ?? undefined,
+              dependsOn: f.dependsOn ?? [],
               citations: f.citations.map((c) => ({
                 volume: c.volume,
                 page: c.page,

@@ -5,6 +5,7 @@ import CaseSummaryBlock, { type SummaryRow } from '../../../../components/daybre
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import { hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, investigationChecklist } from '@hg/case-lifecycle'
 
 /** The attorney's view of a shared Part B packet (ENG-8): token-gated, plain. */
 
@@ -12,6 +13,11 @@ interface SharedFinding {
   category: string
   severity: string
   partBText: string
+  preserved?: string
+  harmStandard?: string
+  vehicle?: string
+  develop?: string
+  dependsOn?: string[]
   citations: { volume: string | null; page: number | null; line: number | null; excerpt: string }[]
 }
 
@@ -51,6 +57,13 @@ export default function SharedReport() {
               {f.category} · {f.severity}
             </p>
             <p className="mt-2">{f.partBText}</p>
+            {hasStructuredFields(f) && (
+              <div className="mt-2 space-y-1 text-xs text-db-muted" data-testid="packet-counsel-fields">
+                <p>{preservedLabel(f.preserved)} · {vehicleLabel(f.vehicle)} · {harmLabel(f.harmStandard)}</p>
+                {f.develop && <p><span className="font-semibold">To develop:</span> {f.develop}</p>}
+                {f.dependsOn && f.dependsOn.length > 0 && <p>Depends on records not provided: {f.dependsOn.join('; ')}</p>}
+              </div>
+            )}
             {f.citations.map((c, j) => (
               <p key={j} className="mt-2 border-l-2 border-db-accent pl-3 font-db-mono text-sm text-db-muted">
                 {c.volume ?? 'Record'}
@@ -66,6 +79,12 @@ export default function SharedReport() {
           </li>
         )}
       </ol>
+      {investigationChecklist(data.findings).length > 0 && (
+        <section className="mt-6 rounded-xl border border-db-line bg-db-surface p-4" data-testid="packet-checklist">
+          <h2 className="font-semibold">Investigation checklist</h2>
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">{investigationChecklist(data.findings).map((x, i) => <li key={i}>{x}</li>)}</ol>
+        </section>
+      )}
       <footer className="mt-8 border-t border-db-line pt-4 text-sm text-db-muted" data-testid="packet-site">
         Snot Nose Legal · <a href="https://www.snotnoselegal.com" className="underline">snotnoselegal.com</a> · Information about a court record, not legal advice; sharing does not create an attorney-client relationship or privilege.
       </footer>
