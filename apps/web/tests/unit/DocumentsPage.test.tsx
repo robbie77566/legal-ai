@@ -452,3 +452,63 @@ describe('UX round 7 — one clear page: needs → upload → your files → run
     expect(screen.queryByTestId('upload-skipped')).toBeNull()
   })
 })
+
+describe('removing uploaded files (2026-09-27)', () => {
+  it('Remove on a row asks, then deletes that file and says so; the API is the source of truth for what went', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url); calls.push(`${init?.method ?? 'GET'} ${u}`)
+      const body = u.endsWith('/checklist') ? CHECKLIST : u.endsWith('/pages') ? METER
+        : init?.method === 'DELETE' ? { ok: true, removed: [{ id: 'doc_1', filename: 'vol3.pdf', pages: 40 }], refused: [], refusedWhy: {} } : { ok: true }
+      return { ok: true, status: 200, json: async () => body } as Response
+    }))
+    render(<CaseDocuments />)
+    await screen.findByTestId('your-files')
+    fireEvent.click(screen.getByTestId('remove-file-doc_1'))
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/Remove vol3\.pdf from your review\?.*upload it again later/))
+    await waitFor(() => expect(calls.some((c) => c === 'DELETE http://localhost:3001/cases/case_1/documents/doc_1')).toBe(true))
+    expect(await screen.findByTestId('files-notice')).toHaveTextContent('Removed vol3.pdf.')
+    // Backing out of the confirm removes nothing.
+    vi.stubGlobal('confirm', vi.fn(() => false))
+    const before = calls.filter((c) => c.startsWith('DELETE')).length
+    fireEvent.click(screen.getByTestId('remove-file-doc_1'))
+    expect(calls.filter((c) => c.startsWith('DELETE'))).toHaveLength(before)
+  })
+
+  it('ticking two or more files shows one Remove for the set, posting the bulk route; a refusal is explained in the notice', async () => {
+    const two = { ...CHECKLIST, documents: [
+      { id: 'doc_1', filename: 'vol3.pdf', suggestedChecklistItemId: 'it_rr', classificationConfirmed: true, quarantined: false },
+      { id: 'doc_2', filename: 'vol4.pdf', suggestedChecklistItemId: 'it_rr', classificationConfirmed: true, quarantined: false },
+    ] }
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(url); calls.push(`${init?.method ?? 'GET'} ${u}`)
+      const body = u.endsWith('/checklist') ? two : u.endsWith('/pages') ? METER
+        : u.endsWith('/documents/remove') ? { ok: true, removed: [{ id: 'doc_1', filename: 'vol3.pdf', pages: 1 }], refused: [{ id: 'doc_2', reason: 'in_report' }], refusedWhy: { doc_2: 'This file is cited in your report, so it stays.' } } : { ok: true }
+      return { ok: true, status: 200, json: async () => body } as Response
+    }))
+    render(<CaseDocuments />)
+    await screen.findByTestId('your-files')
+    expect(screen.queryByTestId('remove-selected-bar')).toBeNull()
+    fireEvent.click(screen.getByTestId('select-file-doc_1'))
+    fireEvent.click(screen.getByTestId('select-file-doc_2'))
+    expect(screen.getByTestId('remove-selected-bar')).toHaveTextContent('2 files selected')
+    fireEvent.click(screen.getByTestId('remove-selected'))
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/Remove these 2 files/))
+    await waitFor(() => expect(calls.some((c) => c === 'POST http://localhost:3001/cases/case_1/documents/remove')).toBe(true))
+    expect(await screen.findByTestId('files-notice')).toHaveTextContent('Removed vol3.pdf. This file is cited in your report, so it stays.')
+  })
+
+  it('once the review has started there is nothing to remove — no checkboxes, no Remove', async () => {
+    const running = { ...CHECKLIST, status: 'ANALYZING' }
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url)
+      const body = u.endsWith('/checklist') ? running : u.endsWith('/pages') ? METER : { ok: true }
+      return { ok: true, json: async () => body } as Response
+    }))
+    render(<CaseDocuments />)
+    await screen.findByTestId('your-files')
+    expect(screen.queryByTestId('remove-file-doc_1')).toBeNull()
+    expect(screen.queryByTestId('select-file-doc_1')).toBeNull()
+  })
+})

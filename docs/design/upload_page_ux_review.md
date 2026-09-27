@@ -139,6 +139,21 @@ dashed border (the drop zone), one accent border (Step 2).
 checklist" → this page. The landing itself was not the confusion; the page
 was.
 
+## 4e. Round 8 — removing uploaded files (2026-09-27, PO request)
+
+A family can now remove one file (Remove on its row) or several (tick them,
+then "Remove N files") from **Your files**, after a plain confirm. Only while
+the case is still collecting documents: once the review has run, every
+citation points at a chunk of a document and the report is re-verified
+against those chunks at every render (FR-7), so the API refuses with the
+reason, and a file any finding cites is refused even during a re-run's
+collection phase. Removal undoes the upload — pages and chunks go, the
+checklist item returns to "still needed" unless another file covers it, every
+version of the object leaves storage, a duplicate page in another file that
+had deferred to the removed one is re-read — and records `doc.removed` and an
+audit row. API: `DELETE /cases/:id/documents/:docId`,
+`POST /cases/:id/documents/remove { documentIds }`.
+
 ## 5. Out of scope, tracked
 
 F8/F9 above; Spanish for both surfaces (the recorded i18n P1 gap); replaying missed activity-feed lines on reconnect (needs a customer-safe events endpoint — today a mid-analysis page load gets the panel, new lines from the next event on).

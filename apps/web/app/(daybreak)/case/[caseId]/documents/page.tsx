@@ -95,6 +95,11 @@ export default function CaseDocuments() {
   // Files the family chose not to upload again because a file with the
   // same name is already here (UX round 7).
   const [skipped, setSkipped] = useState<string[]>([])
+  // Removing files (2026-09-27): tick one or several, or Remove on a row.
+  // Only while the case is still collecting — the API refuses otherwise.
+  const [selected, setSelected] = useState<string[]>([])
+  const [removing, setRemoving] = useState(false)
+  const [notice, setNotice] = useState('')
   const [pollBudget, setPollBudget] = useState(0)
   const [confirmRun, setConfirmRun] = useState(false)
   // Document priority: one computation per checklist load, used by the
@@ -319,6 +324,32 @@ export default function CaseDocuments() {
   }
 
 
+  const removeFiles = async (ids: string[]) => {
+    const names = ids.map((id) => data?.documents.find((d) => d.id === id)?.filename ?? 'this file')
+    const what = names.length === 1 ? names[0] : `these ${names.length} files`
+    if (!window.confirm(`Remove ${what} from your review? The file and every page we read from it will be deleted. You can upload it again later.`)) return
+    setError(''); setNotice(''); setRemoving(true)
+    try {
+      const res = ids.length === 1
+        ? await apiFetch(`/cases/${caseId}/documents/${ids[0]}`, { method: 'DELETE' })
+        : await apiFetch(`/cases/${caseId}/documents/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ documentIds: ids }) })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(body.error ?? 'Could not remove that file right now.')
+      } else {
+        const removed = (body.removed ?? []) as { filename: string }[]
+        const refused = Object.values((body.refusedWhy ?? {}) as Record<string, string>)
+        setNotice(`Removed ${removed.length === 1 ? removed[0].filename : `${removed.length} files`}.${refused.length ? ` ${refused.join(' ')}` : ''}`)
+      }
+      setSelected([])
+      await refresh()
+    } catch (e) {
+      setError(`Could not remove — the request didn’t reach us (${(e as Error).message}).`)
+    } finally {
+      setRemoving(false)
+    }
+  }
+
   const download = async (docId: string) => {
     // Short-TTL signed link fetched on tap (US-11); opening in the same tab
     // triggers the attachment download without a popup blocker fight.
@@ -365,7 +396,8 @@ export default function CaseDocuments() {
     return `Built for ${how === 'A trial' ? 'a trial' : how ? 'a plea' : 'a conviction'}${where ? ` in ${where}` : ''}${prior?.startsWith('Yes') ? ', with a prior writ' : ''}.`
   })()
   const editable = data?.status === 'AWAITING_DOCS'
-  const busy = uploading !== null || zipBusy !== null
+  const busy = uploading !== null || zipBusy !== null || removing
+  const canRemove = editable && !busy
 
   /** One picker for "which document is this?" — echo-back fixes and unnamed files alike. */
   const ItemPicker = ({ docId }: { docId: string }) => (
@@ -407,6 +439,9 @@ export default function CaseDocuments() {
         <li className="rounded-full border border-db-line px-3 py-1 font-semibold text-db-muted">Step 2 · Run your review</li>
       </ol>
 
+      {notice && (
+        <p role="status" data-testid="files-notice" className="mt-4 rounded-xl border border-db-line bg-db-surface p-3 text-sm">{notice}</p>
+      )}
       {error && (
         <p role="alert" data-testid="upload-error" className="mt-4 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--db-urgent)', color: 'var(--db-urgent)' }}>
           {error}
@@ -647,8 +682,18 @@ export default function CaseDocuments() {
           </summary>
           <p className="px-4 text-sm text-db-muted">
             Every file stays yours — download any of them to hand to a lawyer.
+            {editable && ' Sent the wrong file, or the same one twice? Remove it here.'}
             {unnamed.length > 0 && pollBudget === 0 && ' A file we could not name still gets read — naming it just checks the right item off your list.'}
           </p>
+          {editable && selected.length > 1 && (
+            <div className="mx-4 mt-2 flex items-center justify-between gap-3 rounded-lg border border-db-line bg-db-bg px-3 py-2 text-sm" data-testid="remove-selected-bar">
+              <span>{selected.length} files selected</span>
+              <span className="flex gap-3">
+                <button onClick={() => setSelected([])} className="text-db-muted underline">Clear</button>
+                <button onClick={() => void removeFiles(selected)} disabled={!canRemove} className="font-semibold underline disabled:opacity-40" style={{ color: 'var(--db-urgent)' }} data-testid="remove-selected">Remove {selected.length} files</button>
+              </span>
+            </div>
+          )}
           <ul className="mt-2 border-t border-db-line">
             {files.map((d) => {
               const label = itemLabel(d.suggestedChecklistItemId)
@@ -656,7 +701,17 @@ export default function CaseDocuments() {
               return (
                 <li key={d.id} className="border-b border-db-line px-4 py-3 last:border-b-0">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
+                    {editable && (
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${d.filename}`}
+                        checked={selected.includes(d.id)}
+                        onChange={(e) => setSelected((cur) => (e.target.checked ? [...cur, d.id] : cur.filter((x) => x !== d.id)))}
+                        className="h-4 w-4 shrink-0"
+                        data-testid={`select-file-${d.id}`}
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
                       <p className="truncate font-db-mono text-sm">{d.filename}</p>
                       <p className="text-xs text-db-muted">
                         {d.suggestedChecklistItemId
@@ -677,6 +732,11 @@ export default function CaseDocuments() {
                       <button onClick={() => void download(d.id)} className="font-semibold text-db-accent underline">
                         Download
                       </button>
+                      {editable && (
+                        <button onClick={() => void removeFiles([d.id])} disabled={!canRemove} className="underline disabled:opacity-40" style={{ color: 'var(--db-urgent)' }} data-testid={`remove-file-${d.id}`}>
+                          Remove
+                        </button>
+                      )}
                     </span>
                   </div>
                   {askConfirm && (

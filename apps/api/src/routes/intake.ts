@@ -5,6 +5,7 @@ import { computeDeadlinePosture, checklistTemplate, checklistReadiness, customer
 import { verifyFindings, screensForLane } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 import { lastPulse } from '../services/progress-pulse.service';
+import { removeDocuments } from '../services/document-removal.service';
 
 /**
  * S2 intake: interview → personalized checklist → the explicit, celebrated
@@ -504,6 +505,37 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
   // Echo-back verdicts (US-2): confirm locks the classification; correct
   // reassigns and returns the wrong guess's item to NEEDED when orphaned.
+  // Remove uploaded files (2026-09-27): one, or several at once. Only
+  // while the case is still collecting documents; a file a finding cites
+  // is refused. The service undoes pages, chunks, the checklist tick, the
+  // bytes in storage, and re-reads any duplicate that deferred to it.
+  const REFUSAL_COPY: Record<string, string> = {
+    review_started: 'Your review has already started, so its documents are locked. A re-run is where the set can change.',
+    in_report: 'This file is cited in your report, so it stays. Everything you upload is yours to download at any time.',
+    not_found: 'That file is not in this review.',
+  };
+  const removeHandler = async (request: { params: { id: string }; auth: { tenantId: string; userId: string } }, reply: import('fastify').FastifyReply, documentIds: string[]) => {
+    const { id } = request.params;
+    const { tenantId, userId } = request.auth;
+    const allowed = await withTenant(tenantId, (tx) => withCase(tx, id, userId));
+    if (!allowed) return reply.status(403).send({ error: 'Forbidden' });
+    const result = await removeDocuments(id, tenantId, userId, documentIds);
+    if (result.removed.length === 0 && result.refused.length > 0) {
+      const reason = result.refused[0].reason;
+      return reply.status(reason === 'not_found' ? 404 : 409).send({ error: REFUSAL_COPY[reason], ...result });
+    }
+    return { ok: true, ...result, refusedWhy: Object.fromEntries(result.refused.map((r) => [r.id, REFUSAL_COPY[r.reason]])) };
+  };
+  fastify.delete('/:id/documents/:docId', async (request, reply) => {
+    const { docId } = request.params as { id: string; docId: string };
+    return removeHandler(request as never, reply, [docId]);
+  });
+  fastify.post('/:id/documents/remove', async (request, reply) => {
+    const body = z.object({ documentIds: z.array(z.string().max(64)).min(1).max(200) }).safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: 'documentIds is required' });
+    return removeHandler(request as never, reply, body.data.documentIds);
+  });
+
   fastify.post('/:id/documents/:docId/confirm', async (request, reply) => {
     const { id, docId } = request.params as { id: string; docId: string };
     const { tenantId, userId } = request.auth;

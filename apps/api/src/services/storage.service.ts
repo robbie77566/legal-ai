@@ -40,6 +40,28 @@ export async function getObjectBytes(key: string): Promise<Buffer> {
   return Buffer.from(await res.Body!.transformToByteArray());
 }
 
+/** Every version of ONE object — a family removing a file (2026-09-27). */
+export async function deleteObjectVersions(key: string): Promise<number> {
+  let removed = 0;
+  let KeyMarker: string | undefined;
+  let VersionIdMarker: string | undefined;
+  for (;;) {
+    const page = await s3().send(new ListObjectVersionsCommand({ Bucket: bucket(), Prefix: key, KeyMarker, VersionIdMarker }));
+    const targets = [
+      ...(page.Versions ?? []).filter((v) => v.Key === key).map((v) => ({ Key: v.Key!, VersionId: v.VersionId })),
+      ...(page.DeleteMarkers ?? []).filter((v) => v.Key === key).map((v) => ({ Key: v.Key!, VersionId: v.VersionId })),
+    ];
+    if (targets.length > 0) {
+      await s3().send(new DeleteObjectsCommand({ Bucket: bucket(), Delete: { Objects: targets, Quiet: true } }));
+      removed += targets.length;
+    }
+    if (!page.IsTruncated) break;
+    KeyMarker = page.NextKeyMarker;
+    VersionIdMarker = page.NextVersionIdMarker;
+  }
+  return removed;
+}
+
 /**
  * OPS-4 hard delete: every object AND every version under cases/{caseId}/ —
  * versioning is on, so a plain delete would leave recoverable versions.

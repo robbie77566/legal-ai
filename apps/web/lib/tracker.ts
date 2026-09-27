@@ -56,6 +56,7 @@ const ACTIVITY_WORDS: Record<string, string> = {
   'zip.ingested': 'unpacked your ZIP file',
   'doc.ocr_started': 'started reading a document',
   'doc.ocr_done': 'finished reading a document',
+  'doc.removed': 'removed a document at your request',
   'doc.classified': 'worked out what kind of document one of them is',
   'doc.confirmed': 'confirmed a document',
   'doc.corrected': 'updated a document label',

@@ -22,6 +22,13 @@ export const ingestionWorker = new Worker(
       caseId: string;
     };
 
+    // Removed by the family before its turn came (document-removal.service):
+    // nothing to read, nothing to retry.
+    const { default: prisma } = await import('@hg/database');
+    if (!(await prisma.document.findUnique({ where: { id: documentId }, select: { id: true } }))) {
+      console.log(`[digitize] doc ${documentId}: removed before digitization — skipped`);
+      return { skipped: 'document removed' };
+    }
     const bytes = await getObjectBytes(s3Key); // throws → BullMQ retry/backoff
     const summary = await digitizeDocument(documentId, {
       bytes,

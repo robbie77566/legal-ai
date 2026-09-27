@@ -67,6 +67,8 @@ export const CASE_EVENT_SCHEMAS = {
       .strict(),
   },
   'doc.quarantined': { 1: z.object({ documentId: id }).strict() },
+  // The family removed one of their files (2026-09-27) — id and page count only.
+  'doc.removed': { 1: z.object({ documentId: id, pages: count }).strict() },
   'doc.ocr_done': {
     1: z.object({ documentId: id, pages: count, lowConfidencePages: count }).strict(),
   },

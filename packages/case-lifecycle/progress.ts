@@ -117,6 +117,7 @@ export const CUSTOMER_ACTIVITY_TYPES = [
   'zip.ingested',
   'doc.ocr_started',
   'doc.ocr_done',
+  'doc.removed',
   'doc.classified',
   'doc.confirmed',
   'doc.corrected',

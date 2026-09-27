@@ -3,6 +3,7 @@ import { withTenant } from '@hg/database'
 export enum LogAction {
   AI_TOOL_CALL = 'AI_TOOL_CALL',
   DOCUMENT_UPLOAD = 'DOCUMENT_UPLOAD',
+  DOCUMENT_REMOVE = 'DOCUMENT_REMOVE',
   CASE_ACCESS = 'CASE_ACCESS',
   WRIT_EXPORT = 'WRIT_EXPORT',
   QA_EDIT = 'QA_EDIT',
