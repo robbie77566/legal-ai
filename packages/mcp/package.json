@@ -6,7 +6,7 @@
   "types": "./index.ts",
   "dependencies": {
     "@lancedb/lancedb": "latest",
-    "@langchain/core": "^1.2.9",
+    "@langchain/core": "^1.2.13",
     "@langchain/google-genai": "latest",
     "@langchain/ollama": "latest",
     "@modelcontextprotocol/sdk": "latest",
