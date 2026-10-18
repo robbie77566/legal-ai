@@ -94,6 +94,17 @@ export default async function casesRoutes(fastify: FastifyInstance) {
     const { title } = CreateCaseSchema.parse(request.body);
     const { tenantId, userId } = request.auth;
 
+    // A professional's seat decides whether they may open a matter: the
+    // read-only VIEWER cannot (persona_rollout_plan.md §3, §5 I). Family
+    // accounts are untouched.
+    if (request.auth.accountKind === 'PROFESSIONAL') {
+      const { loadSeat, MATTER_CREATOR_ROLES } = await import('../services/organisation.service');
+      const seat = await loadSeat(userId, tenantId);
+      if (!seat || !MATTER_CREATOR_ROLES.has(seat.role)) {
+        return reply.status(403).send({ error: 'A viewer seat is read-only — ask an owner or attorney to open the matter' });
+      }
+    }
+
     const newCase = await withTenant(tenantId, (tx) =>
       tx.case.create({
         data: {

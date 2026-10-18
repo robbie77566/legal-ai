@@ -11,6 +11,11 @@ export enum LogAction {
   REFUND = 'REFUND',
   FLAG_CHANGE = 'FLAG_CHANGE', // feature flag flips and tenant overrides (staff_console.md §10)
   ACCOUNT_SIGNUP = 'ACCOUNT_SIGNUP', // self-registration (counsel sign-up); never carries the bar number
+  // Workstream I (persona_rollout_plan.md §5 I): organisations, seats, the clinic inbox, the Record Desk.
+  ORGANISATION_CHANGE = 'ORGANISATION_CHANGE', // staff edits an organisation: kind, pilot, allowance, public-interest, isTest
+  SEAT_CHANGE = 'SEAT_CHANGE', // an owner invites or removes a colleague
+  PACKET_DELIVERY = 'PACKET_DELIVERY', // a family delivers a consented packet; a clinic opens it
+  INVESTIGATION_REQUEST = 'INVESTIGATION_REQUEST', // a Record Desk request filed or moved by staff
 }
 
 export class AuditService {

@@ -56,6 +56,7 @@ const PUBLIC_PREFIXES = [
   '/auth/reset', // token-verified in-route
   '/auth/setup', // invite acceptance — token-verified in-route
   '/me/email/confirm', // email change — token-verified in-route
+  '/counsel/org/invitations/', // seat acceptance (…/:token/accept) — token-verified in-route; the OWNER's POST /counsel/org/invitations stays authenticated
 ]
 
 // Staff-only prefixes a PROFESSIONAL account is refused outright, whatever its

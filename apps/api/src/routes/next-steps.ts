@@ -45,25 +45,38 @@ export default async function nextStepsRoutes(fastify: FastifyInstance) {
   fastify.post('/:id/consent', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { tenantId, userId } = request.auth;
-    const { recipientClass } = z
-      .object({ recipientClass: z.enum(['clinic', 'attorney']) })
+    const { recipientClass, recipientOrganisationId } = z
+      .object({
+        recipientClass: z.enum(['clinic', 'attorney']),
+        // Workstream I: the family may name the clinic the packet goes to
+        // (share_link_ux.md "Delivering the packet to a clinic"). Null keeps
+        // the pre-inbox shape: consent for the clinic class as a whole.
+        recipientOrganisationId: z.string().min(1).max(64).nullable().optional(),
+      })
       .parse(request.body);
+
+    const namedOrganisationId = recipientClass === 'clinic' ? recipientOrganisationId ?? null : null;
+    if (namedOrganisationId) {
+      // The organisation is another tenant's row: read on the owner connection, kind checked.
+      const org = await prisma.organisation.findUnique({ where: { id: namedOrganisationId }, select: { kind: true } });
+      if (!org || org.kind !== 'CLINIC') return reply.status(400).send({ error: 'That is not a clinic we can deliver to' });
+    }
 
     return withTenant(tenantId, async (tx) => {
       const kase = await requireDeliverableCase(tx, id, userId);
       if (!kase) return reply.status(403).send({ error: 'Consent is available after your report is ready' });
 
       const existing = await tx.consentGrant.findFirst({
-        where: { caseId: id, recipientClass, revokedAt: null },
+        where: { caseId: id, recipientClass, revokedAt: null, recipientOrganisationId: namedOrganisationId },
       });
       if (existing) return { grant: existing };
 
       const grant = await tx.consentGrant.create({
-        data: { caseId: id, tenantId, userId, recipientClass },
+        data: { caseId: id, tenantId, userId, recipientClass, recipientOrganisationId: namedOrganisationId },
       });
       await appendCaseEvent(tx, {
         caseId: id, tenantId, type: 'consent.granted',
-        payload: { consentId: grant.id, recipientClass }, actor: userId,
+        payload: { consentId: grant.id, recipientClass, ...(namedOrganisationId ? { recipientOrganisationId: namedOrganisationId } : {}) }, actor: userId,
       });
       return { grant };
     });
@@ -80,16 +93,20 @@ export default async function nextStepsRoutes(fastify: FastifyInstance) {
       const access = await tx.caseAccess.findUnique({ where: { caseId_userId: { caseId: id, userId } } });
       if (!access) return reply.status(403).send({ error: 'Forbidden' });
 
-      const grant = await tx.consentGrant.findFirst({
+      const grants = await tx.consentGrant.findMany({
         where: { caseId: id, recipientClass, revokedAt: null },
       });
-      if (!grant) return reply.status(404).send({ error: 'No active consent to revoke' });
+      if (!grants.length) return reply.status(404).send({ error: 'No active consent to revoke' });
 
-      await tx.consentGrant.update({ where: { id: grant.id }, data: { revokedAt: new Date() } });
-      await appendCaseEvent(tx, {
-        caseId: id, tenantId, type: 'consent.revoked',
-        payload: { consentId: grant.id }, actor: userId,
-      });
+      // Every active grant of the class goes at once — a clinic the family
+      // named and the class-wide grant alike. "Turn it off" means off.
+      for (const grant of grants) {
+        await tx.consentGrant.update({ where: { id: grant.id }, data: { revokedAt: new Date() } });
+        await appendCaseEvent(tx, {
+          caseId: id, tenantId, type: 'consent.revoked',
+          payload: { consentId: grant.id }, actor: userId,
+        });
+      }
       return { ok: true };
     });
   });
