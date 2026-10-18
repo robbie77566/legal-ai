@@ -9,6 +9,7 @@ export enum LogAction {
   QA_EDIT = 'QA_EDIT',
   QA_DECISION = 'QA_DECISION',
   REFUND = 'REFUND',
+  ACCOUNT_SIGNUP = 'ACCOUNT_SIGNUP', // self-registration (counsel sign-up); never carries the bar number
 }
 
 export class AuditService {

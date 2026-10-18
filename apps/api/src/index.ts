@@ -18,6 +18,7 @@ import eligibilityRoutes, { deleteExpiredEligibilityDrafts } from './routes/elig
 import checkoutRoutes from './routes/checkout'
 import authRecoveryRoutes from './routes/auth-recovery'
 import meRoutes from './routes/me'
+import counselRoutes from './routes/counsel'
 import stripeWebhookRoutes from './routes/stripe-webhooks'
 import { reconcilePayments, getStripe } from './services/payments.service'
 import fastifyMultipart from '@fastify/multipart';
@@ -139,6 +140,7 @@ fastify.register(eligibilityRoutes, { prefix: '/eligibility' })
 fastify.register(checkoutRoutes) // /buy/account + /checkout/session
 fastify.register(stripeWebhookRoutes, { prefix: '/webhooks' })
 fastify.register(authRecoveryRoutes, { prefix: '/auth' })
+fastify.register(counselRoutes, { prefix: '/counsel' }) // professional sign-up + /counsel/me (persona plan A)
 fastify.register(meRoutes, { prefix: '/me' })
 
 fastify.get('/', async (request, reply) => {

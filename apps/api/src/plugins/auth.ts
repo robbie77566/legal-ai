@@ -1,9 +1,26 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { AccountKind, Role, StaffGrantKind } from '@prisma/client'
 import { decodeSessionToken, type SessionIdentity } from '@hg/auth'
+import prisma from '@hg/database'
+// Subpath import on purpose: tests that mock '@hg/database' wholesale (cases.test.ts)
+// still get the real, dependency-free helpers.
+import { effectiveAccountKind, effectiveStaffGrants } from '@hg/database/staff'
+
+/**
+ * What every route sees. userId/tenantId/role come from the session token
+ * (format unchanged); accountKind and grants are read from the DATABASE on
+ * each request (identity expand step, persona_rollout_plan.md §5 A), so a
+ * demotion takes effect on the next request even though the token is the
+ * same.
+ */
+export interface RequestAuth extends SessionIdentity {
+  accountKind: AccountKind
+  grants: StaffGrantKind[]
+}
 
 declare module 'fastify' {
   interface FastifyRequest {
-    auth: SessionIdentity
+    auth: RequestAuth
   }
 }
 
@@ -20,6 +37,7 @@ const PUBLIC_PATHS = new Set([
   '/health',
   '/healthz',
   '/buy/account',
+  '/counsel/signup', // professional self-registration (rate-limited in-route like /buy/account)
   // The buy page offers the promo field before the account exists; this route
   // only previews a code's own validity (never redeems, never reveals more
   // than "valid / not valid") and is rate-limited in-route. Redemption and the
@@ -39,6 +57,11 @@ const PUBLIC_PREFIXES = [
   '/auth/setup', // invite acceptance — token-verified in-route
   '/me/email/confirm', // email change — token-verified in-route
 ]
+
+// Staff-only prefixes a PROFESSIONAL account is refused outright, whatever its
+// legacy `role` column says (Role.ATTORNEY is a staff reviewer, not a
+// customer). The per-route hooks under them keep their own role gating.
+const STAFF_PREFIXES = ['/ops', '/qa', '/admin', '/permissions']
 
 const SESSION_COOKIES = [
   '__Secure-next-auth.session-token',
@@ -66,6 +89,22 @@ function extractToken(request: FastifyRequest): string | undefined {
   const header = request.headers.authorization
   if (header?.startsWith('Bearer ')) return header.slice('Bearer '.length)
   return undefined
+}
+
+/**
+ * accountKind and the effective staff grants, from the database. A token
+ * whose user row is gone (or a test identity that was never stored) falls
+ * back to what its role implies — exactly what the gates see today.
+ */
+export async function loadAccount(identity: SessionIdentity): Promise<Pick<RequestAuth, 'accountKind' | 'grants'>> {
+  const user = await prisma.user.findUnique({
+    where: { id: identity.userId },
+    select: { role: true, accountKind: true, grants: { select: { kind: true, revokedAt: true } } },
+  })
+  const role = (user?.role ?? identity.role) as Role
+  const accountKind = effectiveAccountKind({ role, accountKind: user?.accountKind ?? null })
+  const grants = effectiveStaffGrants({ role, accountKind, grants: user?.grants ?? null })
+  return { accountKind, grants }
 }
 
 export function registerAuth(fastify: FastifyInstance) {
@@ -97,7 +136,12 @@ export function registerAuth(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Forbidden' })
       }
 
-      request.auth = identity
+      const account = await loadAccount(identity)
+      if (account.accountKind === 'PROFESSIONAL' && STAFF_PREFIXES.some((p) => path.startsWith(p))) {
+        return reply.status(403).send({ error: 'Forbidden' })
+      }
+
+      request.auth = { ...identity, ...account }
     }
   )
 }

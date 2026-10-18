@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import prisma, { withTenant } from '@hg/database';
+import prisma, { withTenant, grantKindForRole } from '@hg/database';
 import { z } from 'zod';
 import { AuditService, LogAction } from '../services/audit.service';
 import { generateToken } from '@hg/auth';
@@ -114,12 +114,18 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: 'Email already exists' });
     }
 
+    // Staff from the first write: accountKind STAFF plus the grant the role
+    // maps to (identity expand step), so the swap to grant-based gates finds
+    // every invited account already in the new shape.
+    const grantKind = grantKindForRole(role);
     const user = await prisma.user.create({
       data: {
         email,
         name: name || '',
         role: role as any,
-        tenantId
+        accountKind: 'STAFF',
+        tenantId,
+        ...(grantKind ? { grants: { create: { kind: grantKind, grantedBy: callerId } } } : {}),
       }
     });
 
@@ -170,10 +176,26 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: 'User not found in this tenant' });
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { role: role as any }
-    });
+    // Role and grants move together: the old grant is revoked (timestamp,
+    // never a delete), the new one granted or re-activated.
+    const grantKind = grantKindForRole(role);
+    const [updatedUser] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { role: role as any, accountKind: 'STAFF' }
+      }),
+      prisma.staffGrant.updateMany({
+        where: { userId, revokedAt: null, ...(grantKind ? { kind: { not: grantKind } } : {}) },
+        data: { revokedAt: new Date() },
+      }),
+      ...(grantKind
+        ? [prisma.staffGrant.upsert({
+            where: { userId_kind: { userId, kind: grantKind } },
+            update: { revokedAt: null, grantedBy: callerId, grantedAt: new Date() },
+            create: { userId, kind: grantKind, grantedBy: callerId },
+          })]
+        : []),
+    ]);
 
     return { success: true, user: updatedUser };
   });
