@@ -61,6 +61,7 @@ In production (Render) there are no files: every value is a service env var (blu
 | `STRIPE_WEBHOOK_SECRET` | 🔑 | Verifies webhook signatures (`whsec_…`, per endpoint) | Create the endpoint first (Dashboard → Webhooks → `https://api.<domain>/webhooks/stripe`) → Signing secret → Reveal |
 | `STRIPE_AUTOMATIC_TAX` / `STRIPE_TAX_CODE` | | Stripe Tax flag + product tax code (default `txcd_20030000`) | Set per the TX sales-tax determination |
 | `PRICE_REVIEW_CENTS` / `PRICE_OVERAGE_CENTS` / `PRICE_RERUN_CENTS` | | Price overrides (defaults 29900/4900/9900) | PO decisions |
+| `STRIPE_PRICE_COUNSEL_SHORT` / `STRIPE_PRICE_COUNSEL_STANDARD` / `STRIPE_PRICE_COUNSEL_EXTENDED` / `STRIPE_PRICE_PACK_SHORT` / `STRIPE_PRICE_PACK_STANDARD` / `STRIPE_PRICE_PACK_EXTENDED` | 🔑 | Stripe Price ids (`price_…`) for the counsel ladder (14900 / 24900 / 34900) and the five-record packs (67050 / 112050 / 157050) — the `PriceBookRow` rows seeded from `packages/case-lifecycle/pricing` (persona rollout plan §4, workstream B). **Optional**: unset, counsel Checkout sends `price_data` with the row's cents, so nothing breaks without them; set them once the Products exist so the Dashboard reports by Price | Stripe Dashboard → Product catalog → the product → Price → API ID (live mode in prod, TEST mode on staging) |
 
 ## Observability & comms — API service
 

@@ -113,6 +113,12 @@ services:
       - { key: EVAL_CORPUS_BUCKET, sync: false }
       - { key: STRIPE_SECRET_KEY, sync: false } # TEST mode
       - { key: STRIPE_WEBHOOK_SECRET, sync: false } # the test-mode endpoint's secret
+      - { key: STRIPE_PRICE_COUNSEL_SHORT, sync: false } # TEST-mode Price ids for the counsel ladder and packs; optional (price_data fallback)
+      - { key: STRIPE_PRICE_COUNSEL_STANDARD, sync: false }
+      - { key: STRIPE_PRICE_COUNSEL_EXTENDED, sync: false }
+      - { key: STRIPE_PRICE_PACK_SHORT, sync: false }
+      - { key: STRIPE_PRICE_PACK_STANDARD, sync: false }
+      - { key: STRIPE_PRICE_PACK_EXTENDED, sync: false }
       - { key: RESEND_API_KEY, sync: false } # only ever used behind the recipient allowlist
       - { key: EMAIL_ALLOWLIST, value: "@example.com,@snotnoselegal.com" } # staging only: anyone else is dropped and logged (packages/email)
       - { key: SENTRY_DSN, sync: false } # separate Sentry project

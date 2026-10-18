@@ -48,7 +48,14 @@ Patterns from high-converting checkout research (Baymard-style findings, common 
 
 ## 5. Data model
 
-`PromoCode { id, code UNIQUE, amountOffCents (1..29900), maxRedemptions?, redeemedCount, expiresAt?, active, createdBy, createdAt }` — global (not tenant-scoped; codes are the operator's), no RLS needed but owner-written only. `Payment.promoCode String?` records attribution.
+`PromoCode { id, code UNIQUE, amountOffCents (1..29900), maxRedemptions?, redeemedCount, expiresAt?, active, createdBy, createdAt, maxRedemptionsPerMonth?, audience? }` — global (not tenant-scoped; codes are the operator's), no RLS needed but owner-written only. `Payment.promoCode String?` records attribution; `Payment.sku` / `Payment.rung` (workstream B) say which price-book row the money was for.
+
+Two fields added by the counsel price book (persona rollout plan §4, workstream B, migration `20261019000033_price_book`):
+
+- `maxRedemptionsPerMonth Int?` — a calendar-month (UTC) cap on top of the lifetime cap, counted from the payment ledger (`Payment.promoCode`, `SUCCEEDED`, `createdAt` in the month), so every redemption path counts and the count survives a code's row being edited. `checkPromoCode` refuses with the internal reason `month_limit`. The counsel free first review is governed by a row with the code `FIRST_REVIEW_FREE` (the one underscore code the console accepts): no row = offered with the pricing README default of 10 a month; a row sets `maxRedemptionsPerMonth`, and `active: false` or an `expiresAt` in the past withdraws the offer.
+- `audience String?` — `FAMILY | ATTORNEY | OFFICE | CLINIC`; null = anyone. `checkPromoCode(code, audience)` refuses a code minted for another audience (`audience`), so a family code cannot be handed in on a counsel quote and a bar-partner code is not valid on the family buy page. The family routes always ask with `FAMILY`; the counsel quote asks with `ATTORNEY` and treats any accepted code as a bar-partner code (15% off the first paid review, `packages/case-lifecycle/pricing/promotions.ts`).
+
+Both are set and changed from `/ops/promos` (`POST`, `PATCH`), audited like the other fields.
 
 ## 6. Test plan (implemented)
 

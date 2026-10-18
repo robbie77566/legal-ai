@@ -128,6 +128,15 @@ services:
       - { key: EVAL_CORPUS_BUCKET, sync: false }
       - { key: STRIPE_SECRET_KEY, sync: false }
       - { key: STRIPE_WEBHOOK_SECRET, sync: false }
+      # Counsel price book (workstream B): Stripe Price ids for the rung and
+      # pack rows. Optional — unset, Checkout sends price_data with the cents
+      # from the PriceBookRow table, so nothing breaks without them.
+      - { key: STRIPE_PRICE_COUNSEL_SHORT, sync: false }
+      - { key: STRIPE_PRICE_COUNSEL_STANDARD, sync: false }
+      - { key: STRIPE_PRICE_COUNSEL_EXTENDED, sync: false }
+      - { key: STRIPE_PRICE_PACK_SHORT, sync: false }
+      - { key: STRIPE_PRICE_PACK_STANDARD, sync: false }
+      - { key: STRIPE_PRICE_PACK_EXTENDED, sync: false }
       - { key: RESEND_API_KEY, sync: false }
       # Ingest-only key (a DSN can send events, never read them) — kept in the
       # blueprint so a sync sets it instead of dropping it (lost twice, 2026-09).

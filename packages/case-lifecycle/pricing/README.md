@@ -38,3 +38,5 @@ a year. Family: 29900 review, 4900 overage block, 9900 re-run.
 
 Tests: `packages/case-lifecycle/tests/pricing.*.test.ts`
 (`corepack pnpm exec vitest run packages/case-lifecycle`).
+
+Persistence (workstream B): `apps/api/src/services/quote.service.ts` loads the stored book (`PriceBookRow`, seeded from `DEFAULT_PRICE_BOOK` by migration `20261019000033_price_book`), the tenant's `Credit` rows and the organisation's `AllowanceEntry` count, calls `quoteForRecord` at the `QUOTED` case state and persists only what it decided; routes are `/counsel/matters/:caseId/quote*`, `/counsel/packs`, `/counsel/credits`, `/counsel/allowance` (staff_console.md §11).
