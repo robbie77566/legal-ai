@@ -11,6 +11,7 @@ import {
 } from '../services/staff-requests.service';
 import { caseLabel, caseRef, expectedReadyDate } from '@hg/case-lifecycle';
 import { listLedgers, scoreCaseRun } from '../services/eval-gate.service';
+import opsCommerceRoutes from './ops-commerce';
 
 /**
  * Ops console API (US-9, OPS-1..7) — ADMIN-only staff surface. Reads use the
@@ -25,7 +26,7 @@ const STALL_DAYS = 7;
 // the actions that unblock a family. Money, deletion, promos, drills, and
 // per-case cost stay ADMIN. Enforced here, not in the browser.
 const SUPPORT_WRITES = new Set(['delay-ours', 'delay-cleared', 'resume', 'contact', 'requests']);
-const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /^\/ops\/diagnostics/, /^\/ops\/costs/, /^\/ops\/cogs-by-case/, /\/cogs$/];
+const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/invoices/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /^\/ops\/diagnostics/, /^\/ops\/costs/, /^\/ops\/cogs-by-case/, /\/cogs$/];
 
 /** Fire-and-forget customer email to the case owner (never fails a request). */
 async function notifyCaseOwner(caseId: string, send: (email: string, origin: string) => Promise<unknown>) {
@@ -53,6 +54,10 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     }
     return reply.status(403).send({ error: 'Ops administrators only' });
   });
+
+  // Quotes, credits, allowances and invoices (workstream B) — registered
+  // inside this scope so the role hook above gates them like everything else.
+  await fastify.register(opsCommerceRoutes);
 
   // OPS-6 contact log: what Support said to the family, on the case file.
   fastify.post('/cases/:id/contact', async (request, reply) => {
@@ -245,11 +250,17 @@ export default async function opsRoutes(fastify: FastifyInstance) {
         amountOffCents: z.number().int().min(1).max(29900),
         maxRedemptions: z.number().int().min(1).max(10000).optional(),
         expiresAt: z.string().datetime().optional(),
+        // Workstream B (promo_codes.md §5): a calendar-month cap and an audience.
+        maxRedemptionsPerMonth: z.number().int().min(1).max(10000).optional(),
+        audience: z.enum(['FAMILY', 'ATTORNEY', 'OFFICE', 'CLINIC']).optional(),
       })
       .parse(request.body);
     const { normalizeCode, CODE_SHAPE } = await import('../services/promo.service');
+    const { FIRST_REVIEW_FREE_CODE } = await import('../services/quote.service');
     const code = normalizeCode(body.code);
-    if (!CODE_SHAPE.test(code)) {
+    // FIRST_REVIEW_FREE is the one underscore code: the row that sets the
+    // monthly cap on the counsel free first review (quote.service).
+    if (code !== FIRST_REVIEW_FREE_CODE && !CODE_SHAPE.test(code)) {
       return reply.status(400).send({ error: 'Codes are 3-24 letters, numbers, or dashes' });
     }
     try {
@@ -259,6 +270,8 @@ export default async function opsRoutes(fastify: FastifyInstance) {
           amountOffCents: body.amountOffCents,
           maxRedemptions: body.maxRedemptions,
           expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
+          maxRedemptionsPerMonth: body.maxRedemptionsPerMonth,
+          audience: body.audience,
           createdBy: request.auth.userId,
         },
       });
@@ -267,7 +280,7 @@ export default async function opsRoutes(fastify: FastifyInstance) {
         caseId: 'promo:' + code, // promo audit rows are not case-bound
         action: LogAction.QA_DECISION,
         userId: request.auth.userId,
-        details: { decision: 'promo_created', code, amountOffCents: body.amountOffCents },
+        details: { decision: 'promo_created', code, amountOffCents: body.amountOffCents, maxRedemptionsPerMonth: body.maxRedemptionsPerMonth ?? null, audience: body.audience ?? null },
       });
       return promo;
     } catch {
@@ -284,12 +297,16 @@ export default async function opsRoutes(fastify: FastifyInstance) {
         active: z.boolean().optional(),
         expiresAt: z.string().datetime().nullable().optional(),
         maxRedemptions: z.number().int().min(1).max(10000).nullable().optional(),
+        maxRedemptionsPerMonth: z.number().int().min(1).max(10000).nullable().optional(),
+        audience: z.enum(['FAMILY', 'ATTORNEY', 'OFFICE', 'CLINIC']).nullable().optional(),
       })
       .parse(request.body);
-    const data: { active?: boolean; expiresAt?: Date | null; maxRedemptions?: number | null } = {};
+    const data: { active?: boolean; expiresAt?: Date | null; maxRedemptions?: number | null; maxRedemptionsPerMonth?: number | null; audience?: string | null } = {};
     if (body.active !== undefined) data.active = body.active;
     if (body.expiresAt !== undefined) data.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
     if (body.maxRedemptions !== undefined) data.maxRedemptions = body.maxRedemptions;
+    if (body.maxRedemptionsPerMonth !== undefined) data.maxRedemptionsPerMonth = body.maxRedemptionsPerMonth;
+    if (body.audience !== undefined) data.audience = body.audience;
     if (Object.keys(data).length === 0) return reply.status(400).send({ error: 'Nothing to change' });
     const promo = await prisma.promoCode.update({ where: { id }, data }).catch(() => null);
     if (!promo) return reply.status(404).send({ error: 'Not found' });

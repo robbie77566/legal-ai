@@ -12,6 +12,10 @@ export const CASE_STATUSES = [
   'DRAFT',
   'AWAITING_DOCS',
   'DOCS_COMPLETE',
+  // Counsel only (persona_rollout_plan.md §5 B): the record is metered and
+  // priced, and waits for a card, a credit or an allowance. Families never
+  // enter it — their path stays DOCS_COMPLETE → DIGITIZING.
+  'QUOTED',
   'DIGITIZING',
   'ANALYZING',
   'ADJUDICATING',
@@ -39,7 +43,8 @@ export const TERMINAL_STATUSES: readonly CaseStatus[] = ['DELIVERED', 'REFUNDED'
 const FORWARD: Record<CaseStatus, readonly CaseStatus[]> = {
   DRAFT: ['AWAITING_DOCS'],
   AWAITING_DOCS: ['DOCS_COMPLETE'],
-  DOCS_COMPLETE: ['DIGITIZING'],
+  DOCS_COMPLETE: ['DIGITIZING', 'QUOTED'],
+  QUOTED: ['DIGITIZING'],
   DIGITIZING: ['ANALYZING'],
   ANALYZING: ['ADJUDICATING'],
   ADJUDICATING: ['QA_REVIEW'],
@@ -111,6 +116,7 @@ const STAGE_OF_STATUS: Record<CaseStatus, CustomerStage> = {
   DRAFT: 'awaiting_documents',
   AWAITING_DOCS: 'awaiting_documents',
   DOCS_COMPLETE: 'docs_received',
+  QUOTED: 'docs_received', // the quote is a counsel surface (workstream F); the tracker shows the record as received
   DIGITIZING: 'digitizing',
   ANALYZING: 'analyzing',
   ADJUDICATING: 'analyzing', // adjudication is internal detail — customers see "analyzing"

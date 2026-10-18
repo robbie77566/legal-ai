@@ -15,7 +15,7 @@ interface QueueRow {
   daysInStage: number; stalled: boolean; ocrHalt: boolean; delayOurs: boolean; subsequentWrit: boolean; updatedAt: string
 }
 const STAGE: Record<string, string> = {
-  DRAFT: 'Draft', AWAITING_DOCS: 'Awaiting documents', DOCS_COMPLETE: 'Documents complete', DIGITIZING: 'Digitizing',
+  DRAFT: 'Draft', AWAITING_DOCS: 'Awaiting documents', DOCS_COMPLETE: 'Documents complete', QUOTED: 'Quoted', DIGITIZING: 'Digitizing',
   ANALYZING: 'Analyzing', ADJUDICATING: 'Analyzing', QA_REVIEW: 'Quality review', QA_REJECTED: 'Quality review',
   READY: 'Report ready', DELIVERED: 'Delivered', REFUNDED: 'Refunded',
 }

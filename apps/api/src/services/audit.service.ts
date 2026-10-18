@@ -11,6 +11,8 @@ export enum LogAction {
   REFUND = 'REFUND',
   FLAG_CHANGE = 'FLAG_CHANGE', // feature flag flips and tenant overrides (staff_console.md §10)
   ACCOUNT_SIGNUP = 'ACCOUNT_SIGNUP', // self-registration (counsel sign-up); never carries the bar number
+  QUOTE_DECISION = 'QUOTE_DECISION', // an admin answered a Long-record quote request (workstream B)
+  INVOICE = 'INVOICE', // an admin created or marked paid an ACH invoice (workstream B)
 }
 
 export class AuditService {

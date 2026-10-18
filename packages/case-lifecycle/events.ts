@@ -194,6 +194,28 @@ export const CASE_EVENT_SCHEMAS = {
   'deletion.requested': { 1: z.object({}).strict() },
   'deletion.completed': { 1: z.object({}).strict() },
   'rerun.purchased': { 1: z.object({ paymentId: id, runNo: count }).strict() },
+  // Counsel pricing (persona_rollout_plan.md §5 B). The quote itself is a
+  // pure decision (pricing/quote.ts) that is never stored; what is stored is
+  // how the record was paid for — by card, a pack credit, an organisation
+  // allowance or the free first review — with the id of the row that proves
+  // it, so analysis start can refuse a case that skipped the quote.
+  'quote.accepted': {
+    1: z
+      .object({
+        method: z.enum(['CARD', 'CREDIT', 'ALLOWANCE', 'FREE']),
+        sku: z.string().max(32),
+        rung: z.enum(['SHORT', 'STANDARD', 'EXTENDED']),
+        paymentId: id.optional(),
+        creditId: id.optional(),
+        allowanceEntryId: id.optional(),
+      })
+      .strict(),
+  },
+  // A Long record (>1,500 reporter pages) asked for a quote; an admin answered.
+  'quote.requested': { 1: z.object({ quoteRequestId: id }).strict() },
+  'quote.decided': {
+    1: z.object({ quoteRequestId: id, decision: z.enum(['QUOTED', 'DECLINED']), quotedCents: count.optional() }).strict(),
+  },
 } as const
 
 export type CaseEventType = keyof typeof CASE_EVENT_SCHEMAS

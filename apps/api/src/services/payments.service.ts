@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import prisma, { withTenant, appendCaseEvent, Prisma } from '@hg/database';
 import { factsFromCheckAnswers, vehicleForCustody } from '@hg/case-lifecycle';
+import { isCounselSessionKind } from './quote.service';
 
 /**
  * Commerce core (ENG-5, landing spec §3, system design §7).
@@ -62,7 +63,7 @@ export function caseSetupFromOutcome(
 interface CheckoutMetadata {
   userId: string;
   tenantId: string;
-  kind: PurchaseKind;
+  kind: PurchaseKind | 'counsel_review' | 'counsel_pack'; // counsel kinds are dispatched to quote.service
   draftToken?: string;
   caseId?: string; // overage/rerun target
   promoCode?: string; // attribution + paid-path redemption (promo_codes.md)
@@ -76,6 +77,15 @@ export async function fulfillCheckoutSession(session: {
   payment_intent?: string | { id: string } | null;
 }): Promise<{ caseId?: string; skipped?: string; interviewNeeded?: boolean }> {
   const meta = session.metadata ?? {};
+  // Counsel sessions (workstream B: `kind: counsel_review | counsel_pack`)
+  // belong to quote.service; everything below this line is the family path,
+  // unchanged. Dispatching here means the webhook, the hourly sweep and the
+  // success-page self-heal all heal counsel purchases the same way.
+  if (isCounselSessionKind(meta.kind)) {
+    const { fulfillCounselSession } = await import('./quote.service');
+    const out = await fulfillCounselSession({ ...session, metadata: session.metadata as Record<string, string | undefined> | null });
+    return { caseId: out.caseId, skipped: out.skipped };
+  }
   const { userId, tenantId, kind } = meta;
   if (!userId || !tenantId || !kind) {
     return { skipped: 'missing metadata' };

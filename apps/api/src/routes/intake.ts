@@ -477,14 +477,22 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
       const updated = await tx.case.findUniqueOrThrow({ where: { id } });
 
-      // Kick the analysis pipeline (idempotent job id); Redis-down is
-      // tolerated — reconciliation of stuck DOCS_COMPLETE cases is an Ops
-      // queue view, never a customer-facing failure.
-      try {
-        const { enqueueAnalysis } = await import('../services/queue');
-        await enqueueAnalysis(id, tenantId);
-      } catch (e) {
-        request.log.error({ err: e }, 'analysis enqueue failed — case parked at DOCS_COMPLETE');
+      // Counsel matters (workstream B) are quoted before analysis: the case
+      // moves to QUOTED and waits for a card, a credit or an allowance
+      // (quote.service); the pipeline starts from the acceptance, never here.
+      const { isCounselTenant } = await import('../services/quote.service');
+      if (await isCounselTenant(tx, tenantId)) {
+        await appendCaseEvent(tx, { caseId: id, tenantId, type: 'stage.entered', payload: { status: 'QUOTED' }, actor: userId, transition: 'QUOTED' });
+      } else {
+        // Kick the analysis pipeline (idempotent job id); Redis-down is
+        // tolerated — reconciliation of stuck DOCS_COMPLETE cases is an Ops
+        // queue view, never a customer-facing failure.
+        try {
+          const { enqueueAnalysis } = await import('../services/queue');
+          await enqueueAnalysis(id, tenantId);
+        } catch (e) {
+          request.log.error({ err: e }, 'analysis enqueue failed — case parked at DOCS_COMPLETE');
+        }
       }
 
       const owner = await tx.user.findUnique({ where: { id: userId } });

@@ -16,6 +16,20 @@ export interface PromoCheck {
   reason?: string; // internal only — never sent to customers verbatim
 }
 
+/** Who a code is for (promo_codes.md §5). Null on the row = anyone. */
+export const PROMO_AUDIENCES = ['FAMILY', 'ATTORNEY', 'OFFICE', 'CLINIC'] as const;
+export type PromoAudience = (typeof PROMO_AUDIENCES)[number];
+
+/** First instant of the current UTC calendar month — the window of `maxRedemptionsPerMonth`. */
+export function monthStart(now = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+/** Redemptions of `code` this calendar month, counted from the payment ledger (every path records promoCode). */
+export async function monthRedemptions(code: string, now = new Date()): Promise<number> {
+  return prisma.payment.count({ where: { promoCode: normalizeCode(code), status: 'SUCCEEDED', createdAt: { gte: monthStart(now) } } });
+}
+
 /**
  * Everything about a code that is true regardless of who is asking: shape,
  * existence, active, not expired, redemption slots left.
@@ -27,7 +41,7 @@ export interface PromoCheck {
  * much; the per-account rule below is applied the moment we know who they
  * are, and again, authoritatively, at checkout.
  */
-export async function checkPromoCode(rawCode: string): Promise<PromoCheck> {
+export async function checkPromoCode(rawCode: string, audience: PromoAudience = 'FAMILY'): Promise<PromoCheck> {
   const code = normalizeCode(rawCode);
   if (!CODE_SHAPE.test(code)) return { valid: false, reason: 'shape' };
   const promo = await prisma.promoCode.findUnique({ where: { code } });
@@ -36,6 +50,12 @@ export async function checkPromoCode(rawCode: string): Promise<PromoCheck> {
   if (promo.expiresAt && promo.expiresAt < new Date()) return { valid: false, reason: 'expired' };
   if (promo.maxRedemptions != null && promo.redeemedCount >= promo.maxRedemptions)
     return { valid: false, reason: 'limit' };
+  // Workstream B: a code minted for one audience is refused to another (a
+  // family code on a counsel quote, a bar-partner code on the buy page), and
+  // the calendar-month cap sits on top of the lifetime cap.
+  if (promo.audience && promo.audience !== audience) return { valid: false, reason: 'audience' };
+  if (promo.maxRedemptionsPerMonth != null && (await monthRedemptions(code)) >= promo.maxRedemptionsPerMonth)
+    return { valid: false, reason: 'month_limit' };
   return { valid: true, amountOffCents: promo.amountOffCents };
 }
 

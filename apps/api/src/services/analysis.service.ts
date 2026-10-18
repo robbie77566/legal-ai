@@ -616,8 +616,17 @@ async function runAnalysisInner(
     const kase = await tx.case.findUniqueOrThrow({ where: { id: caseId } });
     // ANALYZING re-entry allows a crashed run's retry; QA_REJECTED re-entry
     // is the QA-rejection re-run loop (QA_REJECTED → ANALYZING is legal).
-    if (!['DOCS_COMPLETE', 'ANALYZING', 'QA_REJECTED'].includes(kase.status)) {
+    // QUOTED (workstream B): a counsel case starts from here once its quote
+    // is settled — by card, a pack credit, an allowance or the free first
+    // review. assertQuoteSettled refuses a counsel case that skipped the
+    // quote (families are never asked), so the allowance is decremented —
+    // the AllowanceEntry exists — before a single model call.
+    if (!['DOCS_COMPLETE', 'QUOTED', 'ANALYZING', 'QA_REJECTED'].includes(kase.status)) {
       throw new Error(`runAnalysis requires DOCS_COMPLETE, case is ${kase.status}`);
+    }
+    if (kase.status === 'DOCS_COMPLETE' || kase.status === 'QUOTED') {
+      const { assertQuoteSettled } = await import('./quote.service');
+      await assertQuoteSettled(tx, kase);
     }
     if (kase.status === 'QA_REJECTED') {
       await appendCaseEvent(tx, {
@@ -639,7 +648,7 @@ async function runAnalysisInner(
       data: { caseId, tenantId, runNo, modelConfig: { model: model.name, screens: promptSet(), promptHash: promptHash() } },
     });
 
-    if (kase.status === 'DOCS_COMPLETE') {
+    if (kase.status === 'DOCS_COMPLETE' || kase.status === 'QUOTED') {
       await appendCaseEvent(tx, {
         caseId, tenantId, type: 'stage.entered', payload: { status: 'DIGITIZING' },
         actor: 'pipeline', transition: 'DIGITIZING',

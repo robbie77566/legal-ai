@@ -116,6 +116,7 @@ enum PaymentKind {
   OVERAGE
   RERUN
   REFUND
+  PACK // a prepaid five-record pack (workstream B); the credits it issued point back by paymentId
 }
 
 enum PaymentStatus {
@@ -144,6 +145,10 @@ model Payment {
   disputedAt      DateTime?
   disputeStatus   String? // open | won | lost
   promoCode       String? // attribution (promo_codes.md §5)
+  // Price-book attribution (workstream B): which SKU and rung this money is
+  // for, so the Money page can sum by rung. Null on family rows.
+  sku             String?
+  rung            String? // SHORT | STANDARD | EXTENDED
   // Receipt details for the family's account page, fetched from Stripe once
   // on first view and kept — brand and last four only, never more.
   cardBrand       String?
@@ -284,6 +289,10 @@ model PromoCode {
   active         Boolean   @default(true)
   createdBy      String
   createdAt      DateTime  @default(now())
+  // Workstream B (promo_codes.md §5): a calendar-month cap on top of the
+  // lifetime cap, and which audience may redeem the code (null = any).
+  maxRedemptionsPerMonth Int?
+  audience               String? // FAMILY | ATTORNEY | OFFICE | CLINIC
 }
 
 // Customer feedback (customer_feedback_program.md): one row per case,
@@ -496,6 +505,7 @@ enum CaseStatus {
   DRAFT
   AWAITING_DOCS
   DOCS_COMPLETE
+  QUOTED // counsel only (workstream B): metered and priced, waiting for card, credit or allowance
   DIGITIZING
   ANALYZING
   ADJUDICATING
@@ -728,4 +738,127 @@ model FeatureFlagOverride {
   updatedAt DateTime    @updatedAt
 
   @@unique([flagKey, tenantId])
+}
+
+// ── Workstream B: price book, credits, allowances, quotes, invoices ─────────
+// (persona_rollout_plan.md §4 and §5 B.) The decisions live in
+// packages/case-lifecycle/pricing (pure); these tables only store what it
+// needs and what it decided. PriceBookRow is a system table seeded from
+// DEFAULT_PRICE_BOOK by the migration; the rest are tenant data under RLS.
+
+enum AllowanceKind {
+  PILOT
+  PUBLIC_INTEREST
+  OFFICE
+}
+
+enum QuoteRequestStatus {
+  OPEN
+  QUOTED
+  DECLINED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
+// One row per audience × SKU × effective period, the shape of
+// pricing/price-book.ts PriceBookRow. stripePriceId is resolved from the
+// STRIPE_PRICE_* env at read time when null (price_data fallback).
+model PriceBookRow {
+  id            String    @id @default(cuid())
+  audience      String // FAMILY | ATTORNEY | OFFICE | CLINIC
+  sku           String
+  cents         Int
+  currency      String    @default("usd")
+  stripePriceId String?
+  label         String
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  terms         Json?
+  purchasable   Boolean   @default(true)
+
+  @@unique([audience, sku, effectiveFrom])
+  @@index([audience, sku])
+}
+
+// A prepaid record from a five-pack (pricing/credits.ts Credit). Spent by
+// consumedCaseId so a retry on the same case can never spend a second one.
+model Credit {
+  id             String    @id @default(cuid())
+  tenantId       String
+  organisationId String?
+  userId         String
+  packId         String
+  rung           String // SHORT | STANDARD | EXTENDED
+  issuedAt       DateTime
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  consumedCaseId String?
+  paymentId      String?
+
+  @@index([tenantId, consumedAt])
+  @@index([consumedCaseId])
+}
+
+// One row per record an organisation allowance paid for. The grant itself is
+// on Organisation (allowanceRecords / allowanceResetsAt / pilot / pilotEndsAt);
+// the ledger's `used` is a count of these. caseId is unique so the
+// decrement at analysis start is idempotent.
+model AllowanceEntry {
+  id             String        @id @default(cuid())
+  tenantId       String
+  organisationId String
+  caseId         String        @unique
+  kind           AllowanceKind
+  consumedAt     DateTime      @default(now())
+  consumedBy     String
+
+  @@index([organisationId])
+  @@index([tenantId])
+}
+
+// A Long record (>1,500 reporter pages) is not sold to professionals until
+// the volume split ships: the attorney asks, an admin answers from /ops.
+model QuoteRequest {
+  id           String             @id @default(cuid())
+  tenantId     String
+  caseId       String
+  requestedBy  String
+  meteredPages Json
+  note         String?
+  status       QuoteRequestStatus @default(OPEN)
+  quotedCents  Int?
+  decidedBy    String?
+  decidedAt    DateTime?
+  createdAt    DateTime           @default(now())
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([caseId])
+}
+
+// ACH invoice for an office or clinic (plan §4): lines by matter and cause
+// number. The PDF statement is the February slice; the row and mark-paid
+// land now so the Money page can show them.
+model Invoice {
+  id             String        @id @default(cuid())
+  tenantId       String
+  organisationId String
+  number         String        @unique // INV-2026-0001
+  status         InvoiceStatus @default(DRAFT)
+  totalCents     Int
+  lines          Json // [{ caseId, causeNumber?, sku, cents }]
+  issuedAt       DateTime?
+  paidAt         DateTime?
+  paidBy         String?
+  achReference   String?
+  createdAt      DateTime      @default(now())
+
+  @@index([tenantId])
+  @@index([organisationId])
+  @@index([status])
 }

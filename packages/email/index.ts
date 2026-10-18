@@ -345,6 +345,28 @@ Decide in the console: ${opts.consoleUrl}`,
   });
 }
 
+/**
+ * Workstream B: a Long record (over 1,500 reporter pages) is not sold to
+ * counsel until the volume split ships, so the attorney asks for a quote and
+ * every admin hears about it once. Counts and ids only — never the matter.
+ */
+export function sendQuoteRequest(
+  to: string,
+  opts: { organisationName: string; requestedBy: string; reporterPages: number; totalPages: number; note?: string | null; consoleUrl: string }
+) {
+  return send({
+    to,
+    subject: `Quote needed — a ${opts.reporterPages.toLocaleString('en-US')}-page record from ${opts.organisationName}`,
+    text: `${opts.requestedBy} at ${opts.organisationName} has a record we cannot price from the ladder: ${opts.reporterPages.toLocaleString('en-US')} reporter's-record pages, ${opts.totalPages.toLocaleString('en-US')} pages in all. Long records are quoted by hand from $499 until the volume split ships.${
+      opts.note ? `\n\nThey added: "${opts.note}"` : ''
+    }
+
+Answer it in the console — a price, or a decline with a sentence they can read: ${opts.consoleUrl}
+
+Nothing starts on the record until you do.`,
+  });
+}
+
 export function sendPasswordReset(to: string, opts: { resetUrl: string }) {
   return send({
     to,
