@@ -32,13 +32,30 @@ interface ChecklistItem {
   label: string
   state: 'NEEDED' | 'UPLOADED' | 'CONFIRMED' | 'PROBLEM'
 }
+type VolumeKind = 'REPORTER' | 'CLERK' | 'EXHIBIT' | 'UNKNOWN'
 interface CaseDocument {
   id: string
   filename: string
   suggestedChecklistItemId: string | null
   classificationConfirmed: boolean
   quarantined: boolean
+  // Record inventory (workstream D): which volume of the record this file
+  // is — the uploader's label, or the filename's suggestion until confirmed.
+  volumeKind?: VolumeKind
+  volumeLabel?: string | null
+  volumeIndex?: number | null
+  volumeCount?: number | null
+  volumeConfirmed?: boolean
 }
+/** GET /cases/:id/inventory — the echo-back inventory (the bucket is counsel's concern, not shown here). */
+interface Inventory {
+  volumes: Array<{ kind: VolumeKind; pages: number; docs: Array<{ id: string }> }>
+  missing: Array<{ kind: VolumeKind; index: number; count: number | null; label: string }>
+  unknownCount: number
+  meteredPages: { reporter: number; clerk: number; exhibit: number; unknown: number; total: number }
+}
+const VOLUME_NAME: Record<VolumeKind, string> = { REPORTER: "Reporter's record", CLERK: "Clerk's record", EXHIBIT: 'Exhibits', UNKNOWN: 'Not sure' }
+interface VolumeEdit { kind: VolumeKind; index: string; count: string }
 interface ZipSummary {
   accepted: number
   skippedUnsupported: number
@@ -79,6 +96,10 @@ export default function CaseDocuments() {
 
   const [meter, setMeter] = useState<Meter | null>(null)
   const [correcting, setCorrecting] = useState<string | null>(null)
+  // Record inventory (workstream D): which volumes are here and which are
+  // missing, plus the per-file label the family confirms or changes.
+  const [inventory, setInventory] = useState<Inventory | null>(null)
+  const [volumeEdits, setVolumeEdits] = useState<Record<string, VolumeEdit>>({})
 
   // Bulk ZIP path (bulk_zip_upload.md): the archive unpacks in the
   // background; we poll until its zip.ingested summary lands, then keep a
@@ -115,7 +136,34 @@ export default function CaseDocuments() {
     if (res.ok) setData(await res.json())
     const m = await apiFetch(`/cases/${caseId}/pages`)
     if (m.ok) setMeter(await m.json())
+    const inv = await apiFetch(`/cases/${caseId}/inventory`)
+    if (inv.ok) {
+      const body = (await inv.json().catch(() => null)) as Inventory | null
+      setInventory(body && Array.isArray(body.volumes) && body.meteredPages ? body : null)
+    }
   }, [caseId])
+
+  const saveVolume = async (doc: CaseDocument, e: VolumeEdit) => {
+    const num = (v: string) => (v.trim() === '' ? undefined : Number(v))
+    setError('')
+    const res = await apiFetch(`/cases/${caseId}/documents/${doc.id}/volume`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: e.kind,
+        ...(e.kind !== 'UNKNOWN' && num(e.index) ? { index: num(e.index) } : {}),
+        ...(e.kind !== 'UNKNOWN' && num(e.count) ? { count: num(e.count) } : {}),
+        confirmed: true,
+      }),
+    })
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      setError(body.error ?? 'Could not save that label right now — please try again.')
+      return
+    }
+    setVolumeEdits((cur) => { const next = { ...cur }; delete next[doc.id]; return next })
+    await refresh()
+  }
 
   const verdict = async (docId: string, action: 'confirm' | 'correct', checklistItemId?: string) => {
     await apiFetch(`/cases/${caseId}/documents/${docId}/${action}`, {
@@ -398,6 +446,53 @@ export default function CaseDocuments() {
   const editable = data?.status === 'AWAITING_DOCS'
   const busy = uploading !== null || zipBusy !== null || removing
   const canRemove = editable && !busy
+
+  /**
+   * Which part of the record a file is (workstream D). A suggestion from the
+   * filename asks "right?"; a confirmed label shows with Change; a plain
+   * function (not a component) so the inputs keep focus between keystrokes.
+   */
+  const volumeLine = (d: CaseDocument) => {
+    const kind = d.volumeKind ?? 'UNKNOWN'
+    const editing = volumeEdits[d.id]
+    const label = d.volumeLabel ?? null
+    if (!editable) {
+      return label ? <p className="mt-1 text-xs text-db-muted" data-testid={`volume-${d.id}`}>Part of the record: {label}</p> : null
+    }
+    if (d.volumeConfirmed && !editing) {
+      return (
+        <p className="mt-1 text-xs text-db-muted" data-testid={`volume-${d.id}`}>
+          Part of the record: <span className="font-semibold text-db-ink">{label ?? VOLUME_NAME[kind]}</span>
+          {' · '}
+          <button type="button" onClick={() => setVolumeEdits((cur) => ({ ...cur, [d.id]: { kind, index: d.volumeIndex ? String(d.volumeIndex) : '', count: d.volumeCount ? String(d.volumeCount) : '' } }))} className="text-db-accent underline" data-testid={`volume-change-${d.id}`}>
+            Change
+          </button>
+        </p>
+      )
+    }
+    const e: VolumeEdit = editing ?? { kind, index: d.volumeIndex ? String(d.volumeIndex) : '', count: d.volumeCount ? String(d.volumeCount) : '' }
+    const setE = (patch: Partial<VolumeEdit>) => setVolumeEdits((cur) => ({ ...cur, [d.id]: { ...e, ...patch } }))
+    const digits = (v: string) => v.replace(/\D/g, '').slice(0, 3)
+    return (
+      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs" data-testid={`volume-${d.id}`}>
+        <span className="text-db-muted">{!editing && label ? `Looks like ${label} — right?` : 'Which part of the record is this?'}</span>
+        <select aria-label={`Part of the record for ${d.filename}`} value={e.kind} onChange={(ev) => setE({ kind: ev.target.value as VolumeKind })} className="rounded-lg border border-db-line bg-db-surface px-1.5 py-1 text-xs">
+          {(Object.keys(VOLUME_NAME) as VolumeKind[]).map((k) => <option key={k} value={k}>{VOLUME_NAME[k]}</option>)}
+        </select>
+        {e.kind !== 'UNKNOWN' && (
+          <span className="flex items-center gap-1 text-db-muted">
+            vol.
+            <input aria-label={`Volume number for ${d.filename}`} inputMode="numeric" value={e.index} onChange={(ev) => setE({ index: digits(ev.target.value) })} placeholder="–" className="w-10 rounded-lg border border-db-line bg-db-surface px-1 py-1 text-center text-xs text-db-ink" />
+            of
+            <input aria-label={`Number of volumes for ${d.filename}`} inputMode="numeric" value={e.count} onChange={(ev) => setE({ count: digits(ev.target.value) })} placeholder="–" className="w-10 rounded-lg border border-db-line bg-db-surface px-1 py-1 text-center text-xs text-db-ink" />
+          </span>
+        )}
+        <button type="button" onClick={() => void saveVolume(d, e)} disabled={busy} className="rounded-lg bg-db-accent px-2.5 py-1 font-semibold text-db-surface disabled:opacity-40" data-testid={`volume-confirm-${d.id}`}>
+          {!editing && label ? 'Yes, that’s it' : 'Save'}
+        </button>
+      </div>
+    )
+  }
 
   /** One picker for "which document is this?" — echo-back fixes and unnamed files alike. */
   const ItemPicker = ({ docId }: { docId: string }) => (
@@ -720,6 +815,7 @@ export default function CaseDocuments() {
                             ? 'Reading it now…'
                             : 'Received — we could not tell what it is'}
                       </p>
+                      {volumeLine(d)}
                     </div>
                     <span className="flex shrink-0 items-center gap-3 whitespace-nowrap text-sm">
                       {/* Engineering review (2026-09-12): a file the classifier
@@ -780,6 +876,30 @@ export default function CaseDocuments() {
               </li>
             ))}
           </ul>
+          {/* Record inventory (workstream D): which volumes are here, which
+              are missing — the echo-back the family can act on. */}
+          {inventory && (inventory.meteredPages.total > 0 || inventory.missing.length > 0) && (
+            <div className="border-t border-db-line px-4 py-3 text-sm" data-testid="inventory">
+              <p data-testid="inventory-summary">
+                {[
+                  `Reporter's record ${inventory.meteredPages.reporter.toLocaleString()} page${inventory.meteredPages.reporter === 1 ? '' : 's'}`,
+                  `Clerk's record ${inventory.meteredPages.clerk.toLocaleString()}`,
+                  `Exhibits ${inventory.meteredPages.exhibit.toLocaleString()}`,
+                  ...(inventory.unknownCount > 0 ? [`${inventory.unknownCount} file${inventory.unknownCount === 1 ? '' : 's'} unlabelled`] : []),
+                ].join(' · ')}
+              </p>
+              {inventory.missing.map((m) => (
+                <p key={`${m.kind}-${m.index}`} className="mt-1 text-db-muted" data-testid="missing-volume">
+                  {VOLUME_NAME[m.kind]} vol. {m.index}{m.count ? ` of ${m.count}` : ''} hasn&rsquo;t arrived yet — if you have it, add it above.
+                </p>
+              ))}
+              {inventory.unknownCount > 0 && (
+                <p className="mt-1 text-xs text-db-muted">
+                  We read every file either way — a label just lets us tell you which volumes are still missing.
+                </p>
+              )}
+            </div>
+          )}
           {/* Page meter (ENG-3): the same authority billing reads */}
           {meter && meter.billable > 0 && (
             <p className="border-t border-db-line px-4 py-3 text-sm">

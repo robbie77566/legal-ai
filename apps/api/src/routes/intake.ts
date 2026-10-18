@@ -6,6 +6,7 @@ import { verifyFindings, screensForLane } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 import { lastPulse } from '../services/progress-pulse.service';
 import { removeDocuments } from '../services/document-removal.service';
+import { inventory, setVolume, VolumeInputError, VOLUME_KINDS } from '../services/inventory.service';
 
 /**
  * S2 intake: interview → personalized checklist → the explicit, celebrated
@@ -197,7 +198,11 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       });
       const documents = await tx.document.findMany({
         where: { caseId: id },
-        select: { id: true, filename: true, createdAt: true, suggestedChecklistItemId: true, classificationConfirmed: true, quarantined: true },
+        select: {
+          id: true, filename: true, createdAt: true, suggestedChecklistItemId: true, classificationConfirmed: true, quarantined: true,
+          // Record inventory (workstream D): the volume label the page echoes back.
+          volumeKind: true, volumeLabel: true, volumeIndex: true, volumeCount: true, volumeConfirmed: true,
+        },
         orderBy: { createdAt: 'asc' },
       });
 
@@ -609,6 +614,57 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     const allowed = await withTenant(tenantId, (tx) => withCase(tx, id, userId));
     if (!allowed) return reply.status(403).send({ error: 'Forbidden' });
     return pageMeter(id, tenantId);
+  });
+
+  // Record inventory (persona_rollout_plan.md §5 D): which volumes are here,
+  // which are missing, OCR confidence per volume, and the bucket the meter
+  // sets from reporter's-record pages. Same membership gate as /pages; a
+  // case RLS hides (another tenant's) does not exist here, so 404.
+  const withVisibleCase = async (
+    tx: Parameters<Parameters<typeof withTenant>[1]>[0],
+    caseId: string,
+    userId: string
+  ): Promise<'not_found' | 'forbidden' | 'ok'> => {
+    const kase = await tx.case.findUnique({ where: { id: caseId }, select: { id: true } });
+    if (!kase) return 'not_found';
+    const access = await tx.caseAccess.findUnique({ where: { caseId_userId: { caseId, userId } } });
+    return access ? 'ok' : 'forbidden';
+  };
+  fastify.get('/:id/inventory', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { tenantId, userId } = request.auth;
+    const gate = await withTenant(tenantId, (tx) => withVisibleCase(tx, id, userId));
+    if (gate === 'not_found') return reply.status(404).send({ error: 'Not found' });
+    if (gate === 'forbidden') return reply.status(403).send({ error: 'Forbidden' });
+    return inventory(id, tenantId);
+  });
+
+  // The uploader (or a later editor) says which volume a file is — the
+  // echo-back confirm for the filename suggestion, or a correction.
+  fastify.patch('/:id/documents/:docId/volume', async (request, reply) => {
+    const { id, docId } = request.params as { id: string; docId: string };
+    const { tenantId, userId } = request.auth;
+    const body = z
+      .object({
+        kind: z.enum(VOLUME_KINDS),
+        index: z.number().int().min(1).max(999).nullable().optional(),
+        count: z.number().int().min(1).max(999).nullable().optional(),
+        confirmed: z.boolean().optional().default(true),
+      })
+      .strict()
+      .safeParse(request.body);
+    if (!body.success) return reply.status(400).send({ error: 'Choose reporter\'s record, clerk\'s record, exhibits or not sure, with whole volume numbers' });
+    const gate = await withTenant(tenantId, (tx) => withVisibleCase(tx, id, userId));
+    if (gate === 'not_found') return reply.status(404).send({ error: 'Not found' });
+    if (gate === 'forbidden') return reply.status(403).send({ error: 'Forbidden' });
+    try {
+      const result = await setVolume(id, tenantId, docId, body.data, userId);
+      if (!result) return reply.status(404).send({ error: 'That file is not in this review.' });
+      return { ok: true, ...result };
+    } catch (e) {
+      if (e instanceof VolumeInputError) return reply.status(400).send({ error: e.message });
+      throw e;
+    }
   });
 
   // The customer report (US-4), readable once QA has approved. FR-7 runs at

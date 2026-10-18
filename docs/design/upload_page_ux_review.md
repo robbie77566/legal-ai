@@ -154,6 +154,29 @@ had deferred to the removed one is re-read — and records `doc.removed` and an
 audit row. API: `DELETE /cases/:id/documents/:docId`,
 `POST /cases/:id/documents/remove { documentIds }`.
 
+## 4f. Volume labels, 2026-10-19 (persona rollout, workstream D — January slice)
+
+Every file in **Your files** now carries a *part of the record* label:
+reporter's record, clerk's record, exhibits, or not sure. The uploader can
+say which (`POST /upload/complete { volume: { kind, index?, count? } }`,
+stored confirmed); otherwise a conservative filename heuristic suggests one
+("RR Vol 3 of 7.pdf" → RR vol. 3 of 7; "Clerk's Record.pdf" → clerk's
+record; "State's Exhibit 12.pdf" → exhibits; "scan0001.pdf" → not sure) and
+the row asks "Looks like RR vol. 3 of 7 — right?" with a small select and
+volume numbers to change it; a confirmed label shows with *Change*. Nothing
+is inferred from the page text in this slice — TAMES cover-page recognition
+is the March slice. Under the file list the inventory answers in one line
+("Reporter's record 412 pages · Clerk's record 88 · Exhibits 20 · 2 files
+unlabelled") and names each gap in a numbered sequence ("Reporter's record
+vol. 3 of 4 hasn't arrived yet"). Unlabelled files are listed and counted,
+never dropped; a label never changes what is read or the family's price —
+the page meter, the $49 overage rule and the run button are exactly as
+before. The bucket the meter sets from reporter's-record pages is a counsel
+concern and is not shown to families. API: `GET /cases/:id/inventory`,
+`PATCH /cases/:id/documents/:docId/volume`; event `doc.volume_set`.
+Tests: `apps/web/tests/unit/DocumentsVolumes.test.tsx`,
+`apps/api/tests/inventory.unit.test.ts`, `apps/api/tests/inventory.integration.test.ts`.
+
 ## 5. Out of scope, tracked
 
 F8/F9 above; Spanish for both surfaces (the recorded i18n P1 gap); replaying missed activity-feed lines on reconnect (needs a customer-safe events endpoint — today a mid-analysis page load gets the panel, new lines from the next event on).

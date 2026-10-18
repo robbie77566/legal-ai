@@ -392,7 +392,7 @@ export async function digitizeDocument(
   }
 
   step.pulse('saving');
-  return withTenant(tenantId, async (tx) => {
+  const summary = await withTenant(tenantId, async (tx) => {
     // Re-run safety: this document's prior digitization is replaced whole.
     await tx.documentChunk.deleteMany({ where: { documentId } });
     await tx.documentPage.deleteMany({ where: { documentId } });
@@ -529,6 +529,12 @@ export async function digitizeDocument(
       suggestedKind,
     };
   }).finally(() => step.end());
+
+  // Record inventory (workstream D): the page counts just became real, so
+  // the volume meter and the bucket are recomputed. Never fails a digitization.
+  const { recomputeMeterSafe } = await import('./inventory.service');
+  await recomputeMeterSafe(caseId, tenantId);
+  return summary;
 }
 
 /** The single billable-page authority (ENG-3): meter, billing, refunds all read this. */
