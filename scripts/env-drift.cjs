@@ -11,10 +11,11 @@ const root = path.resolve(__dirname, '..')
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8')
 const local = process.argv.includes('--local')
 
-// Blueprint: key → { service, kind } (kind: value | fromDatabase | fromService | secret)
+// Blueprints: key → { service, kind } (kind: value | fromDatabase | fromService | secret)
+// render.yaml = production (snotnoselegal-prod); render.staging.yaml = staging (snotnoselegal-staging).
 const blueprint = {}
 let service = null
-for (const line of read('render.yaml').split('\n')) {
+for (const line of [read('render.yaml'), read('render.staging.yaml')].join('\n').split('\n')) {
   const sv = line.match(/^\s+name:\s+(\S+)\s*$/); if (sv && /^\s{4}name:/.test(line)) service = sv[1]
   const inline = line.match(/-\s*\{\s*key:\s*([A-Z0-9_]+)\s*,\s*(sync:\s*false|value:)/)
   const block = line.match(/^\s+-\s+key:\s+([A-Z0-9_]+)\s*$/)
@@ -43,7 +44,14 @@ const nonSecretApi = Object.values(blueprint).filter((b) => b.service === 'api' 
 const RENDER_ONLY = new Set(['NODE_ENV', 'NODE_OPTIONS', 'WEB_ORIGIN', 'CLAMD_HOST', 'SENTRY_DSN'])
 const missingExample = nonSecretApi.filter((k) => !exampleKeys.has(k) && !RENDER_ONLY.has(k))
 if (missingExample.length) { bad++; console.log(`✗ Non-secret api values in render.yaml missing from .env.example: ${missingExample.join(', ')}`) }
-if (!bad) console.log(`✓ Blueprint (${declared.length} vars), environment_reference.md, and .env.example agree.`)
+// Staging parity: each *-staging service must declare exactly the keys its production twin declares.
+for (const twin of ['api', 'web']) {
+  const keys = (svc) => new Set(Object.values(blueprint).filter((b) => b.service === svc).map((b) => b.key))
+  const prod = keys(twin); const stg = keys(`${twin}-staging`)
+  const onlyProd = [...prod].filter((k) => !stg.has(k)); const onlyStg = [...stg].filter((k) => !prod.has(k))
+  if (onlyProd.length || onlyStg.length) { bad++; console.log(`✗ ${twin} vs ${twin}-staging drift — only in render.yaml: ${onlyProd.join(', ') || '—'}; only in render.staging.yaml: ${onlyStg.join(', ') || '—'}`) }
+}
+if (!bad) console.log(`✓ Blueprints (${declared.length} vars), staging parity, environment_reference.md, and .env.example agree.`)
 
 if (local) {
   const parse = (f) => { try { return new Set([...read(f).matchAll(/^\s*([A-Z0-9_]+)\s*=\s*\S/gm)].map((m) => m[1])) } catch { return null } }
