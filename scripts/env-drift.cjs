@@ -45,10 +45,12 @@ const RENDER_ONLY = new Set(['NODE_ENV', 'NODE_OPTIONS', 'WEB_ORIGIN', 'CLAMD_HO
 const missingExample = nonSecretApi.filter((k) => !exampleKeys.has(k) && !RENDER_ONLY.has(k))
 if (missingExample.length) { bad++; console.log(`✗ Non-secret api values in render.yaml missing from .env.example: ${missingExample.join(', ')}`) }
 // Staging parity: each *-staging service must declare exactly the keys its production twin declares.
+// Exceptions: variables that exist ONLY on staging, by design (each documented in environment_reference.md → Staging).
+const STAGING_ONLY = new Set(['EMAIL_ALLOWLIST'])
 for (const twin of ['api', 'web']) {
   const keys = (svc) => new Set(Object.values(blueprint).filter((b) => b.service === svc).map((b) => b.key))
   const prod = keys(twin); const stg = keys(`${twin}-staging`)
-  const onlyProd = [...prod].filter((k) => !stg.has(k)); const onlyStg = [...stg].filter((k) => !prod.has(k))
+  const onlyProd = [...prod].filter((k) => !stg.has(k)); const onlyStg = [...stg].filter((k) => !prod.has(k) && !STAGING_ONLY.has(k))
   if (onlyProd.length || onlyStg.length) { bad++; console.log(`✗ ${twin} vs ${twin}-staging drift — only in render.yaml: ${onlyProd.join(', ') || '—'}; only in render.staging.yaml: ${onlyStg.join(', ') || '—'}`) }
 }
 if (!bad) console.log(`✓ Blueprints (${declared.length} vars), staging parity, environment_reference.md, and .env.example agree.`)

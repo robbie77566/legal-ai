@@ -6,5 +6,6 @@ export default defineWorkspace([
   'packages/case-lifecycle',
   'packages/ai',
   'packages/reports',
+  'packages/email',
   'apps/web'
 ]);

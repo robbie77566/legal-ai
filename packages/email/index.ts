@@ -63,9 +63,40 @@ export function __setEmailProviderForTests(p: EmailProvider | undefined) {
 const FOOTER =
   `\n\n—\n${BRAND.name} · ${BRAND.tagline} · ${BRAND.site}. We are not a law firm and this is not legal advice. Questions? Just reply to this email.`;
 
-async function send(msg: EmailMessage): Promise<{ delivered: boolean; id?: string; error?: string }> {
+/**
+ * Staging guard (environment_reference.md → Staging). EMAIL_ALLOWLIST is a
+ * comma-separated list of full addresses and/or "@domain" entries; when set,
+ * a message to anyone else is dropped and logged, never sent — a staging
+ * database full of copied accounts must not be able to email a stranger.
+ * Unset (production, dev) = every recipient is allowed.
+ */
+export function parseAllowlist(raw: string | undefined): string[] | null {
+  const entries = (raw ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  return entries.length ? entries : null;
+}
+export function recipientAllowed(to: string, allowlist: string[] | null): boolean {
+  if (!allowlist) return true;
+  const addr = to.trim().toLowerCase();
+  return allowlist.some((e) => (e.startsWith('@') ? addr.endsWith(e) : addr === e));
+}
+/** "[staging] " when this api answers for staging.*; the operator sees at a glance which deployment wrote. */
+export function subjectPrefix(webOrigin: string | undefined = process.env.WEB_ORIGIN): string {
   try {
-    return await getProvider().send({ ...msg, text: msg.text + FOOTER });
+    const first = (webOrigin ?? '').split(',')[0].trim();
+    return first && new URL(first).hostname.startsWith('staging.') ? '[staging] ' : '';
+  } catch {
+    return '';
+  }
+}
+
+async function send(msg: EmailMessage): Promise<{ delivered: boolean; id?: string; error?: string }> {
+  const allowlist = parseAllowlist(process.env.EMAIL_ALLOWLIST);
+  if (!recipientAllowed(msg.to, allowlist)) {
+    console.warn(`[email] recipient not on EMAIL_ALLOWLIST — NOT delivered: "${msg.subject}" → ${msg.to}`);
+    return { delivered: false, error: 'recipient is not on EMAIL_ALLOWLIST for this deployment' };
+  }
+  try {
+    return await getProvider().send({ ...msg, subject: subjectPrefix() + msg.subject, text: msg.text + FOOTER });
   } catch (e) {
     // ENG-9: a failed send is an operational event, never a crashed request.
     // The provider's message is returned so the ops console can show it —
