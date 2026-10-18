@@ -93,3 +93,7 @@ In production (Render) there are no files: every value is a service env var (blu
 ## Legacy (read by parked code, safe to leave unset)
 
 `GEMINI_API_KEY`, `GOOGLE_GENAI_API_KEY`, `OLLAMA_BASE_URL`, `NEO4J_*` — pre-pivot embedding/graph paths; nothing on the product path reads them.
+
+## Staging (added 2026-10-18)
+
+The blueprint defines a second stack next to production — `hg-postgres-staging`, `hg-redis-staging`, `clamav-staging`, `api-staging`, `web-staging` — deployed from `main` on every merge, while `api` and `web` deploy from the founder-only `production` branch. The variable set is identical to production; the values are a separate secret set (Stripe TEST keys and a test-mode webhook, a separate Anthropic key, staging S3 buckets with their own IAM user, a separate Sentry project, a Resend key used only behind the recipient allowlist). Hosts: `https://staging.snotnoselegal.com` and `https://api.staging.snotnoselegal.com`, with `COOKIE_DOMAIN=.staging.snotnoselegal.com` so staging sessions never share the production cookie jar, and a `NEXTAUTH_SECRET` that differs from production so a staging token never verifies on production. Data is seeded (`db:seed:staging`), never copied from production. Promotion: `git push origin <tag>:production` after the release checklist in `../implementation/persona_rollout_plan.md` §7; rollback is the previous tag.
