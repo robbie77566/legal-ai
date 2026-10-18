@@ -300,6 +300,73 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     return promo;
   });
 
+  // Feature flags (staff_console.md §10; persona_rollout_plan.md §7 "Flags,
+  // not branches"). SUPPORT reads the table; only an ADMIN flips a flag or
+  // touches an override — the hook above turns every non-GET from SUPPORT
+  // into the 403 sentence. Every write is one audit row with before/after.
+  const flagKeyParam = async (raw: string, reply: FastifyReply) => {
+    const { isFlagKey } = await import('@hg/database/flags');
+    if (!isFlagKey(raw)) {
+      await reply.status(400).send({ error: 'Unknown feature flag' });
+      return null;
+    }
+    return raw;
+  };
+  const auditFlagChange = (request: { auth: { tenantId: string; userId: string } }, change: { key: string; tenantId: string | null; before: boolean | null; after: boolean | null }, note?: string | null) =>
+    AuditService.log({
+      tenantId: request.auth.tenantId,
+      caseId: 'flag:' + change.key, // flag audit rows are not case-bound (the promo convention)
+      action: LogAction.FLAG_CHANGE,
+      userId: request.auth.userId,
+      details: {
+        key: change.key,
+        scope: change.tenantId ? 'override' : 'global',
+        tenantId: change.tenantId,
+        before: change.before,
+        after: change.after,
+        ...(note !== undefined ? { note } : {}),
+      },
+    });
+
+  fastify.get('/flags', async () => {
+    const { listFlagsForAdmin } = await import('@hg/database/flags');
+    return listFlagsForAdmin();
+  });
+
+  fastify.put('/flags/:key', async (request, reply) => {
+    const key = await flagKeyParam((request.params as { key: string }).key, reply);
+    if (!key) return;
+    const { enabled } = z.object({ enabled: z.boolean() }).parse(request.body);
+    const { setFlag } = await import('@hg/database/flags');
+    const change = await setFlag(key, enabled, request.auth.userId);
+    await auditFlagChange(request, change);
+    return change;
+  });
+
+  fastify.put('/flags/:key/overrides/:tenantId', async (request, reply) => {
+    const { key: raw, tenantId } = request.params as { key: string; tenantId: string };
+    const key = await flagKeyParam(raw, reply);
+    if (!key) return;
+    const { enabled, note } = z
+      .object({ enabled: z.boolean(), note: z.string().trim().max(500).optional() })
+      .parse(request.body);
+    const { setOverride } = await import('@hg/database/flags');
+    const change = await setOverride(key, tenantId, enabled, note ?? null, request.auth.userId);
+    await auditFlagChange(request, change, note ?? null);
+    return change;
+  });
+
+  fastify.delete('/flags/:key/overrides/:tenantId', async (request, reply) => {
+    const { key: raw, tenantId } = request.params as { key: string; tenantId: string };
+    const key = await flagKeyParam(raw, reply);
+    if (!key) return;
+    const { clearOverride } = await import('@hg/database/flags');
+    const change = await clearOverride(key, tenantId, request.auth.userId);
+    if (change.before === null) return reply.status(404).send({ error: 'No override for that tenant' });
+    await auditFlagChange(request, change);
+    return change;
+  });
+
   // Founder weekly read (customer_feedback_program.md 4): every response, raw.
   fastify.get('/feedback', async () => {
     const rows = await prisma.caseFeedback.findMany({ orderBy: { updatedAt: 'desc' }, take: 200 });

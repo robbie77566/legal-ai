@@ -9,6 +9,7 @@ export enum LogAction {
   QA_EDIT = 'QA_EDIT',
   QA_DECISION = 'QA_DECISION',
   REFUND = 'REFUND',
+  FLAG_CHANGE = 'FLAG_CHANGE', // feature flag flips and tenant overrides (staff_console.md §10)
 }
 
 export class AuditService {
