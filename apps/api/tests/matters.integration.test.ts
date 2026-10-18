@@ -187,6 +187,16 @@ describe('C1 — a professional opens a matter', () => {
     }));
     expect(matters.every((m: { caseId: string }) => m.caseId)).toBe(true);
 
+    // `bucket` is Case.recordBucket (the record inventory's meter, workstream D): null until set, then passed through.
+    const metered = matters[0].caseId as string;
+    await prisma.case.update({ where: { id: metered }, data: { recordBucket: 'STANDARD' } });
+    try {
+      const again = (await get('/counsel/matters')).json().matters.find((m: { caseId: string }) => m.caseId === metered);
+      expect(again.bucket).toBe('STANDARD');
+    } finally {
+      await prisma.case.update({ where: { id: metered }, data: { recordBucket: null } });
+    }
+
     // The direct-appeal matter with a judgment date: the TRAP steps, literal dates.
     const created = await post({ ...BASE, clientInitials: 'da', noticeOfAppealFiledAt: '2026-09-20' });
     const { caseId } = created.json();

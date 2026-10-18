@@ -537,6 +537,14 @@ model Case {
   slaStartedAt   DateTime?  // stamped once by docs.complete (US-3)
   expectedReadyAt DateTime?
 
+  // ── D: record inventory (persona_rollout_plan.md §4, §5 D) ──
+  // Projection written only by inventory.service recomputeMeter: the bucket
+  // from reporter's-record pages alone, the per-kind billable page counts,
+  // and when they were last recomputed. Read-only everywhere else.
+  recordBucket  String?   // SHORT | STANDARD | EXTENDED | LONG
+  meteredPages  Json?     // { reporter, clerk, exhibit, unknown }
+  inventoryAt   DateTime?
+
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -649,6 +657,16 @@ model Document {
   // ENG-4: infected uploads never reach digitization.
   quarantined              Boolean @default(false)
 
+  // ── D: which volume of the record this file is (persona_rollout_plan.md §5 D).
+  // Set by the uploader, or suggested from the filename and left unconfirmed
+  // until the family says so. Never inferred from page text in this slice.
+  volumeKind      VolumeKind @default(UNKNOWN)
+  volumeLabel     String?    // e.g. "RR vol. 3 of 7"
+  volumeIndex     Int?
+  volumeCount     Int?
+  volumeConfirmed Boolean    @default(false)
+  ocrConfidence   Float?     // mean over its DocumentPages once digitised
+
   createdAt DateTime @default(now())
 }
 
@@ -729,6 +747,16 @@ model FeatureFlagOverride {
   updatedAt DateTime    @updatedAt
 
   @@unique([flagKey, tenantId])
+}
+
+// ── D: record inventory and volume recognition ──
+// The three parts of a Texas criminal record as the uploader labels them;
+// UNKNOWN is listed and counted, never dropped (plan §5 D).
+enum VolumeKind {
+  REPORTER
+  CLERK
+  EXHIBIT
+  UNKNOWN
 }
 
 // ── Matter intake for counsel (persona_rollout_plan.md §5 C, 2026-10-19) ─────

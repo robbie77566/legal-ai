@@ -5,6 +5,7 @@ import type { CivilDate } from './deadlines'
 import { normalizeCivilDate, CIVIL_DATE_MESSAGE } from './civil-date'
 import type { CaseFacts } from './facts'
 import type { CaseStatus } from './machine'
+import type { RecordBucket } from './pricing/buckets'
 
 /**
  * Matter intake for counsel (persona_rollout_plan.md §3 writ practitioner /
@@ -218,8 +219,8 @@ export interface MatterSummary {
   county: string
   causeNumber: string | null
   status: CaseStatus
-  /** The record bucket (workstream B's `recordBucket`); null until the meter sets it. */
-  bucket: string | null
+  /** `Case.recordBucket` (the record inventory's meter, workstream D); null until the inventory sets it. */
+  bucket: RecordBucket | null
   createdAt: string
 }
 

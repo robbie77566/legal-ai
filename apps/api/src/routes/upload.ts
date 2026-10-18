@@ -10,6 +10,7 @@ import crypto from 'crypto';
 // for a us-east-2 bucket and 301'd every browser upload (found live,
 // 2026-09-01, by the bulk-ZIP E2E).
 import { s3, bucket } from '../services/storage.service';
+import { suggestVolume, volumeFields, recomputeMeterSafe, VolumeInputError, VOLUME_KINDS } from '../services/inventory.service';
 
 const URLRequestSchema = z.object({
   filename: z.string(),
@@ -19,7 +20,17 @@ const URLRequestSchema = z.object({
 const CompleteRequestSchema = z.object({
   caseId: z.string(),
   filename: z.string(),
-  s3Key: z.string()
+  s3Key: z.string(),
+  // Record inventory (persona_rollout_plan.md §5 D): the uploader may say
+  // which volume this is. Absent, the filename suggests one, unconfirmed.
+  volume: z
+    .object({
+      kind: z.enum(VOLUME_KINDS),
+      index: z.number().int().min(1).max(999).optional(),
+      count: z.number().int().min(1).max(999).optional(),
+    })
+    .strict()
+    .optional(),
 });
 
 export default async function uploadRoutes(fastify: FastifyInstance) {
@@ -67,10 +78,19 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post('/complete', async (request, reply) => {
-    const { caseId, filename, s3Key } = CompleteRequestSchema.parse(request.body);
+    const { caseId, filename, s3Key, volume } = CompleteRequestSchema.parse(request.body);
 
     if (!(await assertCaseAccess(request, caseId))) {
       return reply.status(403).send({ error: 'Forbidden' });
+    }
+    // An explicit label from the uploader is confirmed; a filename suggestion
+    // is a default the family confirms on the page.
+    let volumeData: ReturnType<typeof volumeFields>;
+    try {
+      volumeData = volume ? volumeFields(volume, true) : volumeFields(suggestVolume(filename), false);
+    } catch (e) {
+      if (e instanceof VolumeInputError) return reply.status(400).send({ error: e.message });
+      throw e;
     }
     // US-11 interrogation fix: bind the key to THIS case's prefix — an
     // unbound client-supplied key could register another case's object
@@ -99,7 +119,8 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
         data: {
           filename,
           s3Key, // US-11: documents must be returnable
-          caseId
+          caseId,
+          ...volumeData,
         }
       });
       await appendCaseEvent(tx, {
@@ -121,6 +142,10 @@ export default async function uploadRoutes(fastify: FastifyInstance) {
       console.warn('[Queue] Failed to enqueue document — Redis may be unavailable:', e);
     }
     
-    return { success: true, documentId: document.id };
+    // The meter counts this file at zero pages until it is read; the label
+    // and the file list are what the inventory needs now.
+    await recomputeMeterSafe(caseId, request.auth.tenantId);
+
+    return { success: true, documentId: document.id, volume: { kind: document.volumeKind, index: document.volumeIndex, count: document.volumeCount, label: document.volumeLabel, confirmed: document.volumeConfirmed } };
   });
 }

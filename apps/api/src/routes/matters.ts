@@ -17,11 +17,13 @@ import {
   checklistReadiness,
   CaseFactsSchema,
   VEHICLES,
+  RECORD_BUCKETS,
   normalizeCivilDate,
   CIVIL_DATE_MESSAGE,
   type CaseFacts,
   type CaseStatus,
   type CounselVehicle,
+  type RecordBucket,
   type MatterSummary,
   type MatterView,
 } from '@hg/case-lifecycle';
@@ -61,6 +63,7 @@ const toCivil = (d: Date | null | undefined): string | null => (d ? d.toISOStrin
 const todayCivil = () => new Date().toISOString().slice(0, 10);
 
 const vehicleLabel = (v: string) => (isVehicle(v) ? VEHICLES[v].label : v);
+const isRecordBucket = (b: string | null): b is RecordBucket => b !== null && (RECORD_BUCKETS as readonly string[]).includes(b);
 
 function matterView(m: Matter): MatterView {
   return {
@@ -218,7 +221,7 @@ export default async function mattersRoutes(fastify: FastifyInstance) {
       tx.matter.findMany({
         where: { organisationId: seat.organisationId, case: { status: { not: 'DELETED' } } },
         orderBy: { createdAt: 'desc' },
-        include: { case: { select: { title: true, status: true } } },
+        include: { case: { select: { title: true, status: true, recordBucket: true } } },
       })
     );
     const matters: MatterSummary[] = rows.map((m) => ({
@@ -231,8 +234,8 @@ export default async function mattersRoutes(fastify: FastifyInstance) {
       county: m.county,
       causeNumber: m.causeNumber,
       status: m.case.status as CaseStatus,
-      // Workstream B's recordBucket fills this once the meter sets it.
-      bucket: null,
+      // Case.recordBucket (workstream D's meter projection); null until the inventory sets it.
+      bucket: isRecordBucket(m.case.recordBucket) ? m.case.recordBucket : null,
       createdAt: m.createdAt.toISOString(),
     }));
     return { matters };

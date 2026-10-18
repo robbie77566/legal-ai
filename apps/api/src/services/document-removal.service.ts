@@ -86,6 +86,13 @@ export async function removeDocuments(
     });
   }
 
+  // Record inventory (workstream D): the removed file's pages leave the
+  // meter; a volume gap it leaves shows on the page. Never fails a removal.
+  if (result.removed.length > 0) {
+    const { recomputeMeterSafe } = await import('./inventory.service');
+    await recomputeMeterSafe(caseId, tenantId);
+  }
+
   // Storage: every version of each removed object, best-effort — the
   // record is already consistent; a storage hiccup is logged, never shown
   // as a failed removal.
