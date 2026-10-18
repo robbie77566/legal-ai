@@ -109,7 +109,7 @@ One launch in January for all four personas, then three deepening phases on the 
 | --- | --- | --- | --- |
 | Deploy source | `main`, auto-deploy on merge | `production` branch; founder pushes tags only | Agents merge to staging; only the founder promotes |
 | Services | `api-staging` (standard plan, same NODE_OPTIONS and concurrency caps), `web-staging` (starter), `hg-postgres-staging` (smallest plan, no PITR), `hg-redis-staging`, `clamav-staging` | as today | Same memory ceiling; PITR is a production guarantee |
-| Domains | `staging.` and `api-staging.snotnoselegal.com`, `noindex`; WEB_ORIGIN, NEXTAUTH_URL, NEXT_PUBLIC_API_URL, COOKIE_DOMAIN set to staging hosts | `www`, `api` | Cookie and redirect bugs only show on real hostnames |
+| Domains | `staging.snotnoselegal.com` and `api.staging.snotnoselegal.com`, `noindex`; WEB_ORIGIN, NEXTAUTH_URL, NEXT_PUBLIC_API_URL set to the staging hosts, COOKIE_DOMAIN set to `.staging.snotnoselegal.com` with a different NEXTAUTH_SECRET so staging sessions never share or verify against the production cookie jar | `www`, `api` | Cookie and redirect bugs only show on real hostnames |
 | Stripe | test keys; test-mode webhook on the staging api; test cards incl. 3-D Secure; automatic tax on | live keys | Every purchase, refund, dispute and pack path exercised without money |
 | Email | Resend with a recipient allowlist and a `[staging]` subject prefix; everything else logged, not sent | live | No email to a real person from staging |
 | Storage and OCR | separate S3 buckets with their own IAM user; Textract on | live buckets | No cross-environment object access |
