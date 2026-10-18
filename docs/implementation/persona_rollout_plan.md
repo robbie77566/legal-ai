@@ -101,7 +101,25 @@ One launch in January for all four personas, then three deepening phases on the 
 
 ## 7. Production rollout
 
-**Environments.** Until the family cutover, production is the only environment and carries all testing (Stripe test mode, real records, test organisations flagged `features.isTest` and excluded from Money and analytics). At the cutover: a staging blueprint instance on the cheapest plans with a scrubbed database, weekly refresh; thereafter every change reaches staging first. Pilots run on production from day one.
+**Environments.** Until staging is live in early November, production is the only environment and carries all testing (Stripe test mode, real records, test organisations flagged `features.isTest` and excluded from Money and analytics). From then on every change reaches staging first; nothing is tested on production except the real-money smoke and flag flips. Pilots run on production from day one.
+
+**Staging next to production.** A second Render blueprint instance built from the same `render.yaml`, deployed from `main`, while production moves to a `production` branch only the founder advances. Promotion is a fast-forward push of a tagged `main` commit; rollback is a push of the previous tag. Target: live by 7 November, first promotion through it by 14 November.
+
+| Part | Staging | Production | Why it differs |
+| --- | --- | --- | --- |
+| Deploy source | `main`, auto-deploy on merge | `production` branch; founder pushes tags only | Agents merge to staging; only the founder promotes |
+| Services | `api-staging` (standard plan, same NODE_OPTIONS and concurrency caps), `web-staging` (starter), `hg-postgres-staging` (smallest plan, no PITR), `hg-redis-staging`, `clamav-staging` | as today | Same memory ceiling; PITR is a production guarantee |
+| Domains | `staging.` and `api-staging.snotnoselegal.com`, `noindex`; WEB_ORIGIN, NEXTAUTH_URL, NEXT_PUBLIC_API_URL, COOKIE_DOMAIN set to staging hosts | `www`, `api` | Cookie and redirect bugs only show on real hostnames |
+| Stripe | test keys; test-mode webhook on the staging api; test cards incl. 3-D Secure; automatic tax on | live keys | Every purchase, refund, dispute and pack path exercised without money |
+| Email | Resend with a recipient allowlist and a `[staging]` subject prefix; everything else logged, not sent | live | No email to a real person from staging |
+| Storage and OCR | separate S3 buckets with their own IAM user; Textract on | live buckets | No cross-environment object access |
+| Engine | separate Anthropic key for cost tagging; production model and prompt set for eval and cost runs, cheaper model for routine flow tests; AUTO_APPROVE may be 1 | production values | Cost telemetry per environment; auto-QA tested before trusted |
+| Observability | own Sentry environment tag and PostHog project; alerts to the founder only | live alerting | Staging noise never pages like production |
+| Data | seeded, never copied from production: founder admin, one user per staff grant, one organisation per kind, price book rows, flags, promo codes, reference records from the eval-corpus bucket, synthetic fixtures; reset weekly | real | RLS, retention and deletion promises hold |
+
+What runs on staging: (1) on every merge to `main`, the Render deploy, then a GitHub Action on the deploy hook running the smoke, the Playwright suite against staging (four persona flows, family purchase, counsel sign-up to packet, pilot upload against an allowance), the RLS canary under `hg_app`, and env-drift extended to compare staging and production; (2) weekly, database reset to seed and the eval gate on all ledgers with the production model writing cost per bucket, plus a quarterly restore drill; (3) before each promotion, the release checklist: four persona walkthroughs with test cards, a refund and a pack purchase, a webhook replay, emails received, PDFs opened, an OCR-halt record, an EICAR upload quarantined, a >1,500-page record refused with a quote request, an api deploy during a running analysis, the migration applied to a fresh and to the seeded database; (4) after promotion, production smoke and the real-money purchase and refund only when payments code changed.
+
+Agents reach staging by merging to `main`, run the Playwright suite against it and read its logs; they never hold the `production` branch, its secrets or the promotion step. A failed staging check blocks promotion, not the merge. Cost about $70–90 a month (estimated from the Render plan prices in `go_live_readiness.md`). Setup is one workstream-J pull request: a staging profile in `render.yaml`, a `db:seed:staging` script, the deploy-hook Action, the email allowlist, the Stripe test webhook, the two subdomains.
 
 **Flags, not branches.** Every professional surface ships behind a `FeatureFlag` with per-organisation overrides; engine switches stay env vars. Surface rollback is a flag flip; engine rollback is one env var and a redeploy.
 
