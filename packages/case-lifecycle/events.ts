@@ -31,6 +31,15 @@ export const CASE_EVENT_SCHEMAS = {
         vehicle: z.enum(['11.07', '11.071', '11.072', '11.09']).optional(),
       })
       .strict(),
+    // v2 (matter intake, persona plan §5 C): a counsel vehicle (incl.
+    // direct_appeal / pdr_clock / 2254) and the matter the case was opened as.
+    2: z
+      .object({
+        lane: z.enum(['TRIAL', 'PLEA']).optional(),
+        vehicle: z.enum(['direct_appeal', 'pdr_clock', '11.07', '11.071', '11.072', '11.09', '2254']),
+        matterId: id,
+      })
+      .strict(),
   },
   'payment.succeeded': {
     1: z.object({ paymentId: id, kind: z.enum(['review', 'overage', 'rerun']) }).strict(),

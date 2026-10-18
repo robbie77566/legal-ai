@@ -520,6 +520,7 @@ model Case {
   documents Document[]
   accessList CaseAccess[]
   checklist  ChecklistItem[]
+  matter     Matter?        // counsel intake (workstream C): present only when counsel opened the case as a matter
 
   // ENG-1 projection of the CaseEvent stream — updated ONLY by
   // appendCaseEvent in the same transaction as the event append.
@@ -728,4 +729,42 @@ model FeatureFlagOverride {
   updatedAt DateTime    @updatedAt
 
   @@unique([flagKey, tenantId])
+}
+
+// ── Matter intake for counsel (persona_rollout_plan.md §5 C, 2026-10-19) ─────
+// A professional opens a MATTER instead of taking the family quiz. The matter
+// is the counsel-facing shape of a Case (1:1): the vehicle chosen up front,
+// the court-record identifiers, and the dates the TRAP clock and the deadline
+// engine read. Client identity is INITIALS ONLY — no client name is stored
+// (plan §3 UPL/privacy posture). tenantId is denormalised for the RLS policy
+// like Membership; organisationId is the opener's organisation (1:1 with the
+// tenant today, kept explicit for the office/clinic shapes).
+model Matter {
+  id                    String    @id @default(cuid())
+  caseId                String    @unique
+  case                  Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  tenantId              String
+  organisationId        String
+  openedBy              String    // userId of the professional who opened it
+  vehicle               String    // CounselVehicle (case-lifecycle/trap/vehicles.ts)
+  lane                  Lane?
+  county                String
+  court                 String?
+  causeNumber           String?
+  clientInitials        String    // 1–4 letters, upper-case; never a name
+  offence               String?
+  sentence              String?
+  judgmentSignedAt      DateTime? @db.Date
+  sentenceImposedAt     DateTime? @db.Date
+  noticeOfAppealFiledAt DateTime? @db.Date
+  recordFiledAt         DateTime? @db.Date
+  priorWrits            Int       @default(0)
+  subsequentWrit        Boolean   @default(false)
+  outsideRecordNote     String?
+  capital               Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([tenantId, organisationId])
+  @@index([openedBy])
 }
