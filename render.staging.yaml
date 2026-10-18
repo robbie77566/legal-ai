@@ -112,6 +112,7 @@ services:
       - { key: STRIPE_SECRET_KEY, sync: false } # TEST mode
       - { key: STRIPE_WEBHOOK_SECRET, sync: false } # the test-mode endpoint's secret
       - { key: RESEND_API_KEY, sync: false } # only ever used behind the recipient allowlist
+      - { key: EMAIL_ALLOWLIST, value: "@example.com,@snotnoselegal.com" } # staging only: anyone else is dropped and logged (packages/email)
       - { key: SENTRY_DSN, sync: false } # separate Sentry project
       - { key: POSTHOG_API_KEY, sync: false } # separate PostHog project
 

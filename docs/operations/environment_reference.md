@@ -71,6 +71,7 @@ In production (Render) there are no files: every value is a service env var (blu
 | `POSTHOG_HOST` | | Region host (default `https://us.i.posthog.com`; EU accounts must set `eu.`) | PostHog settings header/URL shows region |
 | `RESEND_API_KEY` | 🔑 | All transactional email (unset = console transport, loudly) | resend.com → API Keys (+ SPF/DKIM DNS records) |
 | `EMAIL_FROM` | | From header (default `Family Case Review <noreply@snotnoselegal.com>`) | choice; domain must be Resend-verified |
+| `EMAIL_ALLOWLIST` | | **Staging only.** Comma-separated addresses and/or `@domain` entries; a message to anyone else is dropped and logged. Staging also prefixes every subject with `[staging]` (derived from `WEB_ORIGIN`). Unset in production and dev = no restriction | `render.staging.yaml` value; listed in `scripts/env-drift.cjs` STAGING_ONLY |
 | `MODEL_USD_PER_MTOK_IN/OUT`, `MODEL_CACHE_READ/WRITE_MULT`, `TEXTRACT_USD_PER_1K_PAGES` | | Cost-telemetry estimate rates (tokens are truth, dollars estimates) | Current Anthropic/AWS price sheets |
 
 ## Web service (Next.js)
