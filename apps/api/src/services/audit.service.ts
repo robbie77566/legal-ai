@@ -11,6 +11,8 @@ export enum LogAction {
   REFUND = 'REFUND',
   FLAG_CHANGE = 'FLAG_CHANGE', // feature flag flips and tenant overrides (staff_console.md §10)
   ACCOUNT_SIGNUP = 'ACCOUNT_SIGNUP', // self-registration (counsel sign-up); never carries the bar number
+  MATTER_OPENED = 'MATTER_OPENED', // counsel opened a matter (workstream C); ids and vehicle only, never initials or dates
+  MATTER_UPDATED = 'MATTER_UPDATED', // counsel edited a matter; the changed KEYS only
 }
 
 export class AuditService {

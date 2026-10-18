@@ -33,6 +33,36 @@ export function counselSignup(body: CounselSignupBody): Promise<Response> {
   })
 }
 
+// ── Matters (persona plan C; apps/api/src/routes/matters.ts) ─────────────────
+// The input types come from the zod schemas the api validates with, so the
+// form (workstream F) and the route can never disagree. Initials only, never
+// a client name.
+import type { MatterCreateInput, MatterPatchInput } from '@hg/case-lifecycle'
+export type { MatterCreateInput, MatterPatchInput, MatterSummary, MatterView } from '@hg/case-lifecycle'
+
+const json = (body: unknown): RequestInit => ({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+/** POST /counsel/matters → 201 { caseId, matterId }; 422 { reason: 'CAPITAL_REFUSED' }; 404 while the surface is dark. */
+export function createMatter(body: MatterCreateInput): Promise<Response> {
+  return apiFetch('/counsel/matters', { method: 'POST', ...json(body) })
+}
+
+/** GET /counsel/matters → { matters: MatterSummary[] } for the caller's organisation. */
+export function listMatters(): Promise<Response> {
+  return apiFetch('/counsel/matters')
+}
+
+/** GET /counsel/matters/:caseId → { matter, case, trapClock, checklist, locked }; `asOf` replays the clock. */
+export function getMatter(caseId: string, opts: { asOf?: string } = {}): Promise<Response> {
+  const q = opts.asOf ? `?asOf=${encodeURIComponent(opts.asOf)}` : ''
+  return apiFetch(`/counsel/matters/${encodeURIComponent(caseId)}${q}`)
+}
+
+/** PATCH /counsel/matters/:caseId → { matter }; 409 { reason: 'LOCKED', locked } once the engine has read a date. */
+export function updateMatter(caseId: string, body: MatterPatchInput): Promise<Response> {
+  return apiFetch(`/counsel/matters/${encodeURIComponent(caseId)}`, { method: 'PATCH', ...json(body) })
+}
+
 /** SSE stream against the API with the session cookie attached. */
 export function apiEventSource(path: string): EventSource {
   return new EventSource(`${API_URL}${path}`, { withCredentials: true })

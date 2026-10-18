@@ -13,6 +13,7 @@
  */
 import { z } from 'zod'
 import { CASE_STATUSES, CASE_HOLDS } from './machine'
+import { MATTER_EDITABLE_FIELDS } from './matters'
 
 const status = z.enum(CASE_STATUSES)
 const hold = z.enum(CASE_HOLDS)
@@ -197,6 +198,8 @@ export const CASE_EVENT_SCHEMAS = {
   // the values (county is free text).
   'facts.updated': {
     1: z.object({ keys: z.array(z.enum(['county', 'convictionYear', 'trialDays', 'judgmentDate', 'trialOrPlea', 'appeal', 'priorWrit'])).min(1).max(7) }).strict(),
+    // v2 (matter intake, persona plan §5 C): the matter's editable fields.
+    2: z.object({ keys: z.array(z.enum(MATTER_EDITABLE_FIELDS)).min(1).max(MATTER_EDITABLE_FIELDS.length) }).strict(),
   },
   'consent.granted': { 1: z.object({ consentId: id, recipientClass: z.enum(['clinic', 'attorney']) }).strict() },
   'consent.revoked': { 1: z.object({ consentId: id }).strict() },
