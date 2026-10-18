@@ -1,0 +1,74 @@
+name: Staging E2E
+
+# Every merge to main deploys staging (snotnoselegal-staging syncs
+# render.staging.yaml from main). This waits for that deploy to report the
+# pushed commit, then runs the Playwright suite against the live staging
+# site. Red here = not promotable to production (persona_rollout_plan §7).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit to wait for (default: the checked-out commit)"
+        required: false
+
+concurrency:
+  group: staging-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright against staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      WEB: https://staging.snotnoselegal.com
+      API: https://api.staging.snotnoselegal.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for both staging services to serve this commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          want="${{ github.event.inputs.sha || github.sha }}"
+          echo "waiting for $want on $WEB and $API (up to 30 min)"
+          for i in $(seq 1 60); do
+            web=$(curl -sS --max-time 15 "$WEB/api/version" | jq -r '.commit // empty' || true)
+            api=$(curl -sS --max-time 15 "$API/healthz" | jq -r 'select(.ok == true) | .commit // empty' || true)
+            echo "[$i] web=${web:-?} api=${api:-?}"
+            if [ "$web" = "$want" ] && [ "$api" = "$want" ]; then echo "staging is on $want"; exit 0; fi
+            sleep 30
+          done
+          echo "::error::staging never reported $want (web=$web api=$api) — check the Render deploys"; exit 1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Playwright (public-surface smoke) against staging
+        run: pnpm --filter web exec playwright test
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: ${{ env.WEB }}
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-staging
+          path: apps/web/playwright-report
+          retention-days: 7

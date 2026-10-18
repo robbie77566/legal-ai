@@ -162,7 +162,9 @@ fastify.get('/healthz', async (_request, reply) => {
     conn.disconnect();
   } catch { /* stays false */ }
   const ok = checks.db && checks.redis;
-  return reply.status(ok ? 200 : 503).send({ ok, ...checks });
+  // Render sets RENDER_GIT_COMMIT on every deploy; the post-deploy E2E workflow
+  // (.github/workflows/staging-e2e.yml) polls it to know the new build is live.
+  return reply.status(ok ? 200 : 503).send({ ok, ...checks, commit: process.env.RENDER_GIT_COMMIT ?? null });
 });
 
 async function probeRedis(): Promise<boolean> {

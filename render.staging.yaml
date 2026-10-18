@@ -16,8 +16,10 @@
 #       (cost tagging), a separate Sentry project DSN, staging S3 buckets with
 #       their own IAM user, a Resend key used only behind the recipient
 #       allowlist. Never the production values.
-#   S5. Deploy hook → the GitHub Action that runs the Playwright suite against
-#       https://staging.snotnoselegal.com after each deploy.
+#   S5. Nothing to wire: .github/workflows/staging-e2e.yml runs on every push
+#       to main, waits until /api/version and /healthz report that commit
+#       (RENDER_GIT_COMMIT), then runs the Playwright suite against
+#       https://staging.snotnoselegal.com.
 
 previewsEnabled: false
 
