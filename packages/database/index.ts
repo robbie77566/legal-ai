@@ -65,6 +65,7 @@ export default prisma
 export { prisma, appPrisma }
 export { Prisma }
 export * from './events'
+export * from './staff'
 
 if (process.env.NODE_ENV !== 'production') {
   globalThis.prismaGlobal = prisma
