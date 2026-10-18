@@ -135,10 +135,11 @@ describe('ops shell', () => {
   it('every ops page carries the same nav — no dead /qa/holds link', () => {
     render(<OpsLayout><div>child</div></OpsLayout>)
     const nav = screen.getByTestId('ops-nav')
-    for (const label of ['Overview', 'Holds', 'Cases', 'Accounts', 'Promos', 'Money', 'Feedback', 'Retention', 'Team']) {
+    for (const label of ['Overview', 'Holds', 'Cases', 'Accounts', 'Promos', 'Money', 'Feedback', 'Retention', 'Flags', 'Team']) {
       expect(nav).toHaveTextContent(label)
     }
     expect(screen.getByRole('link', { name: 'Holds' })).toHaveAttribute('href', '/ops/holds')
+    expect(screen.getByRole('link', { name: 'Flags' })).toHaveAttribute('href', '/ops/flags')
     expect(screen.getByRole('link', { name: 'Team' })).toHaveAttribute('href', '/dashboard/permissions')
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
   })
@@ -151,12 +152,13 @@ describe('ops shell', () => {
     expect(signOut).toHaveBeenCalledWith({ callbackUrl: '/' })
   })
 
-  it('a SUPPORT sign-in sees only the customer-facing doors — no Money, Promos, Holds, or Retention', () => {
+  it('a SUPPORT sign-in sees only the customer-facing doors — no Money, Promos, Holds, Retention, or Flags (J5)', () => {
     session.role = 'SUPPORT'
     render(<OpsLayout><div>child</div></OpsLayout>)
     const nav = screen.getByTestId('ops-nav')
     for (const label of ['Overview', 'Cases', 'Accounts', 'Feedback']) expect(nav).toHaveTextContent(label)
-    for (const label of ['Money', 'Promos', 'Holds', 'Retention', 'Team']) expect(nav).not.toHaveTextContent(label)
+    for (const label of ['Money', 'Promos', 'Holds', 'Retention', 'Flags', 'Team']) expect(nav).not.toHaveTextContent(label)
+    expect(screen.queryByRole('link', { name: 'Flags' })).toBeNull()
     session.role = 'ADMIN'
   })
 })

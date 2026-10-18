@@ -22,6 +22,9 @@ const NAV: [string, string][] = [
   ['/ops/feedback', 'Feedback'],
   ['/ops/retention', 'Retention'],
   ['/ops/diagnostics', 'Diagnostics'],
+  // Dark professional surfaces and their per-organisation overrides
+  // (staff_console.md §10). ADMIN flips; SUPPORT has no door here.
+  ['/ops/flags', 'Flags'],
   // Staff accounts live on the legacy permissions page until the Team page
   // (staff_console_access_model §7) replaces it — but it needs a door.
   ['/dashboard/permissions', 'Team'],
