@@ -1,3 +1,6 @@
 export * from './buckets'
 export * from './price-book'
+export * from './credits'
+export * from './allowances'
+export * from './promotions'
 export type { IsoDateTime } from './time'
