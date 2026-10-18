@@ -9,7 +9,7 @@
 
 | Role | Who | Lands on | Sees in the `/ops` nav |
 |---|---|---|---|
-| `ADMIN` | founder / ops | `/ops` | Overview · Holds · Cases · Accounts · Promos · Money · Feedback · Retention · Team |
+| `ADMIN` | founder / ops | `/ops` | Overview · Holds · Cases · Accounts · Promos · Money · Feedback · Retention · Flags · Team |
 | `SUPPORT` | customer-facing staff (new) | `/ops` | Overview · Cases · Accounts · Feedback |
 | `ATTORNEY` | quality reviewer | `/qa` | (no `/ops` access) |
 | `CLIENT` | the family | `/cases` | never reaches `/ops` |
@@ -27,6 +27,7 @@ Admin is a superset of Support by construction. The web nav is UX gating only (`
 | `/ops/cases` | Every case, searchable, in the family's stage wording, linking to its case file | Admin, Support |
 | `/ops/cases/:id` | **Case file**: uploads (page counts, OCR confidence, quarantine, signed download), analysis (screens done, findings as the family reads them, Part B folded), what the family received (every report version as PDF, share link opens), **contact log**, requests, timeline; actions: mark/clear delay, resume pipeline; Admin: Refund door + decide requests; Support: Request refund / Request deletion | Admin, Support |
 | `/ops/money` | Payments audit: six tiles (collected, refunded, net, refund rate vs 5% reserve, cost of reviews, needs a decision), weekly rollup (cohort view: refunds attributed to the week the payment was sold), open disputes + support requests, refund ledger, full payments table with Stripe deep-links, **refund dialog** (full or partial, reason, note), reconcile-now | Admin |
+| `/ops/flags` | **Feature flags** (§10): the six dark professional surfaces, global switch, per-organisation overrides | Admin (flips), Support (read-only) |
 | `/dashboard/permissions` | Create staff accounts (sends the invite), change roles, resend invites | Admin (linked as **Team** in the nav) |
 | `/auth/setup-password` | Invite acceptance — the first password for an admin-created account | public, token-verified |
 
@@ -68,3 +69,17 @@ Admin is a superset of Support by construction. The web nav is UX gating only (`
 ## 9. Not built (see the access model)
 
 Roles as a *set* per person; DB-authoritative role checks (today a role change takes effect at next sign-in); the `/ops/team` page with deactivate / last-admin guard / MFA; `/qa` under the console shell; audit-action enum; CSV export; Stripe fee sync.
+
+## 10. Feature flags (workstream J, 2026-10-19)
+
+Every professional surface ships dark behind a `FeatureFlag` row with per-organisation overrides (`persona_rollout_plan.md` §7 "Flags, not branches" and the test-in-production protocol). A flip is a row update, never a deploy: **a flip is live within 15 seconds on every instance** — reads come from a per-process cache with a 15 s TTL (`packages/database/flags.ts`), and the writing instance drops its own cache at once. Overrides are keyed by `tenantId` (what RLS scopes on) until the `Organisation` model (1:1 with `Tenant`) lands; the override list then reads the same.
+
+- Tables: `FeatureFlag` (`key`, `enabled`, `description`, `updatedBy`, `updatedAt`) and `FeatureFlagOverride` (`flagKey`, `tenantId`, `enabled`, `note`, `updatedBy`, `updatedAt`; unique per flag + tenant). System tables: no RLS, owner connection only. Migration `20261019000030_feature_flags` seeds the six keys, all off.
+- The six keys: `counsel_surfaces` (counsel web surfaces), `counsel_checkout` (ladder, packs, first-free review), `offices` (PD office organisations, allowances, ACH), `record_desk` (verification view and exports), `clinic_inbox` (consented-packet inbox, public-interest allowance), `long_records` (2,000-page split and merge). Unknown keys are refused by the typed guard (`FlagKey`) and answer 400 on the API.
+- Precedence: a tenant override wins over the global value; no override → global; a key missing from the table → off.
+- Library (`packages/database/flags.ts`): `isFlagOn(key, tenantId?)`, `listFlags(tenantId?)` → `{ key, enabled, effective, overridden }[]`, `setFlag`, `setOverride`, `clearOverride` (each returns `{ key, tenantId, before, after }` for the audit row), `listFlagsForAdmin()`, `__invalidateFlagCache()`.
+- Routes: `GET /flags` (any signed-in caller; the effective map for the caller's tenant, `{ counsel_surfaces: false, … }`); `GET /ops/flags` (Admin, Support); `PUT /ops/flags/:key` `{ enabled }`, `PUT /ops/flags/:key/overrides/:tenantId` `{ enabled, note? }`, `DELETE /ops/flags/:key/overrides/:tenantId` (Admin only — Support's writes get the usual 403 sentence from the ops hook). Every write is one `FLAG_CHANGE` audit row with `key`, `scope`, `tenantId`, `before`, `after` (and the note), under `caseId = flag:<key>`.
+- Guarding a surface: `preHandler: requireFlag('counsel_surfaces')` (`apps/api/src/plugins/flags.ts`) answers **404 `{ error: 'Not available' }`** when the flag is off for `request.auth.tenantId` — 404, not 403, so a dark surface does not confirm it exists. The web reads flags with `getFlags()` (server, forwards the session cookie) or `useFlags()` (client) from `apps/web/lib/flags.ts`; both default to all-dark when the API cannot be reached. The API guard is the real gate.
+- Page: `/ops/flags` — the six flags, global toggle (Admin), override list per flag with tenant id + note, add/remove (Admin); Support sees it read-only. In the nav for Admin only.
+- Rollout order per surface (plan §7): migrate and deploy dark → override on for the founder's test organisation → override on for the first external organisation → global on at the phase gate. Rollback of a surface is the same flip in reverse.
+- Tests: `apps/api/tests/flags.integration.test.ts` (flip without deploy incl. the TTL, precedence, roles, audit), `packages/database/tests/flags.integration.test.ts` (guard, precedence, cache), web `FlagsPage` and the role-filtered nav in `OpsDashboard`.
