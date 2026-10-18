@@ -37,3 +37,82 @@ export function counselSignup(body: CounselSignupBody): Promise<Response> {
 export function apiEventSource(path: string): EventSource {
   return new EventSource(`${API_URL}${path}`, { withCredentials: true })
 }
+
+// ── Workstream I: organisations, seats, the clinic inbox, Record Desk requests ──
+// Thin typed helpers over the api routes in apps/api/src/routes/counsel-org.ts,
+// packets.ts, investigations.ts and ops-organisations.ts. The pages that use
+// them are workstreams F (counsel) and G (staff console).
+
+export type MembershipRole = 'OWNER' | 'ATTORNEY' | 'INVESTIGATOR' | 'VIEWER'
+export type OrganisationKind = 'FIRM' | 'PD_OFFICE' | 'CLINIC'
+
+const json = (method: 'POST' | 'PATCH' | 'DELETE', body?: unknown): RequestInit => ({
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+})
+
+/** GET /counsel/org — the organisation, its members, pending invitations and the allowance as staff granted it. */
+export const getCounselOrganisation = () => apiFetch('/counsel/org')
+/** POST /counsel/org/invitations — OWNER offers a seat; investigator and viewer seats are free. */
+export const inviteColleague = (body: { email: string; role: MembershipRole }) => apiFetch('/counsel/org/invitations', json('POST', body))
+/** POST /counsel/org/invitations/:token/accept — public; the /counsel/join page posts the token from the email. */
+export const acceptInvitation = (token: string, body: { name?: string; password?: string }) =>
+  apiFetch(`/counsel/org/invitations/${encodeURIComponent(token)}/accept`, json('POST', body))
+/** DELETE /counsel/org/members/:userId — OWNER removes a seat (never the last owner). */
+export const removeMember = (userId: string) => apiFetch(`/counsel/org/members/${encodeURIComponent(userId)}`, json('DELETE'))
+
+/** GET /cases/:id/packets/clinics — the clinics a family may deliver to (empty while none has a live inbox). */
+export const listClinics = (caseId: string) => apiFetch(`/cases/${caseId}/packets/clinics`)
+/** POST /cases/:id/packets/deliver — the family delivers the released packet to a clinic it consented to. */
+export const deliverPacket = (caseId: string, clinicOrganisationId: string) =>
+  apiFetch(`/cases/${caseId}/packets/deliver`, json('POST', { clinicOrganisationId }))
+/** GET /counsel/inbox — a CLINIC organisation's deliveries, newest first. */
+export const getClinicInbox = () => apiFetch('/counsel/inbox')
+/** The PDF of one delivery (streamed; open in a new tab or fetch as a blob). */
+export const clinicInboxPdfUrl = (deliveryId: string) => `${API_URL}/counsel/inbox/${encodeURIComponent(deliveryId)}/report.pdf`
+
+export interface InvestigationRequestBody {
+  kind: 'CHRONOLOGY' | 'RECORDS_TRACKER' | 'OTHER'
+  caseId?: string
+  pages?: number
+  dueBy?: string // YYYY-MM-DD
+  note: string
+}
+/** POST /counsel/investigations — an investigator, attorney or owner files a Record Desk request. */
+export const fileInvestigationRequest = (body: InvestigationRequestBody) => apiFetch('/counsel/investigations', json('POST', body))
+/** GET /counsel/investigations — the organisation's requests with their status and the staff note. */
+export const listInvestigationRequests = () => apiFetch('/counsel/investigations')
+
+// Staff console (Admin writes, Support reads; investigation PATCH is open to Support for IN_PROGRESS / DELIVERED).
+export const opsListOrganisations = (params?: { kind?: OrganisationKind; q?: string }) => {
+  const qs = new URLSearchParams()
+  if (params?.kind) qs.set('kind', params.kind)
+  if (params?.q) qs.set('q', params.q)
+  const tail = qs.toString()
+  return apiFetch(`/ops/organisations${tail ? `?${tail}` : ''}`)
+}
+export const opsGetOrganisation = (id: string) => apiFetch(`/ops/organisations/${encodeURIComponent(id)}`)
+export interface OrganisationPatch {
+  kind?: OrganisationKind
+  name?: string
+  legalName?: string | null
+  billingEmail?: string | null
+  securityContact?: string | null
+  pilot?: boolean
+  pilotEndsAt?: string | null
+  allowanceRecords?: number
+  allowanceResetsAt?: string | null
+  publicInterest?: boolean
+  isTest?: boolean
+}
+export const opsPatchOrganisation = (id: string, body: OrganisationPatch) => apiFetch(`/ops/organisations/${encodeURIComponent(id)}`, json('PATCH', body))
+/** Starts the PD pilot: 15 records, 90 days from now. */
+export const opsStartPilot = (id: string) => apiFetch(`/ops/organisations/${encodeURIComponent(id)}/pilot`, json('POST'))
+/** Grants the public-interest allowance: 25 records a year at $0. */
+export const opsGrantPublicInterest = (id: string) => apiFetch(`/ops/organisations/${encodeURIComponent(id)}/public-interest`, json('POST'))
+export const opsOrganisationMetrics = (id: string) => apiFetch(`/ops/organisations/${encodeURIComponent(id)}/metrics`)
+export const opsListInvestigations = (status?: 'OPEN' | 'IN_PROGRESS' | 'DELIVERED' | 'DECLINED') =>
+  apiFetch(`/ops/investigations${status ? `?status=${status}` : ''}`)
+export const opsUpdateInvestigation = (id: string, body: { status?: 'OPEN' | 'IN_PROGRESS' | 'DELIVERED' | 'DECLINED'; assignedTo?: string | null; note?: string | null }) =>
+  apiFetch(`/ops/investigations/${encodeURIComponent(id)}`, json('PATCH', body))
