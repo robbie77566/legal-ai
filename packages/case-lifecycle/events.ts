@@ -80,6 +80,19 @@ export const CASE_EVENT_SCHEMAS = {
   },
   'doc.confirmed': { 1: z.object({ documentId: id }).strict() },
   'doc.corrected': { 1: z.object({ documentId: id, checklistItemId: id }).strict() },
+  // Record inventory (persona_rollout_plan.md §5 D): the uploader said which
+  // volume of the record a file is. Kind and position only — never the name.
+  'doc.volume_set': {
+    1: z
+      .object({
+        documentId: id,
+        kind: z.enum(['REPORTER', 'CLERK', 'EXHIBIT', 'UNKNOWN']),
+        index: count.optional(),
+        count: count.optional(),
+        confirmed: z.boolean(),
+      })
+      .strict(),
+  },
   'docs.complete': {
     1: z.object({ billablePages: count, duplicatesIgnored: count }).strict(),
   },
