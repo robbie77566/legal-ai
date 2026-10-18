@@ -593,3 +593,31 @@ model UserVisit {
 
   @@index([userId, lastSeenAt])
 }
+
+// Feature flags (persona_rollout_plan.md §5 J, §7 "Flags, not branches"):
+// every professional surface ships dark behind one of these rows; a flip is
+// a row update, never a deploy. System tables — no RLS, read on the owner
+// connection only (packages/database/flags.ts). Overrides are keyed by
+// tenantId, which is what RLS scopes on today; the Organisation model
+// (1:1 with Tenant) arrives on its own branch.
+model FeatureFlag {
+  key         String                @id
+  enabled     Boolean               @default(false)
+  description String
+  updatedBy   String?
+  updatedAt   DateTime              @updatedAt
+  overrides   FeatureFlagOverride[]
+}
+
+model FeatureFlagOverride {
+  id        String      @id @default(cuid())
+  flagKey   String
+  flag      FeatureFlag @relation(fields: [flagKey], references: [key])
+  tenantId  String
+  enabled   Boolean
+  note      String?
+  updatedBy String
+  updatedAt DateTime    @updatedAt
+
+  @@unique([flagKey, tenantId])
+}
