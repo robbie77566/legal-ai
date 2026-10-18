@@ -220,9 +220,13 @@ const toPureCredit = (c: { id: string; rung: string; issuedAt: Date; expiresAt: 
   packId: c.packId,
 });
 
-/** The tenant's unspent credits (live and expired — the pure rule tells them apart). */
-async function unspentCredits(tx: PrismaNs.TransactionClient): Promise<PureCredit[]> {
-  const rows = await tx.credit.findMany({ where: { consumedAt: null }, orderBy: [{ expiresAt: 'asc' }, { issuedAt: 'asc' }, { id: 'asc' }] });
+/**
+ * Every credit the tenant has ever held — spent, live and expired alike. The
+ * pure rule tells them apart, and it needs the spent ones to say
+ * PACK_EXHAUSTED (the sixth record on a five-pack) rather than nothing.
+ */
+async function tenantCredits(tx: PrismaNs.TransactionClient): Promise<PureCredit[]> {
+  const rows = await tx.credit.findMany({ orderBy: [{ expiresAt: 'asc' }, { issuedAt: 'asc' }, { id: 'asc' }] });
   return rows.map(toPureCredit);
 }
 
@@ -417,7 +421,7 @@ async function quoteContext(
   const at = now.toISOString();
   const meteredPages = await meteredPagesOfCase(tx, kase, bucket);
   const book = await loadPriceBook();
-  const [allowance, credits] = await Promise.all([org ? allowanceView(tx, org) : null, unspentCredits(tx)]);
+  const [allowance, credits] = await Promise.all([org ? allowanceView(tx, org) : null, tenantCredits(tx)]);
   const ledger = org ? allowanceLedgerFor(org, allowance?.used ?? 0) : undefined;
   const promo = audience === 'ATTORNEY' ? await promoStanding(actor, meteredPages.reporter, opts.promoCode) : null;
   const decision = quoteForRecord({
@@ -447,8 +451,8 @@ async function viewOf(tx: PrismaNs.TransactionClient, ctx: QuoteContext): Promis
     methods: methodsFor(ctx.decision),
     allowance: ctx.allowance,
     credits: {
-      live: ctx.credits.filter((c) => Date.parse(c.expiresAt) > Date.parse(ctx.at) && Date.parse(c.issuedAt) <= Date.parse(ctx.at)).length,
-      unspent: ctx.credits.length,
+      live: ctx.credits.filter((c) => c.consumedAt === null && Date.parse(c.expiresAt) > Date.parse(ctx.at) && Date.parse(c.issuedAt) <= Date.parse(ctx.at)).length,
+      unspent: ctx.credits.filter((c) => c.consumedAt === null).length,
     },
     ...(ctx.promo?.promoRefused ? { promoRefused: ctx.promo.promoRefused } : {}),
     ...(open ? { quoteRequest: { id: open.id, status: open.status, quotedCents: open.quotedCents, createdAt: open.createdAt.toISOString() } } : {}),
