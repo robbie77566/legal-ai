@@ -54,3 +54,6 @@ Test Case Files/
 *.tsbuildinfo
 exports/
 .next-gate/
+
+# local production→staging baseline dumps (scripts/staging-baseline.sh)
+.staging-baseline/
