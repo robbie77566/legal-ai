@@ -73,7 +73,14 @@ model Organisation {
   allowanceResetsAt DateTime?
   features          Json             @default("{}")
   isTest            Boolean          @default(false) // excluded from Money and analytics (plan §7)
+  // Workstream I: the public-interest allowance (clinics, plan §4) and the
+  // security contact named on the office/clinic security one-pager.
+  publicInterest    Boolean          @default(false)
+  securityContact   String?
   memberships       Membership[]
+  invitations       Invitation[]
+  packetDeliveries  PacketDelivery[]
+  investigations    InvestigationRequest[]
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 }
@@ -394,6 +401,10 @@ model ConsentGrant {
   tenantId       String
   userId         String
   recipientClass String // clinic | attorney
+  // Workstream I: the clinic the family named (null = any clinic, the shape
+  // every grant had before the inbox existed). Plain reference, no FK: a
+  // grant is the family's record and outlives the clinic's row.
+  recipientOrganisationId String?
   grantedAt      DateTime  @default(now())
   revokedAt      DateTime?
 
@@ -756,4 +767,86 @@ enum VolumeKind {
   CLERK
   EXHIBIT
   UNKNOWN
+}
+
+// ── Workstream I: clinics, offices, investigation layer (persona_rollout_plan.md §5 I) ──
+
+// A seat offered to a colleague (OWNER only). The raw token travels in the
+// email alone; the row keeps its sha256, exactly like User.inviteToken and
+// ShareLink.tokenHash. Accepting creates (or re-seats) a PROFESSIONAL user.
+model Invitation {
+  id             String         @id @default(cuid())
+  tenantId       String
+  organisationId String
+  organisation   Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  email          String
+  role           MembershipRole
+  tokenHash      String         @unique
+  invitedBy      String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime       @default(now())
+
+  @@index([tenantId])
+  @@index([organisationId, email])
+}
+
+// A consented packet in a clinic's inbox. tenantId is the CLINIC's tenant
+// (the clinic reads its inbox under its own RLS context); caseId, reportId
+// and consentGrantId point into the family's tenant and are read through the
+// owner connection with the consent re-checked, as share links do. One
+// delivery per clinic per report version.
+model PacketDelivery {
+  id             String       @id @default(cuid())
+  tenantId       String
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  sourceTenantId String
+  caseId         String
+  reportId       String
+  consentGrantId String
+  deliveredAt    DateTime     @default(now())
+  openedAt       DateTime?
+  openedBy       String?
+
+  @@unique([organisationId, reportId])
+  @@index([tenantId, deliveredAt])
+}
+
+enum InvestigationKind {
+  CHRONOLOGY
+  RECORDS_TRACKER
+  OTHER
+}
+
+enum InvestigationStatus {
+  OPEN
+  IN_PROGRESS
+  DELIVERED
+  DECLINED
+}
+
+// A Record Desk request from an organisation member (investigator, attorney
+// or owner). In January staff deliver by hand: a status change plus a note
+// from the staff console, no file upload.
+model InvestigationRequest {
+  id             String              @id @default(cuid())
+  tenantId       String
+  organisationId String
+  organisation   Organisation        @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  caseId         String?
+  requestedBy    String
+  kind           InvestigationKind
+  pages          Int?
+  dueBy          DateTime?
+  note           String
+  status         InvestigationStatus @default(OPEN)
+  assignedTo     String?
+  staffNote      String?
+  deliveredAt    DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([status])
 }
