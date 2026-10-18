@@ -8,7 +8,9 @@ GRANT CONNECT ON DATABASE familycasereview_7ik1 TO hg_readonly;
 GRANT USAGE ON SCHEMA public TO hg_readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO hg_readonly;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO hg_readonly;
--- pg_dump (scripts/staging-baseline.sh) also reads every sequence's position:
+-- pg_dump (scripts/staging-baseline.sh) also reads every sequence's position.
+-- Already applied by migration 20261018000028_readonly_sequence_grant on deploy;
+-- kept here so a role created later gets it too:
 GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO hg_readonly;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO hg_readonly;
 -- Tenant rows are RLS-protected; without the policies in step 2 below hg_readonly sees
