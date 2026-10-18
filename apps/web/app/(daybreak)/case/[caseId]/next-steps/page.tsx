@@ -14,7 +14,14 @@ import CaseNav from '../../../../../components/daybreak/CaseNav'
 interface Grant {
   id: string
   recipientClass: string
+  recipientOrganisationId?: string | null
   revokedAt: string | null
+}
+
+/** A clinic that can receive the packet in its inbox (workstream I; share_link_ux.md "Delivering the packet to a clinic"). */
+interface Clinic {
+  id: string
+  name: string
 }
 
 export default function NextSteps() {
@@ -30,10 +37,20 @@ export default function NextSteps() {
   const [canShare, setCanShare] = useState(false)
   useEffect(() => { setCanShare(typeof navigator !== 'undefined' && typeof (navigator as Navigator & { share?: unknown }).share === 'function') }, [])
   const [notice, setNotice] = useState('')
+  // The clinic picker: the clinics whose inbox is live (empty until one is),
+  // the one the family chose, and what happened when they sent the packet.
+  const [clinics, setClinics] = useState<Clinic[]>([])
+  const [clinicId, setClinicId] = useState('')
+  const [packetNotice, setPacketNotice] = useState('')
 
   const refresh = useCallback(async () => {
     const res = await apiFetch(`/cases/${caseId}/consent`)
     if (res.ok) setGrants((await res.json()).grants)
+    const cl = await apiFetch(`/cases/${caseId}/packets/clinics`)
+    if (cl.ok) {
+      const body = (await cl.json()) as { clinics?: Clinic[] }
+      setClinics(Array.isArray(body.clinics) ? body.clinics : [])
+    }
     const act = await apiFetch(`/cases/${caseId}/share-link/activity`)
     if (act.ok) {
       const { links } = await act.json()
@@ -47,20 +64,49 @@ export default function NextSteps() {
     void refresh()
   }, [refresh])
 
-  const clinicOn = grants.some((g) => g.recipientClass === 'clinic' && !g.revokedAt)
+  const activeClinicGrant = grants.find((g) => g.recipientClass === 'clinic' && !g.revokedAt)
+  const clinicOn = !!activeClinicGrant
+  const namedClinic = activeClinicGrant?.recipientOrganisationId
+    ? clinics.find((c) => c.id === activeClinicGrant.recipientOrganisationId) ?? null
+    : null
 
   const toggleClinic = async () => {
     setNotice('')
+    setPacketNotice('')
     const res = await apiFetch(
       `/cases/${caseId}/consent${clinicOn ? '/revoke' : ''}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipientClass: 'clinic' }),
+        // Naming a clinic limits the consent to that clinic; "any clinic" keeps the original shape.
+        body: JSON.stringify(clinicOn || !clinicId ? { recipientClass: 'clinic' } : { recipientClass: 'clinic', recipientOrganisationId: clinicId }),
       }
     )
     if (!res.ok) setNotice('Consent options open once your report is ready.')
     await refresh()
+  }
+
+  // Delivers the released packet to the named clinic's inbox — nothing is
+  // uploaded or copied; the clinic reads the same report, and turning the
+  // consent off closes it again.
+  const sendPacket = async () => {
+    if (!namedClinic) return
+    setPacketNotice('')
+    const res = await apiFetch(`/cases/${caseId}/packets/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clinicOrganisationId: namedClinic.id }),
+    })
+    if (res.ok) {
+      const { alreadyDelivered } = (await res.json()) as { alreadyDelivered?: boolean }
+      setPacketNotice(
+        alreadyDelivered
+          ? `${namedClinic.name} already has this packet in its inbox.`
+          : `Sent. ${namedClinic.name} will find the packet in its inbox; we'll show you here when it's been opened. Turn consent off any time to close it.`
+      )
+    } else {
+      setPacketNotice('We could not send the packet just now. Check that your report is ready and consent is on.')
+    }
   }
 
   const makeShareLink = async () => {
@@ -193,12 +239,47 @@ export default function NextSteps() {
           with an innocence clinic — nothing else, to no one else. Off by default; you can change
           your mind any time.
         </p>
+        {clinics.length > 0 && !clinicOn && (
+          <label className="mt-3 block text-sm">
+            <span className="font-semibold">Which clinic?</span>
+            <select
+              value={clinicId}
+              onChange={(e) => setClinicId(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-db-line bg-db-surface px-3 py-2"
+              data-testid="clinic-picker"
+            >
+              <option value="">Any innocence clinic</option>
+              {clinics.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="mt-3 flex items-center gap-3">
           <input type="checkbox" checked={clinicOn} onChange={toggleClinic} className="h-5 w-5" />
           <span className="text-sm font-semibold">
-            {clinicOn ? 'Consent is ON — sharing allowed' : 'Consent is OFF — nothing is shared'}
+            {clinicOn
+              ? namedClinic
+                ? `Consent is ON — sharing allowed with ${namedClinic.name}`
+                : 'Consent is ON — sharing allowed'
+              : 'Consent is OFF — nothing is shared'}
           </span>
         </label>
+        {clinicOn && namedClinic && (
+          <div className="mt-3" data-testid="packet-send">
+            <button
+              onClick={() => void sendPacket()}
+              className="rounded-lg bg-db-accent px-4 py-2 text-sm font-semibold text-db-surface"
+              data-testid="packet-deliver"
+            >
+              Send the packet to {namedClinic.name}
+            </button>
+            <p className="mt-2 text-xs text-db-muted">
+              The clinic reads the same attorney packet from its own inbox — you never upload it again, and turning consent off closes it.
+            </p>
+          </div>
+        )}
+        {packetNotice && <p className="mt-2 text-sm" data-testid="packet-notice">{packetNotice}</p>}
       </section>
 
       {/* Directory (R-6-compliant) */}

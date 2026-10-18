@@ -106,6 +106,37 @@ async function send(msg: EmailMessage): Promise<{ delivered: boolean; id?: strin
   }
 }
 
+/**
+ * A seat in an organisation (persona_rollout_plan.md §4 "unlimited users",
+ * §5 I): a colleague is invited by the organisation's owner, takes the seat
+ * from the link and signs in from then on. Same shape as the staff invite;
+ * the join link carries the raw token, which is never stored.
+ */
+export function sendOrganisationInvite(
+  to: string,
+  opts: { organisationName: string; roleLabel: string; whatYouSee: string; acceptUrl: string; signInUrl: string; invitedBy: string; days: number }
+) {
+  return send({
+    to,
+    subject: `${opts.invitedBy} added you to ${opts.organisationName} on ${BRAND.name}`,
+    text: `Hello,
+
+${opts.invitedBy} added you to ${opts.organisationName} on ${BRAND.name} as ${opts.roleLabel}.
+
+To take your seat:
+
+1. Open this link and choose a password (it works for ${opts.days} days):
+   ${opts.acceptUrl}
+
+2. From then on, sign in with this email address at:
+   ${opts.signInUrl}
+
+What you will see: ${opts.whatYouSee}
+
+Seats for investigators and viewers are free. If the link has expired, ask ${opts.invitedBy} to send it again. If you were not expecting this, you can ignore this email — nothing is active until you take the seat.`,
+  });
+}
+
 /** Ops diagnostic (ops_console_redesign.md J2): prove the transport end to end. */
 export function sendTestEmail(to: string) {
   return send({
