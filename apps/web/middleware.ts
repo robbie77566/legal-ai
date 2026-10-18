@@ -1,10 +1,13 @@
 import { withAuth } from 'next-auth/middleware';
+import { isAuthorized } from '@/lib/route-access';
 
 /**
  * Route protection + ROLE matrix (auth design §12.4, system design §10.2).
  * The middleware is UX-level gating; the API re-enforces the same matrix per
- * route and is the real gate.
+ * route and is the real gate. The matrix itself lives in lib/route-access.ts
+ * (pure, unit-tested row by row):
  *
+ *  - /counsel               : PROFESSIONAL accounts only (persona plan A)
  *  - /dashboard, /workspace : staff only (never CLIENT)
  *  - /qa                    : ADMIN | ATTORNEY
  *  - /ops                   : ADMIN | SUPPORT (the API narrows SUPPORT to reads + unblocking actions)
@@ -14,28 +17,16 @@ import { withAuth } from 'next-auth/middleware';
  * are anonymous by design (landing spec §3); its authed API calls gate
  * themselves.
  */
-const STAFF_ROLES = new Set(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER']);
-
 export default withAuth({
   callbacks: {
-    authorized: ({ token, req }) => {
-      if (!token) return false;
-      const role = typeof token.role === 'string' ? token.role : '';
-      const path = req.nextUrl.pathname;
-
-      if (path.startsWith('/ops')) return role === 'ADMIN' || role === 'SUPPORT';
-      if (path.startsWith('/qa')) return role === 'ADMIN' || role === 'ATTORNEY';
-      if (path.startsWith('/dashboard') || path.startsWith('/workspace')) {
-        return STAFF_ROLES.has(role);
-      }
-      return true; // /case, /account, /cases — authentication is the only requirement here
-    },
+    authorized: ({ token, req }) => isAuthorized(req.nextUrl.pathname, token),
   },
   pages: { signIn: '/auth/signin' },
 });
 
 export const config = {
   matcher: [
+    '/counsel/:path*',
     '/dashboard/:path*',
     '/workspace/:path*',
     '/qa/:path*',

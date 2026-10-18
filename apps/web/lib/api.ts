@@ -12,6 +12,27 @@ export function apiFetch(path: string, init: RequestInit = {}): Promise<Response
   return fetch(`${API_URL}${path}`, { credentials: 'include', ...init })
 }
 
+/** Body of POST /counsel/signup (apps/api/src/routes/counsel.ts). */
+export interface CounselSignupBody {
+  email: string
+  password: string
+  name: string
+  barNumber: string
+  barState?: string // defaults to 'TX'
+  practiceType: 'writ' | 'appellate' | 'trial' | 'pd' | 'clinic' | 'investigator' | 'other'
+  organisationName?: string
+  organisationKind?: 'FIRM' | 'PD_OFFICE' | 'CLINIC'
+}
+
+/** Professional self-registration (persona plan A). The /for-counsel/signup page (workstream F) posts through here. */
+export function counselSignup(body: CounselSignupBody): Promise<Response> {
+  return apiFetch('/counsel/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
 /** SSE stream against the API with the session cookie attached. */
 export function apiEventSource(path: string): EventSource {
   return new EventSource(`${API_URL}${path}`, { withCredentials: true })
