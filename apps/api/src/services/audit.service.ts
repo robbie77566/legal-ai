@@ -10,6 +10,7 @@ export enum LogAction {
   QA_DECISION = 'QA_DECISION',
   REFUND = 'REFUND',
   FLAG_CHANGE = 'FLAG_CHANGE', // feature flag flips and tenant overrides (staff_console.md §10)
+  ACCOUNT_SIGNUP = 'ACCOUNT_SIGNUP', // self-registration (counsel sign-up); never carries the bar number
 }
 
 export class AuditService {

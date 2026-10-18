@@ -128,6 +128,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           tenantId: user.tenantId,
           role: user.role,
+          accountKind: user.accountKind,
           rememberMe: credentials.rememberMe === 'true',
         };
       }
@@ -140,6 +141,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.tenantId = (user as any).tenantId;
         token.role = (user as any).role;
+        token.accountKind = (user as any).accountKind ?? 'FAMILY';
         token.rememberMe = (user as any).rememberMe ?? false;
         if (token.rememberMe) {
           token.exp = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
@@ -173,7 +175,7 @@ export const authOptions: NextAuthOptions = {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { passwordChangedAt: true, name: true }
+            select: { passwordChangedAt: true, name: true, accountKind: true }
           });
 
           if (dbUser?.passwordChangedAt) {
@@ -194,6 +196,11 @@ export const authOptions: NextAuthOptions = {
           if (dbUser?.name && !session?.name) {
             token.name = dbUser.name;
           }
+          // The surface a person belongs to follows the database on every
+          // refresh (same query), so a kind change never waits for a sign-in.
+          if (dbUser?.accountKind) {
+            token.accountKind = dbUser.accountKind;
+          }
         } catch (err) {
           // DB error during JWT refresh — skip invalidation check, keep session alive
           console.warn('[Auth] JWT refresh DB check skipped:', (err as Error).message);
@@ -213,6 +220,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         (session.user as any).tenantId = token.tenantId as string;
         (session.user as any).role = token.role as string;
+        (session.user as any).accountKind = (token.accountKind as string | undefined) ?? 'FAMILY';
         session.user.name = token.name as string ?? session.user.name;
       }
       return session;

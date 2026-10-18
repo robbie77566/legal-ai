@@ -18,6 +18,99 @@ enum Role {
   CLIENT // consumer purchaser in a single-member tenant (ENG-7, auth design §12)
 }
 
+// ── Identity expand step (persona_rollout_plan.md §5 A, 2026-10-19) ─────────
+// `Role` keeps working unchanged. The three enums below are the target model
+// (Staff Console Access Model): WHO a person is (AccountKind), what STAFF may
+// do (StaffGrant), and what a professional may do inside their organisation
+// (MembershipRole). The contract step (dropping Role) is a later, founder-run
+// migration; until then packages/database/staff.ts reconciles the two.
+
+// FAMILY: a consumer in a single-member tenant. PROFESSIONAL: an attorney,
+// investigator or clinic member inside an Organisation. STAFF: our people.
+enum AccountKind {
+  FAMILY
+  PROFESSIONAL
+  STAFF
+}
+
+// What a staff member may do; a person holds a SET. ADMIN implies SUPPORT in
+// the helpers (never by data), mirroring staff_console.md §1.
+enum StaffGrantKind {
+  ADMIN
+  SUPPORT
+  REVIEWER // the QA reviewer (today Role.ATTORNEY)
+}
+
+enum OrganisationKind {
+  FIRM
+  PD_OFFICE
+  CLINIC
+  FAMILY
+}
+
+enum MembershipRole {
+  OWNER
+  ATTORNEY
+  INVESTIGATOR
+  VIEWER
+}
+
+// One Organisation per Tenant (1:1 profile), so RLS stays tenant-scoped and
+// every existing tenant table is already the organisation's data. Pilot,
+// allowance and feature overrides live here; the price book (workstream B)
+// and the feature flags (J) read them.
+model Organisation {
+  id                String           @id @default(cuid())
+  tenantId          String           @unique
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind              OrganisationKind
+  name              String
+  legalName         String?
+  billingEmail      String?
+  pilot             Boolean          @default(false)
+  pilotEndsAt       DateTime?
+  allowanceRecords  Int              @default(0)
+  allowanceResetsAt DateTime?
+  features          Json             @default("{}")
+  isTest            Boolean          @default(false) // excluded from Money and analytics (plan §7)
+  memberships       Membership[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
+
+// A person's seat in an organisation. tenantId is denormalised so the RLS
+// policy is a plain column test like every other tenant table.
+model Membership {
+  id             String         @id @default(cuid())
+  organisationId String
+  organisation   Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  tenantId       String
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           MembershipRole
+  invitedBy      String?
+  createdAt      DateTime       @default(now())
+
+  @@unique([organisationId, userId])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+// Staff grants as a set per person. Revocation is a timestamp, never a
+// delete, so "who could do what, when" survives. Backfilled from Role by the
+// migration; effectiveStaffGrants() falls back to Role when no row exists.
+model StaffGrant {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      StaffGrantKind
+  grantedBy String
+  grantedAt DateTime       @default(now())
+  revokedAt DateTime?
+
+  @@unique([userId, kind])
+}
+
 enum PaymentKind {
   REVIEW
   OVERAGE
@@ -356,6 +449,20 @@ model User {
   tenantId            String
   tenant              Tenant      @relation(fields: [tenantId], references: [id])
   caseAccess          CaseAccess[]
+  // Identity expand step (2026-10-19): which surface this person belongs to.
+  // Backfilled from Role; Role stays authoritative for the staff gates until
+  // the contract step. PROFESSIONAL accounts keep role CLIENT so every
+  // existing staff gate refuses them.
+  accountKind         AccountKind @default(FAMILY)
+  grants              StaffGrant[]
+  memberships         Membership[]
+  // Professional profile (persona_rollout_plan §3): the Texas bar number is
+  // stored unverified at sign-up; staff verify it from the queue (workstream G).
+  barNumber           String?
+  barState            String? // 'TX' when a bar number is set
+  barVerifiedAt       DateTime?
+  barVerifiedBy       String?
+  practiceType        String? // writ | appellate | trial | pd | clinic | investigator | other
 
   passwordChangedAt   DateTime?
   // Activity for the admin's Accounts page: set by authorize() on every
@@ -378,10 +485,11 @@ model User {
 }
 
 model Tenant {
-  id    String @id @default(cuid())
-  name  String
-  users User[]
-  cases Case[]
+  id           String        @id @default(cuid())
+  name         String
+  users        User[]
+  cases        Case[]
+  organisation Organisation?
 }
 
 enum CaseStatus {

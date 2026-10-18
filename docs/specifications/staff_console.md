@@ -68,7 +68,7 @@ Admin is a superset of Support by construction. The web nav is UX gating only (`
 
 ## 9. Not built (see the access model)
 
-Roles as a *set* per person; DB-authoritative role checks (today a role change takes effect at next sign-in); the `/ops/team` page with deactivate / last-admin guard / MFA; `/qa` under the console shell; audit-action enum; CSV export; Stripe fee sync.
+Roles as a *set* per person on the gates (the rows exist, see §11; `/ops` and `/qa` still read `role`); DB-authoritative role checks (today a role change takes effect at next sign-in); the `/ops/team` page with deactivate / last-admin guard / MFA; `/qa` under the console shell; audit-action enum; CSV export; Stripe fee sync.
 
 ## 10. Feature flags (workstream J, 2026-10-19)
 
@@ -83,3 +83,33 @@ Every professional surface ships dark behind a `FeatureFlag` row with per-organi
 - Page: `/ops/flags` — the six flags, global toggle (Admin), override list per flag with tenant id + note, add/remove (Admin); Support sees it read-only. In the nav for Admin only.
 - Rollout order per surface (plan §7): migrate and deploy dark → override on for the founder's test organisation → override on for the first external organisation → global on at the phase gate. Rollback of a surface is the same flip in reverse.
 - Tests: `apps/api/tests/flags.integration.test.ts` (flip without deploy incl. the TTL, precedence, roles, audit), `packages/database/tests/flags.integration.test.ts` (guard, precedence, cache), web `FlagsPage` and the role-filtered nav in `OpsDashboard`.
+
+
+## 11. Organisations and account kinds (added 2026-10-19)
+
+The identity **expand** step of the persona rollout (`docs/implementation/persona_rollout_plan.md` §5 A, §7 "Deploy discipline"). Migration `20261019000029_organisations`; everything is additive and the `Role` column and every gate that reads it keep working unchanged.
+
+**The model.**
+
+| Table / column | What it is |
+|---|---|
+| `User.accountKind` — `FAMILY` \| `PROFESSIONAL` \| `STAFF` (default `FAMILY`) | *Who* a person is: which surface they belong to. Backfilled by the migration: `CLIENT` → `FAMILY`; `ADMIN`, `SUPPORT`, `ATTORNEY`, `INVESTIGATOR`, `VIEWER` → `STAFF` (every non-CLIENT role is staff per §1). |
+| `StaffGrant { userId, kind: ADMIN \| SUPPORT \| REVIEWER, grantedBy, grantedAt, revokedAt? }`, unique per user + kind | *What a staff member may do*, as a set. Backfilled `ADMIN`→`ADMIN`, `SUPPORT`→`SUPPORT`, `ATTORNEY`→`REVIEWER`; `INVESTIGATOR`/`VIEWER` get no grant (no console surface). Revocation is a timestamp, never a delete. `POST /permissions/users` creates the matching grant; `PATCH /permissions/users/:id` revokes the old one and grants the new. |
+| `Organisation { tenantId @unique, kind: FIRM \| PD_OFFICE \| CLINIC \| FAMILY, name, legalName?, billingEmail?, pilot, pilotEndsAt?, allowanceRecords, allowanceResetsAt?, features, isTest }` | The 1:1 profile of a Tenant, so RLS stays tenant-scoped and every existing tenant table is already the organisation's data. Pilot flag, allowance and `features` are read by the price book (B) and flags (J); `isTest` organisations are excluded from Money and analytics. Family tenants have no row yet (nothing reads one). |
+| `Membership { organisationId, tenantId, userId, role: OWNER \| ATTORNEY \| INVESTIGATOR \| VIEWER, invitedBy? }`, unique per organisation + user | A person's seat. `tenantId` is denormalised so the RLS policy is the same plain column test as the other tenant tables. |
+| `User.barNumber?, barState? ('TX'), barVerifiedAt?, barVerifiedBy?, practiceType?` (`writ`, `appellate`, `trial`, `pd`, `clinic`, `investigator`, `other`) | The professional profile. The bar number is stored **unverified** at sign-up; the staff verification queue is workstream G. |
+
+RLS: `Organisation` and `Membership` carry `tenant_isolation_policy_*` (USING + WITH CHECK on `tenantId`), ENABLE without FORCE like every other table since `20260901000012`. `StaffGrant` is a system table read on the owner connection. Proven by `packages/database/tests/organisations-rls.integration.test.ts`.
+
+**Professional accounts keep `role: CLIENT`.** Every existing staff gate (`/ops`, `/qa`, `/admin`, `/dashboard`, `/workspace`) refuses `CLIENT`, so a professional can never reach a staff surface through the legacy column; `Role.ATTORNEY` stays what §1 says it is, the staff reviewer. The api auth plugin additionally refuses a `PROFESSIONAL` on `/ops`, `/qa`, `/admin` and `/permissions` whatever the role column says, and the web middleware does the same for `/ops`, `/qa`, `/dashboard`, `/workspace` (`apps/web/lib/route-access.ts`).
+
+**Reading the two shapes at once.** `packages/database/staff.ts`:
+- `effectiveAccountKind(user)` — the stored kind, except a row still at the `FAMILY` default with a staff role counts as `STAFF` (a staff account created by a pre-expand code path, the same answer the backfill gives).
+- `effectiveStaffGrants(user)` — the active grant rows when the person has any rows (revoked ones included), else the one grant the role implies. A non-STAFF account never holds a grant.
+- `hasGrant(grants, kind)` — ADMIN is a superset of SUPPORT by construction.
+
+**Per request, from the database.** The api auth plugin (`apps/api/src/plugins/auth.ts`) puts `accountKind` and `grants` on `request.auth` from the database on every request (the session token format is unchanged); `requireAccountKind(...)` and `requireGrant(...)` in `apps/api/src/plugins/guards.ts` read them. `/counsel/*` uses `requireAccountKind('PROFESSIONAL')` plus a per-request membership load, so a removed seat or a revoked grant is a 403 on the very next call, not the next sign-in. The web session carries `accountKind` beside `role` (refreshed from the database on every JWT refresh); `/go` lands a professional on `/counsel` (`apps/web/lib/landing.ts`).
+
+**Routes.** `POST /counsel/signup` (public, rate-limited, bcrypt cost 12, enumeration-safe like `/buy/account`: a duplicate email answers `{ ok: true }` with no ids): creates Tenant + Organisation + User (`PROFESSIONAL`, role `CLIENT`) + `OWNER` membership in one transaction and writes an `ACCOUNT_SIGNUP` audit row (never the bar number). `GET /counsel/me`: the user, their organisation (kind, name, pilot, allowance), their membership role, bar fields and `barVerified`.
+
+**Expand → swap → contract.** This step is the expand. Swap (later, any agent): `/ops` and `/qa` adopt `requireGrant`, `/permissions` and the Team page write grants as the source of truth, the `Role.ATTORNEY` reviewer becomes `REVIEWER`. Contract (founder-run migration): drop `Role` and the `accountKind` default, after the matrix tests in `apps/api/tests/organisations.integration.test.ts` and `apps/web/tests/unit/RouteAccess.test.ts` pass against the swapped gates. No new environment variables at any step.
