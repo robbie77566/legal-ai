@@ -1,6 +1,9 @@
 import type { MetadataRoute } from 'next'
+import { isStagingSite } from '@/lib/site-env'
 
 export default function robots(): MetadataRoute.Robots {
+  // Staging: nothing is indexable, and no sitemap points crawlers anywhere.
+  if (isStagingSite()) return { rules: { userAgent: '*', disallow: '/' } }
   return {
     rules: {
       userAgent: '*',
