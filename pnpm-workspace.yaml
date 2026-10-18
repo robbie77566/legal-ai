@@ -20,7 +20,15 @@ onlyBuiltDependencies:
 
 # Dependency audit — accepted advisories, each with a reason and an exit
 # condition in docs/operations/dependency_audit.md. Never add one silently.
+# Transitive runtime dependencies pinned above their advisories (2026-10-18):
+# patch-level bumps, so the direct dependents' ranges are unchanged.
+overrides:
+  proxy-addr: '>=2.0.8'    # GHSA-jqcg-44mw-7w3h — IP spoofing via IPv4-mapped IPv6 (express, via @modelcontextprotocol/sdk)
+  handlebars: '>=4.7.10'   # GHSA-8r5x-fm3f-whwj, GHSA-p8wg-vrv2-v86f — JS injection in compile (via @langchain/classic)
+
 auditConfig:
   ignoreGhsas:
     - GHSA-p293-qw3h-jr36 # next: RCE on Windows-hosted servers — we run on Linux (Render)
     - GHSA-2xp9-vwfh-vxw4 # next: Image Optimization API AVIF RCE — /_next/image closed (images.unoptimized → 404)
+    - GHSA-5gmw-xhrv-c9v3 # tinypool: prototype-pollution RCE in worker options — vitest's worker pool, dev/test only; vitest 3 pins ^1.x, fix is in 2.1.2 (exit: vitest ≥4)
+    - GHSA-85c8-ppgw-ccpr # tinypool: prototype-pollution RCE in run() options — same package, same exit condition
