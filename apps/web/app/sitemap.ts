@@ -1,9 +1,11 @@
 import type { MetadataRoute } from 'next'
+import { isStagingSite } from '@/lib/site-env'
 
 /** Public, indexable pages only (snotnoselegal_site_design.md §5). */
 const BASE = 'https://www.snotnoselegal.com'
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  if (isStagingSite()) return []
   return [
     '', '/review', '/how-it-works', '/pricing', '/about', '/faq', '/contact', '/learn',
     '/learn/what-is-an-11-07-writ', '/learn/the-federal-one-year-deadline',
