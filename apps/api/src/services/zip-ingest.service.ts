@@ -133,6 +133,9 @@ export async function ingestZip(opts: {
 
   let failed = 0;
   const { enqueueDocument } = await import('./queue');
+  // Record inventory (workstream D): each entry gets the filename's volume
+  // suggestion, unconfirmed — the family confirms on the page.
+  const { suggestVolume, volumeFields, recomputeMeterSafe } = await import('./inventory.service');
   for (const entry of plan.accepted) {
     try {
       const data = zip.getEntry(entry.name)?.getData();
@@ -143,7 +146,9 @@ export async function ingestZip(opts: {
       const s3Key = `cases/${caseId}/${crypto.randomUUID()}-${entry.basename}`;
       await s3().send(new PutObjectCommand({ Bucket: bucket(), Key: s3Key, Body: data }));
       const doc = await withTenant(tenantId, async (tx) => {
-        const d = await tx.document.create({ data: { filename: entry.basename, s3Key, caseId } });
+        const d = await tx.document.create({
+          data: { filename: entry.basename, s3Key, caseId, ...volumeFields(suggestVolume(entry.basename), false) },
+        });
         await appendCaseEvent(tx, {
           caseId,
           tenantId,
@@ -159,6 +164,8 @@ export async function ingestZip(opts: {
       console.warn(`[zip] entry failed (${caseId}):`, (err as Error).message);
     }
   }
+
+  await recomputeMeterSafe(caseId, tenantId);
 
   const result: ZipIngestResult = {
     accepted: plan.accepted.length - failed,

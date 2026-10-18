@@ -17,6 +17,8 @@ const caseSelect = {
   id: true, title: true, status: true, lane: true, tenantId: true, subsequentWrit: true,
   county: true, convictionYear: true,
   ocrHalt: true, delayOurs: true, expectedReadyAt: true, slaStartedAt: true, createdAt: true, updatedAt: true,
+  // Record inventory (workstream D): the meter projection, read-only here.
+  recordBucket: true, meteredPages: true, inventoryAt: true,
 } as const;
 
 export async function getCaseFile(caseId: string) {
@@ -28,7 +30,10 @@ export async function getCaseFile(caseId: string) {
     prisma.document.findMany({
       where: { caseId },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, filename: true, s3Key: true, createdAt: true, suggestedChecklistItemId: true, classificationConfirmed: true, quarantined: true },
+      select: {
+        id: true, filename: true, s3Key: true, createdAt: true, suggestedChecklistItemId: true, classificationConfirmed: true, quarantined: true,
+        volumeKind: true, volumeLabel: true, volumeConfirmed: true,
+      },
     }),
     prisma.finding.findMany({ where: { caseId }, include: { citations: true }, orderBy: [{ severity: 'asc' }, { confidence: 'desc' }] }),
     prisma.analysisRun.findMany({ where: { caseId }, orderBy: { runNo: 'desc' } }),
@@ -88,6 +93,10 @@ export async function getCaseFile(caseId: string) {
         minOcrConfidence: confidences.length ? Math.min(...confidences) : null,
         recognized: !!d.suggestedChecklistItemId,
         classificationConfirmed: d.classificationConfirmed,
+        // Which volume of the record (workstream D), as the uploader labelled it.
+        volumeKind: d.volumeKind,
+        volumeLabel: d.volumeLabel,
+        volumeConfirmed: d.volumeConfirmed,
         quarantined: d.quarantined,
         downloadable: !!d.s3Key && !d.quarantined,
       };
