@@ -6,10 +6,13 @@
 #   pnpm staging:baseline --restore-from .staging-baseline/prod-20261018.dump   # weekly reset, no prod access
 #   … --s3                                                          # also sync case documents (see S3 below)
 #
-# Runs from the dev box (needs pg_dump/pg_restore/psql 16+, node, and the aws
-# CLI for --s3). Both databases are private to Render: allowlist your IP
-# (`curl -4 ifconfig.me`) on hg-postgres (prod) and hg-postgres-staging for the
-# duration, then remove it from staging again (its ipAllowList is [] by design).
+# Needs only the Postgres client tools (pg_dump/pg_restore/psql 16+; plus the
+# aws CLI for --s3) — no node, no repo install — so it runs from the dev box,
+# any laptop, or the Render shell of api-staging-0o8p (runbook → Staging
+# baseline data). Both databases are private to Render: allowlist the machine's
+# IP (`curl -4 ifconfig.me`; a Render service's outbound IPs are under its
+# Settings) on hg-postgres (prod) and hg-postgres-staging for the duration, then
+# remove it from staging again (its ipAllowList is [] by design).
 #
 # Inputs (.env.prod, gitignored; see .env.prod.example):
 #   PROD_DATABASE_URL          source. hg_readonly is enough (pg_dump only SELECTs;
@@ -57,12 +60,17 @@ if [ -f .env.prod ]; then
   done < .env.prod
 fi
 
-for tool in pg_dump pg_restore psql node; do
-  command -v "$tool" >/dev/null || { echo "missing: $tool" >&2; exit 2; }
+for tool in pg_dump pg_restore psql; do
+  command -v "$tool" >/dev/null || { echo "missing: $tool (install postgresql-client 16+)" >&2; exit 2; }
 done
 
-url_part() { # url_part <url> <host|user|db>
-  node -e 'const u=new URL(process.argv[1]);const p=process.argv[2];console.log(p==="host"?u.hostname:p==="user"?u.username:u.pathname.replace(/^\//,""))' "$1" "$2"
+url_part() { # url_part <url> <host|user|db>  — postgres://user:pass@host:port/db?params
+  local u="${1#*://}" rest
+  case "$2" in
+    user) [[ "$u" == *@* ]] && printf '%s\n' "${u%%@*}" | sed 's/:.*//' || echo "" ;;
+    host) rest="${u##*@}"; rest="${rest%%/*}"; printf '%s\n' "${rest%%:*}" ;;
+    db)   rest="${u#*/}"; printf '%s\n' "${rest%%\?*}" ;;
+  esac
 }
 
 DUMP_DIR=".staging-baseline"; mkdir -p "$DUMP_DIR"
@@ -149,9 +157,10 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO hg_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO hg_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO hg_app;
 SQL
+# The baseline password is hashed in Postgres (pgcrypto bcrypt, cost 12 — the
+# same $2a$ format bcryptjs verifies), so no node is needed here.
 STAGING_BASELINE_PASSWORD="${STAGING_BASELINE_PASSWORD:-staging-baseline-2026}"
-HASH="$(node -e 'console.log(require("./packages/database/node_modules/bcryptjs").hashSync(process.argv[1], 12))' "$STAGING_BASELINE_PASSWORD")"
-psql "$STAGING_DATABASE_URL" -v ON_ERROR_STOP=1 -v "staging_hash=$HASH" -f scripts/sql/staging_scrub.sql
+psql "$STAGING_DATABASE_URL" -v ON_ERROR_STOP=1 -v "staging_password=$STAGING_BASELINE_PASSWORD" -f "$(dirname "$0")/sql/staging_scrub.sql"
 
 # ---- 5. documents --------------------------------------------------------------
 if [ "$DO_S3" = 1 ]; then

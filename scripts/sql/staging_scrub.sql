@@ -1,5 +1,6 @@
 -- Scrub a production copy for staging (run by scripts/staging-baseline.sh after
--- pg_restore; psql -v staging_hash=<bcrypt hash of the baseline password>).
+-- pg_restore; psql -v staging_password=<the baseline password>, hashed here
+-- with pgcrypto's bcrypt so the client machine needs nothing but psql).
 --
 -- What stays: case CONTENT — titles, facts, record text, chunks, findings,
 -- reports, document rows, events, costs, promo codes, the migration ledger.
@@ -9,6 +10,7 @@
 -- the founder signs in to staging as themselves; everyone gets the baseline
 -- password. Refuses to run on any database whose name does not end in _staging.
 \set ON_ERROR_STOP on
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 BEGIN;
 
 DO $$ BEGIN
@@ -24,7 +26,7 @@ UPDATE "User" SET
   name  = CASE WHEN role IN ('ADMIN', 'SUPPORT') OR email ILIKE '%@snotnoselegal.com'
                THEN name  ELSE 'Client ' || left(md5(id), 6) END,
   "firstName" = NULL, "lastName" = NULL, phone = NULL,
-  "passwordHash" = :'staging_hash', "passwordChangedAt" = now(),
+  "passwordHash" = crypt(:'staging_password', gen_salt('bf', 12)), "passwordChangedAt" = now(),
   "pendingEmail" = NULL, "emailChangeToken" = NULL, "emailChangeExpires" = NULL,
   "inviteToken" = NULL, "inviteExpires" = NULL,
   "resetToken" = NULL, "resetExpires" = NULL;
