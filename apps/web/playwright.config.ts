@@ -2,6 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 import path from 'path';
 
 /**
+ * PLAYWRIGHT_BASE_URL points the suite at a deployed site (the post-deploy
+ * staging run in .github/workflows/staging-e2e.yml) instead of starting a
+ * local dev server. Unset = the local/CI default on :3000.
+ */
+const REMOTE = process.env.PLAYWRIGHT_BASE_URL;
+
+/**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
@@ -29,7 +36,7 @@ export default defineConfig({
     /* Maximum time each action such as `click()` can take. Defaults to 0 (no limit). */
     actionTimeout: 0,
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:3000',
+    baseURL: REMOTE ?? 'http://localhost:3000',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -47,11 +54,13 @@ export default defineConfig({
     // We only test chromium locally to save time, full matrix runs in CI
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'pnpm dev',
-    port: 3000,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
+  /* Run your local dev server before starting the tests (not against a deployed site) */
+  webServer: REMOTE
+    ? undefined
+    : {
+        command: 'pnpm dev',
+        port: 3000,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120 * 1000,
+      },
 });
