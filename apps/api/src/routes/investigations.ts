@@ -6,6 +6,7 @@ import { caseLabel } from '@hg/case-lifecycle';
 import { AuditService, LogAction } from '../services/audit.service';
 import { requireFlag } from '../plugins/flags';
 import { INVESTIGATION_FILER_ROLES } from '../services/organisation.service';
+import { investigationSla } from './ops-professional';
 
 /**
  * Record Desk requests (persona_rollout_plan.md §3 investigator, §5 I). In
@@ -136,6 +137,8 @@ export async function opsInvestigationRoutes(fastify: FastifyInstance) {
         const kase = r.caseId ? caseById.get(r.caseId) : null;
         return {
           ...view(r),
+          // The Record Desk SLA (workstream G): 10 business days from filing, on the family calendar.
+          ...investigationSla(r.createdAt),
           organisation: { id: r.organisation.id, name: r.organisation.name, kind: r.organisation.kind, tenantId: r.organisation.tenantId, isTest: r.organisation.isTest },
           requester: requester ? { id: requester.id, name: requester.name, email: requester.email } : { id: r.requestedBy, name: null, email: null },
           assignee: assignee ? { id: assignee.id, name: assignee.name } : null,

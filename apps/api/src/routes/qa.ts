@@ -4,7 +4,7 @@ import { lintPartA } from '../services/readability';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { AuditService, LogAction } from '../services/audit.service';
 import { verifyFindings } from '../services/analysis.service';
-import { caseLabel, caseRef, PreservedSchema, vehicleFor } from '@hg/case-lifecycle';
+import { caseLabel, caseRef, PreservedSchema, HARM_VALUES, vehicleFor } from '@hg/case-lifecycle';
 
 /**
  * QA console API (US-8). A STAFF surface: reviewers are platform staff
@@ -95,26 +95,44 @@ export default async function qaRoutes(fastify: FastifyInstance) {
   });
 
   // Reading-level edits to Part A (US-8): provenance flips, audit-logged.
+  // Widened for the professional era (workstream G): a reviewer may also
+  // correct the attorney text, the harm standard and the develop step —
+  // the fields the counsel packet prints. Same provenance mark, same
+  // event, one QA_EDIT row naming the fields and the before/after of the
+  // structured ones.
+  const QaPatchSchema = z
+    .object({
+      partAText: z.string().min(1).max(2000).optional(),
+      preserved: PreservedSchema.optional(),
+      partBText: z.string().min(1).max(8000).optional(),
+      harmStandard: z.enum(HARM_VALUES).optional(),
+      develop: z.string().trim().max(2000).nullable().optional(),
+    })
+    .refine((b) => Object.values(b).some((v) => v !== undefined), 'Nothing to change');
   fastify.patch('/findings/:findingId', async (request, reply) => {
     const { findingId } = request.params as { findingId: string };
-    // A reviewer may correct the plain-English text and the preservation
-    // call (a fact they can check against the cite); the vehicle follows.
-    const { partAText, preserved } = z
-      .object({ partAText: z.string().min(1).max(2000).optional(), preserved: PreservedSchema.optional() })
-      .refine((b) => b.partAText !== undefined || b.preserved !== undefined, 'Nothing to change')
-      .parse(request.body);
+    const body = QaPatchSchema.parse(request.body ?? {});
+    const { partAText, preserved, partBText, harmStandard, develop } = body;
 
     const finding = await prisma.finding.findUnique({ where: { id: findingId } });
     if (!finding) return reply.status(404).send({ error: 'Not found' });
 
+    // The vehicle is derived, never asserted: it follows the preservation
+    // call and the harm standard whenever either changes.
+    const vehicleChanges = preserved !== undefined || harmStandard !== undefined;
+    const vehicle = vehicleChanges
+      ? vehicleFor({ screen: finding.screen, category: finding.category, preserved: preserved ?? finding.preserved, harmStandard: harmStandard ?? finding.harmStandard })
+      : undefined;
     const updated = await withTenant(finding.tenantId, async (tx) => {
       const u = await tx.finding.update({
         where: { id: findingId },
         data: {
           ...(partAText !== undefined ? { partAText } : {}),
-          ...(preserved !== undefined
-            ? { preserved, vehicle: vehicleFor({ screen: finding.screen, category: finding.category, preserved, harmStandard: finding.harmStandard }) }
-            : {}),
+          ...(partBText !== undefined ? { partBText } : {}),
+          ...(preserved !== undefined ? { preserved } : {}),
+          ...(harmStandard !== undefined ? { harmStandard } : {}),
+          ...(develop !== undefined ? { develop: develop || null } : {}),
+          ...(vehicle !== undefined ? { vehicle } : {}),
           provenance: 'ai_human_edited',
         },
       });
@@ -128,12 +146,21 @@ export default async function qaRoutes(fastify: FastifyInstance) {
       return u;
     });
     const lint = lintPartA(updated.partAText);
+    const fields = (Object.keys(body) as Array<keyof typeof body>).filter((k) => body[k] !== undefined);
+    const structured = fields.filter((k) => k === 'preserved' || k === 'harmStandard' || k === 'develop');
     await AuditService.log({
       tenantId: finding.tenantId,
       caseId: finding.caseId,
       action: LogAction.QA_EDIT,
       userId: request.auth.userId,
-      details: { findingId },
+      details: {
+        findingId,
+        fields,
+        // Free text is not repeated into the audit row; the structured fields are.
+        before: Object.fromEntries(structured.map((k) => [k, finding[k]])),
+        after: Object.fromEntries(structured.map((k) => [k, updated[k]])),
+        ...(vehicle !== undefined ? { vehicle: { before: finding.vehicle, after: updated.vehicle } } : {}),
+      },
     });
     return { ...updated, readability: lint };
   });

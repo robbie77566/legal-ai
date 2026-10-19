@@ -55,3 +55,20 @@ export function expectedReadyDate(slaStartedAt: Date, n = LAUNCH_SLA_BUSINESS_DA
   const civil = slaStartedAt.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
   return addBusinessDays(civil, n)
 }
+
+/**
+ * Business days elapsed from one civil date to another (exclusive of the
+ * start, inclusive of the end); 0 when `civilEnd` is not after `civilStart`.
+ * The staff SLA for Record Desk requests (persona_rollout_plan.md §5 G) is
+ * counted on the same calendar as the family promise.
+ */
+export function businessDaysBetween(civilStart: string, civilEnd: string): number {
+  let d = new Date(`${civilStart}T00:00:00Z`)
+  const end = new Date(`${civilEnd}T00:00:00Z`)
+  let n = 0
+  while (d.getTime() < end.getTime()) {
+    d = new Date(d.getTime() + DAY_MS)
+    if (isBusinessDay(toCivil(d))) n++
+  }
+  return n
+}

@@ -5,6 +5,7 @@ import { computeDeadlinePosture, caseLabel, caseRef, type DeadlineInputs } from 
 import { s3, bucket } from './storage.service';
 import { verifyFindings } from './analysis.service';
 import { listSupportNotes, listRequests } from './staff-requests.service';
+import { settledQuote } from './quote.service';
 
 /**
  * The staff "case file" (staff_console_access_model §5, Support): everything
@@ -25,7 +26,7 @@ export async function getCaseFile(caseId: string) {
   const kase = await prisma.case.findUnique({ where: { id: caseId }, select: caseSelect });
   if (!kase) return null;
 
-  const [owner, documents, findings, runs, reports, shareLinks, screenEvents, notes, requests] = await Promise.all([
+  const [owner, documents, findings, runs, reports, shareLinks, screenEvents, notes, requests, organisation, matter, quote, quoteRequest, allowance] = await Promise.all([
     prisma.caseAccess.findFirst({ where: { caseId, role: 'ADMIN' }, select: { userId: true } }),
     prisma.document.findMany({
       where: { caseId },
@@ -42,6 +43,14 @@ export async function getCaseFile(caseId: string) {
     prisma.caseEvent.findMany({ where: { caseId, type: 'screen.completed' }, select: { payload: true, createdAt: true } }),
     listSupportNotes(caseId),
     listRequests({ caseId }),
+    // Professional era (workstream G): whose organisation, the counsel matter,
+    // how the quote was settled, any Long-record quote request, and the
+    // allowance entry that paid for the record. All null on a family case.
+    prisma.organisation.findUnique({ where: { tenantId: kase.tenantId }, select: { id: true, name: true, kind: true, pilot: true, publicInterest: true, isTest: true } }),
+    prisma.matter.findUnique({ where: { caseId }, select: { id: true, vehicle: true, lane: true, county: true, court: true, causeNumber: true, clientInitials: true } }),
+    withTenant(kase.tenantId, (tx) => settledQuote(tx, caseId)),
+    prisma.quoteRequest.findFirst({ where: { caseId }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true, quotedCents: true, meteredPages: true, note: true, decidedAt: true, createdAt: true } }),
+    prisma.allowanceEntry.findUnique({ where: { caseId }, select: { id: true, kind: true, consumedAt: true, consumedBy: true, organisationId: true } }),
   ]);
 
   const pages = documents.length
@@ -76,6 +85,11 @@ export async function getCaseFile(caseId: string) {
       billable: pages.filter((p) => p.billable).length,
       duplicatesIgnored: pages.filter((p) => !p.billable).length,
     },
+    organisation,
+    matter,
+    quote,
+    quoteRequest,
+    allowance,
     documents: documents.map((d) => {
       const ps = pagesOf.get(d.id) ?? [];
       const providers = ps.map((p) => p.ocrProvider).filter((x): x is string => !!x);

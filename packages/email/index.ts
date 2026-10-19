@@ -398,6 +398,39 @@ Nothing starts on the record until you do.`,
   });
 }
 
+/**
+ * Bar verification (staff_console.md §12; persona_rollout_plan.md §4 "first
+ * review free"). A staff member checked the number by hand; the attorney
+ * hears the one thing that changes for them. The number itself never
+ * travels in email.
+ */
+export function sendBarVerified(to: string, opts: { counselUrl: string }) {
+  return send({
+    to,
+    subject: 'Your bar number is verified — your first review is free',
+    text: `We have verified your bar number. Your account is open for counsel review, and your first review is free.
+
+Open a matter when you have a record ready: ${opts.counselUrl}
+
+The quote comes before the analysis, from the page count, and nothing starts until you accept it.`,
+  });
+}
+
+/**
+ * The neutral answer when a number could not be verified: no reason given
+ * (the staff note is internal), no number repeated, the account untouched,
+ * and a plain way to sort it out.
+ */
+export function sendBarNotVerified(to: string, opts: { counselUrl: string }) {
+  return send({
+    to,
+    subject: 'We could not verify your bar number',
+    text: `We could not verify the bar number on your account, so counsel review is not open on it yet. Your account and anything you have entered are unchanged.
+
+If the number was mistyped, or you are admitted under a different name, reply to this email and we will look again. You can check what is on the account here: ${opts.counselUrl}`,
+  });
+}
+
 export function sendPasswordReset(to: string, opts: { resetUrl: string }) {
   return send({
     to,

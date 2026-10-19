@@ -20,6 +20,9 @@ export enum LogAction {
   SEAT_CHANGE = 'SEAT_CHANGE', // an owner invites or removes a colleague
   PACKET_DELIVERY = 'PACKET_DELIVERY', // a family delivers a consented packet; a clinic opens it
   INVESTIGATION_REQUEST = 'INVESTIGATION_REQUEST', // a Record Desk request filed or moved by staff
+  // Workstream G (staff_console.md §12): a staff member verified, or could not
+  // verify, a bar number by hand. The row never carries the number.
+  BAR_VERIFICATION = 'BAR_VERIFICATION',
 }
 
 export class AuditService {

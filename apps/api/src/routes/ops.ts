@@ -14,6 +14,7 @@ import { listLedgers, scoreCaseRun } from '../services/eval-gate.service';
 import opsCommerceRoutes from './ops-commerce';
 import { opsOrganisationRoutes } from './ops-organisations';
 import { opsInvestigationRoutes } from './investigations';
+import { opsProfessionalRoutes, professionalOverview } from './ops-professional';
 
 /**
  * Ops console API (US-9, OPS-1..7) — ADMIN-only staff surface. Reads use the
@@ -28,7 +29,7 @@ const STALL_DAYS = 7;
 // the actions that unblock a family. Money, deletion, promos, drills, and
 // per-case cost stay ADMIN. Enforced here, not in the browser.
 const SUPPORT_WRITES = new Set(['delay-ours', 'delay-cleared', 'resume', 'contact', 'requests']);
-const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/invoices/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /^\/ops\/diagnostics/, /^\/ops\/costs/, /^\/ops\/cogs-by-case/, /\/cogs$/];
+const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/invoices/, /^\/ops\/credits/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /^\/ops\/diagnostics/, /^\/ops\/costs/, /^\/ops\/cogs-by-case/, /\/cogs$/];
 
 /** Fire-and-forget customer email to the case owner (never fails a request). */
 async function notifyCaseOwner(caseId: string, send: (email: string, origin: string) => Promise<unknown>) {
@@ -66,6 +67,8 @@ export default async function opsRoutes(fastify: FastifyInstance) {
   // Workstream I: organisations (grants, metrics) and Record Desk requests.
   fastify.register(opsOrganisationRoutes, { prefix: '/organisations' });
   fastify.register(opsInvestigationRoutes, { prefix: '/investigations' });
+  // Workstream G: bar verification, credits, the staff list (staff_console.md §12).
+  await fastify.register(opsProfessionalRoutes);
 
   // OPS-6 contact log: what Support said to the family, on the case file.
   fastify.post('/cases/:id/contact', async (request, reply) => {
@@ -173,11 +176,22 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       select: { caseId: true, user: { select: { email: true, name: true } } },
     });
     const ownerOf = new Map(owners.map((o) => [o.caseId, o.user]));
+    // Professional era (workstream G): whose organisation, and the matter's
+    // vehicle and cause number when counsel opened one. Family tenants have
+    // no Organisation row, so both read null for them.
+    const [orgs, matters] = await Promise.all([
+      prisma.organisation.findMany({ where: { tenantId: { in: [...new Set(cases.map((c) => c.tenantId))] } }, select: { id: true, name: true, kind: true, tenantId: true, isTest: true } }),
+      prisma.matter.findMany({ where: { caseId: { in: cases.map((c) => c.id) } }, select: { caseId: true, vehicle: true, causeNumber: true } }),
+    ]);
+    const orgOfTenant = new Map(orgs.map((o) => [o.tenantId, { id: o.id, name: o.name, kind: o.kind, isTest: o.isTest }]));
+    const matterOf = new Map(matters.map((m) => [m.caseId, { vehicle: m.vehicle, causeNumber: m.causeNumber }]));
     const now = Date.now();
     return cases.map((c) => ({
       ...c,
       customerName: ownerOf.get(c.id)?.name || null,
       customerEmail: ownerOf.get(c.id)?.email ?? null,
+      organisation: orgOfTenant.get(c.tenantId) ?? null,
+      matter: matterOf.get(c.id) ?? null,
       // The conviction (county + year) and the reference the family quotes —
       // `title` is a constant and identifies nothing.
       label: caseLabel(c),
@@ -995,8 +1009,12 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       storage = { ok: false, detail: `${(e as Error).message.slice(0, 60)} [${seen}]` };
     }
 
+    // Today's professional group (persona_rollout_plan.md §7 "Observability").
+    const professional = await professionalOverview();
+
     return {
       storage,
+      professional,
       email: process.env.RESEND_API_KEY
         ? { configured: true, from: process.env.EMAIL_FROM ?? 'Snot Nose Legal <noreply@snotnoselegal.com>' }
         : { configured: false, from: null },

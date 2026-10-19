@@ -320,6 +320,9 @@ function shapePayment(p: Payment, emailOf: Map<string, string>, caseOf: Map<stri
     refundedCents: p.refundedCents,
     remainingCents: remainingOf(p),
     promoCode: p.promoCode,
+    // Price-book attribution (workstream B/G): null on family rows.
+    sku: p.sku,
+    rung: p.rung,
     free: isFree(p),
     disputeStatus: p.disputeStatus,
     disputedAt: p.disputedAt,
@@ -441,6 +444,27 @@ export function weekOf(d: Date): string {
 
 const COLLECTED_STATUSES = ['SUCCEEDED', 'PARTIALLY_REFUNDED', 'REFUNDED'] as const;
 
+/** The counsel SKUs the Money page tiles by (staff_console.md §12); other SKUs appear as they are sold. */
+const RUNG_SKUS = ['COUNSEL_SHORT', 'COUNSEL_STANDARD', 'COUNSEL_EXTENDED', 'COUNSEL_LONG', 'PACK_SHORT', 'PACK_STANDARD', 'PACK_EXTENDED'] as const;
+
+/**
+ * Money by rung: every payment in the period that carries a SKU, summed per
+ * SKU, test organisations excluded (plan §7). Family rows carry no SKU and
+ * are never here — the six family tiles are computed exactly as before.
+ */
+export function rollupByRung(payments: Array<{ sku: string | null; amountCents: number; refundedCents: number }>) {
+  const byRung: Record<string, { count: number; cents: number; refundedCents: number }> = {};
+  for (const sku of RUNG_SKUS) byRung[sku] = { count: 0, cents: 0, refundedCents: 0 };
+  for (const p of payments) {
+    if (!p.sku) continue;
+    const r = (byRung[p.sku] ??= { count: 0, cents: 0, refundedCents: 0 });
+    r.count++;
+    r.cents += p.amountCents;
+    r.refundedCents += p.refundedCents;
+  }
+  return byRung;
+}
+
 export async function paymentsSummary(days: number, includeTest = false) {
   const from = new Date(Date.now() - days * 86_400_000);
   const stripeKey = process.env.STRIPE_SECRET_KEY ?? '';
@@ -496,6 +520,8 @@ export async function paymentsSummary(days: number, includeTest = false) {
   const { emailOf, caseOf } = await joinNames(disputedRaw);
   const { listRequests } = await import('./staff-requests.service');
   const requests = (await listRequests()).open;
+  const testTenants = new Set((await prisma.organisation.findMany({ where: { isTest: true }, select: { tenantId: true } })).map((o) => o.tenantId));
+  const byRung = rollupByRung(payments.filter((p) => !testTenants.has(p.tenantId)));
 
   return {
     stripe: !stripeKey ? 'unset' : stripeKey.startsWith('sk_live_') ? 'live' : 'test',
@@ -516,6 +542,7 @@ export async function paymentsSummary(days: number, includeTest = false) {
       needsDecision: disputedRaw.length + requests.length,
     },
     weeks: [...weeks.values()].sort((a, b) => (a.weekOf < b.weekOf ? 1 : -1)),
+    byRung,
     disputes: disputedRaw.map((p) => shapePayment(p, emailOf, caseOf)),
     requests,
     recentRefunds,
