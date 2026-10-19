@@ -15,6 +15,7 @@ export enum LogAction {
   INVOICE = 'INVOICE', // an admin created or marked paid an ACH invoice (workstream B)
   MATTER_OPENED = 'MATTER_OPENED', // counsel opened a matter (workstream C); ids and vehicle only, never initials or dates
   MATTER_UPDATED = 'MATTER_UPDATED', // counsel edited a matter; the changed KEYS only
+  PACKET_DOWNLOAD = 'PACKET_DOWNLOAD', // counsel fetched the counsel packet (workstream E); ids, version, format and switches only
   // Workstream I (persona_rollout_plan.md §5 I): organisations, seats, the clinic inbox, the Record Desk.
   ORGANISATION_CHANGE = 'ORGANISATION_CHANGE', // staff edits an organisation: kind, pilot, allowance, public-interest, isTest
   SEAT_CHANGE = 'SEAT_CHANGE', // an owner invites or removes a colleague
