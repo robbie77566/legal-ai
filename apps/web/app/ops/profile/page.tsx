@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { PasswordInput } from '@/components/auth/PasswordInput'
-import { getProfile, updateProfile, changePassword, type Profile } from '@/app/dashboard/account/_actions'
+import { getProfile, updateProfile, changePassword, type Profile } from '@/app/ops/profile/_actions'
 
 const ROLE_WORDS: Record<string, string> = {
   ADMIN: 'Ops administrator — everything, including money and deletion',

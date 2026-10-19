@@ -153,15 +153,15 @@ export default function PermissionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#161B22] text-white p-8 font-sans">
+    <div className="text-white font-sans" data-testid="ops-team">
       <header className="mb-8 border-b border-[#D4AF37]/20 pb-4 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-semibold text-[#D4AF37] flex items-center">
             <ShieldCheck className="w-6 h-6 mr-3" />
-            Permissions & Access
+            Team
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            Manage user roles and case-level access control.
+            Staff accounts: create one (sends the invite), change a role, resend an invite. Staff Console §2.
           </p>
         </div>
       </header>

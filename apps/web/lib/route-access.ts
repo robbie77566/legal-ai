@@ -4,17 +4,21 @@
  * is unit-tested row by row; middleware.ts only feeds it the token and path.
  * The API re-enforces the same matrix per route and is the real gate.
  *
- *  - /counsel               : PROFESSIONAL only
+ *  - /counsel               : PROFESSIONAL only (except /counsel/join, which the
+ *                             middleware does not match: an invitation is
+ *                             accepted signed out, token-verified by the API)
  *  - /ops                   : ADMIN | SUPPORT (the API narrows SUPPORT to reads + unblocking actions)
  *  - /qa                    : ADMIN | ATTORNEY
- *  - /dashboard, /workspace : staff only (never CLIENT)
  *  - /case, /account, /cases: any authenticated user
+ *
+ * /dashboard and /workspace (the 2025 mocked build) were removed by workstream
+ * F; the Team page lives at /ops/team and is gated with the rest of /ops.
  *
  * A PROFESSIONAL is never authorised for a staff surface, whatever the legacy
  * `role` column says: Role.ATTORNEY is a staff reviewer, not a customer.
  */
 const STAFF_ROLES = new Set(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER'])
-const STAFF_PATHS = ['/ops', '/qa', '/dashboard', '/workspace']
+const STAFF_PATHS = ['/ops', '/qa']
 
 export interface RouteIdentity {
   role?: unknown
@@ -39,8 +43,5 @@ export function isAuthorized(path: string, token: RouteIdentity | null | undefin
 
   if (path.startsWith('/ops')) return role === 'ADMIN' || role === 'SUPPORT'
   if (path.startsWith('/qa')) return role === 'ADMIN' || role === 'ATTORNEY'
-  if (path.startsWith('/dashboard') || path.startsWith('/workspace')) {
-    return STAFF_ROLES.has(role)
-  }
   return true // /case, /account, /cases — authentication is the only requirement here
 }
