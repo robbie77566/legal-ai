@@ -38,6 +38,7 @@ const PUBLIC_PATHS = new Set([
   '/healthz',
   '/buy/account',
   '/counsel/signup', // professional self-registration (rate-limited in-route like /buy/account)
+  '/counsel/pilot-interest', // the PD-pilot form on the public office/counsel pages (rate-limited in-route)
   // The buy page offers the promo field before the account exists; this route
   // only previews a code's own validity (never redeems, never reveals more
   // than "valid / not valid") and is rate-limited in-route. Redemption and the

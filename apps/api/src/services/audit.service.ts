@@ -20,6 +20,7 @@ export enum LogAction {
   SEAT_CHANGE = 'SEAT_CHANGE', // an owner invites or removes a colleague
   PACKET_DELIVERY = 'PACKET_DELIVERY', // a family delivers a consented packet; a clinic opens it
   INVESTIGATION_REQUEST = 'INVESTIGATION_REQUEST', // a Record Desk request filed or moved by staff
+  PILOT_INTEREST = 'PILOT_INTEREST', // the public PD-pilot form (workstream F); office and county only, never the sender's name or email
 }
 
 export class AuditService {
