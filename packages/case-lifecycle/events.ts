@@ -165,6 +165,30 @@ export const CASE_EVENT_SCHEMAS = {
         findingCount: count,
       })
       .strict(),
+    // v2 (eval gate, persona plan §5 J): how many of findingCount the
+    // verbatim grounding filter dropped, so a run's drop ratio is readable
+    // from the stream (the eval scorecard's "dropped at verification").
+    2: z
+      .object({
+        screen: z.enum([
+          'preserved_error',
+          'iac',
+          'brady',
+          'junk_science',
+          'sentencing',
+          'deadline',
+          'appeal_restoration',
+          'plea_lane',
+          'voir_dire',
+          'identification',
+        ]),
+        volumesRead: count.optional(),
+        volumesTotal: count.optional(),
+        pagesAnalyzed: count.optional(),
+        findingCount: count,
+        dropped: count,
+      })
+      .strict(),
   },
   'adjudication.completed': {
     1: z.object({ agreements: count, disagreements: count }).strict(),
