@@ -1022,3 +1022,38 @@ model Matter {
   @@index([tenantId, organisationId])
   @@index([openedBy])
 }
+
+// ── J: the weekly eval gate (persona_rollout_plan.md §5 J, §7 "What runs on
+// staging" item 2, §8 "Eval gate: weekly on all ledgers with cost per bucket") ─
+// One row per ledger per gate run. A SYSTEM table (no RLS, owner connection):
+// the gate reads across the eval tenant from the staff console and from the
+// GitHub workflow's machine token. caseId / runId / tenantId are plain
+// references so a deleted eval case leaves the gate history intact.
+enum EvalRunStatus {
+  QUEUED
+  RUNNING
+  SCORED
+  FAILED
+}
+
+model EvalRun {
+  id           String        @id @default(cuid())
+  ledger       String        // ledger file name under docs/evaluation/ledgers (gary, brian, …)
+  caseId       String        // the dedicated eval case this run created
+  tenantId     String        // the eval tenant (Organisation.isTest = true)
+  runId        String?       // AnalysisRun.id once the analysis finished
+  status       EvalRunStatus @default(QUEUED)
+  scorecard    Json?         // EvalScorecard + the run identity and the drop ratio
+  pass         Boolean?      // gateVerdict(ledger, scorecard).pass
+  reasons      Json?         // gateVerdict reasons (string[])
+  bucket       String?       // SHORT | STANDARD | EXTENDED | LONG (classifyRecord)
+  meteredPages Json?         // { reporter, clerk, exhibit, unknown }
+  costCents    Int?          // CostRecord total for the eval case, in cents
+  error        String?       // technical failure reason (never PII)
+  triggeredBy  String        // userId, or "eval-gate" for the machine token
+  startedAt    DateTime      @default(now())
+  finishedAt   DateTime?
+
+  @@index([startedAt])
+  @@index([ledger, startedAt])
+}
