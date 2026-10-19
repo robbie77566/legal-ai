@@ -8,6 +8,8 @@ import CaseSummaryBlock, { type SummaryRow, type SummaryGap } from '../../../../
 import { getPaletteVariant } from '../../../../../lib/ab'
 import FeedbackCard from '../../../../../components/FeedbackCard'
 import { apiFetch } from '@/lib/api'
+import { useContent } from '@/lib/i18n'
+import { NEW_EVIDENCE_CONTENT } from '@/lib/content/new-evidence'
 import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist } from '@hg/case-lifecycle'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
 
@@ -66,6 +68,8 @@ interface ReportData {
   subsequentWritMode: boolean
   renderedAt: string
   deadlinePosture?: DeadlinePosture | null
+  /** FR-10 (K3): from the case facts — the family said there is evidence never presented; `note` is their words. */
+  newEvidence?: { told: true; note?: string } | null
 }
 
 /** Tone colors follow the weight (PO, 2026-09-12): the most serious issue is
@@ -103,6 +107,25 @@ function FindingCard({ f }: { f: ReportFinding }) {
         )}
       </details>
     </div>
+  )
+}
+
+/**
+ * FR-10 (K3, UI spec §5.7): the new-evidence flag as its own card — what the
+ * family told us, in their words, never evaluated and never inferred.
+ */
+function NewEvidenceCard({ flag }: { flag: { told: true; note?: string } | null | undefined }) {
+  const copy = useContent(NEW_EVIDENCE_CONTENT)
+  if (!flag?.told) return null
+  const note = flag.note?.trim()
+  return (
+    <section className="mt-8 rounded-xl border-l-4 border border-db-line bg-db-surface p-4" style={{ borderLeftColor: 'var(--db-review)' }} data-testid="new-evidence-card">
+      <h2 className="font-db-serif text-xl font-semibold">{copy.title}</h2>
+      <p className="mt-2">{copy.body}</p>
+      <p className="mt-3 text-sm font-semibold text-db-muted">{copy.said}</p>
+      <p className="mt-1" data-testid="new-evidence-note">{note ? <q>{note}</q> : copy.answeredYes}</p>
+      <p className="mt-3 text-sm text-db-muted">{copy.next}</p>
+    </section>
   )
 }
 
@@ -422,6 +445,8 @@ export default function CaseReport() {
           </p>
         </section>
       )}
+
+      <NewEvidenceCard flag={data.newEvidence} />
 
       <section className="mt-8 rounded-xl border-2 border-db-accent bg-db-accent-soft p-5">
         <h2 className="font-db-serif text-xl font-semibold">What to do next</h2>

@@ -207,7 +207,9 @@ describe('born-digital PDF digitization (pdf-parse, no network)', () => {
       method: 'GET', url: `/cases/${caseId}/pages`, headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ billable: 2, duplicatesIgnored: 2, cap: 5000 });
+    // K1: the meter also reports the paid allowance so the documents page
+    // can show the overage card before the run button is pressed.
+    expect(res.json()).toEqual({ billable: 2, duplicatesIgnored: 2, cap: 5000, purchasedBlocks: 0, allowance: 5000 });
   });
 });
 

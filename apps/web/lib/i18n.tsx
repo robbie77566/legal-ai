@@ -55,6 +55,11 @@ export function useContent<T>(content: { en: T; es: T }): T {
   return content[lang]
 }
 
+/** Fill `{name}` placeholders in a content string — numbers are formatted by the caller. */
+export function tpl(s: string, vars: Record<string, string | number>): string {
+  return s.replace(/\{(\w+)\}/g, (_, k: string) => (vars[k] === undefined ? `{${k}}` : String(vars[k])))
+}
+
 /** Text-labeled switcher (never flags — i18n_localization.md R2). */
 export function LangSwitch({ className = '' }: { className?: string }) {
   const { lang, setLang } = useLang()

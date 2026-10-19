@@ -32,6 +32,10 @@ const SessionSchema = z.object({
   promoCode: z.string().max(32).optional(), // review purchases only (promo_codes.md)
   draftToken: z.string().max(64).optional(),
   caseId: z.string().max(64).optional(), // overage/rerun target
+  // Overage only (K1): how many 2,500-page blocks the record needs — the
+  // documents page sends the count the 402 named, so the family buys the
+  // whole shortfall in one purchase. Never a fraction, never zero.
+  blocks: z.number().int().min(1).max(100).optional(),
 });
 
 export default async function checkoutRoutes(fastify: FastifyInstance) {
@@ -191,7 +195,13 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ error: 'Consumer purchases only' });
     }
 
-    const { kind, draftToken, caseId, promoCode } = SessionSchema.parse(request.body);
+    const { kind, draftToken, caseId, promoCode, blocks: blocksRaw } = SessionSchema.parse(request.body);
+    // An overage attaches to an existing case — fulfilment would skip a
+    // session without one, so refuse it before any money moves.
+    if (kind === 'overage' && !caseId) {
+      return reply.status(400).send({ error: 'An overage purchase needs the case it is for' });
+    }
+    const blocks = kind === 'overage' ? blocksRaw ?? 1 : 1;
 
     // No pay button without the acknowledged disclosure set (W-2). Checked
     // before Stripe config so the contract holds in every environment.
@@ -257,7 +267,7 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
       mode: 'payment',
       line_items: [
         {
-          quantity: 1,
+          quantity: blocks,
           price_data: {
             currency: 'usd',
             unit_amount: amountCents,
@@ -276,11 +286,15 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
           },
         },
       ],
-      // A re-run lands back on ITS case, not the first-purchase success page.
+      // A re-run or an overage lands back on ITS case, not the first-purchase
+      // success page: the documents page re-reads the meter and the family
+      // marks the records complete from where they left off (K1).
       success_url:
         kind === 'rerun' && caseId
           ? `${origin}/case/${caseId}/documents?rerun=1`
-          : `${origin}/buy/success?session_id={CHECKOUT_SESSION_ID}`,
+          : kind === 'overage' && caseId
+            ? `${origin}/case/${caseId}/documents?overage=1`
+            : `${origin}/buy/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/buy?canceled=1`,
       // Managed Payments (Stripe as merchant of record) is default-on for new
       // accounts but its eligible-category list excludes this product; we are
@@ -298,6 +312,7 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
         kind,
         ...(draftToken ? { draftToken } : {}),
         ...(caseId ? { caseId } : {}),
+        ...(kind === 'overage' ? { blocks: String(blocks) } : {}),
         ...(appliedPromo ? { promoCode: appliedPromo } : {}),
       },
     });

@@ -71,7 +71,27 @@ export interface ReportPdfInput {
   /** Rows not confirmed from the record + the missing documents that would state them. */
   summaryGap?: { labels: string[]; documents: Array<{ kind: string; label: string }> } | null;
   rerunPriceCents?: number;
+  /**
+   * FR-10 (K3): the family told us about evidence that was never presented.
+   * Set only from the case facts; `note` is their own words, printed
+   * verbatim — never an inference. Absent or null: no section.
+   */
+  newEvidence?: NewEvidenceFlag | null;
 }
+
+export interface NewEvidenceFlag {
+  told: true;
+  note?: string;
+}
+
+/** The new-evidence section's copy — the same words the web report card shows (lib/content/new-evidence.ts). */
+export const NEW_EVIDENCE_COPY = {
+  title: 'Evidence that was never presented',
+  body: 'You told us about evidence that was never presented — this review can’t evaluate it, but your attorney must know about it.',
+  said: 'What you told us',
+  answeredYes: 'When we asked whether there is evidence that was never presented — like a recantation, an alibi, or a new witness — you answered yes.',
+  next: 'Tell your attorney about it in your first conversation — it is not in the court record, so nothing in this report speaks to it.',
+} as const;
 
 export interface SummaryRowLike {
   key: string;
@@ -319,6 +339,23 @@ export function renderFamilyReportBody(doc: Pdf, input: ReportPdfInput): void {
       .text(
         'Our review did not surface findings meeting our reporting threshold. This does not mean no issue exists — it means this screening, on these documents, did not find one. An attorney reviewing the full record may see more.'
       );
+  }
+
+  // ---- New evidence (FR-10, K3): its own section, after the findings and
+  // before the closing notes. Only what the family told us, in their words.
+  if (input.newEvidence?.told) {
+    doc.moveDown(0.8);
+    if (doc.y > doc.page.height - 180) doc.addPage();
+    doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text(NEW_EVIDENCE_COPY.title);
+    doc.moveDown(0.3);
+    doc.font('Helvetica').fontSize(10).fillColor('#222222').text(NEW_EVIDENCE_COPY.body);
+    doc.moveDown(0.3);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#444444').text(NEW_EVIDENCE_COPY.said);
+    const note = input.newEvidence.note?.trim();
+    doc.font('Helvetica').fontSize(10).fillColor('#222222').text(note ? `“${note}”` : NEW_EVIDENCE_COPY.answeredYes);
+    doc.moveDown(0.3);
+    doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#555555').text(NEW_EVIDENCE_COPY.next);
+    doc.moveDown(0.6);
   }
 
   doc.moveDown(1);

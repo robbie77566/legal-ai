@@ -122,7 +122,7 @@ Everything disclosed above the pay button as styled content cards: price + cap, 
 - Per-card upload button → file picker or camera. Phone-capture coach (one overlay: flat surface, fill the frame, good light) shown once, re-shown on low-confidence results.
 - Upload: direct presigned-S3 PUT (existing flow) with resumable/multi-file queue, per-file progress, offline-tolerant retry (TanStack Query mutation queue) — prison-family research says networks are unreliable.
 - **Echo-back card** after processing: "This looks like **Reporter's Record, Vol. 3** — 214 pages, *State v. ___*." [That's right] / [No, let me fix it]. Correction opens a simple picker of checklist types.
-- Page meter: pinned footer bar `2,140 / 5,000 pages` (IBM Plex Mono, tabular) that becomes an inline overage offer card at the cap — never a modal ambush. The "duplicates ignored: N" note's expander states the reassurance the data rule earns: *"Duplicates don't count toward your pages — but we still read every page you send"* (ENG-3 amendment: dedup reduces billing, never analysis).
+- Page meter: pinned footer bar `2,140 / 5,000 pages` (IBM Plex Mono, tabular) that becomes an inline overage offer card at the cap — never a modal ambush — **shipped 2026-10-19** (persona plan §3 family tail: the card names the page count, the 5,000 covered, the exact block count and total, buys through `POST /checkout/session` `{ kind: 'overage', blocks }`, and says nothing is lost while unpaid; the api's `records-complete` 402 is typed `OVERAGE_REQUIRED` and renders as the same card). The "duplicates ignored: N" note's expander states the reassurance the data rule earns: *"Duplicates don't count toward your pages — but we still read every page you send"* (ENG-3 amendment: dedup reduces billing, never analysis).
 - **"Records complete"** is a full-screen moment: gold wash, serif headline ("Your documents are complete. Your review has started."), the clock promise restated with a date.
 
 ### 5.6 S4/S5 — Tracker (`/case/[id]/status`)
@@ -141,7 +141,7 @@ Everything disclosed above the pay button as styled content cards: price + cap, 
 - Deadline panel renders dates in mono with the urgency color reserved for genuinely near dates; laches note on old convictions.
 - Every section ends with its next step (counsel guidance, §501.0081 note on time-credit findings, etc. per workflow S6).
 - Downloads: Part A PDF, Part B PDF, and a "share with a lawyer" packet link. Part B viewer is intentionally plain — it's for the attorney; don't consumerize it.
-- New-evidence flag (FR-10) renders as its own card: "You told us about evidence that was never presented — this review can't evaluate it, but your attorney must see it."
+- New-evidence flag (FR-10) renders as its own card: "You told us about evidence that was never presented — this review can't evaluate it, but your attorney must see it." — **shipped 2026-10-19** on the web report and in the family PDF (`ReportPdfInput.newEvidence`), after the findings and before "What to do next"; the family's own words from the facts, verbatim, never an inference (today the facts hold the yes/no answer only, so the card repeats the question and the answer until the interview captures a note). The counsel packet's Part A letter inherits it through the shared body renderer.
 
 ### 5.8 S7 — Next steps (`/case/[id]/next-steps`)
 - Consent card for clinic sharing: who, exactly what, revocable; default off; single explicit toggle + confirm (R-6/R-7 language reviewed by counsel).
