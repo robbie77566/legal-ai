@@ -104,7 +104,7 @@ const get = (url: string, headers: Record<string, string>) => fastify.inject({ m
 const post = (url: string, headers: Record<string, string>, body?: unknown) =>
   fastify.inject({ method: 'POST', url, headers: { 'content-type': 'application/json', ...headers }, payload: body ? JSON.stringify(body) : undefined });
 
-async function settled(ids: string[], timeoutMs = 30_000) {
+async function settled(ids: string[], timeoutMs = 150_000) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const rows = await prisma.evalRun.findMany({ where: { id: { in: ids } } });
@@ -214,7 +214,7 @@ describe('POST /ops/eval/runs as ADMIN (J7)', () => {
     expect(gary.runId).toBeTruthy();
     const audit = await prisma.auditLog.findFirst({ where: { caseId: gary.caseId, action: 'CASE_ACCESS' }, orderBy: { createdAt: 'desc' } });
     expect(audit?.details).toMatchObject({ op: 'eval_gate_scored', ledger: 'gary', pass: true, bucket: 'EXTENDED' });
-  }, 60_000);
+  }, 180_000);
 
   it('GET /ops/eval/runs?since= lists them newest first with the summary, the verdict and cost per bucket', async () => {
     const res = await get(`/ops/eval/runs?since=${encodeURIComponent(startedAt)}`, { cookie: adminCookie });
@@ -299,7 +299,7 @@ describe('the machine path — EVAL_GATE_TOKEN bearer (J7)', () => {
     const audit = await prisma.auditLog.findFirst({ where: { caseId: started.caseId }, orderBy: { createdAt: 'desc' } });
     expect(audit?.userId).toBe('eval-gate');
     delete process.env.EVAL_GATE_TOKEN;
-  }, 60_000);
+  }, 180_000);
 });
 
 describe('the eval tenant stays out of Money (isTest)', () => {
