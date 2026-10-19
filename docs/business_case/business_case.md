@@ -5,6 +5,8 @@
 
 > **Amendment (2026-09-15):** `professional_tier_expansion.md` re-cuts this case for two professional segments pursued ahead of roadmap v3 — public defender appellate attorneys and solo/small writ practices. Its base case adds ~$32k revenue and ~$14k contribution to year one and, more materially, seeds 23 professional seats twelve months earlier than §5.3 assumed. The recommendation in §1 below stands; §5.4's payroll-coverage arithmetic is revisited there.
 
+> **Amendment (2026-10-18):** the flat $199 Counsel Review that the expansion priced was superseded by the record-length ladder adopted in `../implementation/persona_rollout_plan.md` §4 ($149 / $249 / $349 by reporter's-record pages, Long by quote from $499, packs, first review free, PD pilots, public-interest allowance, Office 50/120/250 at $9,000 / $18,000 / $30,000; seats deferred). The $199 row in the §8 sensitivity table is a consumer price point and is unaffected.
+
 > **Scope of this document.** The market study established *that* a white space exists and *who* pays. This document is the investment decision: what it costs, what it returns, what must be true, when to stop. Figures marked `[estimated]` are modelled assumptions, not observed data; every driver is listed and individually adjustable in §11. Nothing here supersedes the PRD's product scope or the roadmap's sequencing.
 
 ---

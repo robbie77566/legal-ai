@@ -10,11 +10,11 @@ A consumer legal-AI service for **Texas post-conviction** families: a $299 flat-
 
 ```
 apps/
-  web/                 Next.js 14 (App Router) — customer surfaces, /qa console, /ops console
+  web/                 Next.js 14 (App Router) — family surfaces, professional surfaces (/for-counsel, /counsel; dark behind flags), /qa console, /ops console
   api/                 Fastify 5 — API, BullMQ workers (in-process), transactional outbox
 packages/
   database/            Prisma 5 schema + migrations, RLS policies, event-sourcing helpers
-  case-lifecycle/      Pure domain: state machine, event registry, checklists, calendar, FR-5 deadline engine
+  case-lifecycle/      Pure domain: state machine, event registry, checklists, calendar, FR-5 deadline engine, TRAP clock, pricing ladder
   auth/                Session-token helpers (NextAuth v4 JWT compatible)
   email/               Transactional email (Resend; honest console transport without a key)
   reports/             Customer report PDF renderer (pdfkit)
@@ -192,9 +192,11 @@ Summarized from the readiness plan — read it before provisioning anything:
 
 Day-2 operations, failure modes (all learned live, none hypothetical), and the blocked-on-external launch checklist: **[docs/operations/runbook.md](docs/operations/runbook.md)**.
 
-Key surfaces: `/ops` (overview, holds, cases, accounts, promos, retention, health) · `/ops/cases/<id>` (the case file: uploads, analysis, what the family received, contact log, requests) · `/ops/money` (payments audit, full/partial refunds, disputes, reconciliation) · `/qa` (review queue, edits with reading-level lint, run diff, approve/reject) · `/dashboard/permissions` (create staff accounts — sends the invite email — change roles) · customer case home at `/case/<id>` (facts, stage, one next action, report versions) with Documents · Progress · Report · Next steps one click away.
+Key surfaces: `/ops` (overview, holds, cases, accounts, promos, retention, health) · `/ops/cases/<id>` (the case file: uploads, analysis, what the family received, contact log, requests) · `/ops/money` (payments audit, full/partial refunds, disputes, reconciliation) · `/qa` (review queue, edits with reading-level lint, run diff, approve/reject) · `/ops/team` (create staff accounts — sends the invite email — change roles) · `/ops/flags` (feature flags with per-organisation overrides) · `/ops/verifications` (bar numbers, checked by a person) · customer case home at `/case/<id>` (facts, stage, one next action, report versions) with Documents · Progress · Report · Next steps one click away.
 
 Customer facts, re-runs, lock semantics, and the smaller journey items (resumable check, pending-appeal reminders, remembered interstitial): [docs/specifications/case_facts_and_rerun.md](docs/specifications/case_facts_and_rerun.md). Staff roles: `ADMIN` (everything), `SUPPORT` (case files, customers, feedback, unblocking actions; refunds and deletions become requests an admin decides), `ATTORNEY` (`/qa`). Details: [docs/specifications/staff_console.md](docs/specifications/staff_console.md).
+
+Professional era (2026-10-19): accounts carry an `accountKind` (`FAMILY` / `PROFESSIONAL` / `STAFF`) and professionals belong to an `Organisation` (firm, PD office, clinic) with seats; every counsel surface (`/for-counsel`, `/counsel`, the ladder checkout, offices, the clinic inbox, the Record Desk) ships dark behind a `FeatureFlag` with per-organisation overrides, flipped from `/ops/flags` without a deploy (staff_console.md §10–§12, design/snotnoselegal_site_design.md §8). Staging has been live since 2026-10-18: `render.staging.yaml` deploys `main` and the Playwright suite runs against it after every merge (docs/operations/environment_reference.md → Staging).
 
 ## Engineering invariants (do not break these)
 

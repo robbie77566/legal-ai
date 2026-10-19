@@ -125,6 +125,8 @@ Three consequences for the product:
 
 ### 5.1 Offer and pricing
 
+> **Superseded 2026-10-18 by the record-length ladder adopted in `../implementation/persona_rollout_plan.md` §4: Counsel Review $149 / $249 / $349 by reporter's-record pages, Long by quote from $499, five-record pack 10% off, first review free with a verified bar number, PD pilot free for 90 days / 15 records, public-interest 25 records a year, Office 50/120/250 at $9,000 / $18,000 / $30,000; the Advocate/Chambers seats are deferred until a measured repeat rate.** The analysis below is kept as written.
+
 Three offers, in the order they can be built and sold:
 
 | Offer | Price | For | What it is | Rails |
@@ -191,6 +193,8 @@ The platform was designed multi-tenant for law firms and narrowed to single-memb
 
 ### 6.2 The landing page — `/for-counsel`
 
+> **Superseded 2026-10-18 by the record-length ladder adopted in `../implementation/persona_rollout_plan.md` §4: Counsel Review $149 / $249 / $349 by reporter's-record pages, Long by quote from $499, five-record pack 10% off, first review free with a verified bar number, PD pilot free for 90 days / 15 records, public-interest 25 records a year, Office 50/120/250 at $9,000 / $18,000 / $30,000; the Advocate/Chambers seats are deferred until a measured repeat rate.** The `$199` CTA in item 1 reads from the ladder on the live page (`apps/web/lib/content/professional.ts`); the section structure below is what shipped.
+
 The consumer site speaks in Daybreak's voice to a family under stress; that voice is wrong for a lawyer under deadline. The professional page keeps the design tokens and drops the tone. It is a separate route, not a variant of the home page, because the audiences must never see each other's copy.
 
 **Sections, in order:**
@@ -220,6 +224,8 @@ The v3 workspace — interactive Neo4j graph, side-by-side chat, drafting with B
 ## 7. Business analysis — impact on the business case and twelve-month financials
 
 ### 7.1 Unit economics per line
+
+> **Superseded 2026-10-18 by the record-length ladder adopted in `../implementation/persona_rollout_plan.md` §4: Counsel Review $149 / $249 / $349 by reporter's-record pages, Long by quote from $499, five-record pack 10% off, first review free with a verified bar number, PD pilot free for 90 days / 15 records, public-interest 25 records a year, Office 50/120/250 at $9,000 / $18,000 / $30,000; the Advocate/Chambers seats are deferred until a measured repeat rate.** The $199 row is the superseded price; the per-rung economics are in `attorney_offering_and_pricing.md`.
 
 | Line | Price | COGS | Contribution | Margin | COGS basis |
 |---|---:|---:|---:|---:|---|
@@ -312,6 +318,8 @@ The bear case is negative: channel spend of ~$10k is committed regardless of upt
 ---
 
 ## 9. Decisions requested
+
+> **Superseded 2026-10-18 by the record-length ladder adopted in `../implementation/persona_rollout_plan.md` §4: Counsel Review $149 / $249 / $349 by reporter's-record pages, Long by quote from $499, five-record pack 10% off, first review free with a verified bar number, PD pilot free for 90 days / 15 records, public-interest 25 records a year, Office 50/120/250 at $9,000 / $18,000 / $30,000; the Advocate/Chambers seats are deferred until a measured repeat rate.** Decision 1 is therefore resolved as the ladder, not the flat price.
 
 1. **Approve Counsel Review at $199 as the first professional offer**, launching on existing Checkout rails at month 4, ahead of seats.
 2. **Approve three free PDO pilots** and the founder's time to run them, with the conversion ask tied to the county budget calendar.

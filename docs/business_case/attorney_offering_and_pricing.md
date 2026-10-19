@@ -4,6 +4,8 @@ Snot Nose Legal should sell attorneys the same engine it sells families as a **p
 
 ## Executive summary: a record-length ladder, no seats, an office allowance
 
+> **Adopted 2026-10-18** as the ladder in `../implementation/persona_rollout_plan.md` §4 and implemented in `packages/case-lifecycle/pricing/` (the plan adds Office 250 at $30,000); every "$199" in this document is the superseded flat price of `professional_tier_expansion.md`.
+
 The recommended offering is one product in three sizes plus an office wrapper. **Counsel Review** runs the seven TRIAL screens (preserved error, ineffective assistance, Brady, junk science, sentencing, voir dire, identification) or the two PLEA screens on one uploaded record and delivers the Part B packet, the counsel priority list and the investigation checklist, with Part A off by default, on existing Stripe Checkout rails ([analysis.service.ts](/home/user/legal-ai/apps/api/src/services/analysis.service.ts); [professional_tier_expansion.md §5.1](/home/user/legal-ai/docs/business_case/professional_tier_expansion.md)). It is priced by the reporter's-record bucket the TIDC Appellate Addendum uses — under 100 pages, 100–500, 500–1,500, over 1,500 — because that is "one of the few consistently available indicators of difficulty and attorney effort" and "widely used as a caseload metric among appellate defender offices" ([Addendum p. 9](https://tidc.texas.gov/media/xjvdibv2/guidelines-for-indigent-defense-caseloads-appellate-addendum-12142016.pdf)), and because the engine's own cost moves with tokens, which move with pages ([internal unit economics §2](/home/user/legal-ai/research_notes/Attorney%20offering%20and%20pricing/internal_unit_economics.md)).
 
 | Unit | Price | Status vs today | Basis |

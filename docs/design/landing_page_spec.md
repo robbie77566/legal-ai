@@ -1,6 +1,6 @@
 # Landing Page & Purchase Flow Specification — snotnoselegal.com
 
-**Status:** Draft for design/engineering review · **Owner:** Product/Design · **Last updated:** 2026-08-29
+**Status:** Draft for design/engineering review · **Owner:** Product/Design · **Last updated:** 2026-10-19 (§7 added; §1–§6 unchanged since 2026-08-29)
 **Companions:** `mvp_ui_design_spec.md` (Daybreak system — this page uses its tokens) · `mvp_workflow_design.md` (S0/S1 stages this page feeds) · `mvp_v1_prd.md` (US-0/US-1, R-1–R-7)
 
 ## 1. Conversion strategy
@@ -77,3 +77,9 @@ Each rendered as a card, plain language, in this order:
 Visit → check-start rate (target ≥ 25%); check completion ≥ 80%; good-fit → disclosure-ack ≥ 60%; disclosure-ack → paid ≥ 70%; honesty-exit quality (not-a-fit visitors who use the resources links — a health metric, not a loss).
 
 **Experimentation:** the landing page is the highest-power A/B surface (experiments E1–E4 in `../specifications/analytics_experimentation_plan.md`: hero framing, CTA label, anchor position, price-section layout). Winning copy variants still pass the R-5 tone review before entering the §2 canon — experiments never bypass the copy canon. The §4.3 red lines apply: disclosures, not-legal-advice language, and urgency mechanics are never tested.
+
+## 7. The professional route group (added 2026-10-19)
+
+Since 2026-10-19 the public pages `/for-counsel`, `/for-offices` and `/for-investigators` and the signed-in `/counsel` app exist as a separate Next.js route group (`apps/web/app/(professional)/*` and `apps/web/app/(counsel)/*`) with its own navigation, footer and voice (`snotnoselegal_site_design.md` §8). Nothing in §1–§6 changes for them: the family nav and home never link to them, the only crossing is one "For counsel" text link in the family `SiteFooter`, and the professional pages never link to `/review` or `/check`. They are served dark behind the `counsel_surfaces` flag (the public pages always render; the sign-up form says "Sign-ups open January 2027" while the global flag is off). Their prices are the adopted ladder in `../implementation/persona_rollout_plan.md` §4, never the older $199.
+
+The family copy canon in §2 and §4–§5 still promises human review of every report ("Reviewed by a trained legal reviewer", "checked by a person, every time", the report page's "approved by a trained legal reviewer"); the live landing and footer copy in `apps/web/lib/content/landing.ts` has been softened to quality gates with human review when anything looks off, but the canon here, the report page and the disclosures page have not. The founder's rewrite of that promise is a launch gate before AUTO_APPROVE is turned on or `/for-counsel` goes live (runbook → Auto-delivery; persona rollout plan §7 go-live gates).
