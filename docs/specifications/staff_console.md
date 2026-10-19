@@ -9,24 +9,28 @@
 
 | Role | Who | Lands on | Sees in the `/ops` nav |
 |---|---|---|---|
-| `ADMIN` | founder / ops | `/ops` | Overview · Holds · Cases · Accounts · Promos · Money · Feedback · Retention · Flags · Team |
-| `SUPPORT` | customer-facing staff (new) | `/ops` | Overview · Cases · Accounts · Feedback |
+| `ADMIN` | founder / ops | `/ops` | Overview · Holds · Cases · Organisations · Verifications · Quotes · Record Desk · Accounts · Promos · Money · Feedback · Retention · Flags · Team |
+| `SUPPORT` | customer-facing staff (new) | `/ops` | Overview · Cases · Organisations · Verifications · Quotes · Record Desk · Accounts · Feedback (the four professional pages read-only; the Record Desk lets Support move a request along, §12) |
 | `ATTORNEY` | quality reviewer | `/qa` | (no `/ops` access) |
 | `CLIENT` | the family | `/cases` | never reaches `/ops` |
 
 Admin is a superset of Support by construction. The web nav is UX gating only (`apps/web/app/ops/layout.tsx`, `apps/web/middleware.ts`); the API hook in `apps/api/src/routes/ops.ts` is the real gate:
 
 - `ADMIN`: everything under `/ops`.
-- `SUPPORT`: every `GET` except `/ops/payments*`, `/ops/refunds`, `/ops/promos`, `/ops/retention-candidates`, `/ops/sentry-test`, `…/cogs`; and exactly these `POST`s on a case: `delay-ours`, `delay-cleared`, `resume`, `contact`, `requests`. Everything else is 403 with a sentence saying who can.
+- `SUPPORT`: every `GET` except `/ops/payments*`, `/ops/refunds`, `/ops/invoices*`, `/ops/credits*`, `/ops/promos`, `/ops/retention-candidates`, `/ops/sentry-test`, `…/cogs`; exactly these `POST`s on a case: `delay-ours`, `delay-cleared`, `resume`, `contact`, `requests`; and `PATCH /ops/investigations/:id` limited in-route to `IN_PROGRESS` / `DELIVERED`. Everything else is 403 with a sentence saying who can.
 
 ## 2. Pages
 
 | Route | Purpose | Roles |
 |---|---|---|
-| `/ops` | Overview: "Needs you now" (holds, stalls, retention, **Approvals** for admins / **Waiting on an admin** for support), health tiles (admin), case table + drawer | Admin, Support |
-| `/ops/cases` | Every case, searchable, in the family's stage wording, linking to its case file | Admin, Support |
+| `/ops` | Overview: "Needs you now" (holds, stalls, retention, **Approvals** for admins / **Waiting on an admin** for support), **Professional** group (§12: five numbers, each a door), health tiles (admin), case table + drawer | Admin, Support |
+| `/ops/cases` | Every case, searchable, in the family's stage wording, with the organisation and the matter's vehicle / cause number, filter by organisation kind, linking to its case file | Admin, Support |
 | `/ops/cases/:id` | **Case file**: uploads (page counts, OCR confidence, quarantine, signed download), analysis (screens done, findings as the family reads them, Part B folded), what the family received (every report version as PDF, share link opens), **contact log**, requests, timeline; actions: mark/clear delay, resume pipeline; Admin: Refund door + decide requests; Support: Request refund / Request deletion | Admin, Support |
-| `/ops/money` | Payments audit: six tiles (collected, refunded, net, refund rate vs 5% reserve, cost of reviews, needs a decision), weekly rollup (cohort view: refunds attributed to the week the payment was sold), open disputes + support requests, refund ledger, full payments table with Stripe deep-links, **refund dialog** (full or partial, reason, note), reconcile-now | Admin |
+| `/ops/money` | Payments audit: six tiles (collected, refunded, net, refund rate vs 5% reserve, cost of reviews, needs a decision), weekly rollup (cohort view: refunds attributed to the week the payment was sold), open disputes + support requests, refund ledger, full payments table with Stripe deep-links, **refund dialog** (full or partial, reason, note), reconcile-now; **professional era (§12):** tiles by counsel rung, the ACH invoices table (DRAFT from the selected counsel cases of one organisation, mark paid with the ACH reference), the credits panel, a rung column on the ledger | Admin |
+| `/ops/verifications` | **Bar verification queue** (§12): every professional account with an unverified bar number; Verify / Could not verify (note). A human act — no State Bar lookup | Admin (decides), Support (read-only) |
+| `/ops/organisations`, `/ops/organisations/:id` | Firms, PD offices, clinics: kind, pilot, allowance used/remaining (from `/metrics`), test flag; the detail page edits the profile and grants (PATCH), starts the pilot, grants the public-interest allowance, lists members, pending invitations, metrics and (Admin) the organisation's invoices | Admin (writes), Support (read-only; no invoices) |
+| `/ops/quotes` | Open Long-record quote requests with the metered pages and the attorney's note; answer with a price or a decline + note | Admin (decides), Support (read-only) |
+| `/ops/record-desk` | The Record Desk queue: status, organisation, kind, pages, due, assigned reviewer (picker from `/ops/staff`), SLA badge (10 business days), the staff note the organisation reads | Admin; Support may assign, note, and move to IN_PROGRESS / DELIVERED |
 | `/ops/flags` | **Feature flags** (§10): the six dark professional surfaces, global switch, per-organisation overrides | Admin (flips), Support (read-only) |
 | `/dashboard/permissions` | Create staff accounts (sends the invite), change roles, resend invites | Admin (linked as **Team** in the nav) |
 | `/auth/setup-password` | Invite acceptance — the first password for an admin-created account | public, token-verified |
@@ -173,3 +177,38 @@ Counsel routes (`apps/api/src/routes/counsel-checkout.ts`, mounted under `/couns
 Ops routes (`apps/api/src/routes/ops-commerce.ts`, registered inside the `/ops` role hook): `GET /ops/quote-requests` (`?status=`; SUPPORT may read), `POST /ops/quote-requests/:id/decide` `{ quotedCents | decline, note? }` (ADMIN; `QUOTE_DECISION` audit row + `quote.decided` case event; never twice), `GET /ops/invoices` (money — denied to SUPPORT like `/ops/payments`), `POST /ops/invoices` `{ organisationId, caseIds, centsByCase? }` (ADMIN creates a `DRAFT` with one line per case priced from the counsel ladder — the accepted quote's SKU, else the stored bucket — cases outside the organisation refused), `POST /ops/invoices/:id/mark-paid` `{ achReference }` (ADMIN; `PAID`, `paidAt`, `paidBy`). Every write is one `INVOICE` or `QUOTE_DECISION` audit row.
 
 Environment: `STRIPE_PRICE_COUNSEL_*` and `STRIPE_PRICE_PACK_*` are optional secrets on `api` / `api-staging` (`docs/operations/environment_reference.md`, Commerce). Tests: `apps/api/tests/price-book.integration.test.ts` (B6), `apps/api/tests/counsel-checkout.integration.test.ts` (B7–B11), `apps/api/tests/ops-commerce.integration.test.ts` (B12).
+
+## 12. Professional-era staff jobs (workstream G, 2026-10-19)
+
+The January slice of persona_rollout_plan.md §5 G: the console gains the jobs the professional personas create for staff (plan §3 "Staff"). No schema change and no new environment variable; every route sits inside the `/ops` hook (§1) and every write is one audit row through `AuditService`. Routes in `apps/api/src/routes/ops-professional.ts` unless named otherwise; pages under `apps/web/app/ops/*`; typed helpers in `apps/web/lib/api.ts`.
+
+**Bar verification — a human act.** `User.barNumber` is stored unverified at sign-up (§11). A staff member looks the number up in the State Bar of Texas directory *themselves*, checks the name, and presses one of two buttons. Nothing in the product calls the State Bar, and nothing ever will without a policy decision: the directory's terms, and the attorney's expectation that we do not scrape their licence, both say so. Audit action `BAR_VERIFICATION`, under `caseId = verification:<userId>` and the attorney's tenant; **the bar number never enters an audit row or an email.**
+- `GET /ops/verifications` → `{ verifications: [{ id, name, email, barNumber, barState, practiceType, signedUpAt, organisation: { id, name, kind, isTest } | null, seat }] }` — `PROFESSIONAL` accounts with a bar number, `barVerifiedAt` null, not deleted, and not yet rejected. Support may read.
+- `POST /ops/verifications/:userId/verify` (Admin) — sets `barVerifiedAt` / `barVerifiedBy`; audit `{ op: 'verified', before: { barVerifiedAt: null }, after: { barVerifiedAt, barVerifiedBy } }`; sends `sendBarVerified` ("your bar number is verified — your first review is free", with the link to `/counsel`). Already verified → 409; not a professional with a bar number → 404. Answers `{ ok, userId, barVerifiedAt, barVerifiedBy, emailed }`.
+- `POST /ops/verifications/:userId/reject` `{ note }` (Admin; the note is required) — **keeps the account and clears nothing**: the decision and its reason live only in the audit row `{ op: 'rejected', note }`, which is internal and is never shown to the attorney. Sends `sendBarNotVerified`, a neutral "we could not verify" with no reason and no number, and a way to reply. After either decision the queue no longer lists the person (the rejected set is read back from the audit rows, so a reject is reversible by verifying later).
+
+**The Today page's professional group** (plan §7 "Observability"). `GET /ops/status` carries `professional`, computed by `professionalOverview()`:
+
+| Number | Definition | Door |
+|---|---|---|
+| `verificationsPending` | the verification queue's length | `/ops/verifications` |
+| `quoteRequestsOpen` | `QuoteRequest` rows at `OPEN` | `/ops/quotes` |
+| `pilotRecordsThisWeek` | `AllowanceEntry` rows of kind `PILOT` consumed since Monday (America/Chicago week), test organisations excluded | `/ops/organisations` |
+| `allowancesNearZero: [{ organisationId, organisation, kind, granted, remaining, pilot, publicInterest }]` | non-family, non-test organisations with a grant whose `remaining = allowanceRecords − count(AllowanceEntry)` is **2 or fewer** | `/ops/organisations` |
+| `investigationsPastSla: [{ id, organisation, kind, status, businessDaysOpen, createdAt, dueBy, assignedTo }]` | `OPEN` / `IN_PROGRESS` requests more than **10 business days** old (`LAUNCH_SLA_BUSINESS_DAYS`, the same calendar as the family promise: `businessDaysBetween` in `packages/case-lifecycle/calendar.ts`, America/Chicago civil dates), test organisations excluded | `/ops/record-desk` |
+
+`GET /ops/investigations` rows also carry `businessDaysOpen` and `pastSla`, so the Record Desk page shows the badge without recomputing it. The allowance ledger read here is workstream B's `AllowanceEntry` (the row the decrement writes); `GET /ops/organisations/:id/metrics` still counts analysed matters (§11, workstream I) and may read one higher for a record that reached analysis without an allowance.
+
+**Money.** `GET /ops/payments` rows and the summary's `disputes` carry `sku` and `rung` (null on family rows). `GET /ops/payments/summary` carries `byRung: { COUNSEL_SHORT: { count, cents, refundedCents }, COUNSEL_STANDARD, COUNSEL_EXTENDED, COUNSEL_LONG, PACK_* , … }` — every payment in the period with a SKU, test organisations excluded; the six family tiles are computed exactly as before. `GET /ops/credits[?organisationId=]` → `{ issued, consumed, expired, live, rows: [{ id, packId, rung, state LIVE | CONSUMED | EXPIRED, issuedAt, expiresAt, consumedAt, consumedCaseId, paymentId, organisation, buyer }] }` — money, so denied to Support like `/ops/payments`. The invoices (`/ops/invoices*`, §11 B) are unchanged and now have a page: the Money page drafts from the selected counsel cases of one organisation (the queue's `organisation` column decides which cases are offered) and marks paid with the ACH reference; the organisation's detail page lists its own.
+
+**Organisation columns.** `GET /ops/queue` rows carry `organisation: { id, name, kind, isTest } | null` (the tenant's Organisation row; families have none) and `matter: { vehicle, causeNumber } | null`. The case file (`GET /ops/cases/:id/file`, `case-file.service.ts`) carries `organisation`, `matter`, `quote` (the settled decision: `method`, `sku`, `rung`, `at`, and the payment / credit / allowance-entry id), `quoteRequest` (the latest Long-record request with its status and `quotedCents`) and `allowance` (the `AllowanceEntry` that paid for the record) — all null on a family case.
+
+**Staff list.** `GET /ops/staff` → `{ staff: [{ id, name, email, role }] }` for `ADMIN`, `SUPPORT` and `ATTORNEY` accounts: the reviewer picker on the Record Desk. Support may read.
+
+**QA edits widened.** `PATCH /qa/findings/:findingId` (`apps/api/src/routes/qa.ts`, reviewers and admins) now accepts `partBText` (1–8000), `harmStandard` (`structural | constitutional | nonconstitutional | none`) and `develop` (≤ 2000, null clears) beside `partAText` and `preserved`; an empty patch is 400. The vehicle is still derived (`vehicleFor`) whenever `preserved` or `harmStandard` changes, provenance flips to `ai_human_edited` as before, the `qa.edited` event is the same, and the single `QA_EDIT` audit row names `fields` and carries `before` / `after` for the structured fields (never the free text) and the vehicle when it moved. The `/qa` page edits the three fields beside Part A and sends only what changed.
+
+**Role matrix (G2).** Support: 200 on every new read and on `/ops/status`, `/ops/queue`, the case file; 403 on every write except `PATCH /ops/investigations/:id` to `IN_PROGRESS` / `DELIVERED`; 403 on `/ops/credits` and `/ops/invoices` (money). A reviewer (`Role.ATTORNEY`): 403 on all of `/ops`, 200 on `/qa`. A `PROFESSIONAL`: 403 on everything under `/ops` and `/qa` (the auth plugin, §11). Web nav per role in `apps/web/app/ops/layout.tsx`.
+
+**Tests.** `apps/api/tests/ops-professional.integration.test.ts` (G1 every write audited with actor and before/after; G2 the matrix; G3 the two emails, no bar number in either, the queue forgets the person; G4 the Today group from seeded data; the Money, queue and case-file columns); `apps/web/tests/unit/OpsProfessional.test.tsx` (G5: nav per role, the verification queue and its helpers, the per-rung tiles, invoices and credits, the Today group, the cases columns and filter, the Record Desk picker and SLA badge, the three widened QA fields).
+
+**Out of scope here** (later slices): the Record Desk verification view and exports (workstream H, February–April), PDF invoice statements (B, February), ACH reconciliation, the counsel pages (F), the packet (E2).

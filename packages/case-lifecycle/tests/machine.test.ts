@@ -130,6 +130,18 @@ describe('business-day calendar (ENG-9)', () => {
     expect(addBusinessDays('2026-11-20', 10)).toBe('2026-12-07') // Thanksgiving inside
   })
 
+  it('counts business days elapsed on the same calendar (the Record Desk SLA, workstream G)', async () => {
+    const { addBusinessDays, businessDaysBetween } = await import('../calendar')
+    expect(businessDaysBetween('2026-11-20', '2026-12-07')).toBe(10) // the inverse of the SLA date above
+    expect(businessDaysBetween('2026-09-04', '2026-09-08')).toBe(1) // weekend + Labor Day skipped
+    expect(businessDaysBetween('2026-10-02', '2026-10-19')).toBe(11) // past a 10-day SLA
+    expect(businessDaysBetween('2026-10-16', '2026-10-18')).toBe(0) // Friday to Sunday: nothing elapsed
+    expect(businessDaysBetween('2026-10-19', '2026-10-19')).toBe(0)
+    expect(businessDaysBetween('2026-10-19', '2026-10-01')).toBe(0) // never negative
+    // Round trip with addBusinessDays for any business-day start.
+    expect(businessDaysBetween('2026-08-31', addBusinessDays('2026-08-31', 7))).toBe(7)
+  })
+
   it('derives the civil start date in America/Chicago, not UTC', async () => {
     const { expectedReadyDate } = await import('../calendar')
     // 03:00 UTC on the 30th is still the 29th (a Saturday) in Chicago;
