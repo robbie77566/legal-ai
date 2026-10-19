@@ -21,14 +21,14 @@ const caseSelect = {
   // Record inventory (workstream D): the meter projection, read-only here.
   recordBucket: true, meteredPages: true, inventoryAt: true,
   // Which deliverable the case gets (workstream E): a Matter row means the counsel packet.
-  matter: { select: { id: true, vehicle: true } },
+  matter: { select: { id: true, vehicle: true, lane: true, county: true, court: true, causeNumber: true, clientInitials: true } },
 } as const;
 
 export async function getCaseFile(caseId: string) {
   const kase = await prisma.case.findUnique({ where: { id: caseId }, select: caseSelect });
   if (!kase) return null;
 
-  const [owner, documents, findings, runs, reports, shareLinks, screenEvents, notes, requests, organisation, matter, quote, quoteRequest, allowance] = await Promise.all([
+  const [owner, documents, findings, runs, reports, shareLinks, screenEvents, notes, requests, organisation, quote, quoteRequest, allowance] = await Promise.all([
     prisma.caseAccess.findFirst({ where: { caseId, role: 'ADMIN' }, select: { userId: true } }),
     prisma.document.findMany({
       where: { caseId },
@@ -45,11 +45,10 @@ export async function getCaseFile(caseId: string) {
     prisma.caseEvent.findMany({ where: { caseId, type: 'screen.completed' }, select: { payload: true, createdAt: true } }),
     listSupportNotes(caseId),
     listRequests({ caseId }),
-    // Professional era (workstream G): whose organisation, the counsel matter,
+    // Professional era (workstream G): whose organisation (the matter rides on the case select above),
     // how the quote was settled, any Long-record quote request, and the
     // allowance entry that paid for the record. All null on a family case.
     prisma.organisation.findUnique({ where: { tenantId: kase.tenantId }, select: { id: true, name: true, kind: true, pilot: true, publicInterest: true, isTest: true } }),
-    prisma.matter.findUnique({ where: { caseId }, select: { id: true, vehicle: true, lane: true, county: true, court: true, causeNumber: true, clientInitials: true } }),
     withTenant(kase.tenantId, (tx) => settledQuote(tx, caseId)),
     prisma.quoteRequest.findFirst({ where: { caseId }, orderBy: { createdAt: 'desc' }, select: { id: true, status: true, quotedCents: true, meteredPages: true, note: true, decidedAt: true, createdAt: true } }),
     prisma.allowanceEntry.findUnique({ where: { caseId }, select: { id: true, kind: true, consumedAt: true, consumedBy: true, organisationId: true } }),
