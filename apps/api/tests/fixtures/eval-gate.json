@@ -1,0 +1,43 @@
+{
+  "ledgers": [
+    { "name": "brian", "caseTitle": "Brazoria 78734-CR", "provenance": "ATTORNEY-SIGNED", "mustFind": 7, "verdicts": 0 },
+    { "name": "gary", "caseTitle": "San Jacinto CR13893", "provenance": "ATTORNEY-SIGNED", "mustFind": 5, "verdicts": 0 }
+  ],
+  "costPerBucket": {
+    "SHORT": { "n": 0, "meanCents": null, "totalCents": 0, "unpriced": 0 },
+    "STANDARD": { "n": 0, "meanCents": null, "totalCents": 0, "unpriced": 0 },
+    "EXTENDED": { "n": 3, "meanCents": 1850, "totalCents": 5550, "unpriced": 1 },
+    "LONG": { "n": 0, "meanCents": null, "totalCents": 0, "unpriced": 0 }
+  },
+  "runs": [
+    {
+      "id": "er_old", "ledger": "gary", "caseId": "c_old", "runId": "run_old", "status": "SCORED", "pass": true, "reasons": [],
+      "bucket": "EXTENDED", "meteredPages": { "reporter": 602, "clerk": 0, "exhibit": 0, "unknown": 0 }, "costCents": 1850, "error": null,
+      "triggeredBy": "u_admin", "startedAt": "2026-10-05T09:15:00.000Z", "finishedAt": "2026-10-05T10:05:00.000Z",
+      "summary": { "mustFindTotal": 5, "found": 5, "missed": [], "recall": 1, "precision": null, "droppedAtVerification": 0.05, "model": "engine-prod", "promptSet": "v2", "promptHash": "0ldhash00000", "findings": 20, "margin": 0.947, "priceCents": 34900, "bucketNote": null }
+    },
+    {
+      "id": "er_brian", "ledger": "brian", "caseId": "c_b", "runId": "run_b", "status": "SCORED", "pass": false,
+      "reasons": ["recall_below_floor: 86% found, floor 100%", "missed:willetts-seated-juror"],
+      "bucket": "EXTENDED", "meteredPages": { "reporter": 1013, "clerk": 0, "exhibit": 0, "unknown": 0 }, "costCents": 2400, "error": null,
+      "triggeredBy": "eval-gate", "startedAt": "2026-10-12T09:15:00.000Z", "finishedAt": "2026-10-12T10:40:00.000Z",
+      "summary": { "mustFindTotal": 7, "found": 6, "missed": ["willetts-seated-juror"], "recall": 0.857142857, "precision": null, "droppedAtVerification": 0.25, "model": "engine-prod", "promptSet": "v2", "promptHash": "abc123def456", "findings": 15, "margin": 0.931, "priceCents": 34900, "bucketNote": null }
+    },
+    {
+      "id": "er_gary", "ledger": "gary", "caseId": "c_g", "runId": "run_g", "status": "SCORED", "pass": true, "reasons": [],
+      "bucket": "EXTENDED", "meteredPages": { "reporter": 602, "clerk": 0, "exhibit": 0, "unknown": 0 }, "costCents": 1300, "error": null,
+      "triggeredBy": "eval-gate", "startedAt": "2026-10-12T09:15:00.000Z", "finishedAt": "2026-10-12T10:05:00.000Z",
+      "summary": { "mustFindTotal": 5, "found": 5, "missed": [], "recall": 1, "precision": null, "droppedAtVerification": 0.1, "model": "engine-prod", "promptSet": "v2", "promptHash": "abc123def456", "findings": 22, "margin": 0.963, "priceCents": 34900, "bucketNote": null }
+    },
+    {
+      "id": "er_broken", "ledger": "brian", "caseId": "c_x", "runId": null, "status": "FAILED", "pass": null, "reasons": [],
+      "bucket": null, "meteredPages": null, "costCents": null, "error": "digitization did not finish within 90 min",
+      "triggeredBy": "eval-gate", "startedAt": "2026-10-12T09:15:00.000Z", "finishedAt": "2026-10-12T10:45:00.000Z", "summary": null
+    },
+    {
+      "id": "er_running", "ledger": "gary", "caseId": "c_r", "runId": null, "status": "RUNNING", "pass": null, "reasons": [],
+      "bucket": "EXTENDED", "meteredPages": { "reporter": 602, "clerk": 0, "exhibit": 0, "unknown": 0 }, "costCents": null, "error": null,
+      "triggeredBy": "u_admin", "startedAt": "2026-10-19T10:00:00.000Z", "finishedAt": null, "summary": null
+    }
+  ]
+}

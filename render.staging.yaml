@@ -111,6 +111,7 @@ services:
       - { key: AWS_REGION, sync: false }
       - { key: S3_BUCKET, sync: false }
       - { key: EVAL_CORPUS_BUCKET, sync: false }
+      - { key: EVAL_GATE_TOKEN, sync: false } # weekly eval gate: the same value as the GitHub secret EVAL_GATE_TOKEN (.github/workflows/eval-gate.yml)
       - { key: STRIPE_SECRET_KEY, sync: false } # TEST mode
       - { key: STRIPE_WEBHOOK_SECRET, sync: false } # the test-mode endpoint's secret
       - { key: STRIPE_PRICE_COUNSEL_SHORT, sync: false } # TEST-mode Price ids for the counsel ladder and packs; optional (price_data fallback)

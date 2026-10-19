@@ -74,6 +74,7 @@ In production (Render) there are no files: every value is a service env var (blu
 | `EMAIL_FROM` | | From header (default `Family Case Review <noreply@snotnoselegal.com>`) | choice; domain must be Resend-verified |
 | `EMAIL_ALLOWLIST` | | **Staging only.** Comma-separated addresses and/or `@domain` entries; a message to anyone else is dropped and logged. Staging also prefixes every subject with `[staging]` (derived from `WEB_ORIGIN`). Unset in production and dev = no restriction | `render.staging.yaml` value; listed in `scripts/env-drift.cjs` STAGING_ONLY |
 | `MODEL_USD_PER_MTOK_IN/OUT`, `MODEL_CACHE_READ/WRITE_MULT`, `TEXTRACT_USD_PER_1K_PAGES` | | Cost-telemetry estimate rates (tokens are truth, dollars estimates) | Current Anthropic/AWS price sheets |
+| `EVAL_GATE_TOKEN` | 🔑 | Bearer for the weekly eval gate's machine path (`.github/workflows/eval-gate.yml` → `POST`/`GET /ops/eval/runs` on **api-staging**, workstream J). Opens exactly those two routes as an Ops administrator; the same bearer on any other route is a 401. Unset = the machine path does not exist (the workflow then skips with a notice). Declared on `api` only for blueprint parity — leave it unset in production | You generate: `openssl rand -base64 32`; paste the same value in Render → api-staging → Environment and in GitHub → Settings → Secrets and variables → Actions → `EVAL_GATE_TOKEN` |
 
 ## Web service (Next.js)
 

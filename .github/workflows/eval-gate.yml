@@ -1,0 +1,135 @@
+name: Eval gate
+
+# The weekly eval gate (persona_rollout_plan.md §5 J, §7 "What runs on
+# staging" item 2, §8 "Eval gate: weekly on all ledgers with cost per bucket",
+# §9 "eval not re-run (hard gate)"). Every Monday 09:15 UTC — and on demand —
+# this asks api-staging to run the PRODUCTION model and prompt set against
+# every attorney ledger (docs/evaluation/ledgers), polls until each run is
+# scored, prints the scorecard table with the cost per record bucket to the
+# job summary, keeps eval-gate.json as an artifact, and FAILS when any ledger
+# is red or any run failed. Red here = not promotable (plan §7). The same
+# rows are on the staff console at /ops/eval.
+#
+# ONE-TIME SETUP (founder; agents never hold secrets):
+#   1. Generate a token:  openssl rand -base64 32
+#   2. Render → api-staging → Environment → add EVAL_GATE_TOKEN = <token>
+#      (declared `sync: false` in render.staging.yaml; also on `api` in
+#      render.yaml for blueprint parity — production never receives this
+#      workflow's calls).
+#   3. GitHub → Settings → Secrets and variables → Actions → New repository
+#      secret: EVAL_GATE_TOKEN = <the same token>.
+# Until step 3 is done the job SKIPS with a notice — the schedule never pages
+# anyone before setup. Staging must also have EVAL_CORPUS_BUCKET and its own
+# ANTHROPIC_API_KEY (environment_reference.md), which it already does.
+on:
+  schedule:
+    - cron: "15 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      ledgers:
+        description: "Comma-separated ledger names to run (default: every ledger)"
+        required: false
+        default: ""
+
+concurrency:
+  group: eval-gate
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Production model against every ledger (staging)
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    env:
+      API: https://api.staging.snotnoselegal.com
+      TOKEN: ${{ secrets.EVAL_GATE_TOKEN }}
+    steps:
+      - name: Is the gate configured?
+        id: secret
+        shell: bash
+        run: |
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::notice title=Eval gate skipped::EVAL_GATE_TOKEN is not set in this repository's secrets. Add it (and the same value on api-staging in Render) — see the header of .github/workflows/eval-gate.yml."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.secret.outputs.configured == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: steps.secret.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Start the runs
+        if: steps.secret.outputs.configured == 'true'
+        id: start
+        shell: bash
+        run: |
+          set -euo pipefail
+          since=$(date -u -d '-5 minutes' +%Y-%m-%dT%H:%M:%SZ)
+          ledgers="${{ github.event.inputs.ledgers }}"
+          if [ -n "$ledgers" ]; then
+            body=$(jq -cn --arg l "$ledgers" '{ledgers: ($l | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0)))}')
+          else
+            body='{}'
+          fi
+          echo "POST $API/ops/eval/runs $body"
+          code=$(curl -sS --max-time 60 -o start.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+            -d "$body" "$API/ops/eval/runs" || echo "000")
+          cat start.json || true; echo
+          if [ "$code" != "202" ]; then
+            echo "::error::Could not start the eval runs (HTTP $code). 401 = token mismatch between GitHub and api-staging; 409 = a run is already queued or running (wait, or 4 h if stale); 404 = unknown ledger name."
+            exit 1
+          fi
+          ids=$(jq -r '[.runs[].id] | join(",")' start.json)
+          echo "runs: $(jq -c '[.runs[] | {id, ledger}]' start.json)"
+          echo "ids=$ids" >> "$GITHUB_OUTPUT"
+          echo "since=$since" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for every run to be scored (up to 90 min)
+        if: steps.secret.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ids="${{ steps.start.outputs.ids }}"
+          since="${{ steps.start.outputs.since }}"
+          for i in $(seq 1 90); do
+            if curl -sS --max-time 30 -o eval-gate.json -H "Authorization: Bearer $TOKEN" "$API/ops/eval/runs?since=$since"; then
+              pending=$(jq -r --arg ids "$ids" '($ids | split(",")) as $want | [.runs[] | select(.id as $id | $want | index($id)) | select(.status != "SCORED" and .status != "FAILED")] | length' eval-gate.json)
+              echo "[$i] $(jq -r --arg ids "$ids" '($ids | split(",")) as $want | [.runs[] | select(.id as $id | $want | index($id)) | "\(.ledger)=\(.status)"] | join(" ")' eval-gate.json)"
+              if [ "$pending" = "0" ]; then echo "every run has finished"; exit 0; fi
+            else
+              echo "[$i] poll failed — retrying"
+            fi
+            sleep 60
+          done
+          echo "::error::Eval runs still queued or running after 90 minutes — the gate is red. Check /ops/eval on staging and the api-staging logs."
+          exit 1
+
+      - name: Scorecard table and cost per bucket
+        if: steps.secret.outputs.configured == 'true' && always() && steps.start.outputs.ids != ''
+        shell: bash
+        run: |
+          set +e
+          node scripts/eval-gate-summary.cjs eval-gate.json --ids "${{ steps.start.outputs.ids }}" > eval-gate-summary.md
+          status=$?
+          cat eval-gate-summary.md >> "$GITHUB_STEP_SUMMARY"
+          cat eval-gate-summary.md
+          if [ "$status" != "0" ]; then echo "::error::Eval gate is RED — a ledger did not pass or a run failed. Not promotable (persona_rollout_plan.md §7)."; fi
+          exit $status
+
+      - name: Keep the raw results
+        if: steps.secret.outputs.configured == 'true' && always() && steps.start.outputs.ids != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-gate
+          path: |
+            eval-gate.json
+            eval-gate-summary.md
+          retention-days: 90

@@ -32,3 +32,10 @@ page in `/ops/cases/<id>` (Ops administrators only):
 API: `GET /ops/eval/ledgers`, `GET /ops/cases/:id/eval?ledger=gary`,
 `POST /ops/cases/:id/reanalyze { reason: 'eval' | 'quality' }`. The CLI
 (`scripts/eval-run.ts`) remains for developers.
+
+## The weekly gate (2026-10-19)
+
+Every ledger here is also run automatically on staging every Monday
+(`.github/workflows/eval-gate.yml`) and on demand from `/ops/eval`, on the
+production model and prompt set, with the cost per record bucket written
+down. The gate rules and how to add a ledger: `../README.md`.
