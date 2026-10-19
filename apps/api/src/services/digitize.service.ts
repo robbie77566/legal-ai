@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { beginStep } from './progress-pulse.service';
+import { familyOverage } from '@hg/case-lifecycle';
 
 /**
  * Real digitization (M3, replacing the register's last mocked worker):
@@ -546,6 +547,11 @@ export async function pageMeter(caseId: string, tenantId: string) {
     const duplicatesIgnored = await tx.documentPage.count({
       where: { document: { caseId }, billable: false },
     });
-    return { billable, duplicatesIgnored, cap: 5000 };
+    // K1: the allowance the family has already paid for, so the documents
+    // page can show the overage offer before the run button is pressed.
+    const { purchasedOverageBlocks } = await import('./payments.service');
+    const purchasedBlocks = await purchasedOverageBlocks(tx, caseId);
+    const overage = familyOverage(billable, purchasedBlocks);
+    return { billable, duplicatesIgnored, cap: 5000, purchasedBlocks, allowance: overage.allowance };
   });
 }

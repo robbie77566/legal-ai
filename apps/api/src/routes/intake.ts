@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent, Prisma } from '@hg/database';
-import { computeDeadlinePosture, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, analysisTimeline, activityItem, runEventItem, CUSTOMER_ACTIVITY_TYPES, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
+import { computeDeadlinePosture, familyOverage, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, analysisTimeline, activityItem, runEventItem, CUSTOMER_ACTIVITY_TYPES, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
 import { verifyFindings, screensForLane } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 import { lastPulse } from '../services/progress-pulse.service';
@@ -447,19 +447,22 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       // Overage gate (ENG-3): the cap is 5,000 + 2,500 per purchased overage
       // block; a partial block is never charged for pages not received —
       // the customer buys the next block only when the count actually
-      // crosses the line, in-flow, never a surprise.
-      const overageBlocks = await tx.payment.count({
-        where: { caseId: id, kind: 'OVERAGE', status: 'SUCCEEDED' },
-      });
-      const allowance = 5000 + overageBlocks * 2500;
-      if (billablePages > allowance) {
-        const blocksNeeded = Math.ceil((billablePages - allowance) / 2500);
+      // crosses the line, in-flow, never a surprise. The 402 is typed (K1,
+      // upload_page_ux_review F8): the documents page renders it as the
+      // overage offer card, never as error text.
+      const { purchasedOverageBlocks, PRICES_CENTS } = await import('../services/payments.service');
+      const overage = familyOverage(billablePages, await purchasedOverageBlocks(tx, id));
+      if (overage.blocksNeeded > 0) {
         return reply.status(402).send({
-          error: 'Page allowance exceeded',
+          error: 'OVERAGE_REQUIRED',
+          pagesOver: billablePages - overage.allowance,
+          blocks: overage.blocksNeeded,
+          cents: overage.blocksNeeded * PRICES_CENTS.overage,
+          checkout: { kind: 'overage', blocks: overage.blocksNeeded },
           billablePages,
-          allowance,
-          blocksNeeded,
-          blockPriceCents: 4900,
+          allowance: overage.allowance,
+          blocksNeeded: overage.blocksNeeded,
+          blockPriceCents: PRICES_CENTS.overage,
         });
       }
 

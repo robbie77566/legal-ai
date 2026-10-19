@@ -67,6 +67,41 @@ interface CheckoutMetadata {
   draftToken?: string;
   caseId?: string; // overage/rerun target
   promoCode?: string; // attribution + paid-path redemption (promo_codes.md)
+  /** Overage only: how many 2,500-page blocks this session bought (Stripe metadata is strings). */
+  blocks?: string;
+}
+
+/**
+ * How many overage blocks a session bought. Stripe metadata values are
+ * strings; a session without the field (pre-K1) bought exactly one block,
+ * which is what the single-quantity line item charged.
+ */
+export function overageBlocksOf(meta: { blocks?: string | number | null } | null | undefined): number {
+  const n = Number(meta?.blocks);
+  return Number.isInteger(n) && n >= 1 ? n : 1;
+}
+
+/**
+ * Overage blocks the family has paid for on this case: every SUCCEEDED
+ * overage payment, each weighted by the block count its `payment.succeeded`
+ * event recorded (one block when the event predates K1). A refunded payment
+ * flips to REFUNDED and stops counting, so the allowance follows the money.
+ * No new column: the ledger row stays one-per-session so refunds and
+ * disputes keep matching by session and payment intent.
+ */
+export async function purchasedOverageBlocks(
+  tx: { payment: { findMany: typeof prisma.payment.findMany }; caseEvent: { findMany: typeof prisma.caseEvent.findMany } },
+  caseId: string
+): Promise<number> {
+  const payments = await tx.payment.findMany({ where: { caseId, kind: 'OVERAGE', status: 'SUCCEEDED' }, select: { stripeId: true } });
+  if (payments.length === 0) return 0;
+  const events = await tx.caseEvent.findMany({ where: { caseId, type: 'payment.succeeded' }, select: { payload: true } });
+  const blocksByPayment = new Map<string, number>();
+  for (const e of events) {
+    const p = e.payload as { paymentId?: string; kind?: string; blocks?: number } | null;
+    if (p?.paymentId && p.kind === 'overage') blocksByPayment.set(p.paymentId, overageBlocksOf(p));
+  }
+  return payments.reduce((sum, p) => sum + (blocksByPayment.get(p.stripeId) ?? 1), 0);
 }
 
 /** Fulfil a completed checkout session. Safe to call more than once. */
@@ -139,7 +174,10 @@ export async function fulfillCheckoutSession(session: {
           caseId: meta.caseId!,
           tenantId,
           type: 'payment.succeeded',
-          payload: { paymentId: session.id, kind },
+          // The block count rides on the event (K1, payload v2): the ledger
+          // row stays one per session; the overage gate sums blocks from here.
+          ...(kind === 'overage' ? { version: 2 } : {}),
+          payload: { paymentId: session.id, kind, ...(kind === 'overage' ? { blocks: overageBlocksOf(meta) } : {}) },
           actor: 'system',
         });
       }

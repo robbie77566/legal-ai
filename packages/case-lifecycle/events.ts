@@ -44,6 +44,10 @@ export const CASE_EVENT_SCHEMAS = {
   },
   'payment.succeeded': {
     1: z.object({ paymentId: id, kind: z.enum(['review', 'overage', 'rerun']) }).strict(),
+    // v2 (K1 overage card): an overage session can buy several 2,500-page
+    // blocks at once; the count rides on the event so the ledger row stays
+    // one per session and the intake gate sums the allowance from here.
+    2: z.object({ paymentId: id, kind: z.enum(['review', 'overage', 'rerun']), blocks: count.min(1).optional() }).strict(),
   },
   'payment.refunded': {
     1: z.object({ paymentId: id, reason: z.enum(['unreadable_record', 'customer_request', 'chargeback', 'other']) }).strict(),
