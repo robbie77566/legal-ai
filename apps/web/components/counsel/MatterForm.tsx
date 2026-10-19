@@ -80,7 +80,7 @@ export default function MatterForm({ onCreated }: { onCreated: (caseId: string) 
           {VEHICLE_OPTIONS.map((v) => (
             <label
               key={v.id}
-              className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${f.vehicle === v.id ? 'border-db-accent bg-db-accent-soft' : 'border-db-line bg-db-surface'} ${v.refused ? 'opacity-60' : ''}`}
+              className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${f.vehicle === v.id ? 'border-db-accent bg-db-accent-soft' : 'border-db-line bg-db-surface'}`}
             >
               <input type="radio" name="vehicle" value={v.id} checked={f.vehicle === v.id} onChange={() => set('vehicle', v.id)} className="mt-1" data-testid={`vehicle-${v.id}`} />
               <span>

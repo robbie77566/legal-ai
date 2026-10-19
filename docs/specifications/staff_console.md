@@ -28,7 +28,7 @@ Admin is a superset of Support by construction. The web nav is UX gating only (`
 | `/ops/cases/:id` | **Case file**: uploads (page counts, OCR confidence, quarantine, signed download), analysis (screens done, findings as the family reads them, Part B folded), what the family received (every report version as PDF, share link opens), **contact log**, requests, timeline; actions: mark/clear delay, resume pipeline; Admin: Refund door + decide requests; Support: Request refund / Request deletion | Admin, Support |
 | `/ops/money` | Payments audit: six tiles (collected, refunded, net, refund rate vs 5% reserve, cost of reviews, needs a decision), weekly rollup (cohort view: refunds attributed to the week the payment was sold), open disputes + support requests, refund ledger, full payments table with Stripe deep-links, **refund dialog** (full or partial, reason, note), reconcile-now | Admin |
 | `/ops/flags` | **Feature flags** (§10): the six dark professional surfaces, global switch, per-organisation overrides | Admin (flips), Support (read-only) |
-| `/dashboard/permissions` | Create staff accounts (sends the invite), change roles, resend invites | Admin (linked as **Team** in the nav) |
+| `/ops/team` | Create staff accounts (sends the invite), change roles, resend invites (moved from `/dashboard/permissions` by workstream F, 2026-10-19, when the 2025 `/dashboard` and `/workspace` build was removed) | Admin (linked as **Team** in the nav) |
 | `/auth/setup-password` | Invite acceptance — the first password for an admin-created account | public, token-verified |
 
 ## 3. Money and refunds (OPS-2)
@@ -101,7 +101,7 @@ The identity **expand** step of the persona rollout (`docs/implementation/person
 
 RLS: `Organisation` and `Membership` carry `tenant_isolation_policy_*` (USING + WITH CHECK on `tenantId`), ENABLE without FORCE like every other table since `20260901000012`. `StaffGrant` is a system table read on the owner connection. Proven by `packages/database/tests/organisations-rls.integration.test.ts`.
 
-**Professional accounts keep `role: CLIENT`.** Every existing staff gate (`/ops`, `/qa`, `/admin`, `/dashboard`, `/workspace`) refuses `CLIENT`, so a professional can never reach a staff surface through the legacy column; `Role.ATTORNEY` stays what §1 says it is, the staff reviewer. The api auth plugin additionally refuses a `PROFESSIONAL` on `/ops`, `/qa`, `/admin` and `/permissions` whatever the role column says, and the web middleware does the same for `/ops`, `/qa`, `/dashboard`, `/workspace` (`apps/web/lib/route-access.ts`).
+**Professional accounts keep `role: CLIENT`.** Every existing staff gate (`/ops`, `/qa`, `/admin`; `/dashboard` and `/workspace` until workstream F removed them) refuses `CLIENT`, so a professional can never reach a staff surface through the legacy column; `Role.ATTORNEY` stays what §1 says it is, the staff reviewer. The api auth plugin additionally refuses a `PROFESSIONAL` on `/ops`, `/qa`, `/admin` and `/permissions` whatever the role column says, and the web middleware does the same for `/ops` and `/qa` (`apps/web/lib/route-access.ts`).
 
 **Reading the two shapes at once.** `packages/database/staff.ts`:
 - `effectiveAccountKind(user)` — the stored kind, except a row still at the `FAMILY` default with a staff role counts as `STAFF` (a staff account created by a pre-expand code path, the same answer the backfill gives).
