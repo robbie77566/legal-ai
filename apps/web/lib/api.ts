@@ -146,3 +146,56 @@ export const opsListInvestigations = (status?: 'OPEN' | 'IN_PROGRESS' | 'DELIVER
   apiFetch(`/ops/investigations${status ? `?status=${status}` : ''}`)
 export const opsUpdateInvestigation = (id: string, body: { status?: 'OPEN' | 'IN_PROGRESS' | 'DELIVERED' | 'DECLINED'; assignedTo?: string | null; note?: string | null }) =>
   apiFetch(`/ops/investigations/${encodeURIComponent(id)}`, json('PATCH', body))
+
+// ── Workstream F: the professional web surfaces ──────────────────────────────
+// Thin helpers over the routes slices 1–2 already provide (staff_console.md
+// §10–§11) plus the two public routes F adds (apps/api/src/routes/counsel-public.ts).
+
+/** GET /counsel/signup (public) → { open }: are professional sign-ups open (the global counsel_surfaces flag)? */
+export const counselSignupOpen = () => apiFetch('/counsel/signup')
+
+export interface PilotInterestBody {
+  office: string
+  county: string
+  name: string
+  email: string
+  note?: string
+}
+/** POST /counsel/pilot-interest (public, rate-limited) — the PD pilot form; every admin is emailed. */
+export const pilotInterest = (body: PilotInterestBody) => apiFetch('/counsel/pilot-interest', json('POST', body))
+
+/** GET /counsel/me — the signed-in professional, their organisation and their seat (403 once the seat is gone). */
+export const getCounselMe = () => apiFetch('/counsel/me')
+
+export type QuoteMethod = 'CARD' | 'CREDIT' | 'ALLOWANCE' | 'FREE'
+export type Rung = 'SHORT' | 'STANDARD' | 'EXTENDED'
+/** GET /counsel/matters/:caseId/quote — the pricing decision for the matter right now (never stored). */
+export const getQuote = (caseId: string, opts: { promoCode?: string } = {}) =>
+  apiFetch(`/counsel/matters/${encodeURIComponent(caseId)}/quote${opts.promoCode ? `?promoCode=${encodeURIComponent(opts.promoCode)}` : ''}`)
+/** POST …/quote/accept { method } — CARD answers { url } (Stripe Checkout); the others start the pipeline at once. */
+export const acceptQuote = (caseId: string, method: QuoteMethod, opts: { promoCode?: string } = {}) =>
+  apiFetch(`/counsel/matters/${encodeURIComponent(caseId)}/quote/accept`, json('POST', { method, ...(opts.promoCode ? { promoCode: opts.promoCode } : {}) }))
+/** POST …/quote/request { note? } — a Long record (>1,500 reporter pages) asks an admin for a price. */
+export const requestQuote = (caseId: string, note?: string) =>
+  apiFetch(`/counsel/matters/${encodeURIComponent(caseId)}/quote/request`, json('POST', note ? { note } : {}))
+/** POST /counsel/packs { rung } → { url }: Stripe Checkout for a five-record pack. */
+export const buyPack = (rung: Rung) => apiFetch('/counsel/packs', json('POST', { rung }))
+/** GET /counsel/credits — the tenant's pack credits with LIVE | EXPIRED | CONSUMED. */
+export const listCredits = () => apiFetch('/counsel/credits')
+/** GET /counsel/allowance — the organisation's pilot / public-interest / office ledger. */
+export const getAllowance = () => apiFetch('/counsel/allowance')
+
+/** GET /cases/:id/inventory — the record inventory (volumes, missing, unlabelled, metered pages, bucket). */
+export const getInventory = (caseId: string) => apiFetch(`/cases/${encodeURIComponent(caseId)}/inventory`)
+/** GET /cases/:id/checklist — the family checklist read model, reused for the matter's document list. */
+export const getChecklist = (caseId: string) => apiFetch(`/cases/${encodeURIComponent(caseId)}/checklist`)
+/** POST /cases/:id/records-complete — the record is complete; a professional tenant's case parks at QUOTED. */
+export const recordsComplete = (caseId: string) => apiFetch(`/cases/${encodeURIComponent(caseId)}/records-complete`, json('POST'))
+
+/**
+ * The counsel packet (workstream E2): the PDF at this exact path, and its
+ * sections as JSON. Until E2 lands the api answers 404 and the matter page
+ * says "Packet arrives when analysis completes" instead of failing.
+ */
+export const counselPacketPdfUrl = (caseId: string) => `${API_URL}/counsel/matters/${encodeURIComponent(caseId)}/packet.pdf`
+export const getCounselPacketSections = (caseId: string) => apiFetch(`/counsel/matters/${encodeURIComponent(caseId)}/packet.json`)
