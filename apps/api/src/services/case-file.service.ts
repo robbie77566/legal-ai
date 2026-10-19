@@ -19,6 +19,8 @@ const caseSelect = {
   ocrHalt: true, delayOurs: true, expectedReadyAt: true, slaStartedAt: true, createdAt: true, updatedAt: true,
   // Record inventory (workstream D): the meter projection, read-only here.
   recordBucket: true, meteredPages: true, inventoryAt: true,
+  // Which deliverable the case gets (workstream E): a Matter row means the counsel packet.
+  matter: { select: { id: true, vehicle: true } },
 } as const;
 
 export async function getCaseFile(caseId: string) {
@@ -63,9 +65,13 @@ export async function getCaseFile(caseId: string) {
   const findingsByRun = new Map<string, typeof findings>();
   for (const f of findings) findingsByRun.set(f.runId, [...(findingsByRun.get(f.runId) ?? []), f]);
 
+  const { matter, ...caseFields } = kase;
   return {
     case: {
-      ...kase,
+      ...caseFields,
+      /** The deliverable: the family report, or the counsel packet when counsel opened the case as a matter. */
+      variant: (matter ? 'counsel' : 'family') as 'counsel' | 'family',
+      matterVehicle: matter?.vehicle ?? null,
       // What staff read on the case file, matching the family's own words.
       label: caseLabel(kase),
       ref: caseRef(kase.id),

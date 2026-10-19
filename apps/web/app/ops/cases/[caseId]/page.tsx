@@ -17,6 +17,8 @@ interface CaseFile {
     id: string; title: string; label: string; ref: string; status: string; lane: string | null; subsequentWrit: boolean
     ocrHalt: boolean; delayOurs: boolean; expectedReadyAt: string | null; createdAt: string
     customerEmail: string | null; customerName: string | null
+    /** Which deliverable the case gets: the family report, or the counsel packet (a matter). */
+    variant: 'family' | 'counsel'; matterVehicle: string | null
   }
   meter: { billable: number; duplicatesIgnored: number }
   documents: Array<{
@@ -240,6 +242,7 @@ export default function CaseFilePage() {
             {c.delayOurs && <Chip tone="bad">DELAY-OURS</Chip>}
             {c.ocrHalt && <Chip tone="warn">OCR HALT</Chip>}
             {c.subsequentWrit && <Chip>§4</Chip>}
+            {c.variant === 'counsel' && <Chip tone="blue">COUNSEL PACKET</Chip>}
           </div>
           <p className="mt-1 text-xs text-[#8B949E]" data-testid="case-meta">
             {c.customerEmail ?? 'no customer on file'}{c.customerName ? ` (${c.customerName})` : ''} · {c.lane ?? 'lane —'} · created {when(c.createdAt)}
