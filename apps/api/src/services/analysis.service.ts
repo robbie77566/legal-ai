@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { z } from 'zod';
-import { CaseSummarySchema, normalizePreserved, normalizeHarmStandard, vehicleFor, type CaseSummary } from '@hg/case-lifecycle';
+import { CaseSummarySchema, normalizePreserved, normalizeHarmStandard, vehicleFor, isVehicle, screenWeights, orderScreensByWeight, type CaseSummary, type CounselVehicle } from '@hg/case-lifecycle';
 import { withTenant, appendCaseEvent } from '@hg/database';
 import { beginStep, pulse, endStep } from './progress-pulse.service';
 
@@ -111,6 +111,38 @@ export function promptSet(): PromptSet {
 }
 export function screensForLane(lane: 'TRIAL' | 'PLEA'): Screen['id'][] {
   return (promptSet() === 'v2' ? SCREENS_BY_LANE_V2 : SCREENS_BY_LANE)[lane];
+}
+
+/**
+ * The run's screen plan (persona_rollout_plan.md §5 C "screens weighted by
+ * vehicle"). A case counsel opened as a MATTER carries its vehicle, and the
+ * vehicle's `weightedScreens` (case-lifecycle/trap/vehicles.ts) order the
+ * lane's screens: weighted first, in the vehicle's priority, the rest in the
+ * lane's usual order. The SET of screens is still the lane's — weighting
+ * never drops a screen. Without a vehicle (the family path, no matter) the
+ * plan is exactly `screensForLane(lane)` and the run's modelConfig is
+ * byte-identical to before (acceptance C4).
+ */
+export interface ScreenPlan {
+  lane: 'TRIAL' | 'PLEA';
+  screens: Screen['id'][];
+  vehicle?: CounselVehicle;
+  screenWeights?: Partial<Record<Screen['id'], number>>;
+}
+export function planScreens(lane: 'TRIAL' | 'PLEA', vehicle?: CounselVehicle | null): ScreenPlan {
+  const screens = screensForLane(lane);
+  const weights = vehicle ? screenWeights(vehicle) : undefined;
+  if (!vehicle || !weights) return { lane, screens };
+  return { lane, screens: orderScreensByWeight(screens, weights), vehicle, screenWeights: weights };
+}
+/** `AnalysisRun.modelConfig` for a run: unchanged for a family case; a matter's run also records the vehicle and its weights. */
+export function runModelConfig(modelName: string, plan: ScreenPlan): Record<string, unknown> {
+  return {
+    model: modelName,
+    screens: promptSet(),
+    promptHash: promptHash(),
+    ...(plan.screenWeights ? { vehicle: plan.vehicle, screenWeights: plan.screenWeights } : {}),
+  };
 }
 
 /** v2-only additions to existing screens; v1 prompts stay byte-identical. */
@@ -612,8 +644,13 @@ async function runAnalysisInner(
   const models = Array.isArray(modelOrModels) ? modelOrModels : [modelOrModels];
   const model = models[0];
   // Short tx 1: validate, freeze chunks, create the run, enter the stages.
-  const { run, chunks, lane } = await withTenant(tenantId, async (tx) => {
+  const { run, chunks, plan } = await withTenant(tenantId, async (tx) => {
     const kase = await tx.case.findUniqueOrThrow({ where: { id: caseId } });
+    // Counsel intake (workstream C): a matter's vehicle weights the screens.
+    // A family case has no matter row and gets exactly today's plan.
+    const matter = await tx.matter.findUnique({ where: { caseId }, select: { vehicle: true } });
+    const lane = (kase.lane ?? 'TRIAL') as 'TRIAL' | 'PLEA';
+    const plan = planScreens(lane, matter && isVehicle(matter.vehicle) ? matter.vehicle : null);
     // ANALYZING re-entry allows a crashed run's retry; QA_REJECTED re-entry
     // is the QA-rejection re-run loop (QA_REJECTED → ANALYZING is legal).
     // QUOTED (workstream B): a counsel case starts from here once its quote
@@ -645,7 +682,7 @@ async function runAnalysisInner(
 
     const runNo = (await tx.analysisRun.count({ where: { caseId } })) + 1;
     const created = await tx.analysisRun.create({
-      data: { caseId, tenantId, runNo, modelConfig: { model: model.name, screens: promptSet(), promptHash: promptHash() } },
+      data: { caseId, tenantId, runNo, modelConfig: runModelConfig(model.name, plan) as object },
     });
 
     if (kase.status === 'DOCS_COMPLETE' || kase.status === 'QUOTED') {
@@ -659,7 +696,7 @@ async function runAnalysisInner(
       });
     }
 
-    return { run: created, chunks: frozen, lane: (kase.lane ?? 'TRIAL') as 'TRIAL' | 'PLEA' };
+    return { run: created, chunks: frozen, plan };
   });
 
   const record = buildRecord(chunks);
@@ -668,7 +705,7 @@ async function runAnalysisInner(
 
   // Status page: the phases before the first check used to be silence —
   // a durable marker each (cold loads) plus a live pulse (liveness).
-  const screensTotal = screensForLane(lane).length;
+  const screensTotal = plan.screens.length;
   await markPhase(caseId, tenantId, 'context', screensTotal);
   beginStep(caseId, { stage: 'analyzing', label: 'context', screensTotal });
   // Context pre-pass: outside any transaction, one cached-read call.
@@ -726,7 +763,7 @@ async function runAnalysisInner(
     batchByEngine.set(
       m.name,
       await m.invokeMany(
-        screensForLane(lane).flatMap((screenId) =>
+        plan.screens.flatMap((screenId) =>
           Array.from({ length: samples }, (_, n) => ({
             key: `${screenId}__${n}`,
             instruction: buildScreenInstruction(screenId, chunks, screenHeader),
@@ -759,7 +796,7 @@ async function runAnalysisInner(
   }>>();
 
 
-  for (const screenId of screensForLane(lane)) {
+  for (const screenId of plan.screens) {
     const arrays: Parameters<typeof groundUnion>[0] = [];
     for (const m of models) {
       const batched = batchByEngine.get(m.name);
@@ -782,7 +819,7 @@ async function runAnalysisInner(
               payload: {
                 screen: (screenId === 'plea_lane' ? 'plea_lane' : screenId) as 'iac',
                 sample: n + 1, samplesTotal: samples,
-                screenIndex: screensForLane(lane).indexOf(screenId) + 1, screensTotal: screensForLane(lane).length,
+                screenIndex: plan.screens.indexOf(screenId) + 1, screensTotal: plan.screens.length,
               },
               actor: 'pipeline',
             })
@@ -790,7 +827,7 @@ async function runAnalysisInner(
           beginStep(caseId, {
             stage: 'analyzing', label: 'check', screen: screenId,
             sample: n + 1, samplesTotal: samples,
-            screenIndex: screensForLane(lane).indexOf(screenId) + 1, screensTotal,
+            screenIndex: plan.screens.indexOf(screenId) + 1, screensTotal,
           });
           const res = await invokeValidated(m, instruction, record);
           arrays.push(res.findings.map((f) => ({ ...f, engine: m.name })));
@@ -923,7 +960,7 @@ async function runAnalysisInner(
     await tx.analysisRun.update({ where: { id: run.id }, data: { completedAt: new Date() } });
   });
 
-  return { runId: run.id, screensRun: screensForLane(lane).length, findingsPersisted: persisted, droppedUngrounded: dropped, mergedAcrossScreens };
+  return { runId: run.id, screensRun: plan.screens.length, findingsPersisted: persisted, droppedUngrounded: dropped, mergedAcrossScreens };
 }
 
 /**

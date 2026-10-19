@@ -5,6 +5,9 @@ import type { Membership, Organisation } from '@prisma/client';
 import prisma, { withTenant } from '@hg/database';
 import { AuditService, LogAction } from '../services/audit.service';
 import { requireAccountKind } from '../plugins/guards';
+import counselOrgRoutes, { invitationAcceptRoutes } from './counsel-org';
+import { clinicInboxRoutes } from './packets';
+import { counselInvestigationRoutes } from './investigations';
 
 /**
  * Professional accounts (persona_rollout_plan.md §5 A — the identity EXPAND
@@ -62,6 +65,9 @@ declare module 'fastify' {
 
 export default async function counselRoutes(fastify: FastifyInstance) {
   fastify.decorateRequest('counsel', null);
+
+  // Seat acceptance (workstream I): anonymous, token-verified, like /auth/setup.
+  fastify.register(invitationAcceptRoutes);
 
   fastify.post('/signup', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request) => {
     const parsed = SignupSchema.parse(request.body);
@@ -154,5 +160,12 @@ export default async function counselRoutes(fastify: FastifyInstance) {
         membership: { role: seat.role },
       };
     });
+
+    // Workstream I (persona_rollout_plan.md §5 I): the organisation and its
+    // seats, the clinic's packet inbox, the Record Desk request form. Each
+    // sits behind its own flag inside the route file.
+    counsel.register(counselOrgRoutes, { prefix: '/org' });
+    counsel.register(clinicInboxRoutes, { prefix: '/inbox' });
+    counsel.register(counselInvestigationRoutes, { prefix: '/investigations' });
   });
 }

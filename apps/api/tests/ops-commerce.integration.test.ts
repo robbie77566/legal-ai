@@ -51,6 +51,8 @@ beforeAll(async () => {
     prisma.case.create({ data: { title, tenantId, status, lane: 'TRIAL', vehicle: '11.07', recordBucket: bucket, meteredPages: { reporter: 300, clerk: 0, exhibit: 0, unknown: 0 } } });
   caseA = (await mk(`${run}_A`, orgTenant, 'STANDARD', 'QUOTED')).id;
   caseB = (await mk(`${run}_B`, orgTenant, 'EXTENDED', 'QUOTED')).id;
+  // Case A is a counsel matter (workstream C) with a cause number; B has none.
+  await prisma.matter.create({ data: { caseId: caseA, tenantId: orgTenant, organisationId: orgId, openedBy: proId, vehicle: '11.07', county: 'Harris', causeNumber: '1234567', clientInitials: 'JD' } });
   famTenant = (await prisma.tenant.create({ data: { name: `${run}_family` } })).id;
   foreignCase = (await mk(`${run}_F`, famTenant, 'STANDARD', 'DOCS_COMPLETE')).id;
 });
@@ -58,6 +60,7 @@ beforeAll(async () => {
 afterAll(async () => {
   const tenants = [staffTenant, orgTenant, famTenant];
   await prisma.invoice.deleteMany({ where: { tenantId: { in: tenants } } });
+  await prisma.matter.deleteMany({ where: { tenantId: { in: tenants } } });
   await prisma.quoteRequest.deleteMany({ where: { tenantId: { in: tenants } } });
   await prisma.case.deleteMany({ where: { tenantId: { in: tenants } } });
   await prisma.user.deleteMany({ where: { tenantId: { in: tenants } } });
@@ -80,10 +83,11 @@ describe('B12 — invoices', () => {
     expect(inv).toMatchObject({
       tenantId: orgTenant, organisationId: orgId, status: 'DRAFT', totalCents: 59800, paidAt: null, achReference: null,
       lines: [
-        { caseId: caseA, sku: 'COUNSEL_STANDARD', cents: 24900 },
+        { caseId: caseA, causeNumber: '1234567', sku: 'COUNSEL_STANDARD', cents: 24900 },
         { caseId: caseB, sku: 'COUNSEL_EXTENDED', cents: 34900 },
       ],
     });
+    expect((inv.lines as { causeNumber?: string }[])[1].causeNumber).toBeUndefined();
     const audit = await auditFor(invoiceId);
     expect(audit).toHaveLength(1);
     expect(audit[0]).toMatchObject({ tenantId: orgTenant, userId: adminId });

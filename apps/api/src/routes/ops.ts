@@ -12,6 +12,8 @@ import {
 import { caseLabel, caseRef, expectedReadyDate } from '@hg/case-lifecycle';
 import { listLedgers, scoreCaseRun } from '../services/eval-gate.service';
 import opsCommerceRoutes from './ops-commerce';
+import { opsOrganisationRoutes } from './ops-organisations';
+import { opsInvestigationRoutes } from './investigations';
 
 /**
  * Ops console API (US-9, OPS-1..7) — ADMIN-only staff surface. Reads use the
@@ -50,6 +52,9 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       if (request.method === 'GET' && !SUPPORT_DENIED_READS.some((re) => re.test(path))) return;
       const action = path.match(/^\/ops\/cases\/[^/]+\/([a-z-]+)$/)?.[1];
       if (request.method === 'POST' && action && SUPPORT_WRITES.has(action)) return;
+      // Record Desk (workstream I): Support moves a request along; the route
+      // itself keeps Support to IN_PROGRESS / DELIVERED.
+      if (request.method === 'PATCH' && /^\/ops\/investigations\/[^/]+$/.test(path)) return;
       return reply.status(403).send({ error: 'Support can view cases and unblock them — money, deletion, and settings need an Ops administrator' });
     }
     return reply.status(403).send({ error: 'Ops administrators only' });
@@ -58,6 +63,9 @@ export default async function opsRoutes(fastify: FastifyInstance) {
   // Quotes, credits, allowances and invoices (workstream B) — registered
   // inside this scope so the role hook above gates them like everything else.
   await fastify.register(opsCommerceRoutes);
+  // Workstream I: organisations (grants, metrics) and Record Desk requests.
+  fastify.register(opsOrganisationRoutes, { prefix: '/organisations' });
+  fastify.register(opsInvestigationRoutes, { prefix: '/investigations' });
 
   // OPS-6 contact log: what Support said to the family, on the case file.
   fastify.post('/cases/:id/contact', async (request, reply) => {

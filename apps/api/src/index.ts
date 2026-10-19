@@ -21,6 +21,8 @@ import meRoutes from './routes/me'
 import flagsRoutes from './routes/flags'
 import counselRoutes from './routes/counsel'
 import counselCheckoutRoutes from './routes/counsel-checkout'
+import mattersRoutes from './routes/matters'
+import packetRoutes from './routes/packets'
 import stripeWebhookRoutes from './routes/stripe-webhooks'
 import { reconcilePayments, getStripe } from './services/payments.service'
 import fastifyMultipart from '@fastify/multipart';
@@ -144,6 +146,8 @@ fastify.register(stripeWebhookRoutes, { prefix: '/webhooks' })
 fastify.register(authRecoveryRoutes, { prefix: '/auth' })
 fastify.register(counselRoutes, { prefix: '/counsel' }) // professional sign-up + /counsel/me (persona plan A)
 fastify.register(counselCheckoutRoutes, { prefix: '/counsel' }) // quotes, packs, credits, allowance (persona plan B); dark behind counsel_checkout
+fastify.register(mattersRoutes, { prefix: '/counsel/matters' }) // matter intake for counsel (persona plan C), behind counsel_surfaces
+fastify.register(packetRoutes, { prefix: '/cases' }) // the family's side of the clinic inbox (persona plan I)
 fastify.register(meRoutes, { prefix: '/me' })
 fastify.register(flagsRoutes) // GET /flags — effective feature flags for the caller's tenant
 

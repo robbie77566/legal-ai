@@ -13,6 +13,7 @@
  */
 import { z } from 'zod'
 import { CASE_STATUSES, CASE_HOLDS } from './machine'
+import { MATTER_EDITABLE_FIELDS } from './matters'
 
 const status = z.enum(CASE_STATUSES)
 const hold = z.enum(CASE_HOLDS)
@@ -29,6 +30,15 @@ export const CASE_EVENT_SCHEMAS = {
       .object({
         lane: z.enum(['TRIAL', 'PLEA']).optional(),
         vehicle: z.enum(['11.07', '11.071', '11.072', '11.09']).optional(),
+      })
+      .strict(),
+    // v2 (matter intake, persona plan §5 C): a counsel vehicle (incl.
+    // direct_appeal / pdr_clock / 2254) and the matter the case was opened as.
+    2: z
+      .object({
+        lane: z.enum(['TRIAL', 'PLEA']).optional(),
+        vehicle: z.enum(['direct_appeal', 'pdr_clock', '11.07', '11.071', '11.072', '11.09', '2254']),
+        matterId: id,
       })
       .strict(),
   },
@@ -201,9 +211,17 @@ export const CASE_EVENT_SCHEMAS = {
   // the values (county is free text).
   'facts.updated': {
     1: z.object({ keys: z.array(z.enum(['county', 'convictionYear', 'trialDays', 'judgmentDate', 'trialOrPlea', 'appeal', 'priorWrit'])).min(1).max(7) }).strict(),
+    // v2 (matter intake, persona plan §5 C): the matter's editable fields.
+    2: z.object({ keys: z.array(z.enum(MATTER_EDITABLE_FIELDS)).min(1).max(MATTER_EDITABLE_FIELDS.length) }).strict(),
   },
-  'consent.granted': { 1: z.object({ consentId: id, recipientClass: z.enum(['clinic', 'attorney']) }).strict() },
+  'consent.granted': {
+    1: z.object({ consentId: id, recipientClass: z.enum(['clinic', 'attorney']), recipientOrganisationId: id.optional() }).strict(),
+  },
   'consent.revoked': { 1: z.object({ consentId: id }).strict() },
+  // Consented-packet inbox (persona_rollout_plan.md §5 I): the family delivers
+  // the released report to a clinic organisation; the clinic opens it.
+  'packet.delivered': { 1: z.object({ deliveryId: id, organisationId: id, reportId: id, versionNo: count }).strict() },
+  'packet.opened': { 1: z.object({ deliveryId: id, organisationId: id }).strict() },
   'deletion.requested': { 1: z.object({}).strict() },
   'deletion.completed': { 1: z.object({}).strict() },
   'rerun.purchased': { 1: z.object({ paymentId: id, runNo: count }).strict() },
