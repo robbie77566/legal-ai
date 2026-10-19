@@ -221,3 +221,18 @@ export const recordsComplete = (caseId: string) => apiFetch(`/cases/${encodeURIC
  */
 export const counselPacketPdfUrl = (caseId: string) => `${API_URL}/counsel/matters/${encodeURIComponent(caseId)}/packet.pdf`
 export const getCounselPacketSections = (caseId: string) => apiFetch(`/counsel/matters/${encodeURIComponent(caseId)}/packet.json`)
+
+// ── Family checkout (apps/api/src/routes/checkout.ts) ────────────────────────
+/** Body of POST /checkout/session. `blocks` is the overage block count the 402 named (K1). */
+export interface CheckoutSessionBody {
+  kind: 'review' | 'overage' | 'rerun'
+  caseId?: string
+  blocks?: number
+  draftToken?: string
+  promoCode?: string
+}
+
+/** POST /checkout/session → { url } for the Stripe page, or { free, url } for a full-price promo. */
+export function startCheckout(body: CheckoutSessionBody): Promise<Response> {
+  return apiFetch('/checkout/session', { method: 'POST', ...jsonBody(body) })
+}

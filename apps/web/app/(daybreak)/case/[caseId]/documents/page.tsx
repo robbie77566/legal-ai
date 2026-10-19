@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, startCheckout } from '@/lib/api'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
 import { formatCivilDate } from '@/lib/tracker'
-import { checklistReadiness, docPriority, TIERS, TIER_META, type DocTier } from '@hg/case-lifecycle'
+import { tpl, useContent } from '@/lib/i18n'
+import { OVERAGE_CONTENT } from '@/lib/content/overage'
+import { checklistReadiness, docPriority, familyOverage, TIERS, TIER_META, type DocTier } from '@hg/case-lifecycle'
 
 /**
  * S2/S3 checklist home (UI spec §5.4–5.5): per-item upload embedded in the
@@ -78,6 +80,27 @@ interface Meter {
   billable: number
   duplicatesIgnored: number
   cap: number
+  /** K1: blocks already bought and the pages they cover (5,000 + 2,500 per block). */
+  purchasedBlocks?: number
+  allowance?: number
+}
+/**
+ * The overage offer (K1/K2, UI spec §5.5): from the meter once the count
+ * crosses the allowance, or from the typed 402 that records-complete
+ * answers. The numbers are the api's; this page only formats them.
+ */
+interface OverageView {
+  billable: number
+  allowance: number
+  blocks: number
+  cents: number
+  blockPriceCents: number
+}
+const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+const overageFromMeter = (m: Meter): OverageView | null => {
+  const o = familyOverage(m.billable, m.purchasedBlocks ?? 0)
+  if (o.blocksNeeded === 0) return null
+  return { billable: m.billable, allowance: o.allowance, blocks: o.blocksNeeded, cents: o.cents, blockPriceCents: o.blockCents }
 }
 
 /** Tier colors: essential reads as urgent, strengthens as the accent, helpful as muted. */
@@ -95,6 +118,43 @@ export default function CaseDocuments() {
   const pendingItem = useRef<string | null>(null)
 
   const [meter, setMeter] = useState<Meter | null>(null)
+  // Overage card (K1/K2): the 402 is authoritative when it has been seen;
+  // otherwise the meter says whether the count is over the allowance.
+  const [overage402, setOverage402] = useState<OverageView | null>(null)
+  const [overageBusy, setOverageBusy] = useState<'opening' | 'failed' | null>(null)
+  // Back from Stripe (`?overage=1`): the webhook normally lands before the
+  // family does; if not, the card stays with a "confirming" line, never an error.
+  const [overageReturned, setOverageReturned] = useState(false)
+  useEffect(() => {
+    try {
+      setOverageReturned(new URLSearchParams(window.location.search).get('overage') === '1')
+    } catch {
+      /* fine */
+    }
+  }, [])
+  const overageCopy = useContent(OVERAGE_CONTENT)
+  const overage = useMemo<OverageView | null>(() => {
+    // A 402 is the gate's answer at this moment and outranks a meter that
+    // has not caught up; once the meter shows the purchase landed (the
+    // allowance now covers the count the 402 named), the 402 is spent.
+    if (overage402 && !(meter && (meter.allowance ?? meter.cap) >= overage402.billable && (meter.purchasedBlocks ?? 0) > 0)) return overage402
+    return meter ? overageFromMeter(meter) : null
+  }, [meter, overage402])
+  const buyOverage = async () => {
+    if (!overage) return
+    setOverageBusy('opening')
+    try {
+      const res = await startCheckout({ kind: 'overage', caseId, blocks: overage.blocks })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.url) {
+        window.location.assign(body.url)
+        return
+      }
+      setOverageBusy('failed')
+    } catch {
+      setOverageBusy('failed')
+    }
+  }
   const [correcting, setCorrecting] = useState<string | null>(null)
   // Record inventory (workstream D): which volumes are here and which are
   // missing, plus the per-file label the family confirms or changes.
@@ -367,6 +427,20 @@ export default function CaseDocuments() {
       setCelebrate(true)
     } else {
       const body = await res.json().catch(() => ({}))
+      if (res.status === 402) {
+        // The overage offer (K1): typed, never shown as error text (F8).
+        const blocks = Number(body.blocks ?? body.blocksNeeded ?? 1)
+        const blockPriceCents = Number(body.blockPriceCents ?? 4900)
+        setOverage402({
+          billable: Number(body.billablePages ?? meter?.billable ?? 0),
+          allowance: Number(body.allowance ?? meter?.cap ?? 5000),
+          blocks,
+          cents: Number(body.cents ?? blocks * blockPriceCents),
+          blockPriceCents,
+        })
+        await refresh()
+        return
+      }
       setError(body.error ?? 'Could not mark records complete yet.')
     }
   }
@@ -903,7 +977,7 @@ export default function CaseDocuments() {
           {/* Page meter (ENG-3): the same authority billing reads */}
           {meter && meter.billable > 0 && (
             <p className="border-t border-db-line px-4 py-3 text-sm">
-              <span className="font-db-mono">{meter.billable.toLocaleString()} / {meter.cap.toLocaleString()}</span> pages read so far
+              <span className="font-db-mono">{meter.billable.toLocaleString()} / {(meter.allowance ?? meter.cap).toLocaleString()}</span> pages read so far
               {meter.duplicatesIgnored > 0 && (
                 <span className="block text-db-muted">
                   Duplicates ignored: {meter.duplicatesIgnored} — they don&rsquo;t count toward your
@@ -929,6 +1003,42 @@ export default function CaseDocuments() {
           it; a later run with new documents costs $99. So start the review when everything you can
           get is here.
         </p>
+        {/* Overage offer card (K1/K2; UI spec §5.5): the meter becomes the
+            offer at the cap — inline, in the family's words, with the exact
+            block count and total, and the reassurance that nothing is lost. */}
+        {overage && (
+          <div className="mt-3 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4" data-testid="overage-card">
+            <p className="font-db-serif text-lg font-semibold">{tpl(overageCopy.title, { pages: overage.billable.toLocaleString('en-US') })}</p>
+            <p className="mt-1 text-sm">
+              {tpl(overageCopy.offer, {
+                included: overage.allowance.toLocaleString('en-US'),
+                addPages: (overage.blocks * 2500).toLocaleString('en-US'),
+                price: money(overage.cents),
+              })}
+            </p>
+            {overage.blocks > 1 && (
+              <p className="mt-1 text-xs text-db-muted">
+                {tpl(overageCopy.blocks, { blocks: overage.blocks, blockPrice: money(overage.blockPriceCents) })}
+              </p>
+            )}
+            <p className="mt-2 text-sm text-db-muted">{tpl(overageCopy.safe, { allowance: overage.allowance.toLocaleString('en-US') })}</p>
+            {overageReturned && <p className="mt-2 text-sm" data-testid="overage-confirming">{overageCopy.confirming}</p>}
+            <button
+              type="button"
+              onClick={() => void buyOverage()}
+              disabled={overageBusy === 'opening'}
+              className="mt-3 w-full rounded-xl bg-db-accent px-5 py-3 font-semibold text-db-surface disabled:opacity-40"
+              data-testid="overage-buy"
+            >
+              {tpl(overageCopy.button, { price: money(overage.cents) })}
+            </button>
+            {overageBusy === 'opening' && <p className="mt-2 text-xs text-db-muted">{overageCopy.opening}</p>}
+            {overageBusy === 'failed' && <p className="mt-2 text-xs" role="status">{overageCopy.failed}</p>}
+          </div>
+        )}
+        {overageReturned && !overage && meter && (meter.purchasedBlocks ?? 0) > 0 && (
+          <p className="mt-3 rounded-lg border border-db-line bg-db-surface p-3 text-sm" role="status" data-testid="overage-paid">{overageCopy.paid}</p>
+        )}
         {readiness && !readiness.enough && (
           <p className="mt-2 rounded-lg border p-3 text-sm" style={{ borderColor: 'var(--db-urgent)' }} data-testid="run-not-enough">
             <strong>Not enough yet.</strong> The review depends on: {readiness.missing.essential.map((m) => m.label).join(', ')}. You can still run it on what is here, but it will only be able to check the paperwork.
