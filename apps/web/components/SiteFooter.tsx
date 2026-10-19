@@ -49,6 +49,11 @@ export default function SiteFooter() {
           <Link href="/accessibility" className="underline">
             Accessibility
           </Link>
+          {/* The one crossing between the two audiences (persona_rollout_plan.md
+              §3): a text link in the footer, never in the family nav. */}
+          <Link href="/for-counsel" className="underline" data-testid="footer-for-counsel">
+            For counsel
+          </Link>
         </p>
         <p>© {year} Tangent Solutions LLC. All rights reserved.</p>
       </div>

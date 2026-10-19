@@ -34,6 +34,7 @@
     "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@hg/eslint-config": "workspace:*",
     "@hg/tsconfig": "workspace:*",
     "@playwright/test": "^1.42.1",

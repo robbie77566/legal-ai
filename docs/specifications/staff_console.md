@@ -32,7 +32,7 @@ Admin is a superset of Support by construction. The web nav is UX gating only (`
 | `/ops/quotes` | Open Long-record quote requests with the metered pages and the attorney's note; answer with a price or a decline + note | Admin (decides), Support (read-only) |
 | `/ops/record-desk` | The Record Desk queue: status, organisation, kind, pages, due, assigned reviewer (picker from `/ops/staff`), SLA badge (10 business days), the staff note the organisation reads | Admin; Support may assign, note, and move to IN_PROGRESS / DELIVERED |
 | `/ops/flags` | **Feature flags** (§10): the six dark professional surfaces, global switch, per-organisation overrides | Admin (flips), Support (read-only) |
-| `/dashboard/permissions` | Create staff accounts (sends the invite), change roles, resend invites | Admin (linked as **Team** in the nav) |
+| `/ops/team` | Create staff accounts (sends the invite), change roles, resend invites (moved from `/dashboard/permissions` by workstream F, 2026-10-19, when the 2025 `/dashboard` and `/workspace` build was removed) | Admin (linked as **Team** in the nav) |
 | `/auth/setup-password` | Invite acceptance — the first password for an admin-created account | public, token-verified |
 
 ## 3. Money and refunds (OPS-2)
@@ -105,7 +105,7 @@ The identity **expand** step of the persona rollout (`docs/implementation/person
 
 RLS: `Organisation` and `Membership` carry `tenant_isolation_policy_*` (USING + WITH CHECK on `tenantId`), ENABLE without FORCE like every other table since `20260901000012`. `StaffGrant` is a system table read on the owner connection. Proven by `packages/database/tests/organisations-rls.integration.test.ts`.
 
-**Professional accounts keep `role: CLIENT`.** Every existing staff gate (`/ops`, `/qa`, `/admin`, `/dashboard`, `/workspace`) refuses `CLIENT`, so a professional can never reach a staff surface through the legacy column; `Role.ATTORNEY` stays what §1 says it is, the staff reviewer. The api auth plugin additionally refuses a `PROFESSIONAL` on `/ops`, `/qa`, `/admin` and `/permissions` whatever the role column says, and the web middleware does the same for `/ops`, `/qa`, `/dashboard`, `/workspace` (`apps/web/lib/route-access.ts`).
+**Professional accounts keep `role: CLIENT`.** Every existing staff gate (`/ops`, `/qa`, `/admin`; `/dashboard` and `/workspace` until workstream F removed them) refuses `CLIENT`, so a professional can never reach a staff surface through the legacy column; `Role.ATTORNEY` stays what §1 says it is, the staff reviewer. The api auth plugin additionally refuses a `PROFESSIONAL` on `/ops`, `/qa`, `/admin` and `/permissions` whatever the role column says, and the web middleware does the same for `/ops` and `/qa` (`apps/web/lib/route-access.ts`).
 
 **Reading the two shapes at once.** `packages/database/staff.ts`:
 - `effectiveAccountKind(user)` — the stored kind, except a row still at the `FAMILY` default with a staff role counts as `STAFF` (a staff account created by a pre-expand code path, the same answer the backfill gives).

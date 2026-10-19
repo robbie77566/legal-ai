@@ -140,7 +140,7 @@ describe('ops shell', () => {
     }
     expect(screen.getByRole('link', { name: 'Holds' })).toHaveAttribute('href', '/ops/holds')
     expect(screen.getByRole('link', { name: 'Flags' })).toHaveAttribute('href', '/ops/flags')
-    expect(screen.getByRole('link', { name: 'Team' })).toHaveAttribute('href', '/dashboard/permissions')
+    expect(screen.getByRole('link', { name: 'Team' })).toHaveAttribute('href', '/ops/team')
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
   })
 

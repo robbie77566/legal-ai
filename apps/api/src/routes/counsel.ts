@@ -8,6 +8,7 @@ import { requireAccountKind } from '../plugins/guards';
 import counselOrgRoutes, { invitationAcceptRoutes } from './counsel-org';
 import { clinicInboxRoutes } from './packets';
 import { counselInvestigationRoutes } from './investigations';
+import counselPublicRoutes from './counsel-public';
 
 /**
  * Professional accounts (persona_rollout_plan.md §5 A — the identity EXPAND
@@ -68,6 +69,8 @@ export default async function counselRoutes(fastify: FastifyInstance) {
 
   // Seat acceptance (workstream I): anonymous, token-verified, like /auth/setup.
   fastify.register(invitationAcceptRoutes);
+  // Workstream F: GET /counsel/signup (are sign-ups open?) and the public PD-pilot form.
+  fastify.register(counselPublicRoutes);
 
   fastify.post('/signup', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request) => {
     const parsed = SignupSchema.parse(request.body);

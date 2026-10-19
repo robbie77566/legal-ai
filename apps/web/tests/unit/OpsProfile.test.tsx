@@ -10,7 +10,7 @@ const actions = vi.hoisted(() => ({
   updateProfile: vi.fn(async (_prev: unknown, _fd: FormData) => ({ success: true })),
   changePassword: vi.fn(async (_prev: unknown, _fd: FormData) => ({ success: true })),
 }))
-vi.mock('@/app/dashboard/account/_actions', () => ({ getProfile: actions.getProfile, updateProfile: actions.updateProfile, changePassword: actions.changePassword }))
+vi.mock('@/app/ops/profile/_actions', () => ({ getProfile: actions.getProfile, updateProfile: actions.updateProfile, changePassword: actions.changePassword }))
 const update = vi.fn(async () => null)
 vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { role: 'ADMIN' } }, status: 'authenticated', update }) }))
 vi.mock('next/navigation', () => ({ usePathname: () => '/ops/profile' }))

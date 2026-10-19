@@ -31,9 +31,9 @@ const NAV: [string, string][] = [
   // Dark professional surfaces and their per-organisation overrides
   // (staff_console.md §10). ADMIN flips; SUPPORT has no door here.
   ['/ops/flags', 'Flags'],
-  // Staff accounts live on the legacy permissions page until the Team page
-  // (staff_console_access_model §7) replaces it — but it needs a door.
-  ['/dashboard/permissions', 'Team'],
+  // Staff accounts (staff_console.md §2): the Team page moved here from the
+  // retired /dashboard build (workstream F, 2026-10-19).
+  ['/ops/team', 'Team'],
 ]
 // What a SUPPORT sign-in can open (staff_console_access_model §3): the
 // customer-facing surfaces. Everything else isn't greyed out — it isn't there.

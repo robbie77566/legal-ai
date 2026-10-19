@@ -7,8 +7,9 @@ import { isAuthorized } from '@/lib/route-access';
  * route and is the real gate. The matrix itself lives in lib/route-access.ts
  * (pure, unit-tested row by row):
  *
- *  - /counsel               : PROFESSIONAL accounts only (persona plan A)
- *  - /dashboard, /workspace : staff only (never CLIENT)
+ *  - /counsel               : PROFESSIONAL accounts only (persona plan A);
+ *                             /counsel/join is left out — an invitation is
+ *                             accepted signed out (token-verified by the API)
  *  - /qa                    : ADMIN | ATTORNEY
  *  - /ops                   : ADMIN | SUPPORT (the API narrows SUPPORT to reads + unblocking actions)
  *  - /case                  : any authenticated user (CLIENT's home turf)
@@ -26,9 +27,8 @@ export default withAuth({
 
 export const config = {
   matcher: [
-    '/counsel/:path*',
-    '/dashboard/:path*',
-    '/workspace/:path*',
+    '/counsel',
+    '/counsel/((?!join$|join/).*)',
     '/qa/:path*',
     '/ops/:path*',
     '/case/:path*',

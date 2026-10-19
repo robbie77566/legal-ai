@@ -24,6 +24,7 @@ export enum LogAction {
   // Workstream G (staff_console.md §12): a staff member verified, or could not
   // verify, a bar number by hand. The row never carries the number.
   BAR_VERIFICATION = 'BAR_VERIFICATION',
+  PILOT_INTEREST = 'PILOT_INTEREST', // the public PD-pilot form (workstream F); office and county only, never the sender's name or email
 }
 
 export class AuditService {

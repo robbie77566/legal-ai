@@ -431,6 +431,28 @@ If the number was mistyped, or you are admitted under a different name, reply to
   });
 }
 
+/**
+ * A public defender office (or a clinic) asked about the pilot from
+ * /for-offices or /for-counsel (persona_rollout_plan.md §4 "PD pilot";
+ * workstream F). Goes to every admin; the founder answers by hand.
+ */
+export function sendPilotInterest(
+  to: string,
+  opts: { office: string; county: string; name: string; email: string; note?: string | null; consoleUrl: string }
+) {
+  return send({
+    to,
+    subject: `Pilot interest — ${opts.office} (${opts.county} County)`,
+    text: `${opts.name} at ${opts.office}, ${opts.county} County, asked about the public defender pilot: 15 records, 90 days, free.${
+      opts.note ? `\n\nThey wrote: "${opts.note}"` : ''
+    }
+
+Reply to them directly: ${opts.email}
+
+When the office is ready, create its organisation and start the pilot from the console: ${opts.consoleUrl}`,
+  });
+}
+
 export function sendPasswordReset(to: string, opts: { resetUrl: string }) {
   return send({
     to,

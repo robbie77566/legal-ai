@@ -110,7 +110,18 @@ jobs:
         # passed even before the pre-pivot specs went stale (2026-09-02).
         run: pnpm --filter web exec playwright install --with-deps chromium
 
-      - name: E2E tests (public-surface smoke)
+      - name: Start the api for the signed-in e2e flow
+        # counsel.spec.ts F2 (workstream F) signs a professional up through
+        # POST /counsel/signup and flips its flag override as a seeded ADMIN,
+        # so the api must be up next to the Next dev server Playwright starts.
+        # Same Postgres and Redis as the integration tests; logs are shown on
+        # a failed start.
+        run: |
+          (pnpm --filter api exec tsx src/index.ts > /tmp/api.log 2>&1 &)
+          for i in $(seq 1 60); do curl -sf http://localhost:3001/healthz > /dev/null && break; sleep 2; done
+          curl -sf http://localhost:3001/healthz || (cat /tmp/api.log; exit 1)
+
+      - name: E2E tests (public-surface smoke + the counsel flow)
         run: pnpm --filter web exec playwright test
         env:
           CI: true
