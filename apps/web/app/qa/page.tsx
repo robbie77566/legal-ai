@@ -41,7 +41,9 @@ export default function QaConsole() {
   const [findings, setFindings] = useState<Finding[]>([])
   const [caseMeta, setCaseMeta] = useState<{ title: string; lane: string | null; subsequentWrit: boolean } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
-  const [draft, setDraft] = useState('')
+  // The fields a reviewer may correct (workstream G widened partBText,
+  // harmStandard and develop beside the Part A text).
+  const [draft, setDraft] = useState<{ partAText: string; partBText: string; harmStandard: string; develop: string }>({ partAText: '', partBText: '', harmStandard: '', develop: '' })
   const [notice, setNotice] = useState('')
   const [holds, setHolds] = useState<{ caseId: string; title: string; reasons: string[]; slaRemainingHours: number }[]>([])
 
@@ -66,15 +68,29 @@ export default function QaConsole() {
     }
   }
 
-  const saveEdit = async (findingId: string) => {
-    const res = await apiFetch(`/qa/findings/${findingId}`, {
+  const startEdit = (f: Finding) => {
+    setEditing(f.id)
+    setDraft({ partAText: f.partAText, partBText: f.partBText, harmStandard: f.harmStandard ?? '', develop: f.develop ?? '' })
+  }
+  const saveEdit = async (f: Finding) => {
+    // Only what changed travels: the api refuses an empty patch and audits the fields by name.
+    const body: Record<string, string | null> = {}
+    if (draft.partAText !== f.partAText) body.partAText = draft.partAText
+    if (draft.partBText !== f.partBText) body.partBText = draft.partBText
+    if (draft.harmStandard && draft.harmStandard !== (f.harmStandard ?? '')) body.harmStandard = draft.harmStandard
+    if (draft.develop !== (f.develop ?? '')) body.develop = draft.develop.trim() || null
+    if (Object.keys(body).length === 0) { setEditing(null); return }
+    const res = await apiFetch(`/qa/findings/${f.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ partAText: draft }),
+      body: JSON.stringify(body),
     })
     if (res.ok && selected) {
       setEditing(null)
       await open(selected)
+    } else {
+      const d = await res.json().catch(() => ({}))
+      setNotice(d.error ?? `Could not save the edit (${res.status}).`)
     }
   }
 
@@ -215,17 +231,55 @@ export default function QaConsole() {
                       </blockquote>
                     )}
 
-                    <p className="mt-3 text-xs uppercase tracking-wider text-[#8B949E]">Part A (family)</p>
                     {editing === f.id ? (
-                      <div className="mt-1">
-                        <textarea
-                          value={draft}
-                          onChange={(e) => setDraft(e.target.value)}
-                          rows={3}
-                          className="w-full rounded border border-[#30363D] bg-[#0B0E14] p-2 text-sm"
-                        />
-                        <div className="mt-1 flex gap-2">
-                          <button onClick={() => saveEdit(f.id)} className="rounded bg-[#D4AF37] px-3 py-1 text-xs font-semibold text-[#0B0E14]">
+                      <div className="mt-3 space-y-3" data-testid={`edit-form-${f.id}`}>
+                        <label className="block text-xs uppercase tracking-wider text-[#8B949E]">
+                          Part A (family)
+                          <textarea
+                            aria-label="Part A text"
+                            value={draft.partAText}
+                            onChange={(e) => setDraft((d) => ({ ...d, partAText: e.target.value }))}
+                            rows={3}
+                            className="mt-1 w-full rounded border border-[#30363D] bg-[#0B0E14] p-2 text-sm normal-case tracking-normal"
+                          />
+                        </label>
+                        <label className="block text-xs uppercase tracking-wider text-[#8B949E]">
+                          Part B (attorney)
+                          <textarea
+                            aria-label="Part B text"
+                            value={draft.partBText}
+                            onChange={(e) => setDraft((d) => ({ ...d, partBText: e.target.value }))}
+                            rows={4}
+                            className="mt-1 w-full rounded border border-[#30363D] bg-[#0B0E14] p-2 text-sm normal-case tracking-normal"
+                          />
+                        </label>
+                        <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
+                          <label className="block text-xs uppercase tracking-wider text-[#8B949E]">
+                            Harm standard
+                            <select
+                              aria-label="Harm standard"
+                              value={draft.harmStandard}
+                              onChange={(e) => setDraft((d) => ({ ...d, harmStandard: e.target.value }))}
+                              className="mt-1 block w-full rounded border border-[#30363D] bg-[#0B0E14] p-2 text-sm normal-case tracking-normal"
+                            >
+                              <option value="">— unchanged —</option>
+                              {['structural', 'constitutional', 'nonconstitutional', 'none'].map((h) => <option key={h} value={h}>{h}</option>)}
+                            </select>
+                          </label>
+                          <label className="block text-xs uppercase tracking-wider text-[#8B949E]">
+                            Develop (the extra-record step)
+                            <textarea
+                              aria-label="Develop"
+                              value={draft.develop}
+                              onChange={(e) => setDraft((d) => ({ ...d, develop: e.target.value }))}
+                              rows={2}
+                              className="mt-1 w-full rounded border border-[#30363D] bg-[#0B0E14] p-2 text-sm normal-case tracking-normal"
+                            />
+                          </label>
+                        </div>
+                        <p className="text-[11px] text-[#8B949E]">The vehicle is derived from preservation and the harm standard; it is never typed. Every save is marked &ldquo;edited&rdquo; and audited under your name.</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => void saveEdit(f)} className="rounded bg-[#D4AF37] px-3 py-1 text-xs font-semibold text-[#0B0E14]" data-testid={`save-edit-${f.id}`}>
                             Save
                           </button>
                           <button onClick={() => setEditing(null)} className="text-xs text-[#8B949E]">
@@ -234,23 +288,20 @@ export default function QaConsole() {
                         </div>
                       </div>
                     ) : (
-                      <p className="mt-1 text-sm">
-                        {f.partAText}{' '}
-                        <button
-                          onClick={() => {
-                            setEditing(f.id)
-                            setDraft(f.partAText)
-                          }}
-                          className="text-xs text-[#D4AF37] underline"
-                        >
-                          edit
-                        </button>
-                      </p>
-                    )}
+                      <>
+                        <p className="mt-3 text-xs uppercase tracking-wider text-[#8B949E]">Part A (family)</p>
+                        <p className="mt-1 text-sm">
+                          {f.partAText}{' '}
+                          <button onClick={() => startEdit(f)} className="text-xs text-[#D4AF37] underline" data-testid={`edit-${f.id}`}>
+                            edit
+                          </button>
+                        </p>
 
-                    <p className="mt-3 text-xs uppercase tracking-wider text-[#8B949E]">Part B (attorney)</p>
-                    <p className="mt-1 text-sm text-[#8B949E]">{f.partBText}</p>
-                    {(f.preserved || f.vehicle || f.develop) && (
+                        <p className="mt-3 text-xs uppercase tracking-wider text-[#8B949E]">Part B (attorney)</p>
+                        <p className="mt-1 text-sm text-[#8B949E]">{f.partBText}</p>
+                      </>
+                    )}
+                    {editing !== f.id && (f.preserved || f.vehicle || f.develop) && (
                       <p className="mt-2 font-mono text-[11px] text-[#8B949E]" data-testid={`counsel-fields-${f.id}`}>
                         preserved: {f.preserved ?? '—'} · vehicle: {f.vehicle ?? '—'} · harm: {f.harmStandard ?? '—'}
                         {f.develop ? ` · develop: ${f.develop}` : ''}

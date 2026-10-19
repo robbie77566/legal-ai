@@ -24,6 +24,14 @@ interface Status {
   pipeline: { awaitingDocs: number; digitizing: number; analyzing: number; held: number; ready: number }
   retentionCandidates: number
   storage?: { ok: boolean; detail: string }
+  // Professional era (persona_rollout_plan.md §7 "Observability"): five numbers, each a door.
+  professional?: {
+    verificationsPending: number
+    quoteRequestsOpen: number
+    pilotRecordsThisWeek: number
+    allowancesNearZero: Array<{ organisationId: string; organisation: string; kind: string; granted: number; remaining: number }>
+    investigationsPastSla: Array<{ id: string; organisationId: string; organisation: string; kind: string; status: string; businessDaysOpen: number }>
+  }
 }
 interface Hold { caseId: string; title: string; ref: string; reasons: string[]; heldAt: string; slaRemainingHours: number }
 interface QueueRow {
@@ -180,6 +188,30 @@ export default function OpsOverview() {
           )}
         </div>
       </section>
+
+      {/* Professional group (plan §7): counsel, offices and clinics — what is waiting on staff. */}
+      {status?.professional && (() => {
+        const p = status.professional
+        const tiles: Array<{ label: string; value: number; href: string; hint: string; tone: 'ok' | 'warn' | 'bad' | 'neutral' }> = [
+          { label: 'Verifications pending', value: p.verificationsPending, href: '/ops/verifications', hint: 'bar numbers to check by hand', tone: p.verificationsPending ? 'warn' : 'neutral' },
+          { label: 'Quote requests open', value: p.quoteRequestsOpen, href: '/ops/quotes', hint: 'Long records waiting on a price', tone: p.quoteRequestsOpen ? 'warn' : 'neutral' },
+          { label: 'Pilot records this week', value: p.pilotRecordsThisWeek, href: '/ops/organisations', hint: 'records opened on a pilot allowance', tone: 'neutral' },
+          { label: 'Allowances near zero', value: p.allowancesNearZero.length, href: '/ops/organisations', hint: p.allowancesNearZero.slice(0, 3).map((o) => `${o.organisation} · ${o.remaining} left`).join(' / ') || 'every organisation has room', tone: p.allowancesNearZero.length ? 'warn' : 'neutral' },
+          { label: 'Record Desk past SLA', value: p.investigationsPastSla.length, href: '/ops/record-desk', hint: p.investigationsPastSla.slice(0, 3).map((r) => `${r.organisation} · ${r.businessDaysOpen}d`).join(' / ') || 'nothing past 10 business days', tone: p.investigationsPastSla.length ? 'bad' : 'neutral' },
+        ]
+        return (
+          <section className="mt-8" data-testid="professional">
+            <h2 className="font-serif text-lg font-bold text-[#D4AF37]">Professional</h2>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {tiles.map((t) => (
+                <Link key={t.label} href={t.href} className="block" data-testid={`pro-${t.label.toLowerCase().replace(/\W+/g, '-')}`}>
+                  <Tile label={t.label} value={String(t.value)} tone={t.tone} hint={t.hint} />
+                </Link>
+              ))}
+            </div>
+          </section>
+        )
+      })()}
 
       {role === 'SUPPORT' && (requests.open.length > 0 || requests.decided.length > 0) && (
         <section className="mt-8" data-testid="waiting-on-admin">

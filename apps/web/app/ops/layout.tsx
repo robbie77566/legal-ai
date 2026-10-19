@@ -16,6 +16,12 @@ const NAV: [string, string][] = [
   ['/ops', 'Overview'],
   ['/ops/holds', 'Holds'],
   ['/ops/cases', 'Cases'],
+  // Professional era (staff_console.md §12): organisations and their pilots,
+  // the bar-verification queue, Long-record quotes, the Record Desk queue.
+  ['/ops/organisations', 'Organisations'],
+  ['/ops/verifications', 'Verifications'],
+  ['/ops/quotes', 'Quotes'],
+  ['/ops/record-desk', 'Record Desk'],
   ['/ops/accounts', 'Accounts'],
   ['/ops/promos', 'Promos'],
   ['/ops/money', 'Money'],
@@ -31,7 +37,9 @@ const NAV: [string, string][] = [
 ]
 // What a SUPPORT sign-in can open (staff_console_access_model §3): the
 // customer-facing surfaces. Everything else isn't greyed out — it isn't there.
-const SUPPORT_NAV = new Set(['/ops', '/ops/cases', '/ops/accounts', '/ops/feedback'])
+// The professional pages are read-only for Support (the api refuses the
+// writes); the Record Desk lets Support move a request along.
+const SUPPORT_NAV = new Set(['/ops', '/ops/cases', '/ops/organisations', '/ops/verifications', '/ops/quotes', '/ops/record-desk', '/ops/accounts', '/ops/feedback'])
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? ''

@@ -6,7 +6,8 @@
  * entry point (ledger row, case drawer via ?case=, a Support request).
  */
 import { useCallback, useEffect, useState } from 'react'
-import { apiFetch } from '@/lib/api'
+import Link from 'next/link'
+import { apiFetch, opsCreateInvoice, opsListCredits, opsListInvoices, opsListOrganisations, opsMarkInvoicePaid } from '@/lib/api'
 
 interface PaymentRow {
   id: string
@@ -21,6 +22,8 @@ interface PaymentRow {
   refundedCents: number
   remainingCents: number
   promoCode: string | null
+  sku?: string | null
+  rung?: string | null
   free: boolean
   disputeStatus: string | null
   disputedAt: string | null
@@ -51,11 +54,30 @@ interface Summary {
     costUsd: number; costPerCaseUsd: number | null; marginPct: number | null; needsDecision: number
   }
   weeks: Array<{ weekOf: string; sold: number; collectedCents: number; refundedCents: number; netCents: number; costUsd: number }>
+  // Professional era (staff_console.md §12): money by counsel rung; family rows carry no SKU.
+  byRung?: Record<string, { count: number; cents: number; refundedCents: number }>
   disputes: PaymentRow[]
   requests: Array<{ id: string; caseId: string; caseTitle: string; type: 'REFUND' | 'CASE_DELETE' | 'ACCOUNT_DELETE'; reason: string; note: string | null; amountCents: number | null; requestedByEmail: string; createdAt: string }>
   recentRefunds: RefundRow[]
   reconciliation: { checked: number; healed: number; ranAt: string; trigger: string } | null
 }
+
+interface InvoiceRow {
+  id: string; number: string; status: 'DRAFT' | 'SENT' | 'PAID' | 'VOID'; totalCents: number
+  lines: Array<{ caseId: string; causeNumber?: string; sku: string; cents: number }>
+  paidAt: string | null; paidBy: string | null; achReference: string | null; createdAt: string
+  organisation: { id: string; name: string; kind: string; isTest: boolean } | null
+}
+interface CreditSummary {
+  issued: number; consumed: number; expired: number; live: number
+  rows: Array<{ id: string; packId: string; rung: string; state: 'LIVE' | 'CONSUMED' | 'EXPIRED'; issuedAt: string; expiresAt: string; consumedAt: string | null; consumedCaseId: string | null; organisation: { id: string; name: string } | null; buyer: { email: string; name: string | null } | null }>
+}
+interface OrgOption { id: string; name: string; kind: string; isTest: boolean }
+interface QueueCase { id: string; label: string; ref: string; status: string; organisation: { id: string } | null; matter: { vehicle: string; causeNumber: string | null } | null }
+
+/** The counsel ladder in the order the tiles read; packs and anything else sold appear after. */
+const RUNG_TILES: Array<[string, string]> = [['COUNSEL_SHORT', 'Counsel · Short'], ['COUNSEL_STANDARD', 'Counsel · Standard'], ['COUNSEL_EXTENDED', 'Counsel · Extended'], ['COUNSEL_LONG', 'Counsel · Long']]
+const skuLabel = (sku: string) => RUNG_TILES.find(([k]) => k === sku)?.[1] ?? sku.replace(/_/g, ' · ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
 
 const REASONS: Array<[string, string]> = [
   ['unreadable_record', 'Unreadable record'],
@@ -199,6 +221,42 @@ export default function MoneyPage() {
   const [reconciling, setReconciling] = useState(false)
   const [autoOpenCase, setAutoOpenCase] = useState<string | null>(null)
   const [declining, setDeclining] = useState<{ id: string; note: string } | null>(null)
+  // Professional era: ACH invoices and prepaid credits beside the family ledger.
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([])
+  const [credits, setCredits] = useState<CreditSummary | null>(null)
+  const [orgs, setOrgs] = useState<OrgOption[]>([])
+  const [queueCases, setQueueCases] = useState<QueueCase[]>([])
+  const [draftOrg, setDraftOrg] = useState('')
+  const [draftCases, setDraftCases] = useState<string[]>([])
+  const [paying, setPaying] = useState<{ id: string; ref: string } | null>(null)
+
+  const loadProfessional = useCallback(async () => {
+    const [i, c] = await Promise.all([opsListInvoices(), opsListCredits()])
+    if (i.ok) { const d = await i.json().catch(() => null); setInvoices(Array.isArray(d) ? (d as InvoiceRow[]) : []) }
+    if (c.ok) { const d = (await c.json().catch(() => null)) as CreditSummary | null; setCredits(d && Array.isArray(d.rows) ? d : null) }
+  }, [])
+  useEffect(() => { void loadProfessional() }, [loadProfessional])
+  useEffect(() => {
+    void opsListOrganisations().then(async (r) => { if (!r.ok) return; const d = (await r.json().catch(() => null)) as { organisations?: OrgOption[] } | null; setOrgs(Array.isArray(d?.organisations) ? d!.organisations! : []) })
+    void apiFetch('/ops/queue').then(async (r) => { if (!r.ok) return; const d = await r.json().catch(() => null); setQueueCases(Array.isArray(d) ? (d as QueueCase[]) : []) })
+  }, [])
+
+  const createDraft = async () => {
+    if (!draftOrg || draftCases.length === 0) return
+    const r = await opsCreateInvoice({ organisationId: draftOrg, caseIds: draftCases })
+    const d = await r.json().catch(() => ({}))
+    setNotice(r.ok ? `Draft ${d.number} created for ${usd(d.totalCents)} — ${d.lines?.length ?? 0} line(s).` : d.error ?? `Could not draft (${r.status})`)
+    if (r.ok) { setDraftCases([]); await loadProfessional() }
+  }
+  const markPaid = async () => {
+    if (!paying?.ref.trim()) return
+    const r = await opsMarkInvoicePaid(paying.id, paying.ref.trim())
+    const d = await r.json().catch(() => ({}))
+    setNotice(r.ok ? `${d.number} marked paid (${d.achReference}).` : d.error ?? `Could not mark paid (${r.status})`)
+    setPaying(null)
+    if (r.ok) await loadProfessional()
+  }
+  const draftable = queueCases.filter((c) => draftOrg && c.organisation?.id === draftOrg && c.status !== 'DELETED')
 
   const decide = async (id: string, decision: 'APPROVED' | 'DECLINED', decisionNote?: string) => {
     const res = await apiFetch(`/ops/requests/${id}/decide`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision, ...(decisionNote ? { decisionNote } : {}) }) })
@@ -322,6 +380,19 @@ export default function MoneyPage() {
         </div>
       )}
 
+      {/* Professional era (staff_console.md §12): the same period, by counsel rung. Test organisations are excluded. */}
+      {summary?.byRung && (
+        <section className="mt-5" data-testid="by-rung">
+          <h2 className="text-[11px] uppercase tracking-wider text-[#8B949E]">By rung · counsel</h2>
+          <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
+            {[...RUNG_TILES, ...Object.keys(summary.byRung).filter((k) => !RUNG_TILES.some(([r]) => r === k) && summary.byRung![k].count > 0).map((k): [string, string] => [k, skuLabel(k)])].map(([sku, label]) => {
+              const r = summary.byRung![sku] ?? { count: 0, cents: 0, refundedCents: 0 }
+              return <Tile key={sku} label={label} value={usd(r.cents)} hint={`${r.count} sold${r.refundedCents ? ` · ${usd(r.refundedCents)} refunded` : ''}`} tone={r.count ? 'ok' : undefined} />
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <section>
           <h2 className="text-[11px] uppercase tracking-wider text-[#8B949E]">By week</h2>
@@ -421,6 +492,90 @@ export default function MoneyPage() {
         </aside>
       </div>
 
+      {/* ACH invoices for offices and clinics (persona plan §4; staff_console.md §11 B). The PDF statement is the February slice. */}
+      <section className="mt-8" data-testid="invoices">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-[11px] uppercase tracking-wider text-[#8B949E]">Invoices · ACH</h2>
+          <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="invoice-draft">
+            <select aria-label="Organisation to invoice" value={draftOrg} onChange={(e) => { setDraftOrg(e.target.value); setDraftCases([]) }} className="rounded border border-[#30363D] bg-[#161B22] p-1.5 text-xs">
+              <option value="">Draft an invoice for…</option>
+              {orgs.map((o) => <option key={o.id} value={o.id}>{o.name}{o.isTest ? ' (test)' : ''}</option>)}
+            </select>
+            {draftOrg && (
+              <span className="flex flex-wrap items-center gap-2 rounded border border-[#30363D] bg-[#0D1117] px-2 py-1">
+                {draftable.length === 0 && <span className="text-[#8B949E]">no counsel cases on this organisation</span>}
+                {draftable.map((c) => (
+                  <label key={c.id} className="flex items-center gap-1">
+                    <input type="checkbox" checked={draftCases.includes(c.id)} onChange={(e) => setDraftCases((prev) => (e.target.checked ? [...prev, c.id] : prev.filter((x) => x !== c.id)))} />
+                    <span className="font-mono">{c.matter?.causeNumber ?? c.ref}</span><span className="text-[#8B949E]">{c.matter?.vehicle ? ` ${c.matter.vehicle}` : ''}</span>
+                  </label>
+                ))}
+                <button onClick={() => void createDraft()} disabled={draftCases.length === 0} className="rounded bg-[#D4AF37] px-2 py-1 font-semibold text-[#0B0E14] disabled:opacity-40" data-testid="invoice-create">Create DRAFT ({draftCases.length})</button>
+              </span>
+            )}
+          </div>
+        </div>
+        <table className="mt-3 w-full border-collapse text-sm" data-testid="invoices-table">
+          <thead>
+            <tr className="border-b border-[#30363D] text-left text-xs uppercase tracking-wider text-[#8B949E]">
+              <th className="py-2">Number</th><th>Organisation</th><th>Status</th><th>Lines</th><th className="text-right">Total</th><th>Paid</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoices.map((inv) => (
+              <tr key={inv.id} className="border-b border-[#21262D] align-top" data-testid={`invoice-${inv.id}`}>
+                <td className="py-2 font-mono">{inv.number}</td>
+                <td className="text-xs">{inv.organisation ? <Link href={`/ops/organisations/${inv.organisation.id}`} className="underline hover:text-[#D4AF37]">{inv.organisation.name}</Link> : '—'}</td>
+                <td><span className={`rounded bg-[#21262D] px-1.5 py-0.5 font-mono text-[11px] font-semibold ${inv.status === 'PAID' ? 'text-[#3FB950]' : inv.status === 'VOID' ? 'text-[#8B949E]' : 'text-[#D29922]'}`}>{inv.status}</span></td>
+                <td className="font-mono text-[11px] text-[#8B949E]">{inv.lines.map((l) => `${l.causeNumber ?? l.caseId.slice(-6)} · ${l.sku.replace('COUNSEL_', '').toLowerCase()} · ${usd(l.cents)}`).join(' / ')}</td>
+                <td className="text-right font-mono tabular-nums">{usd(inv.totalCents)}</td>
+                <td className="font-mono text-xs text-[#8B949E]">{inv.paidAt ? `${when(inv.paidAt)} · ${inv.achReference}` : '—'}</td>
+                <td className="text-right text-xs">
+                  {(inv.status === 'DRAFT' || inv.status === 'SENT') && (
+                    paying?.id === inv.id ? (
+                      <span className="flex items-center justify-end gap-1">
+                        <input aria-label="ACH reference" value={paying.ref} onChange={(e) => setPaying({ id: inv.id, ref: e.target.value })} placeholder="ACH reference" className="w-36 rounded border border-[#30363D] bg-[#161B22] p-1 font-mono text-xs" />
+                        <button onClick={() => void markPaid()} disabled={!paying.ref.trim()} className="rounded border border-[#3FB950] px-2 py-1 text-[#3FB950] disabled:opacity-40" data-testid={`mark-paid-confirm-${inv.id}`}>Mark paid</button>
+                        <button onClick={() => setPaying(null)} className="text-[#8B949E]">Cancel</button>
+                      </span>
+                    ) : (
+                      <button onClick={() => setPaying({ id: inv.id, ref: '' })} className="rounded border border-[#30363D] px-2 py-1" data-testid={`mark-paid-${inv.id}`}>Mark paid…</button>
+                    )
+                  )}
+                </td>
+              </tr>
+            ))}
+            {invoices.length === 0 && <tr><td colSpan={7} className="py-3 text-sm text-[#8B949E]">No invoices yet. Pick an organisation above to draft one from its counsel cases.</td></tr>}
+          </tbody>
+        </table>
+      </section>
+
+      {/* Prepaid credits from five-packs (persona plan §4). */}
+      <section className="mt-8" data-testid="credits">
+        <h2 className="text-[11px] uppercase tracking-wider text-[#8B949E]">Credits · five-packs</h2>
+        {credits ? (
+          <>
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+              <Tile label="Credits issued" value={String(credits.issued)} hint="five per pack" />
+              <Tile label="Credits live" value={String(credits.live)} hint="unspent, unexpired" tone={credits.live ? 'ok' : undefined} />
+              <Tile label="Credits consumed" value={String(credits.consumed)} hint="spent on a record" />
+              <Tile label="Credits expired" value={String(credits.expired)} hint="12 months from issue" tone={credits.expired ? 'warn' : undefined} />
+            </div>
+            {credits.rows.length > 0 && (
+              <div className="mt-2 rounded border border-[#30363D] bg-[#161B22] text-xs">
+                {credits.rows.slice(0, 25).map((c) => (
+                  <div key={c.id} className="flex items-center gap-3 border-b border-[#21262D] px-3 py-2 last:border-b-0">
+                    <span className={`w-20 shrink-0 font-mono text-[10px] font-semibold ${c.state === 'LIVE' ? 'text-[#3FB950]' : c.state === 'CONSUMED' ? 'text-[#8B949E]' : 'text-[#D29922]'}`}>{c.state}</span>
+                    <span className="min-w-0 flex-1 truncate">{c.organisation?.name ?? c.buyer?.email ?? '—'} · {c.rung.toLowerCase()} · pack {c.packId.slice(-6)}</span>
+                    <span className="shrink-0 font-mono text-[#8B949E]">{c.consumedAt ? `spent ${when(c.consumedAt)}` : `expires ${new Date(c.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : <p className="mt-2 text-sm text-[#8B949E]">Loading…</p>}
+      </section>
+
       <section className="mt-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -439,7 +594,7 @@ export default function MoneyPage() {
         <table className="mt-3 w-full border-collapse text-sm" data-testid="payments-table">
           <thead>
             <tr className="border-b border-[#30363D] text-left text-xs uppercase tracking-wider text-[#8B949E]">
-              <th className="py-2">Date</th><th>Customer</th><th>Case</th><th>Kind</th><th className="text-right">Amount</th><th>Promo</th><th>Status</th><th>Stripe</th><th></th>
+              <th className="py-2">Date</th><th>Customer</th><th>Case</th><th>Kind</th><th>Rung</th><th className="text-right">Amount</th><th>Promo</th><th>Status</th><th>Stripe</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -449,6 +604,7 @@ export default function MoneyPage() {
                 <td className="text-xs">{p.customerEmail ?? '—'}</td>
                 <td className="font-semibold">{p.caseTitle ?? '—'}</td>
                 <td className="text-xs">{p.kind.toLowerCase()}</td>
+                <td className="font-mono text-[11px] text-[#8B949E]">{p.sku ? p.sku.replace('COUNSEL_', '').replace('PACK_', 'pack ').toLowerCase() : '—'}</td>
                 <td className="text-right font-mono tabular-nums">{usd(p.amountCents)}</td>
                 <td className="font-mono text-xs text-[#D4AF37]">{p.promoCode ?? <span className="text-[#8B949E]">—</span>}</td>
                 <td><StatusChip p={p} /></td>
@@ -466,7 +622,7 @@ export default function MoneyPage() {
                 </td>
               </tr>
             ))}
-            {payments.rows.length === 0 && <tr><td colSpan={9} className="py-3 text-sm text-[#8B949E]">No payments match.</td></tr>}
+            {payments.rows.length === 0 && <tr><td colSpan={10} className="py-3 text-sm text-[#8B949E]">No payments match.</td></tr>}
           </tbody>
         </table>
         <p className="mt-2 text-xs text-[#8B949E]">Showing {payments.rows.length} of {payments.total} · every row is retained 7 years and survives case deletion.</p>

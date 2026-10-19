@@ -146,3 +146,25 @@ export const opsListInvestigations = (status?: 'OPEN' | 'IN_PROGRESS' | 'DELIVER
   apiFetch(`/ops/investigations${status ? `?status=${status}` : ''}`)
 export const opsUpdateInvestigation = (id: string, body: { status?: 'OPEN' | 'IN_PROGRESS' | 'DELIVERED' | 'DECLINED'; assignedTo?: string | null; note?: string | null }) =>
   apiFetch(`/ops/investigations/${encodeURIComponent(id)}`, json('PATCH', body))
+
+// ── Workstream G: the staff console's professional-era jobs (staff_console.md §12) ──
+// Bar verification is a human act: the staff member checks the State Bar
+// directory themselves; these helpers only record the decision.
+export const opsListVerifications = () => apiFetch('/ops/verifications')
+export const opsVerifyBar = (userId: string) => apiFetch(`/ops/verifications/${encodeURIComponent(userId)}/verify`, json('POST'))
+export const opsRejectBar = (userId: string, note: string) => apiFetch(`/ops/verifications/${encodeURIComponent(userId)}/reject`, json('POST', { note }))
+export const opsListQuoteRequests = (status?: 'OPEN' | 'QUOTED' | 'DECLINED') => apiFetch(`/ops/quote-requests${status ? `?status=${status}` : ''}`)
+export const opsDecideQuoteRequest = (id: string, body: { quotedCents?: number; decline?: boolean; note?: string }) =>
+  apiFetch(`/ops/quote-requests/${encodeURIComponent(id)}/decide`, json('POST', body))
+export const opsListInvoices = (params?: { organisationId?: string; status?: 'DRAFT' | 'SENT' | 'PAID' | 'VOID' }) => {
+  const qs = new URLSearchParams()
+  if (params?.organisationId) qs.set('organisationId', params.organisationId)
+  if (params?.status) qs.set('status', params.status)
+  const tail = qs.toString()
+  return apiFetch(`/ops/invoices${tail ? `?${tail}` : ''}`)
+}
+export const opsCreateInvoice = (body: { organisationId: string; caseIds: string[]; centsByCase?: Record<string, number> }) => apiFetch('/ops/invoices', json('POST', body))
+export const opsMarkInvoicePaid = (id: string, achReference: string) => apiFetch(`/ops/invoices/${encodeURIComponent(id)}/mark-paid`, json('POST', { achReference }))
+export const opsListCredits = (organisationId?: string) => apiFetch(`/ops/credits${organisationId ? `?organisationId=${encodeURIComponent(organisationId)}` : ''}`)
+/** The staff accounts (Admin, Support, reviewers) for the Record Desk reviewer picker. */
+export const opsListStaff = () => apiFetch('/ops/staff')
