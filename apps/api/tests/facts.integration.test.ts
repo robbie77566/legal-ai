@@ -200,6 +200,9 @@ describe('a paid re-run reopens a finished case', () => {
     const v1 = await get(`/cases/${caseId}/report`);
     expect(v1.statusCode).toBe(200);
     expect(v1.json().versionNo).toBe(1);
+    // FR-10 (K3): the check said "yes" to never-presented evidence; the
+    // report carries the flag from the facts — told, never inferred.
+    expect(v1.json().newEvidence).toEqual({ told: true });
 
     // Simulate run 2 + report v2 with one finding kept, one added, one removed.
     const run1 = await prisma.analysisRun.findFirstOrThrow({ where: { caseId, runNo: 1 } });

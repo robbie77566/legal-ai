@@ -13,7 +13,7 @@
 | F5 | **Received/Needed binary hid the PROBLEM state** (a flagged item read as "Received"). | Medium | Fixed: chip map now distinguishes Needed / Received / Confirmed / Needs attention |
 | F6 | Echo-back cards appeared as unexplained interruptions. | Low | Fixed: grouped under one heading — "Quick check — did we name these right?" |
 | F7 | Intro paragraph carried four instructions in one breath. | Low | Fixed: one line; operational guidance lives in the add zone |
-| F8 | 402 overage response renders as raw error text with no purchase path | Medium | **Deferred** — needs the in-flow overage purchase UI (tracked in mobile_ux_review.md) |
+| F8 | 402 overage response renders as raw error text with no purchase path | Medium | **Done (2026-10-19, persona plan §3 family tail, G-B4):** the page meter becomes an inline overage offer card at the cap — "Your record is N pages. The review covers 5,000. Add 2,500 more pages for $49" with the exact block count and total, an "Add pages — $X" button that opens the existing family checkout (`POST /checkout/session` `{ kind: 'overage', blocks }`), the reassurance that nothing is lost and the pages beyond the cap wait, and the return from Stripe (`?overage=1`). The api 402 is typed `{ error: 'OVERAGE_REQUIRED', pagesOver, blocks, cents, checkout }`. English and Spanish (`lib/content/overage.ts`). Tests: `apps/api/tests/overage.integration.test.ts`, `apps/web/tests/unit/DocumentsOverage.test.tsx` |
 | F9 | No upload progress % for large files on slow connections (fetch PUT has no progress events) | Low | **Fixed (2026-09-01, PO request):** the S3 PUT moved to XHR — per-file progress bar with % and "file N of M" in the add zone, plus the keep-page-open reassurance |
 
 ## 2. Analysis-progress feedback (status page)
@@ -179,4 +179,4 @@ Tests: `apps/web/tests/unit/DocumentsVolumes.test.tsx`,
 
 ## 5. Out of scope, tracked
 
-F8/F9 above; Spanish for both surfaces (the recorded i18n P1 gap); replaying missed activity-feed lines on reconnect (needs a customer-safe events endpoint — today a mid-analysis page load gets the panel, new lines from the next event on).
+F9 above (F8 shipped 2026-10-19); Spanish for both surfaces (the recorded i18n P1 gap); replaying missed activity-feed lines on reconnect (needs a customer-safe events endpoint — today a mid-analysis page load gets the panel, new lines from the next event on).
