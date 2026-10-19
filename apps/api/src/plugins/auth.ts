@@ -5,6 +5,7 @@ import prisma from '@hg/database'
 // Subpath import on purpose: tests that mock '@hg/database' wholesale (cases.test.ts)
 // still get the real, dependency-free helpers.
 import { effectiveAccountKind, effectiveStaffGrants } from '@hg/database/staff'
+import { evalGateIdentity } from './eval-gate-token'
 
 /**
  * What every route sees. userId/tenantId/role come from the session token
@@ -16,6 +17,12 @@ import { effectiveAccountKind, effectiveStaffGrants } from '@hg/database/staff'
 export interface RequestAuth extends SessionIdentity {
   accountKind: AccountKind
   grants: StaffGrantKind[]
+  /**
+   * Set only for a machine caller (the eval gate's bearer token, workstream
+   * J); absent on every session-backed request. Routes that accept the
+   * machine use it; audit rows carry its userId.
+   */
+  machine?: 'eval-gate'
 }
 
 declare module 'fastify' {
@@ -122,6 +129,14 @@ export function registerAuth(fastify: FastifyInstance) {
       const identity = token ? await decodeSessionToken(token) : null
 
       if (!identity) {
+        // The eval gate's machine token (workstream J): minted ONLY for
+        // /ops/eval/runs[/:id] with the configured bearer; the same bearer
+        // anywhere else is just a bad session token and falls through to 401.
+        const machine = evalGateIdentity(request)
+        if (machine) {
+          request.auth = machine
+          return
+        }
         // A public route serves the anonymous visitor; everything else refuses.
         // A public route with NO identity attached must leave request.auth
         // undefined, so the route can tell the two apart.

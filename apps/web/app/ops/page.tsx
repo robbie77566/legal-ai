@@ -31,6 +31,8 @@ interface Status {
     pilotRecordsThisWeek: number
     allowancesNearZero: Array<{ organisationId: string; organisation: string; kind: string; granted: number; remaining: number }>
     investigationsPastSla: Array<{ id: string; organisationId: string; organisation: string; kind: string; status: string; businessDaysOpen: number }>
+    // The weekly eval gate (plan §5 J): latest finished run per ledger.
+    evalGate?: { lastRunAt: string | null; pass: boolean | null; failedLedgers: string[]; neverRun?: string[] }
   }
 }
 interface Hold { caseId: string; title: string; ref: string; reasons: string[]; heldAt: string; slaRemainingHours: number }
@@ -199,15 +201,24 @@ export default function OpsOverview() {
           { label: 'Allowances near zero', value: p.allowancesNearZero.length, href: '/ops/organisations', hint: p.allowancesNearZero.slice(0, 3).map((o) => `${o.organisation} · ${o.remaining} left`).join(' / ') || 'every organisation has room', tone: p.allowancesNearZero.length ? 'warn' : 'neutral' },
           { label: 'Record Desk past SLA', value: p.investigationsPastSla.length, href: '/ops/record-desk', hint: p.investigationsPastSla.slice(0, 3).map((r) => `${r.organisation} · ${r.businessDaysOpen}d`).join(' / ') || 'nothing past 10 business days', tone: p.investigationsPastSla.length ? 'bad' : 'neutral' },
         ]
+        // The eval gate's one line (plan §5 J, §7): green / red (date), a door to /ops/eval.
+        const g = p.evalGate
+        const gateDate = g?.lastRunAt ? new Date(g.lastRunAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null
+        const gateValue = !g || g.pass === null ? 'never run' : g.pass ? `green (${gateDate})` : `red (${gateDate})`
+        const gateTone: 'ok' | 'warn' | 'bad' | 'neutral' = !g || g.pass === null ? 'warn' : g.pass ? 'ok' : 'bad'
+        const gateHint = !g || g.pass === null ? 'weekly from GitHub, or Run now' : g.pass ? 'every ledger passed' : `failed: ${g.failedLedgers.join(', ')}`
         return (
           <section className="mt-8" data-testid="professional">
             <h2 className="font-serif text-lg font-bold text-[#D4AF37]">Professional</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               {tiles.map((t) => (
                 <Link key={t.label} href={t.href} className="block" data-testid={`pro-${t.label.toLowerCase().replace(/\W+/g, '-')}`}>
                   <Tile label={t.label} value={String(t.value)} tone={t.tone} hint={t.hint} />
                 </Link>
               ))}
+              <Link href="/ops/eval" className="block" data-testid="pro-eval-gate">
+                <Tile label="Eval gate" value={gateValue} tone={gateTone} hint={gateHint} />
+              </Link>
             </div>
           </section>
         )

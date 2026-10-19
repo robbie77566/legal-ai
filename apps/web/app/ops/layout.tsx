@@ -28,6 +28,9 @@ const NAV: [string, string][] = [
   ['/ops/feedback', 'Feedback'],
   ['/ops/retention', 'Retention'],
   ['/ops/diagnostics', 'Diagnostics'],
+  // The weekly eval gate (persona_rollout_plan.md §5 J): runs, scorecards,
+  // cost per bucket, Run now. ADMIN only.
+  ['/ops/eval', 'Eval gate'],
   // Dark professional surfaces and their per-organisation overrides
   // (staff_console.md §10). ADMIN flips; SUPPORT has no door here.
   ['/ops/flags', 'Flags'],

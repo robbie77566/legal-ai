@@ -11,6 +11,8 @@ import {
 } from '../services/staff-requests.service';
 import { caseLabel, caseRef, expectedReadyDate } from '@hg/case-lifecycle';
 import { listLedgers, scoreCaseRun } from '../services/eval-gate.service';
+import { startEvalRuns, listEvalRuns, getEvalRun, evalGateStatus, EvalRunConflictError } from '../services/eval-runs.service';
+import { requireEvalGateAccess } from '../plugins/eval-gate-token';
 import opsCommerceRoutes from './ops-commerce';
 import { opsOrganisationRoutes } from './ops-organisations';
 import { opsInvestigationRoutes } from './investigations';
@@ -29,7 +31,7 @@ const STALL_DAYS = 7;
 // the actions that unblock a family. Money, deletion, promos, drills, and
 // per-case cost stay ADMIN. Enforced here, not in the browser.
 const SUPPORT_WRITES = new Set(['delay-ours', 'delay-cleared', 'resume', 'contact', 'requests']);
-const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/invoices/, /^\/ops\/credits/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /^\/ops\/diagnostics/, /^\/ops\/costs/, /^\/ops\/cogs-by-case/, /\/cogs$/];
+const SUPPORT_DENIED_READS = [/^\/ops\/payments/, /^\/ops\/refunds/, /^\/ops\/promos/, /^\/ops\/invoices/, /^\/ops\/credits/, /^\/ops\/retention-candidates/, /^\/ops\/sentry-test/, /^\/ops\/diagnostics/, /^\/ops\/costs/, /^\/ops\/cogs-by-case/, /\/cogs$/, /^\/ops\/eval\/runs/];
 
 /** Fire-and-forget customer email to the case owner (never fails a request). */
 async function notifyCaseOwner(caseId: string, send: (email: string, origin: string) => Promise<unknown>) {
@@ -764,6 +766,43 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     return result;
   });
 
+  // ── The weekly eval gate (workstream J) ─────────────────────────────
+  // Every ledger, the production model and prompt set, on a fresh case in
+  // the eval tenant; scored by the same scorer as the button above and held
+  // to the ledger's rules (case-lifecycle/eval-gate.ts). An Ops administrator
+  // presses "Run now"; the GitHub workflow calls the same two routes with the
+  // EVAL_GATE_TOKEN bearer (plugins/eval-gate-token.ts) — and nothing else.
+  const evalRunsListQuery = z.object({
+    since: z.string().datetime({ offset: true }).optional(),
+    limit: z.coerce.number().int().min(1).max(1000).optional(),
+  });
+  fastify.post('/eval/runs', { preHandler: requireEvalGateAccess }, async (request, reply) => {
+    const body = z.object({ ledgers: z.array(z.string().min(1).max(40)).max(50).optional() }).safeParse(request.body ?? {});
+    if (!body.success) return reply.status(400).send({ error: 'ledgers must be a list of ledger names' });
+    try {
+      const runs = await startEvalRuns({ ledgers: body.data.ledgers, triggeredBy: request.auth.userId });
+      request.log.info({ runs: runs.map((r) => ({ id: r.id, ledger: r.ledger })), by: request.auth.userId }, 'eval gate started');
+      return reply.status(202).send({ runs });
+    } catch (e) {
+      if (e instanceof RangeError) return reply.status(404).send({ error: e.message });
+      if (e instanceof EvalRunConflictError) return reply.status(409).send({ error: e.message, active: e.active });
+      throw e;
+    }
+  });
+
+  fastify.get('/eval/runs', { preHandler: requireEvalGateAccess }, async (request, reply) => {
+    const q = evalRunsListQuery.safeParse(request.query ?? {});
+    if (!q.success) return reply.status(400).send({ error: 'since must be an ISO date-time' });
+    return listEvalRuns({ since: q.data.since ? new Date(q.data.since) : undefined, limit: q.data.limit });
+  });
+
+  fastify.get('/eval/runs/:id', { preHandler: requireEvalGateAccess }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const run = await getEvalRun(id);
+    if (!run) return reply.status(404).send({ error: 'Not found' });
+    return run;
+  });
+
   // Run the analysis again on a FINISHED case, without a purchase: the
   // eval gate needs a fresh run on the new prompt set, and ops sometimes
   // needs a quality re-run. Walks the same legal path a paid re-run does
@@ -1009,12 +1048,14 @@ export default async function opsRoutes(fastify: FastifyInstance) {
       storage = { ok: false, detail: `${(e as Error).message.slice(0, 60)} [${seen}]` };
     }
 
-    // Today's professional group (persona_rollout_plan.md §7 "Observability").
-    const professional = await professionalOverview();
+    // Today's professional group (persona_rollout_plan.md §7 "Observability"),
+    // plus the eval gate's one line (workstream J): latest finished run per
+    // ledger — green, red, or never run.
+    const [professional, evalGate] = await Promise.all([professionalOverview(), evalGateStatus()]);
 
     return {
       storage,
-      professional,
+      professional: { ...professional, evalGate },
       email: process.env.RESEND_API_KEY
         ? { configured: true, from: process.env.EMAIL_FROM ?? 'Snot Nose Legal <noreply@snotnoselegal.com>' }
         : { configured: false, from: null },

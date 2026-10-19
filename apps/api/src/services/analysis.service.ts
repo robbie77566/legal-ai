@@ -931,10 +931,11 @@ async function runAnalysisInner(
         persisted++;
       }
       await appendCaseEvent(tx, {
-        caseId, tenantId, type: 'screen.completed',
+        caseId, tenantId, type: 'screen.completed', version: 2,
         payload: {
           screen: screenId === 'plea_lane' ? 'plea_lane' : screenId,
           findingCount: result.grounded.length + result.dropped,
+          dropped: result.dropped, // v2: the eval gate reads the drop ratio from the stream
           pagesAnalyzed: chunks.length,
         },
         actor: 'pipeline',

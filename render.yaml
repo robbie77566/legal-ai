@@ -126,6 +126,10 @@ services:
       - { key: AWS_REGION, sync: false }
       - { key: S3_BUCKET, sync: false }
       - { key: EVAL_CORPUS_BUCKET, sync: false }
+      # Weekly eval gate (workstream J): bearer for the GitHub workflow's calls
+      # to POST/GET /ops/eval/runs. Declared here for staging parity only — the
+      # workflow targets api-staging; leave it unset on production.
+      - { key: EVAL_GATE_TOKEN, sync: false }
       - { key: STRIPE_SECRET_KEY, sync: false }
       - { key: STRIPE_WEBHOOK_SECRET, sync: false }
       # Counsel price book (workstream B): Stripe Price ids for the rung and
