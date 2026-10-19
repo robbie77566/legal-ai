@@ -62,6 +62,19 @@ export function factsFromCheckAnswers(answers: Record<string, unknown> | null | 
   return parsed.success ? parsed.data : {}
 }
 
+/**
+ * FR-10 (K3): the new-evidence flag the family report renders as its own
+ * section. From the stored facts only — `told` is the family's answer to
+ * the check question; a note is their own words when one was kept. The
+ * facts hold no free text today, so the note is absent until the interview
+ * captures one; the renderers then repeat the question and the answer.
+ */
+export function newEvidenceFromFacts(facts: unknown): { told: true; note?: string } | null {
+  const parsed = CaseFactsSchema.safeParse(facts ?? {})
+  if (!parsed.success || parsed.data.newEvidence !== true) return null
+  return { told: true }
+}
+
 /** Art. 11.072 governs community supervision; everything else purchasable is 11.07. */
 export function vehicleForCustody(custody: CaseFacts['custody'] | undefined): '11.07' | '11.072' {
   return custody === 'probation' ? '11.072' : '11.07'

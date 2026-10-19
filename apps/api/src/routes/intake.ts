@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent, Prisma } from '@hg/database';
-import { computeDeadlinePosture, familyOverage, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, analysisTimeline, activityItem, runEventItem, CUSTOMER_ACTIVITY_TYPES, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
+import { computeDeadlinePosture, familyOverage, newEvidenceFromFacts, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, analysisTimeline, activityItem, runEventItem, CUSTOMER_ACTIVITY_TYPES, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
 import { verifyFindings, screensForLane } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 import { lastPulse } from '../services/progress-pulse.service';
@@ -744,6 +744,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         renderedAt: report.renderedAt,
         deadlinePosture,
         subsequentWritMode: kase.subsequentWrit,
+        // FR-10 (K3): what the family told us, from the facts, never inferred.
+        newEvidence: newEvidenceFromFacts((kase as { facts?: unknown }).facts),
         strongSignals: visible.filter((f) => f.severity === 'dispositive'),
         possibleIssues: visible.filter((f) => f.severity !== 'dispositive'),
         droppedByReverification: failed.length,
