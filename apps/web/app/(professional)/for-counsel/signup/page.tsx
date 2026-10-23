@@ -10,6 +10,11 @@
  * gets the same neutral answer the family flow gives. When the GLOBAL
  * counsel_surfaces flag is off the form is replaced by "Sign-ups open
  * January 2027".
+ *
+ * UPL review 2026-10-23 (P1): the account is created PENDING. After the
+ * sign-in the page says so — "your bar number is being checked by our
+ * staff; matters open once it is verified" — and then lands on /counsel,
+ * where the same banner shows until a person verifies the number.
  */
 import { useState } from 'react'
 import Link from 'next/link'
@@ -17,7 +22,12 @@ import { signIn } from 'next-auth/react'
 import { counselSignup, type CounselSignupBody } from '@/lib/api'
 import PasswordField, { PASSWORD_RULES } from '@/components/daybreak/PasswordField'
 import { SIGNUPS_CLOSED, useSignupOpen } from '@/components/professional/SignupStatus'
-import { PRACTICE_TYPES, organisationKindFor } from '@/lib/counsel'
+import { LAWYER_GATE_COPY, PRACTICE_TYPES, organisationKindFor } from '@/lib/counsel'
+
+/** Practice types the staff queue never verifies as a lawyer; the invite flow is their path. */
+const NON_LAWYER_PRACTICE = new Set<CounselSignupBody['practiceType']>(['investigator', 'other'])
+/** How long the confirmation stays before the page moves on to /counsel. */
+const CONTINUE_AFTER_MS = 2500
 
 const field = 'mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3 text-[15px]'
 
@@ -27,6 +37,7 @@ export default function CounselSignup() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState('')
+  const [done, setDone] = useState(false)
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: e.target.value })
 
   const submit = async (e: React.FormEvent) => {
@@ -66,7 +77,11 @@ export default function CounselSignup() {
         // The same neutral line the family flow uses: a duplicate address is never confirmed.
         throw new Error('An account with this email may already exist — try signing in with your usual password.')
       }
-      window.location.href = '/counsel'
+      // The account exists and the session is set: say what happens next, then move on.
+      setDone(true)
+      setBusy(false)
+      setPhase('')
+      window.setTimeout(() => { window.location.href = '/counsel' }, CONTINUE_AFTER_MS)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong — please try again.')
       setBusy(false)
@@ -81,7 +96,14 @@ export default function CounselSignup() {
         For attorneys, public defender offices and clinics. Investigators and viewers join an organisation by invitation from its owner.
       </p>
 
-      {!loaded ? (
+      {done ? (
+        <div data-testid="signup-pending" role="status" className="mt-6 rounded-xl border border-db-line bg-db-surface p-5">
+          <p className="text-lg font-semibold">Your account is created.</p>
+          <p className="mt-2 text-[15px]">{LAWYER_GATE_COPY.BAR_PENDING}</p>
+          <p className="mt-2 text-sm text-db-muted">We email you when it is; the first review is free once it is verified.</p>
+          <Link href="/counsel" className="mt-4 inline-block rounded-xl bg-db-accent px-5 py-3 font-semibold text-db-surface" data-testid="signup-continue">Go to your account</Link>
+        </div>
+      ) : !loaded ? (
         <p className="mt-6 text-sm text-db-muted" aria-live="polite">Checking whether sign-ups are open…</p>
       ) : !open ? (
         <div data-testid="signups-closed" className="mt-6 rounded-xl border border-db-line bg-db-surface p-5">
@@ -109,7 +131,7 @@ export default function CounselSignup() {
           <label className="block">
             <span className="text-sm font-semibold">Texas bar number</span>
             <input id="signup-bar" required maxLength={32} inputMode="numeric" value={form.barNumber} onChange={set('barNumber')} className={field} />
-            <span className="mt-1 block text-xs text-db-muted">Stored unverified; a person checks it against the State Bar roll. The first review is free once it is verified.</span>
+            <span className="mt-1 block text-xs text-db-muted">Stored unverified; a person on our staff checks it against the State Bar roll. Matters, quotes and the counsel packet open once it is verified, and the first review is then free.</span>
           </label>
           <label className="block">
             <span className="text-sm font-semibold">Practice type</span>
@@ -118,6 +140,11 @@ export default function CounselSignup() {
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
+            {NON_LAWYER_PRACTICE.has(form.practiceType) && (
+              <span className="mt-1 block text-xs text-db-muted" data-testid="practice-hint">
+                An account with this practice type is not verified as a lawyer and cannot open matters. Investigators and viewers take a free seat by invitation from an organisation owner.
+              </span>
+            )}
           </label>
           <label className="block">
             <span className="text-sm font-semibold">Organisation name (optional)</span>

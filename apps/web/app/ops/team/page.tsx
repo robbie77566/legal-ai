@@ -20,6 +20,8 @@ export default function PermissionsPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState("ATTORNEY");
+  // The licence (UPL review 2026-10-23, rec. 9): optional; recorded as verified under the Admin who typed it.
+  const [barNumber, setBarNumber] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<{ text: string; link?: string } | null>(null);
@@ -75,7 +77,7 @@ export default function PermissionsPage() {
       const res = await apiFetch("/permissions/users", {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify({ email, name, role })
+        body: JSON.stringify({ email, name, role, ...(barNumber.trim() ? { barNumber: barNumber.trim() } : {}) })
       });
       
       const data = await res.json();
@@ -102,7 +104,8 @@ export default function PermissionsPage() {
       const res = await apiFetch(`/permissions/users/${selectedUser.id}`, {
         method: "PATCH",
         headers: getHeaders(),
-        body: JSON.stringify({ role })
+        // A blank bar number on edit clears the licence; the api audits either way.
+        body: JSON.stringify({ role, barNumber: barNumber.trim() || null })
       });
       
       const data = await res.json();
@@ -142,6 +145,7 @@ export default function PermissionsPage() {
     setEmail("");
     setName("");
     setRole("ATTORNEY");
+    setBarNumber("");
     setError("");
     setSelectedUser(null);
   };
@@ -149,8 +153,22 @@ export default function PermissionsPage() {
   const openEdit = (user: any) => {
     setSelectedUser(user);
     setRole(user.role);
+    setBarNumber(user.barNumber ?? "");
     setIsEditOpen(true);
   };
+
+  const barField = (
+    <div>
+      <label className="block text-sm font-medium text-gray-400 mb-1">Texas bar number (optional)</label>
+      <input
+        type="text" maxLength={32} inputMode="numeric"
+        className="w-full bg-[#161B22] border border-gray-700 rounded p-2 text-white font-mono focus:outline-none focus:border-[#D4AF37]"
+        value={barNumber} onChange={e => setBarNumber(e.target.value)}
+        data-testid="staff-bar-number"
+      />
+      <p className="mt-1 text-xs text-gray-500">Look it up in the State Bar directory yourself. Only staff with a bar number on file may edit the legal text of a finding in QA; the preservation call stays open to every reviewer.</p>
+    </div>
+  );
 
   return (
     <div className="text-white font-sans" data-testid="ops-team">
@@ -161,7 +179,7 @@ export default function PermissionsPage() {
             Team
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            Staff accounts: create one (sends the invite), change a role, resend an invite. Staff Console §2.
+            Staff accounts: create one (sends the invite), change a role, record a bar number, resend an invite. Staff Console §2, §12.
           </p>
         </div>
       </header>
@@ -216,6 +234,9 @@ export default function PermissionsPage() {
                     }`}>
                       {user.role}
                     </span>
+                    {user.barVerified && (
+                      <span className="ml-2 font-mono text-[10px] text-[#3FB950]" title="Bar number on file — may edit legal text in QA" data-testid={`bar-${user.id}`}>BAR ✓</span>
+                    )}
                   </td>
                   <td className="p-4 text-right flex justify-end gap-3">
                     {user.active === false && (
@@ -307,6 +328,7 @@ export default function PermissionsPage() {
                     <option value="SUPPORT">Support (Case files, no money)</option>
                   </select>
                 </div>
+                {barField}
 
                 <div className="pt-4 flex justify-end gap-3">
                   <button type="button" onClick={() => { setIsInviteOpen(false); resetForm(); }} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
@@ -359,6 +381,7 @@ export default function PermissionsPage() {
                     <option value="SUPPORT">Support (Case files, no money)</option>
                   </select>
                 </div>
+                {barField}
 
                 <div className="pt-4 flex justify-end gap-3">
                   <button type="button" onClick={() => { setIsEditOpen(false); resetForm(); }} className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>

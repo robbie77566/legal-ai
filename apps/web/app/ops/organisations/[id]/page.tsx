@@ -6,16 +6,23 @@
  * the members and pending invitations, the pilot metrics, and — for Admin,
  * because invoices are money — the ACH invoices for this organisation.
  * Support reads all but the invoices.
+ *
+ * Clinic verification (UPL review 2026-10-23, P3): a CLINIC receives
+ * consented packets only once an Admin has recorded the supervising
+ * attorney's bar number here (POST /ops/organisations/:id/clinic-verify,
+ * audited without the number). Clearing it closes the inbox again.
  */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { opsGetOrganisation, opsGrantPublicInterest, opsListInvoices, opsOrganisationMetrics, opsPatchOrganisation, opsStartPilot, type OrganisationKind, type OrganisationPatch } from '@/lib/api'
+import { opsGetOrganisation, opsGrantPublicInterest, opsListInvoices, opsOrganisationMetrics, opsPatchOrganisation, opsStartPilot, opsUnverifyClinic, opsVerifyClinic, type OrganisationKind, type OrganisationPatch } from '@/lib/api'
 import { useStaffRole } from '@/lib/staff-role'
 import { KIND_LABEL, day, type OrganisationMetrics, type OrganisationRow } from '@/lib/organisations'
 
+/** The clinic verification columns (staff view only; the bar number never reaches the clinic's own pages). */
+type ClinicVerification = { clinicVerifiedAt?: string | null; clinicSupervisingBar?: string | null; clinicVerifiedBy?: string | null }
 interface Detail {
-  organisation: OrganisationRow
+  organisation: OrganisationRow & ClinicVerification
   members: Array<{ userId: string; role: string; email: string; name: string | null; practiceType: string | null; barVerified: boolean; since: string }>
   invitations: Array<{ id: string; email: string; role: string; expiresAt: string; createdAt: string }>
 }
@@ -35,6 +42,7 @@ export default function OrganisationPage() {
   const [form, setForm] = useState<Record<string, string | boolean>>({})
   const [notice, setNotice] = useState('')
   const [saving, setSaving] = useState(false)
+  const [supervisingBar, setSupervisingBar] = useState('')
 
   const load = useCallback(async () => {
     const [d, m] = await Promise.all([opsGetOrganisation(id), opsOrganisationMetrics(id)])
@@ -110,6 +118,11 @@ export default function OrganisationPage() {
             {o.pilot && <span className="rounded bg-[#21262D] px-1.5 py-0.5 font-mono text-[11px] text-[#3FB950]">PILOT</span>}
             {o.publicInterest && <span className="rounded bg-[#21262D] px-1.5 py-0.5 font-mono text-[11px] text-[#3B82F6]">PUBLIC INTEREST</span>}
             {o.isTest && <span className="rounded bg-[#21262D] px-1.5 py-0.5 font-mono text-[11px] text-[#D29922]">TEST — excluded from Money</span>}
+            {o.kind === 'CLINIC' && (
+              <span className={`rounded bg-[#21262D] px-1.5 py-0.5 font-mono text-[11px] ${o.clinicVerifiedAt ? 'text-[#3FB950]' : 'text-[#D29922]'}`} data-testid="clinic-badge">
+                {o.clinicVerifiedAt ? 'CLINIC VERIFIED' : 'CLINIC — NOT VERIFIED'}
+              </span>
+            )}
             <span className="font-mono text-[11px] text-[#8B949E]">tenant {o.tenantId}</span>
           </div>
           {notice && <p className="mt-2 text-sm text-[#D29922]" data-testid="notice">{notice}</p>}
@@ -164,6 +177,33 @@ export default function OrganisationPage() {
             </form>
 
             <aside>
+              {o.kind === 'CLINIC' && (
+                <section className="mb-5 rounded border border-[#30363D] bg-[#0D1117] p-4" data-testid="clinic-verification">
+                  <h2 className="text-[11px] uppercase tracking-wider text-[#8B949E]">Clinic verification</h2>
+                  <p className="mt-2 text-xs text-[#8B949E]">
+                    A clinic receives consented packets only once a person here has verified it and recorded its supervising attorney&rsquo;s Texas bar number — look the number up in the State Bar directory yourself. Clearing it closes the inbox on the clinic&rsquo;s next request.
+                  </p>
+                  {o.clinicVerifiedAt ? (
+                    <div className="mt-3 text-xs" data-testid="clinic-verified">
+                      <div>Verified {day(o.clinicVerifiedAt)}{o.clinicVerifiedBy ? ` · by ${o.clinicVerifiedBy}` : ''}</div>
+                      <div className="mt-1">Supervising attorney bar no. <span className="font-mono">{o.clinicSupervisingBar ?? '—'}</span></div>
+                      {canWrite && (
+                        <button type="button" disabled={saving} onClick={() => { if (window.confirm('Clear the clinic verification? Families can no longer deliver packets to this clinic and its inbox closes.')) void act(opsUnverifyClinic(id), 'Clinic verification cleared — audited under your name.') }} className="mt-3 rounded border border-[#D29922] px-3 py-1.5 text-xs text-[#D29922] disabled:opacity-40" data-testid="clinic-unverify">Clear verification</button>
+                      )}
+                    </div>
+                  ) : canWrite ? (
+                    <form className="mt-3 flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (!supervisingBar.trim()) return; void act(opsVerifyClinic(id, supervisingBar.trim()), 'Clinic verified — packets can now be delivered to its inbox. Audited under your name.'); setSupervisingBar('') }} data-testid="clinic-verify-form">
+                      <label className="block grow text-[11px] uppercase tracking-wider text-[#8B949E]">
+                        Supervising attorney&rsquo;s bar number
+                        <input value={supervisingBar} onChange={(e) => setSupervisingBar(e.target.value)} maxLength={32} inputMode="numeric" aria-label="Supervising attorney's bar number" className="mt-1 block w-full rounded border border-[#30363D] bg-[#161B22] p-1.5 font-mono text-sm normal-case tracking-normal text-[#E6EDF3]" />
+                      </label>
+                      <button type="submit" disabled={saving || !supervisingBar.trim()} className="rounded bg-[#D4AF37] px-3 py-1.5 text-xs font-semibold text-[#0B0E14] disabled:opacity-40" data-testid="clinic-verify">Verify clinic</button>
+                    </form>
+                  ) : (
+                    <p className="mt-3 text-xs text-[#D29922]">Not verified. An Ops administrator records the supervising attorney.</p>
+                  )}
+                </section>
+              )}
               <h2 className="text-[11px] uppercase tracking-wider text-[#8B949E]">Members</h2>
               <div className="mt-2 rounded border border-[#30363D] bg-[#161B22] text-xs" data-testid="members">
                 {detail!.members.map((m) => (

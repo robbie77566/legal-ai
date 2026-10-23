@@ -176,7 +176,9 @@ test.describe('F2 — the signed-in professional flow (local api)', () => {
 
     await page.getByTestId('professional-nav').getByRole('link', { name: 'Account' }).click()
     await expect(page.getByTestId('profile')).toContainText('24099999')
-    await expect(page.getByTestId('profile')).toContainText('Pending verification')
+    // The helper verified the bar (the lawyer gate, UPL review 2026-10-23); the account page says so.
+    await expect(page.getByTestId('profile')).toContainText('Verified')
+    await expect(page.getByTestId('lawyer-gate-banner')).toHaveCount(0)
   })
 
   test('a professional whose tenant is still dark sees the same "Not available" 404 the api answers', async ({ page, request }) => {
@@ -210,8 +212,12 @@ test.describe('F2 — the signed-in professional flow (local api)', () => {
       await page.locator('#signup-org').fill(`UI ${Date.now()} Reyes Law`)
       await expectAxeClean(page)
       await page.getByTestId('signup-submit').click()
+      // The account is PENDING: the page says the bar number is being checked, then moves on to /counsel, where the banner repeats it.
+      await expect(page.getByTestId('signup-pending')).toContainText('being checked by our staff', { timeout: 30_000 })
       await page.waitForURL(/\/counsel$/, { timeout: 30_000 })
       await expect(page.getByTestId('matters-empty')).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByTestId('lawyer-gate-banner')).toContainText('being checked by our staff')
+      await expect(page.getByTestId('open-matter')).toHaveCount(0)
       created = await findProfessional(email)
     } finally {
       await setGlobalFlag(request, admin, 'counsel_surfaces', false)

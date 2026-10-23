@@ -236,3 +236,16 @@ export interface CheckoutSessionBody {
 export function startCheckout(body: CheckoutSessionBody): Promise<Response> {
   return apiFetch('/checkout/session', { method: 'POST', ...jsonBody(body) })
 }
+
+// ── U4: the lawyer gate, clinic verification, the staff licence and the chronology (UPL review 2026-10-23, rec. 4 + 9) ──
+/** PATCH /counsel/me { barNumber } — an invited attorney adds the bar number the queue checks (PENDING). 409 once verified. */
+export const addCounselBarNumber = (barNumber: string, barState = 'TX') => apiFetch('/counsel/me', json('PATCH', { barNumber, barState }))
+/** POST /ops/organisations/:id/clinic-verify { supervisingBar } — Admin records the supervising attorney and opens the clinic's inbox. */
+export const opsVerifyClinic = (id: string, supervisingBar: string) => apiFetch(`/ops/organisations/${encodeURIComponent(id)}/clinic-verify`, json('POST', { supervisingBar }))
+/** POST /ops/organisations/:id/clinic-unverify — clears the verification; the inbox closes on the next request. */
+export const opsUnverifyClinic = (id: string) => apiFetch(`/ops/organisations/${encodeURIComponent(id)}/clinic-unverify`, json('POST'))
+/** One line of a Record Desk chronology (apps/api/src/routes/investigations.ts ChronologyEntrySchema). */
+export interface ChronologyEntry { date: string; volume?: string; page?: string | number; event: string }
+export interface ChronologyDeliverable { entries: ChronologyEntry[]; note?: string }
+/** PATCH /ops/investigations/:id { deliverable } — the structured chronology; `null` clears it. 422 ADVICE_LANGUAGE when a note carries advice words. */
+export const opsDeliverChronology = (id: string, deliverable: ChronologyDeliverable | null) => apiFetch(`/ops/investigations/${encodeURIComponent(id)}`, json('PATCH', { deliverable }))

@@ -235,7 +235,7 @@ export default function NextSteps() {
       <section className="mt-4 rounded-xl border border-db-line bg-db-surface p-5">
         <h2 className="font-db-serif text-lg font-semibold">Share with an innocence clinic</h2>
         <p className="mt-2 text-sm text-db-muted">
-          Only if you say so: we&rsquo;d share the attorney packet (Part B) and basic case details
+          Only if you say so: we&rsquo;d share the attorney packet (Part B) and the case reference
           with an innocence clinic — nothing else, to no one else. Off by default; you can change
           your mind any time.
         </p>
@@ -275,7 +275,7 @@ export default function NextSteps() {
               Send the packet to {namedClinic.name}
             </button>
             <p className="mt-2 text-xs text-db-muted">
-              The clinic reads the same attorney packet from its own inbox — you never upload it again, and turning consent off closes it.
+              The clinic reads the attorney packet (Part B) and the case reference from its own inbox — nothing else. You never upload it again, and turning consent off closes it.
             </p>
           </div>
         )}

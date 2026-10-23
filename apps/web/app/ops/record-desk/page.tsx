@@ -7,10 +7,16 @@
  * status and a note go back to the organisation. SLA: 10 business days from
  * filing. Admin does everything; Support may take a request on (IN_PROGRESS)
  * and mark it DELIVERED — the api keeps Support off DECLINED and OPEN.
+ *
+ * The chronology template (UPL review 2026-10-23, P10): what the desk
+ * delivers is a table — date · volume · page · what the record shows — and
+ * the free text is a PROCESS note (what was done, when it was sent). The
+ * api refuses either note when it carries advice words ("should", "file",
+ * "grounds", "viable", "winnable") and this page shows that refusal.
  */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { opsListInvestigations, opsListStaff, opsUpdateInvestigation } from '@/lib/api'
+import { opsDeliverChronology, opsListInvestigations, opsListStaff, opsUpdateInvestigation, type ChronologyDeliverable, type ChronologyEntry } from '@/lib/api'
 import { useStaffRole } from '@/lib/staff-role'
 
 type Status = 'OPEN' | 'IN_PROGRESS' | 'DELIVERED' | 'DECLINED'
@@ -22,6 +28,7 @@ interface Row {
   dueBy: string | null
   note: string
   staffNote: string | null
+  deliverable?: ChronologyDeliverable | null
   assignedTo: string | null
   deliveredAt: string | null
   createdAt: string
@@ -39,6 +46,8 @@ const KIND: Record<Row['kind'], string> = { CHRONOLOGY: 'Chronology', RECORDS_TR
 const SUPPORT_STATUSES: Status[] = ['IN_PROGRESS', 'DELIVERED']
 const ALL_STATUSES: Status[] = ['OPEN', 'IN_PROGRESS', 'DELIVERED', 'DECLINED']
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—')
+const EMPTY_ENTRY: ChronologyEntry = { date: '', volume: '', page: '', event: '' }
+const cell = 'w-full rounded border border-[#30363D] bg-[#161B22] p-1 text-xs'
 
 export default function RecordDeskPage() {
   const role = useStaffRole()
@@ -47,6 +56,8 @@ export default function RecordDeskPage() {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [staff, setStaff] = useState<Staff[]>([])
   const [notes, setNotes] = useState<Record<string, string>>({})
+  const [chron, setChron] = useState<Record<string, ChronologyDeliverable>>({})
+  const [editing, setEditing] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
 
   const load = useCallback(async () => {
@@ -64,6 +75,24 @@ export default function RecordDeskPage() {
   }
   const statusOptions = (row: Row) => (isAdmin ? ALL_STATUSES : Array.from(new Set([row.status, ...SUPPORT_STATUSES])))
 
+  // The chronology editor: one draft per request, started from what was delivered.
+  const draftOf = (row: Row): ChronologyDeliverable => chron[row.id] ?? { entries: row.deliverable?.entries ?? [], note: row.deliverable?.note ?? '' }
+  const setDraft = (row: Row, d: ChronologyDeliverable) => setChron((c) => ({ ...c, [row.id]: d }))
+  const setEntry = (row: Row, i: number, patch: Partial<ChronologyEntry>) => {
+    const d = draftOf(row)
+    setDraft(row, { ...d, entries: d.entries.map((e, j) => (j === i ? { ...e, ...patch } : e)) })
+  }
+  const saveChronology = async (row: Row) => {
+    const d = draftOf(row)
+    const entries = d.entries
+      .filter((e) => e.date.trim() || e.event.trim())
+      .map((e) => ({ date: e.date.trim(), event: e.event.trim(), ...(String(e.volume ?? '').trim() ? { volume: String(e.volume).trim() } : {}), ...(String(e.page ?? '').trim() ? { page: String(e.page).trim() } : {}) }))
+    const r = await opsDeliverChronology(row.id, { entries, ...(d.note?.trim() ? { note: d.note.trim() } : {}) })
+    const body = await r.json().catch(() => ({}))
+    setNotice(r.ok ? `Chronology saved — ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}.` : body.error ?? `Could not save (${r.status})`)
+    if (r.ok) { setChron((c) => { const n = { ...c }; delete n[row.id]; return n }); await load() }
+  }
+
   const openCount = rows?.filter((r) => r.status === 'OPEN' || r.status === 'IN_PROGRESS').length ?? 0
   const pastCount = rows?.filter((r) => r.pastSla && (r.status === 'OPEN' || r.status === 'IN_PROGRESS')).length ?? 0
 
@@ -80,13 +109,13 @@ export default function RecordDeskPage() {
           ))}
         </div>
       </div>
-      <p className="mt-2 text-xs text-[#8B949E]">Delivered by hand in January: a named reviewer, a status, and a note the organisation reads on its request. The SLA is 10 business days from filing on the same calendar as the family promise.{!isAdmin && ' Support may take a request on and mark it delivered; declining or reopening needs an Ops administrator.'}</p>
+      <p className="mt-2 text-xs text-[#8B949E]">Delivered by hand in January: a named reviewer, a status, a chronology table (date · volume · page · what the record shows) and a process note the organisation reads on its request. Describe the record; never what anyone should do about it — the api refuses a note with advice words. The SLA is 10 business days from filing on the same calendar as the family promise.{!isAdmin && ' Support may take a request on and mark it delivered; declining or reopening needs an Ops administrator.'}</p>
       {notice && <p className="mt-2 text-sm text-[#D29922]" data-testid="notice">{notice}</p>}
 
       <table className="mt-4 w-full border-collapse text-sm" data-testid="record-desk-table">
         <thead>
           <tr className="border-b border-[#30363D] text-left text-xs uppercase tracking-wider text-[#8B949E]">
-            <th className="py-2">Status</th><th>Organisation</th><th>Kind</th><th className="text-right">Pages</th><th>Due</th><th>Reviewer</th><th>SLA</th><th>Request and staff note</th>
+            <th className="py-2">Status</th><th>Organisation</th><th>Kind</th><th className="text-right">Pages</th><th>Due</th><th>Reviewer</th><th>SLA</th><th>Request, chronology and process note</th>
           </tr>
         </thead>
         <tbody>
@@ -122,13 +151,51 @@ export default function RecordDeskPage() {
               </td>
               <td className="max-w-md text-xs">
                 <p className="text-[#E6EDF3]">“{r.note}”</p>
+                <div className="mt-2">
+                  <button type="button" onClick={() => setEditing(editing === r.id ? null : r.id)} className="rounded border border-[#30363D] px-2 py-1 text-xs" data-testid={`chronology-toggle-${r.id}`}>
+                    Chronology · {r.deliverable?.entries.length ?? 0} entr{(r.deliverable?.entries.length ?? 0) === 1 ? 'y' : 'ies'}{editing === r.id ? ' — close' : ''}
+                  </button>
+                  {editing === r.id && (
+                    <div className="mt-2 rounded border border-[#30363D] bg-[#0D1117] p-2" data-testid={`chronology-editor-${r.id}`}>
+                      <table className="w-full border-collapse text-xs">
+                        <thead>
+                          <tr className="text-left text-[10px] uppercase tracking-wider text-[#8B949E]"><th className="pb-1">Date</th><th className="pb-1">Vol.</th><th className="pb-1">Page</th><th className="pb-1">What the record shows</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                          {draftOf(r).entries.map((e, i) => (
+                            <tr key={i} className="align-top">
+                              <td className="pr-1 pb-1"><input aria-label={`Entry ${i + 1} date`} value={e.date} onChange={(ev) => setEntry(r, i, { date: ev.target.value })} placeholder="2019-03-04" className={cell} /></td>
+                              <td className="pr-1 pb-1"><input aria-label={`Entry ${i + 1} volume`} value={e.volume ?? ''} onChange={(ev) => setEntry(r, i, { volume: ev.target.value })} placeholder="RR3" className={cell} /></td>
+                              <td className="pr-1 pb-1"><input aria-label={`Entry ${i + 1} page`} value={String(e.page ?? '')} onChange={(ev) => setEntry(r, i, { page: ev.target.value })} placeholder="214" className={cell} /></td>
+                              <td className="pr-1 pb-1"><input aria-label={`Entry ${i + 1} event`} value={e.event} onChange={(ev) => setEntry(r, i, { event: ev.target.value })} placeholder="Motion to suppress heard; objection overruled." className={cell} /></td>
+                              <td className="pb-1"><button type="button" aria-label={`Remove entry ${i + 1}`} onClick={() => setDraft(r, { ...draftOf(r), entries: draftOf(r).entries.filter((_, j) => j !== i) })} className="text-[#8B949E]">×</button></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={() => setDraft(r, { ...draftOf(r), entries: [...draftOf(r).entries, { ...EMPTY_ENTRY }] })} className="rounded border border-[#30363D] px-2 py-1 text-xs" data-testid={`chronology-add-${r.id}`}>Add entry</button>
+                        <button type="button" onClick={() => void saveChronology(r)} className="rounded bg-[#D4AF37] px-2 py-1 text-xs font-semibold text-[#0B0E14]" data-testid={`chronology-save-${r.id}`}>Save chronology</button>
+                      </div>
+                      <textarea
+                        aria-label={`Chronology note for ${r.organisation.name} ${KIND[r.kind]}`}
+                        rows={2}
+                        value={draftOf(r).note ?? ''}
+                        onChange={(ev) => setDraft(r, { ...draftOf(r), note: ev.target.value })}
+                        placeholder="Which volumes it was built from; what was not in the upload"
+                        className="mt-2 w-full rounded border border-[#30363D] bg-[#161B22] p-1.5 text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="mt-2 text-[10px] uppercase tracking-wider text-[#8B949E]">Process note</div>
                 <div className="mt-1 flex items-start gap-2">
                   <textarea
-                    aria-label={`Staff note for ${r.organisation.name} ${KIND[r.kind]}`}
+                    aria-label={`Process note for ${r.organisation.name} ${KIND[r.kind]}`}
                     rows={2}
                     value={notes[r.id] ?? r.staffNote ?? ''}
                     onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
-                    placeholder="What the organisation reads on its request"
+                    placeholder="What was done with the record and when it was sent — never what anyone should do about it"
                     className="flex-1 rounded border border-[#30363D] bg-[#161B22] p-1.5 text-xs"
                   />
                   <button

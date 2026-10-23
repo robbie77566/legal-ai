@@ -10,7 +10,12 @@
  *                            with the same NEXTAUTH_SECRET the api verifies).
  *  - setGlobalFlag():        PUT /ops/flags/:key           as that admin.
  *  - setTenantOverride():    PUT /ops/flags/:key/overrides/:tenantId
- *  - signupProfessional():   POST /counsel/signup, then the new tenant id.
+ *  - signupProfessional():   POST /counsel/signup, then the new tenant id;
+ *                            the bar number is marked verified in the
+ *                            database (the lawyer gate, UPL review
+ *                            2026-10-23: matters open only once staff
+ *                            verify it — the queue is a human act, so the
+ *                            helper stands in for the staff member).
  *  - signInThroughPage():    the /auth/signin form, landing on /go.
  */
 import type { APIRequestContext, Page } from '@playwright/test'
@@ -91,7 +96,11 @@ export async function signupProfessional(
   const body = (await res.json()) as { userId?: string; organisationId?: string }
   if (!body.userId || !body.organisationId) throw new Error('sign-up answered without ids (duplicate email?)')
   const { default: prisma } = db()
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: body.userId }, select: { tenantId: true } })
+  const user = await prisma.user.update({
+    where: { id: body.userId },
+    data: { barVerifiedAt: new Date(), barVerificationStatus: 'VERIFIED' },
+    select: { tenantId: true },
+  })
   return { email, userId: body.userId, organisationId: body.organisationId, tenantId: user.tenantId }
 }
 
