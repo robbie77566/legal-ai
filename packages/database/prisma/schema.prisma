@@ -365,6 +365,8 @@ model Finding {
   partAText    String
   partBText    String
   provenance   String  @default("ai") // ai | ai_human_edited
+  /// UPL review 2026-10-23 (E3): advice-language lint hits on the stored text — { adviceLintHit, partA: [{phrase,index}], partB: [...] }; null when clean.
+  lintFlags    Json?
   citations    FindingCitation[]
 
   @@index([caseId, runId])

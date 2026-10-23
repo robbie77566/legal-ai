@@ -11,7 +11,8 @@ beforeEach(() => {
   try { localStorage.setItem('snl:report-opened:case_1', '1') } catch {}
   vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
     const u = String(url)
-    const body = u.endsWith('/report/versions') ? [{ versionNo: 1, renderedAt: '2026-09-27T10:00:00Z' }] : u.endsWith('/report') ? payload : {}
+    // family_part_b ON: the pre-split layout this file proves (UPL review 2026-10-23; ReportSealedPartB.test.tsx covers off).
+    const body = u.endsWith('/flags') ? { family_part_b: true } : u.endsWith('/report/versions') ? [{ versionNo: 1, renderedAt: '2026-09-27T10:00:00Z' }] : u.endsWith('/report') ? payload : {}
     return { ok: true, status: 200, json: async () => body } as Response
   }))
 })

@@ -1,12 +1,14 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent, Prisma } from '@hg/database';
-import { computeDeadlinePosture, familyOverage, newEvidenceFromFacts, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, analysisTimeline, activityItem, runEventItem, CUSTOMER_ACTIVITY_TYPES, type CaseFacts, type CaseHold, type CaseStatus, type DeadlineInputs } from '@hg/case-lifecycle';
+import { familyOverage, newEvidenceFromFacts, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, analysisTimeline, activityItem, runEventItem, CUSTOMER_ACTIVITY_TYPES, type CaseFacts, type CaseHold, type CaseStatus } from '@hg/case-lifecycle';
 import { verifyFindings, screensForLane } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 import { lastPulse } from '../services/progress-pulse.service';
 import { removeDocuments } from '../services/document-removal.service';
 import { inventory, setVolume, VolumeInputError, VOLUME_KINDS } from '../services/inventory.service';
+import { isFlagOn } from '@hg/database/flags';
+import { deadlinePostureFor, buildAttorneyPacketInput, stripAttorneyFields } from '../services/attorney-packet.service';
 
 /**
  * S2 intake: interview → personalized checklist → the explicit, celebrated
@@ -691,7 +693,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
    */
   async function loadVerifiedReport(
     tx: Parameters<Parameters<typeof withTenant>[1]>[0],
-    kase: { id: string; status: string; subsequentWrit: boolean; title: string },
+    kase: { id: string; tenantId: string; status: string; subsequentWrit: boolean; title: string },
     id: string,
     versionNo?: number
   ) {
@@ -714,26 +716,25 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
     // FR-5: deadline posture computed fresh at every render on the civil
     // "today" in America/Chicago — elapsed/remaining always current,
-    // stamped "as of", never cached into the snapshot.
-    let deadlinePosture: ReturnType<typeof computeDeadlinePosture> | null = null;
-    const facts = (kase as { deadlineFacts?: unknown }).deadlineFacts as
-      | (Omit<DeadlineInputs, 'asOf'> & { judgmentDate: string })
-      | null
-      | undefined;
-    if (facts?.judgmentDate) {
-      const asOf = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-      try {
-        deadlinePosture = computeDeadlinePosture({ ...facts, asOf });
-      } catch {
-        deadlinePosture = null; // malformed stored facts never break a report
-      }
-    }
+    // stamped "as of", never cached into the snapshot (attorney-packet.service).
+    const deadlinePosture = deadlinePostureFor(kase as { deadlineFacts?: unknown });
+
+    // UPL review 2026-10-23: counsel decision pending (question 3) — while
+    // family_part_b is off the family payload omits the attorney fields
+    // (Part B, preservation, harm standard, vehicle, develop) and the
+    // attorney content ships as the sealed packet instead.
+    const sealed = !(await isFlagOn('family_part_b', kase.tenantId));
+    const forFamily = <T extends object>(f: T) => (sealed ? stripAttorneyFields(f) : f);
 
     const { summaryRowsForReport, summaryGapForReport } = await import('../services/case-summary.service');
     const { PRICES_CENTS } = await import('../services/payments.service');
     const summaryRowsList = await summaryRowsForReport(report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown });
     return {
       report,
+      sealed,
+      /** Every verified finding with its attorney fields — for the PDFs; the JSON payload below is what the family sees. */
+      visible,
+      deadlinePosture,
       payload: {
         bottomLine: (await import('../services/bottom-line.service')).bottomLineFor(visible, kase.subsequentWrit, deadlinePosture),
         caseSummary: summaryRowsList,
@@ -746,8 +747,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         subsequentWritMode: kase.subsequentWrit,
         // FR-10 (K3): what the family told us, from the facts, never inferred.
         newEvidence: newEvidenceFromFacts((kase as { facts?: unknown }).facts),
-        strongSignals: visible.filter((f) => f.severity === 'dispositive'),
-        possibleIssues: visible.filter((f) => f.severity !== 'dispositive'),
+        strongSignals: visible.filter((f) => f.severity === 'dispositive').map(forFamily),
+        possibleIssues: visible.filter((f) => f.severity !== 'dispositive').map(forFamily),
         droppedByReverification: failed.length,
       },
     };
@@ -876,10 +877,49 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         caseTitle: kase.title,
         reportId: loaded.report.id,
         ...loaded.payload,
+        // The renderer decides what the family PDF prints from `sealedPartB`;
+        // it gets the full findings so the flag-on layout is exactly today's.
+        strongSignals: loaded.visible.filter((f) => f.severity === 'dispositive'),
+        possibleIssues: loaded.visible.filter((f) => f.severity !== 'dispositive'),
+        sealedPartB: loaded.sealed,
       });
       return reply
         .header('content-type', 'application/pdf')
         .header('content-disposition', `attachment; filename="snot-nose-legal-review-${id}.pdf"`)
+        .send(pdf);
+    });
+  });
+
+  // UPL review 2026-10-23 (E2, recommendation 5): the sealed attorney packet
+  // — the attorney content as one separate document the family downloads
+  // and hands to licensed counsel. Same verified snapshot, same FR-7 run as
+  // the report; the share link serves the same sections to the lawyer.
+  fastify.get('/:id/attorney-packet.pdf', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { tenantId, userId } = request.auth;
+
+    return withTenant(tenantId, async (tx) => {
+      const kase = await withCase(tx, id, userId);
+      if (!kase) return reply.status(403).send({ error: 'Forbidden' });
+      const { version } = request.query as { version?: string };
+      const loaded = await loadVerifiedReport(tx, kase, id, version ? Number(version) : undefined);
+      if (!loaded) return reply.status(404).send({ error: 'No report is ready yet' });
+
+      const { renderAttorneyPacketPdf } = await import('@hg/reports');
+      const pdf = await renderAttorneyPacketPdf(
+        await buildAttorneyPacketInput({
+          kase,
+          report: loaded.report,
+          visible: loaded.visible,
+          droppedByReverification: loaded.payload.droppedByReverification,
+          deadlinePosture: loaded.deadlinePosture,
+        })
+      );
+      const { capture } = await import('../services/analytics.service');
+      capture('snl.attorney_packet_downloaded', tenantId, { version: loaded.report.versionNo });
+      return reply
+        .header('content-type', 'application/pdf')
+        .header('content-disposition', `attachment; filename="snot-nose-legal-attorney-packet-${id}.pdf"`)
         .send(pdf);
     });
   });
