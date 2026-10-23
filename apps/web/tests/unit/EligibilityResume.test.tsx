@@ -21,7 +21,7 @@ describe('eligibility check — resume and check back later', () => {
     window.localStorage.setItem('snl_draft_token', 'tok_1')
     render(<EligibilityCheck />)
     const banner = await screen.findByTestId('resume-check')
-    expect(banner).toHaveTextContent(/not yet — the appeal is still pending/)
+    expect(banner).toHaveTextContent(/not a fit yet \(the appeal is still open\)/)
     fireEvent.click(screen.getByTestId('resume-yes'))
     expect(await screen.findByTestId('outcome-pending')).toBeInTheDocument()
   })

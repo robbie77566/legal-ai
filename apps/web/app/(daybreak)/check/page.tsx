@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
+import { useContent } from '@/lib/i18n'
+import { CHECK_OUTCOME_COPY } from '@/lib/content/check-outcomes'
 import {
   nextQuestion,
   routeEligibility,
@@ -99,17 +101,24 @@ const QUESTIONS: Record<
   },
 }
 
+/**
+ * Outcome screens say product fit only (UPL review 2026-10-23, E6): what
+ * this review is built for and what the record or the rule says — never
+ * whether a filing would be dismissed, unavailable or winnable. The
+ * sentences live in CHECK_OUTCOME_COPY, both languages.
+ */
 function OutcomeScreen({ result }: { result: EligibilityResult }) {
+  const copy = useContent(CHECK_OUTCOME_COPY)
   const resources = (
     <ul className="mt-4 space-y-2 text-sm">
       <li>
         <a className="underline" href="https://www.tifa.org" rel="noopener noreferrer">
-          TIFA — Texas Inmate Families Association (peer support)
+          {copy.resources.tifa}
         </a>
       </li>
       <li>
         <a className="underline" href="https://www.texasbar.com" rel="noopener noreferrer">
-          State Bar of Texas Lawyer Referral &amp; Information Service
+          {copy.resources.lris}
         </a>
       </li>
     </ul>
@@ -119,27 +128,17 @@ function OutcomeScreen({ result }: { result: EligibilityResult }) {
     case 'capital':
       return (
         <div data-testid="outcome-capital" className="rounded-xl border border-db-line bg-db-surface p-6">
-          <h2 className="font-db-serif text-2xl font-semibold">This service is not right for a death-penalty case.</h2>
-          <p className="mt-3">
-            Capital cases have a legal right to appointed post-conviction counsel and their own
-            strict deadlines. Please don&rsquo;t pay anyone for a review like ours — use the counsel
-            the law provides.
-          </p>
-          <p className="mt-3">
-            Start with the Office of Capital and Forensic Writs and your appointed attorney.
-          </p>
+          <h2 className="font-db-serif text-2xl font-semibold">{copy.capital.title}</h2>
+          <p className="mt-3">{copy.capital.body}</p>
+          <p className="mt-3">{copy.capital.next}</p>
           {resources}
         </div>
       )
     case 'pending_appeal':
       return (
         <div data-testid="outcome-pending" className="rounded-xl border border-db-line bg-db-surface p-6">
-          <h2 className="font-db-serif text-2xl font-semibold">The conviction isn&rsquo;t final yet.</h2>
-          <p className="mt-3">
-            While the direct appeal is still being decided, a writ filed now would be dismissed.
-            The right moment is after the appeal is decided — come back then and we&rsquo;ll be
-            ready.
-          </p>
+          <h2 className="font-db-serif text-2xl font-semibold">{copy.pending.title}</h2>
+          <p className="mt-3">{copy.pending.body}</p>
           <CheckBackLater />
         </div>
       )
@@ -148,14 +147,10 @@ function OutcomeScreen({ result }: { result: EligibilityResult }) {
     case 'not_fit_other':
       return (
         <div data-testid="outcome-notfit" className="rounded-xl border border-db-line bg-db-surface p-6">
-          <h2 className="font-db-serif text-2xl font-semibold">This review isn&rsquo;t the right fit — here&rsquo;s what is.</h2>
+          <h2 className="font-db-serif text-2xl font-semibold">{copy.notFit.title}</h2>
           <p className="mt-3">
-            {result.outcome === 'misdemeanor'
-              ? 'Misdemeanor convictions follow a different path (Article 11.09) than the one this review covers.'
-              : result.outcome === 'discharged'
-                ? 'Once a sentence is fully finished, this kind of writ is generally unavailable — but expunction or record-sealing may be worth asking a lawyer about.'
-                : 'This review covers Texas state convictions only.'}{' '}
-            These groups can point you in the right direction:
+            {result.outcome === 'misdemeanor' ? copy.notFit.misdemeanor : result.outcome === 'discharged' ? copy.notFit.discharged : copy.notFit.other}{' '}
+            {copy.notFit.resources}
           </p>
           {resources}
         </div>
@@ -164,38 +159,21 @@ function OutcomeScreen({ result }: { result: EligibilityResult }) {
       // fit_trial / fit_plea / prior_writ_warned
       return (
         <div data-testid="outcome-fit" className="rounded-xl border-2 border-db-accent bg-db-accent-soft p-6">
-          <h2 className="font-db-serif text-2xl font-semibold">This looks like a fit.</h2>
+          <h2 className="font-db-serif text-2xl font-semibold">{copy.fit.title}</h2>
           {result.outcome === 'prior_writ_warned' && (
-            <p className="mt-3 rounded-lg border border-db-review p-3 text-sm" style={{ color: 'var(--db-review)' }}>
-              <strong>Read this first:</strong> because a writ was already filed on this conviction,
-              Texas law sets a severe bar for a second one. Our review will look specifically for
-              the narrow exceptions — but you should know going in that the bar is high.
+            <p className="mt-3 rounded-lg border border-db-review p-3 text-sm" style={{ color: 'var(--db-review)' }} data-testid="outcome-prior-writ">
+              <strong>{copy.fit.priorWritLead}</strong> {copy.fit.priorWrit}
             </p>
           )}
-          {result.outcome === 'fit_plea' && (
-            <p className="mt-3 text-sm text-db-muted">
-              A plea case has a thinner record than a trial, so the review focuses on the plea
-              papers — we&rsquo;ll tell you honestly what a plea record can and cannot show.
-            </p>
-          )}
-          {result.appealRestorationEmphasis && (
-            <p className="mt-3 text-sm">
-              You said the lawyer never filed the appeal you asked for — that can itself be one of
-              the most winnable claims, and the review checks for it specifically.
-            </p>
-          )}
-          {result.newEvidenceFlag && (
-            <p className="mt-3 text-sm text-db-muted">
-              The evidence you mentioned that was never presented will be flagged in your report
-              for a lawyer — it&rsquo;s important, even though a record review can&rsquo;t evaluate it.
-            </p>
-          )}
-          <p className="mt-4">Here&rsquo;s what happens next: review the details, create an account, and send the documents at your own pace.</p>
+          {result.outcome === 'fit_plea' && <p className="mt-3 text-sm text-db-muted">{copy.fit.plea}</p>}
+          {result.appealRestorationEmphasis && <p className="mt-3 text-sm" data-testid="outcome-appeal-restoration">{copy.fit.appealRestoration}</p>}
+          {result.newEvidenceFlag && <p className="mt-3 text-sm text-db-muted">{copy.fit.newEvidence}</p>}
+          <p className="mt-4">{copy.fit.next}</p>
           <Link
             href="/buy"
             className="mt-5 inline-block rounded-xl bg-db-accent px-6 py-4 text-lg font-semibold text-db-surface"
           >
-            Continue — $299, one price
+            {copy.fit.cta}
           </Link>
         </div>
       )
@@ -231,13 +209,9 @@ function CheckBackLater() {
   )
 }
 
-const OUTCOME_WORDS: Record<string, string> = {
-  fit_trial: 'a fit — a trial conviction', fit_plea: 'a fit — a plea conviction', prior_writ_warned: 'a fit, in subsequent-writ mode',
-  capital: 'not a fit (death-penalty case)', pending_appeal: 'not yet — the appeal is still pending', misdemeanor: 'not a fit (misdemeanor)',
-  discharged: 'not a fit (sentence finished)', not_fit_other: 'not a fit',
-}
-
 export default function EligibilityCheck() {
+  // Resume banner labels: "a fit" / "not a fit" only (UPL review 2026-10-23, E6).
+  const outcomeWords: Record<string, string> = useContent(CHECK_OUTCOME_COPY).words
   const [answers, setAnswers] = useState<EligibilityAnswers>({})
   const [history, setHistory] = useState<QuestionId[]>([])
   const [resume, setResume] = useState<{ answers: EligibilityAnswers; outcome: string } | null>(null)
@@ -307,7 +281,7 @@ export default function EligibilityCheck() {
       {resume && !result && history.length === 0 && (
         <div className="mb-6 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4 text-sm" data-testid="resume-check">
           <p className="font-semibold">You finished this check before.</p>
-          <p className="mt-1">Your answers came out as <strong>{OUTCOME_WORDS[resume.outcome] ?? resume.outcome}</strong>. Pick up where you left off, or start fresh.</p>
+          <p className="mt-1">Your answers came out as <strong>{outcomeWords[resume.outcome] ?? resume.outcome}</strong>. Pick up where you left off, or start fresh.</p>
           <div className="mt-3 flex gap-2">
             <button onClick={() => { setAnswers(resume.answers); try { sessionStorage.setItem('snl_draft_token', window.localStorage.getItem('snl_draft_token') ?? '') } catch { /* ignore */ } setResume(null) }} className="rounded-lg bg-db-accent px-4 py-2 font-semibold text-db-surface" data-testid="resume-yes">Pick up where I left off</button>
             <button onClick={() => { try { window.localStorage.removeItem('snl_draft_token') } catch { /* ignore */ } setResume(null) }} className="rounded-lg border border-db-line px-4 py-2" data-testid="resume-no">Start over</button>

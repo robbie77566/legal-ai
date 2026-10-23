@@ -56,7 +56,7 @@ describe('S0 eligibility wizard', () => {
     click(/^No$/) // new evidence
 
     expect(await screen.findByTestId('outcome-fit')).toBeInTheDocument()
-    expect(screen.getByText(/severe bar for a second one/i)).toBeInTheDocument()
+    expect(screen.getByTestId('outcome-prior-writ')).toHaveTextContent(/Texas law limits later applications; the rule is Article 11\.07 §4/)
   })
 
   it('not-a-fit outcomes always pair the news with resources — never a dead end', () => {

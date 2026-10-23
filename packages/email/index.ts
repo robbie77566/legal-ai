@@ -312,7 +312,7 @@ export function sendCheckBackLater(to: string, opts: { checkUrl: string; months:
   return send({
     to,
     subject: "We'll check back when the appeal is decided",
-    text: `Thanks for checking. While a direct appeal is still being decided, a writ filed now would be dismissed — so this isn't the moment, and we won't take your money for a review that can't help yet.
+    text: `Thanks for checking. This review is built for convictions that are final. While a direct appeal is still open, the record is still changing, so we ask you to come back after the appeal is decided — and we won't take your money before then.
 
 We'll email you once, in about ${opts.months} months, to ask whether the appeal has been decided. If it is decided sooner, come back any time:
 ${opts.checkUrl}
@@ -326,7 +326,7 @@ export function sendPendingAppealReminder(to: string, opts: { checkUrl: string }
   return send({
     to,
     subject: 'Has the appeal been decided?',
-    text: `A few months ago you told us a direct appeal was still being decided. If it has been decided since — denied or affirmed — the conviction is final and a review can help now.
+    text: `A few months ago you told us a direct appeal was still being decided. If the appeal has been decided since — denied or affirmed — the review can read the record now.
 
 Take the free two-minute check again (your earlier answers are not stored):
 ${opts.checkUrl}

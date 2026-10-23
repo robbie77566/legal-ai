@@ -45,10 +45,10 @@ export type EligibilityOutcome =
 
 export interface EligibilityResult {
   outcome: EligibilityOutcome
-  /** Post-conviction vehicle this case routes to (null when not a fit). */
+  /** How the review reads this record (null when not a fit). A lawyer decides what, if anything, is filed (UPL review 2026-10-23, E7). */
   vehicle: '11.07' | '11.072' | null
   lane: 'trial' | 'plea' | null
-  /** FR-11: counsel never filed a requested appeal — itself a strong claim. */
+  /** FR-11: the family says counsel never filed a requested appeal — the review looks for this specifically. */
   appealRestorationEmphasis: boolean
   /** FR-10/US-0.7: never-presented evidence must be flagged, never dropped. */
   newEvidenceFlag: boolean
