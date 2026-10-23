@@ -15,7 +15,7 @@ process.env.NEXTAUTH_SECRET = 'test-secret-at-least-32-characters!!';
 process.env.ANALYSIS_SAMPLES = '1';
 
 import crypto from 'crypto';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { fastify } from '../src/index';
 import prisma from '@hg/database';
 import { setFlag, __invalidateFlagCache } from '@hg/database/flags';
@@ -23,6 +23,10 @@ import { encodeSessionToken } from '@hg/auth';
 import { NOT_A_LAW_FIRM } from '@hg/case-lifecycle';
 import { runAnalysis, type AnalysisModel } from '../src/services/analysis.service';
 import { autoApproveCase } from '../src/services/auto-qa.service';
+
+// Each PDF test renders and parses two or three documents; under the full
+// suite's load that outruns vitest's 5 s default.
+vi.setConfig({ testTimeout: 60_000 });
 
 const run = `u3_${Date.now()}`;
 let tenantId: string;
