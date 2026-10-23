@@ -77,6 +77,16 @@ export interface ReportPdfInput {
    * verbatim — never an inference. Absent or null: no section.
    */
   newEvidence?: NewEvidenceFlag | null;
+  /**
+   * UPL review 2026-10-23 (E2; counsel question 3): true when the family
+   * report must not carry the attorney content inline — the per-finding
+   * "For an attorney" block, the preservation · vehicle · harm line, "To
+   * develop", "For counsel — issues by priority" and the investigation
+   * checklist are omitted and one "For your lawyer" section points to the
+   * sealed attorney packet instead. False (the family_part_b flag on):
+   * exactly the layout before the split.
+   */
+  sealedPartB?: boolean;
 }
 
 export interface NewEvidenceFlag {
@@ -91,6 +101,26 @@ export const NEW_EVIDENCE_COPY = {
   said: 'What you told us',
   answeredYes: 'When we asked whether there is evidence that was never presented — like a recantation, an alibi, or a new witness — you answered yes.',
   next: 'Tell your attorney about it in your first conversation — it is not in the court record, so nothing in this report speaks to it.',
+} as const;
+
+/**
+ * The "For your lawyer" section the family report prints when Part B is
+ * sealed (UPL review 2026-10-23, E2) — the same words the web report card
+ * shows (apps/web/lib/content/attorney-packet.ts), both languages.
+ */
+export const FOR_YOUR_LAWYER_COPY = {
+  en: {
+    title: 'For your lawyer',
+    body: 'The part of this review written for an attorney is a separate document: the attorney packet. You can download it sealed and hand it to your lawyer, or share it with them by a private link from your case page. It describes what the record shows for each issue in a lawyer\u2019s terms; it is information about a court record, not legal advice, and a lawyer decides what, if anything, to do with it.',
+    download: 'Download the attorney packet (sealed)',
+    share: 'Share with a lawyer',
+  },
+  es: {
+    title: 'Para su abogado',
+    body: 'La parte de esta revisi\u00f3n escrita para un abogado es un documento aparte: el paquete para el abogado. Puede descargarlo sellado y entregarlo a su abogado, o compartirlo con \u00e9l por un enlace privado desde la p\u00e1gina de su caso. Describe lo que muestra el expediente sobre cada asunto en t\u00e9rminos de abogado; es informaci\u00f3n sobre un expediente judicial, no asesor\u00eda legal, y un abogado decide qu\u00e9 hacer con ella, si es que hay algo que hacer.',
+    download: 'Descargar el paquete para el abogado (sellado)',
+    share: 'Compartir con un abogado',
+  },
 } as const;
 
 export interface SummaryRowLike {
@@ -265,15 +295,22 @@ export function renderFamilyReportBody(doc: Pdf, input: ReportPdfInput): void {
     doc.font('Helvetica-Bold').fontSize(9).fillColor('#444444').text('For your family (plain English)');
     doc.font('Helvetica').fontSize(10).fillColor('#222222').text(f.partAText);
     doc.moveDown(0.3);
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#444444').text('For an attorney');
-    doc.font('Helvetica').fontSize(9.5).fillColor('#222222').text(f.partBText);
-    if (hasStructuredFields(f)) {
-      // What a manual appellate review tracks per issue (prompt set v2).
-      doc.moveDown(0.2);
-      doc.font('Helvetica').fontSize(8.5).fillColor('#444444')
-        .text(`${preservedLabel(f.preserved)} · ${vehicleLabel(f.vehicle)} · ${harmLabel(f.harmStandard)}`);
-      if (f.develop) doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#444444').text('To develop: ', { continued: true }).font('Helvetica').text(f.develop);
-      if (f.dependsOn?.length) doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#8a4b00').text(`Depends on records not provided: ${f.dependsOn.join('; ')}`);
+    // UPL review 2026-10-23: counsel decision pending (question 3) — the
+    // attorney block ships in the sealed packet unless family_part_b is on.
+    if (!input.sealedPartB) {
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#444444').text('For an attorney');
+      doc.font('Helvetica').fontSize(9.5).fillColor('#222222').text(f.partBText);
+      if (hasStructuredFields(f)) {
+        // What a manual appellate review tracks per issue (prompt set v2).
+        doc.moveDown(0.2);
+        doc.font('Helvetica').fontSize(8.5).fillColor('#444444')
+          .text(`${preservedLabel(f.preserved)} · ${vehicleLabel(f.vehicle)} · ${harmLabel(f.harmStandard)}`);
+        if (f.develop) doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#444444').text('To develop: ', { continued: true }).font('Helvetica').text(f.develop);
+        if (f.dependsOn?.length) doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#8a4b00').text(`Depends on records not provided: ${f.dependsOn.join('; ')}`);
+      }
+    } else if (f.dependsOn?.length) {
+      // What the family can act on themselves: the records that were not provided.
+      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor('#8a4b00').text(`Depends on records not provided: ${f.dependsOn.join('; ')}`);
     }
     for (const c of f.citations) {
       doc.moveDown(0.2);
@@ -310,7 +347,20 @@ export function renderFamilyReportBody(doc: Pdf, input: ReportPdfInput): void {
   // checklist a manual review ends with. Rendered only when the findings
   // carry the fields, so older reports are unchanged.
   const all = [...input.strongSignals, ...input.possibleIssues];
-  if (all.some(hasStructuredFields)) {
+  if (input.sealedPartB) {
+    // One section instead of the counsel table and checklist: where the
+    // attorney content is and how it reaches the lawyer, both languages.
+    if (doc.y > doc.page.height - 200) doc.addPage();
+    doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text(FOR_YOUR_LAWYER_COPY.en.title);
+    doc.moveDown(0.3);
+    doc.font('Helvetica').fontSize(10).fillColor('#222222').text(FOR_YOUR_LAWYER_COPY.en.body);
+    doc.moveDown(0.3);
+    doc.font('Helvetica').fontSize(9.5).fillColor('#444444').text(`${FOR_YOUR_LAWYER_COPY.es.title}: ${FOR_YOUR_LAWYER_COPY.es.body}`);
+    doc.moveDown(0.4);
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(pal.ink).text(`${FOR_YOUR_LAWYER_COPY.en.download} · ${FOR_YOUR_LAWYER_COPY.en.share}`);
+    doc.font('Helvetica').fontSize(9).fillColor('#555555').text(`${FOR_YOUR_LAWYER_COPY.es.download} · ${FOR_YOUR_LAWYER_COPY.es.share} — ${SITE}`);
+    doc.moveDown(1);
+  } else if (all.some(hasStructuredFields)) {
     if (doc.y > doc.page.height - 220) doc.addPage();
     doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('For counsel — issues by priority');
     doc.font('Helvetica').fontSize(8.5).fillColor('#555555').text('Ordered by weight, then preservation, then the review standard. Preservation calls are the review\'s reading of the record and must be verified.');
