@@ -4,28 +4,31 @@ import {
   computeTrapClock,
   trapInputsForMatter,
   posture1107,
-  computeDeadlinePosture,
-  newEvidenceFromFacts,
   isVehicle,
+  CaseFactsSchema,
   type CounselVehicle,
   type WritVehicle,
-  type DeadlineInputs,
   type CivilDate,
 } from '@hg/case-lifecycle';
-import type { CounselPacketInput, CounselPacketFinding, ReportPdfInput } from '@hg/reports';
-import { verifyFindings } from './analysis.service';
+import type { CounselPacketInput, CounselPacketFinding } from '@hg/reports';
+import { verifyFindings, planScreens } from './analysis.service';
 import { attachConfidence } from './finding-confidence.service';
 import { inventory } from './inventory.service';
-import { summaryRowsForReport, summaryGapForReport } from './case-summary.service';
-import { bottomLineFor } from './bottom-line.service';
 
 /**
  * The counsel packet's input (persona_rollout_plan.md §5 E): the released
  * report the family route serves — the latest version (or the one asked
  * for), FR-7 re-verified AT THIS RENDER with the same `verifyFindings` call,
  * the confidence attached the same way — plus the matter, the record
- * inventory and the TRAP clock. The renderer (packages/reports) gets two
+ * inventory, the TRAP clock and, for a writ, the Art. 11.07 posture as the
+ * recorded inputs and the rule. The renderer (packages/reports) gets two
  * lists, verified and dropped; it never sees a flag it could be lied to by.
+ *
+ * UPL review 2026-10-23: the Part A client letter is no longer built here —
+ * counsel decision pending (question 8); the renderer keeps the path behind
+ * `WITHHELD_PENDING_COUNSEL`. The W.D. Tex. certificate and the 47.2(e)
+ * block are withheld in the renderer (question 9). The §2254 map is not
+ * built until the grounds feature exists (question 11).
  *
  * Organisation scope is the caller's: a matter from another organisation
  * is `not_found`, never a hint. Client identity is initials only — nothing
@@ -49,8 +52,6 @@ interface SnapshotFinding {
 
 export interface PacketOptions {
   versionNo?: number;
-  includeClientLetter?: boolean;
-  includeWdTexCertificate?: boolean;
   /** The clock's "today" (civil date, America/Chicago); tests replay it. */
   today?: CivilDate;
 }
@@ -82,40 +83,11 @@ function asFinding(f: SnapshotFinding, screen: string | null | undefined): Couns
   };
 }
 
-/** The family-voice letter input, built the way the family PDF route builds it (minus the re-run pitch). */
-async function clientLetterInput(
-  kase: Case,
-  report: { id: string; runId: string; versionNo: number; templateVersion: string; renderedAt: Date },
-  visible: CounselPacketFinding[],
-  dropped: number,
-): Promise<ReportPdfInput> {
-  let deadlinePosture: ReturnType<typeof computeDeadlinePosture> | null = null;
-  const facts = kase.deadlineFacts as (Omit<DeadlineInputs, 'asOf'> & { judgmentDate: string }) | null;
-  if (facts?.judgmentDate) {
-    try {
-      deadlinePosture = computeDeadlinePosture({ ...facts, asOf: todayCivil() });
-    } catch {
-      deadlinePosture = null; // malformed stored facts never break a packet
-    }
-  }
-  const summary = await summaryRowsForReport(report.runId, kase);
-  return {
-    caseTitle: kase.title,
-    reportId: report.id,
-    versionNo: report.versionNo,
-    templateVersion: report.templateVersion,
-    renderedAt: report.renderedAt,
-    subsequentWritMode: kase.subsequentWrit,
-    deadlinePosture,
-    summary,
-    summaryGap: await summaryGapForReport(kase.id, summary),
-    bottomLine: bottomLineFor(visible, kase.subsequentWrit, deadlinePosture),
-    newEvidence: newEvidenceFromFacts(kase.facts),
-    strongSignals: visible.filter((f) => f.severity === 'dispositive'),
-    possibleIssues: visible.filter((f) => f.severity !== 'dispositive'),
-    droppedByReverification: dropped,
-    palette: 'harbor',
-  };
+/** The recorded fact from Case.facts (matters.ts stores it there): true / false, or null when nobody has recorded it. */
+export function priorWritsDecidedOnMeritsFor(kase: Pick<Case, 'facts'>): boolean | null {
+  const parsed = CaseFactsSchema.safeParse(kase.facts ?? {});
+  const v = parsed.success ? parsed.data.priorWritsDecidedOnMerits : undefined;
+  return typeof v === 'boolean' ? v : null;
 }
 
 export async function loadCounselPacket(caseId: string, tenantId: string, organisationId: string, organisationName: string, opts: PacketOptions = {}): Promise<PacketLoad> {
@@ -151,10 +123,14 @@ export async function loadCounselPacket(caseId: string, tenantId: string, organi
     };
     const trapClock = computeTrapClock(trapInputsForMatter({ vehicle, ...dates }, opts.today ?? todayCivil()));
     const isWrit = (WRIT_VEHICLES as readonly string[]).includes(vehicle);
-    const posture = isWrit
-      ? posture1107({ vehicle: vehicle as WritVehicle, priorWrits: Math.max(matter.priorWrits, matter.subsequentWrit ? 1 : 0) })
-      : null;
-    const clientLetter = opts.includeClientLetter ? await clientLetterInput(matter.case, report, findings, droppedFindings.length) : null;
+    // Recorded inputs only: the count on the matter (the subsequent-application
+    // flag counts as one recorded prior) and whether they reached the merits,
+    // which is null — "not recorded; counsel to confirm" — until counsel says.
+    const priorWrits = Math.max(matter.priorWrits, matter.subsequentWrit ? 1 : 0);
+    const priorWritsDecidedOnMerits = priorWritsDecidedOnMeritsFor(matter.case);
+    const posture = isWrit ? posture1107({ vehicle: vehicle as WritVehicle, priorWrits, priorWritsDecidedOnMerits }) : null;
+    // The screens the run planned for this lane and vehicle — the tool statement names them.
+    const screensRun = planScreens(matter.case.lane ?? matter.lane ?? 'TRIAL', vehicle).screens;
 
     const build = (inv: CounselPacketInput['inventory']): CounselPacketInput => ({
       matter: {
@@ -165,6 +141,7 @@ export async function loadCounselPacket(caseId: string, tenantId: string, organi
         clientInitials: matter.clientInitials,
         priorWrits: matter.priorWrits,
         subsequentWrit: matter.subsequentWrit,
+        priorWritsDecidedOnMerits,
         lane: matter.lane,
       },
       organisationName,
@@ -178,11 +155,7 @@ export async function loadCounselPacket(caseId: string, tenantId: string, organi
       inventory: inv,
       trapClock,
       posture,
-      // Grounds data (the §2254 map) is the February slice: omitted until a matter carries grounds.
-      exhaustion: null,
-      includeWdTexCertificate: Boolean(opts.includeWdTexCertificate),
-      includeClientLetter: Boolean(opts.includeClientLetter),
-      clientLetter,
+      screensRun,
     });
     return { status: 'partial', matter, build, report: { id: report.id, versionNo: report.versionNo } };
   });

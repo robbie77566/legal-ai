@@ -152,9 +152,34 @@ describe('C1 — a professional opens a matter', () => {
     const kase = await prisma.case.findUniqueOrThrow({ where: { id: res.json().caseId }, include: { matter: true } });
     expect(kase).toMatchObject({ lane: 'PLEA', subsequentWrit: true });
     expect(kase.facts).toMatchObject({ trialOrPlea: 'plea', priorWrit: 'yes' });
+    expect(kase.facts).not.toHaveProperty('priorWritsDecidedOnMerits');
     expect(kase.matter).toMatchObject({ priorWrits: 1, subsequentWrit: true });
     const types = (await prisma.caseEvent.findMany({ where: { caseId: kase.id }, orderBy: { id: 'asc' } })).map((e) => e.type);
     expect(types).toContain('hold.set');
+    // Not recorded until counsel says: the view reads null.
+    expect((await get(`/counsel/matters/${kase.id}`)).json().matter.priorWritsDecidedOnMerits).toBeNull();
+  });
+
+  it('the merits fact for prior applications is recorded on Case.facts at opening and by PATCH; null clears it (UPL review 2026-10-23, P5)', async () => {
+    const res = await post({ ...BASE, vehicle: '11.07', clientInitials: 'DM', priorWrits: 2, priorWritsDecidedOnMerits: true });
+    expect(res.statusCode).toBe(201);
+    const caseId = res.json().caseId as string;
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).facts).toMatchObject({ priorWrit: 'yes', priorWritsDecidedOnMerits: true });
+    expect((await get(`/counsel/matters/${caseId}`)).json().matter.priorWritsDecidedOnMerits).toBe(true);
+
+    const toNo = await patch(caseId, { priorWritsDecidedOnMerits: false });
+    expect(toNo.statusCode).toBe(200);
+    expect(toNo.json().matter.priorWritsDecidedOnMerits).toBe(false);
+    const after = await prisma.case.findUniqueOrThrow({ where: { id: caseId } });
+    expect(after.facts).toMatchObject({ priorWritsDecidedOnMerits: false, judgmentDate: '2026-09-01' });
+    expect(after.deadlineFacts).toEqual({ judgmentDate: '2026-09-01' }); // untouched: only the merits fact moved
+
+    const cleared = await patch(caseId, { priorWritsDecidedOnMerits: null });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json().matter.priorWritsDecidedOnMerits).toBeNull();
+    expect((await prisma.case.findUniqueOrThrow({ where: { id: caseId } })).facts).not.toHaveProperty('priorWritsDecidedOnMerits');
+    const audit = await prisma.auditLog.findFirst({ where: { caseId, action: 'MATTER_UPDATED' }, orderBy: { createdAt: 'desc' } });
+    expect(audit!.details).toEqual({ keys: ['priorWritsDecidedOnMerits'] });
   });
 
   it('no dates: no deadline facts, no conviction year, and the clock reports every step not_yet', async () => {

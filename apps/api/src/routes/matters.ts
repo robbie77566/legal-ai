@@ -65,7 +65,14 @@ const todayCivil = () => new Date().toISOString().slice(0, 10);
 const vehicleLabel = (v: string) => (isVehicle(v) ? VEHICLES[v].label : v);
 const isRecordBucket = (b: string | null): b is RecordBucket => b !== null && (RECORD_BUCKETS as readonly string[]).includes(b);
 
-function matterView(m: Matter): MatterView {
+/** The recorded merits fact lives on Case.facts (no column): true / false, or null = not recorded. */
+const decidedOnMeritsFrom = (facts: unknown): boolean | null => {
+  const parsed = CaseFactsSchema.safeParse(facts ?? {});
+  const v = parsed.success ? parsed.data.priorWritsDecidedOnMerits : undefined;
+  return typeof v === 'boolean' ? v : null;
+};
+
+function matterView(m: Matter, caseFacts: unknown = null): MatterView {
   return {
     id: m.id,
     caseId: m.caseId,
@@ -86,6 +93,7 @@ function matterView(m: Matter): MatterView {
     recordFiledAt: toCivil(m.recordFiledAt),
     priorWrits: m.priorWrits,
     subsequentWrit: m.subsequentWrit,
+    priorWritsDecidedOnMerits: decidedOnMeritsFrom(caseFacts),
     outsideRecordNote: m.outsideRecordNote,
     capital: m.capital,
     createdAt: m.createdAt.toISOString(),
@@ -252,7 +260,7 @@ export default async function mattersRoutes(fastify: FastifyInstance) {
       if (!matter || matter.organisationId !== seat.organisationId || matter.case.status === 'DELETED') {
         return reply.status(404).send({ error: 'Matter not found' });
       }
-      const view = matterView(matter);
+      const view = matterView(matter, matter.case.facts);
       const items = await tx.checklistItem.findMany({ where: { caseId }, orderBy: { createdAt: 'asc' } });
       const documents = await tx.document.count({ where: { caseId, quarantined: false } });
       // Every clock is replayable: `asOf` (tests, "what did it say on the
@@ -326,34 +334,48 @@ export default async function mattersRoutes(fastify: FastifyInstance) {
         },
       });
 
-      // The judgment date the engine counts from changed: keep Case.facts /
-      // deadlineFacts / convictionYear in step, the way PATCH /cases/:id/facts does.
-      if (body.judgmentSignedAt !== undefined || body.sentenceImposedAt !== undefined) {
+      // Case.facts is the home of two things a PATCH can move: the judgment
+      // date the engine counts from (keep facts / deadlineFacts /
+      // convictionYear in step, the way PATCH /cases/:id/facts does) and the
+      // recorded merits fact for prior applications (no column; null clears it).
+      const datesChanged = body.judgmentSignedAt !== undefined || body.sentenceImposedAt !== undefined;
+      const meritsChanged = body.priorWritsDecidedOnMerits !== undefined;
+      let caseFacts: unknown = matter.case.facts;
+      if (datesChanged || meritsChanged) {
         const view = matterView(updated);
         const judgmentDate = matterJudgmentDate(view);
         const prior = (CaseFactsSchema.safeParse(matter.case.facts ?? {}).success ? (matter.case.facts as CaseFacts) : {}) ?? {};
         const facts: CaseFacts = { ...prior, source: { ...(prior.source ?? {}), editedAt: new Date().toISOString() } };
-        if (judgmentDate) {
-          facts.judgmentDate = judgmentDate;
-          facts.convictionYear = Number(judgmentDate.slice(0, 4));
-        } else {
-          delete facts.judgmentDate;
+        if (datesChanged) {
+          if (judgmentDate) {
+            facts.judgmentDate = judgmentDate;
+            facts.convictionYear = Number(judgmentDate.slice(0, 4));
+          } else {
+            delete facts.judgmentDate;
+          }
+        }
+        if (meritsChanged) {
+          if (typeof body.priorWritsDecidedOnMerits === 'boolean') facts.priorWritsDecidedOnMerits = body.priorWritsDecidedOnMerits;
+          else delete facts.priorWritsDecidedOnMerits;
         }
         const priorDeadline = (matter.case.deadlineFacts as Record<string, unknown> | null) ?? {};
-        const deadlineFacts = judgmentDate
-          ? { ...priorDeadline, judgmentDate }
-          : (() => { const d = { ...priorDeadline }; delete d.judgmentDate; return Object.keys(d).length ? d : null; })();
+        const deadlineFacts = !datesChanged
+          ? undefined
+          : judgmentDate
+            ? { ...priorDeadline, judgmentDate }
+            : (() => { const d = { ...priorDeadline }; delete d.judgmentDate; return Object.keys(d).length ? d : null; })();
         await tx.case.update({
           where: { id: caseId },
           data: {
-            convictionYear: judgmentDate ? Number(judgmentDate.slice(0, 4)) : null,
+            ...(datesChanged ? { convictionYear: judgmentDate ? Number(judgmentDate.slice(0, 4)) : null } : {}),
             facts: facts as Prisma.InputJsonValue,
-            deadlineFacts: deadlineFacts === null ? Prisma.DbNull : (deadlineFacts as Prisma.InputJsonValue),
+            ...(deadlineFacts === undefined ? {} : { deadlineFacts: deadlineFacts === null ? Prisma.DbNull : (deadlineFacts as Prisma.InputJsonValue) }),
           },
         });
+        caseFacts = facts;
       }
       await appendCaseEvent(tx, { caseId, tenantId, type: 'facts.updated', version: 2, payload: { keys }, actor: userId });
-      return { status: 200 as const, body: { matter: matterView(updated) } };
+      return { status: 200 as const, body: { matter: matterView(updated, caseFacts) } };
     });
 
     if (result.status === 200) {

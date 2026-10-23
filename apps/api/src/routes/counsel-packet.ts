@@ -17,19 +17,17 @@ import { loadCounselPacket, type PacketLoad } from '../services/counsel-packet.s
  *   GET /counsel/matters/:caseId/packet.json  → { caseId, versionNo, templateVersion, sections }
  *   GET /counsel/matters/:caseId/packet.pdf   → the PDF (attachment)
  *
- * Both take `?version=`, `?clientLetter=1` (the Part A letter, last) and
- * `?wdtex=1` (the W.D. Tex. certificate). Every fetch is audited with ids
- * and the switches only — never initials, a cause number or a county.
+ * Both take `?version=`. Unknown query parameters are ignored: the former
+ * `clientLetter=1` and `wdtex=1` switches are gone — UPL review 2026-10-23:
+ * counsel decision pending (questions 8 and 9); the renderer holds those
+ * paths behind `WITHHELD_PENDING_COUNSEL` — and an old link must not 400.
+ * Every fetch is audited with ids only — never initials, a cause number or
+ * a county.
  */
 
-const bit = z.preprocess((v) => (v === '1' || v === 'true' ? true : v === undefined || v === '0' || v === 'false' || v === '' ? false : v), z.boolean());
-const PacketQuery = z
-  .object({
-    version: z.coerce.number().int().min(1).optional(),
-    clientLetter: bit.default(false),
-    wdtex: bit.default(false),
-  })
-  .strict();
+const PacketQuery = z.object({
+  version: z.coerce.number().int().min(1).optional(),
+});
 
 export default async function counselPacketRoutes(fastify: FastifyInstance) {
   // Order matters: the flag answers 404 before anything confirms the surface
@@ -57,21 +55,17 @@ export default async function counselPacketRoutes(fastify: FastifyInstance) {
     const q = PacketQuery.parse(request.query ?? {});
     const { tenantId } = request.auth;
     const seat = request.counsel!;
-    const loaded = await loadCounselPacket(caseId, tenantId, seat.organisationId, seat.organisation.name, {
-      versionNo: q.version,
-      includeClientLetter: q.clientLetter,
-      includeWdTexCertificate: q.wdtex,
-    });
+    const loaded = await loadCounselPacket(caseId, tenantId, seat.organisationId, seat.organisation.name, { versionNo: q.version });
     return { caseId, q, loaded, seat };
   };
 
-  const audit = async (request: FastifyRequest, caseId: string, format: 'json' | 'pdf', versionNo: number, q: z.output<typeof PacketQuery>, organisationId: string) =>
+  const audit = async (request: FastifyRequest, caseId: string, format: 'json' | 'pdf', versionNo: number, _q: z.output<typeof PacketQuery>, organisationId: string) =>
     AuditService.log({
       tenantId: request.auth.tenantId,
       caseId,
       action: LogAction.PACKET_DOWNLOAD,
       userId: request.auth.userId,
-      details: { format, versionNo, clientLetter: q.clientLetter, wdtex: q.wdtex, organisationId },
+      details: { format, versionNo, organisationId },
     });
 
   fastify.get('/:caseId/packet.json', async (request, reply) => {
