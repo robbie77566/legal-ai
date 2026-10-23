@@ -69,7 +69,7 @@ describe('family PDF — new-evidence section (FR-10, K3)', () => {
     }
   });
 
-  it('the counsel packet Part A letter inherits the section through the shared body renderer', async () => {
+  it('the counsel packet never carries the section: the Part A letter is withheld (UPL review 2026-10-23, question 8) even when its input is supplied', async () => {
     const packet: CounselPacketInput = {
       matter: { vehicle: 'direct_appeal', county: 'Harris', court: '176th District Court', causeNumber: '1234567', clientInitials: 'GW', priorWrits: 0, subsequentWrit: false, lane: 'TRIAL' },
       organisationName: 'Test Law',
@@ -84,11 +84,11 @@ describe('family PDF — new-evidence section (FR-10, K3)', () => {
       compress: false,
     };
     const letter = { ...base, newEvidence: { told: true as const, note: NOTE } };
-    const withLetter = pdfText(await renderCounselPacketPdf({ ...packet, includeClientLetter: true, clientLetter: letter }));
-    expect(withLetter).toContain('Evidence that was never presented');
-    expect(withLetter).toContain(NOTE);
-    // The section lives in the letter only: off the switch, off the packet.
-    const withoutLetter = pdfText(await renderCounselPacketPdf({ ...packet, includeClientLetter: false, clientLetter: letter }));
+    // The section lives in the family letter only, and the letter is withheld from the packet.
+    const withLetterInput = pdfText(await renderCounselPacketPdf({ ...packet, clientLetter: letter }));
+    expect(withLetterInput).not.toContain('Evidence that was never presented');
+    expect(withLetterInput).not.toContain(NOTE);
+    const withoutLetter = pdfText(await renderCounselPacketPdf(packet));
     expect(withoutLetter).not.toContain(NOTE);
   });
 });

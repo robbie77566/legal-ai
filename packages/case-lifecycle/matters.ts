@@ -52,6 +52,13 @@ export const MatterCreateSchema = z
     recordFiledAt: civilDateOpt,
     priorWrits: z.number().int().min(0).max(20).default(0),
     subsequentWrit: z.boolean().default(false),
+    /**
+     * Whether the prior application(s) were decided on the merits, as counsel
+     * records it; null/absent = not recorded (UPL review 2026-10-23, P5: the
+     * packet prints this fact and the rule, never a conclusion from an
+     * assumed fact). Stored on Case.facts — no column.
+     */
+    priorWritsDecidedOnMerits: z.boolean().nullable().optional(),
     outsideRecordNote: shortText(2000).optional(),
     capital: z.boolean().default(false),
   })
@@ -75,6 +82,7 @@ export const MATTER_EDITABLE_FIELDS = [
   'causeNumber',
   'court',
   'outsideRecordNote',
+  'priorWritsDecidedOnMerits',
 ] as const
 export type MatterEditableField = (typeof MATTER_EDITABLE_FIELDS)[number]
 
@@ -108,6 +116,8 @@ export const MatterPatchSchema = z
     causeNumber: shortText(64).nullable().optional(),
     court: shortText(120).nullable().optional(),
     outsideRecordNote: shortText(2000).nullable().optional(),
+    /** null clears the fact back to "not recorded". */
+    priorWritsDecidedOnMerits: z.boolean().nullable().optional(),
   })
   .strict()
 
@@ -149,7 +159,7 @@ export interface MatterCaseShape {
  * posture the checklist and the hold flag already model.
  */
 export function matterCaseShape(
-  m: Pick<MatterCreate, 'county' | 'lane' | 'priorWrits' | 'subsequentWrit'> & MatterDates,
+  m: Pick<MatterCreate, 'county' | 'lane' | 'priorWrits' | 'subsequentWrit'> & Partial<Pick<MatterCreate, 'priorWritsDecidedOnMerits'>> & MatterDates,
   now: Date = new Date()
 ): MatterCaseShape {
   const judgmentDate = matterJudgmentDate(m)
@@ -162,6 +172,7 @@ export function matterCaseShape(
     ...(convictionYear ? { convictionYear } : {}),
     ...(m.lane ? { trialOrPlea: m.lane === 'PLEA' ? 'plea' : 'trial' } : {}),
     priorWrit: subsequentWrit ? 'yes' : 'no',
+    ...(typeof m.priorWritsDecidedOnMerits === 'boolean' ? { priorWritsDecidedOnMerits: m.priorWritsDecidedOnMerits } : {}),
     ...(judgmentDate ? { judgmentDate } : {}),
     source: { interviewAt: now.toISOString() },
   }
@@ -249,6 +260,8 @@ export interface MatterView {
   recordFiledAt: CivilDate | null
   priorWrits: number
   subsequentWrit: boolean
+  /** From Case.facts; null = not recorded. */
+  priorWritsDecidedOnMerits: boolean | null
   outsideRecordNote: string | null
   capital: boolean
   createdAt: string

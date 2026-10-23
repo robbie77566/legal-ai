@@ -97,4 +97,15 @@ describe('Anders appendix data', () => {
     expect(ANDERS_CHECKLIST.some((i) => i.screenIds.length === 0)).toBe(true);
     expect(ANDERS_CHECKLIST.every((i) => i.confidence === 'proposed' || i.confidence === 'signed')).toBe(true);
   });
+
+  it('every item has a printedText that names no case and no reporter (UPL review 2026-10-23, P4); the sources stay for the signer', () => {
+    const names = /Anders v\.|High v\.|Kelly|Schulman|Bledsoe|Dears|Batson|Daubert|Almanza|Jackson|Brooks|Malik|Strickland|Thompson|Taylor|Bray|Olivo/;
+    for (const i of ANDERS_CHECKLIST) {
+      expect(i.printedText.length, i.id).toBeGreaterThan(10);
+      expect(i.printedText, i.id).not.toMatch(/\bv\. |S\.W\.|U\.S\./);
+      expect(i.printedText, i.id).not.toMatch(names);
+    }
+    // The signer-facing data is untouched: at least one source still cites a reporter.
+    expect(ANDERS_CHECKLIST.some((i) => /S\.W\.|U\.S\./.test(i.source))).toBe(true);
+  });
 });

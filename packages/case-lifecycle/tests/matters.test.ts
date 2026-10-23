@@ -38,6 +38,20 @@ describe('matters: schema', () => {
     expect(MatterPatchSchema.parse({ recordFiledAt: null, court: null })).toEqual({ recordFiledAt: null, court: null })
     expect(MatterPatchSchema.safeParse({ vehicle: '11.07' }).success).toBe(false)
   })
+
+  it('records whether prior applications were decided on the merits as a tri-state fact (UPL review 2026-10-23, P5): absent = not recorded', () => {
+    const base = { vehicle: '11.07', county: 'Harris', clientInitials: 'JD', priorWrits: 1 }
+    expect(MatterCreateSchema.parse(base)).not.toHaveProperty('priorWritsDecidedOnMerits')
+    expect(MatterCreateSchema.parse({ ...base, priorWritsDecidedOnMerits: null }).priorWritsDecidedOnMerits).toBeNull()
+    expect(MatterCreateSchema.parse({ ...base, priorWritsDecidedOnMerits: true }).priorWritsDecidedOnMerits).toBe(true)
+    expect(MatterCreateSchema.safeParse({ ...base, priorWritsDecidedOnMerits: 'yes' }).success).toBe(false)
+    expect(MatterPatchSchema.parse({ priorWritsDecidedOnMerits: false })).toEqual({ priorWritsDecidedOnMerits: false })
+    expect(MatterPatchSchema.parse({ priorWritsDecidedOnMerits: null })).toEqual({ priorWritsDecidedOnMerits: null })
+    // The fact lives on Case.facts (no column): the case shape carries it only when recorded.
+    expect(matterCaseShape({ county: 'Harris', priorWrits: 1, subsequentWrit: false }).facts).not.toHaveProperty('priorWritsDecidedOnMerits')
+    expect(matterCaseShape({ county: 'Harris', priorWrits: 1, subsequentWrit: false, priorWritsDecidedOnMerits: null }).facts).not.toHaveProperty('priorWritsDecidedOnMerits')
+    expect(matterCaseShape({ county: 'Harris', priorWrits: 1, subsequentWrit: false, priorWritsDecidedOnMerits: false }).facts).toMatchObject({ priorWrit: 'yes', priorWritsDecidedOnMerits: false })
+  })
 })
 
 describe('matters: case shape', () => {

@@ -1,12 +1,17 @@
 /**
- * Workstream E — §2254 exhaustion map and the Art. 11.07 §4 posture (E5).
+ * Workstream E — the §2254 state-remedies map and the Art. 11.07 §4 posture
+ * (E5), as revised by the UPL review of 2026-10-23 (P5, recommendation 6;
+ * workstream U5-b): both DESCRIBE. The posture prints the recorded inputs
+ * and the rule in neutral words; the map's labels say what the inputs show
+ * about state remedies ("shown / not shown / unclear"), never "exhausted"
+ * or "procedurally defaulted".
  */
 import { describe, it, expect } from 'vitest';
-import { exhaustionMap, posture1107 } from '../trap';
+import { exhaustionMap, posture1107, decidedOnMeritsLabel, EXHAUSTION_STATUS_LABEL, EXHAUSTION_RULE } from '../trap';
 import { computeDeadlinePosture } from '../deadlines';
 
-describe('E5 — §2254 exhaustion map', () => {
-  it('applies the documented rule per ground', () => {
+describe('E5 — §2254 state-remedies map', () => {
+  it('applies the documented reading per ground, in descriptive labels', () => {
     const m = exhaustionMap({
       grounds: [
         { id: 'g1', raisedOnDirectAppeal: true, raisedIn1107: false, decidedOnMerits: true },
@@ -20,27 +25,46 @@ describe('E5 — §2254 exhaustion map', () => {
     });
     const by = Object.fromEntries(m.grounds.map((g) => [g.id, g.status]));
     expect(by).toEqual({
-      g1: 'exhausted',
-      g2: 'exhausted',
-      g3: 'procedurally_defaulted',
-      g4: 'unexhausted',
-      g5: 'unexhausted', // never fairly presented to the CCA (no PDR) and no 11.07 yet
-      g6: 'unexhausted', // still pending in state court
+      g1: 'shown',
+      g2: 'shown',
+      g3: 'unclear', // presented, disposed of on a procedural ground: what follows is counsel's call
+      g4: 'not_shown',
+      g5: 'not_shown', // never presented to the CCA (no PDR) and no merits 11.07 yet
+      g6: 'not_shown', // still pending in state court
     });
-    expect(m.summary).toEqual({ exhausted: 2, unexhausted: 3, procedurallyDefaulted: 1 });
-    expect(m.mixedPetition).toBe(true);
+    expect(m.summary).toEqual({ shown: 2, notShown: 3, unclear: 1 });
+    expect(m.mixed).toBe(true);
     expect(m.confidence).toBe('proposed');
     expect(m.grounds.every((g) => g.basis.length > 10)).toBe(true);
   });
 
-  it('an unraised ground after a merits 11.07 is procedurally defaulted (§4 would bar the return trip)', () => {
+  it('an unraised ground after a merits 11.07 is "unclear" (a return to state court would meet the §4 rule), not a verdict', () => {
     const m = exhaustionMap({
       grounds: [{ id: 'g', raisedOnDirectAppeal: false, raisedIn1107: false, decidedOnMerits: false }],
       priorWritsDecidedOnMerits: 1,
     });
-    expect(m.grounds[0].status).toBe('procedurally_defaulted');
+    expect(m.grounds[0].status).toBe('unclear');
     expect(m.grounds[0].basis).toMatch(/§ ?4/);
-    expect(m.mixedPetition).toBe(false);
+    expect(m.grounds[0].basis).toMatch(/for counsel/);
+    expect(m.mixed).toBe(false);
+  });
+
+  it('labels, bases and the rule never say "exhausted" or "procedurally defaulted", and name no case', () => {
+    const m = exhaustionMap({
+      grounds: [
+        { id: 'a', raisedOnDirectAppeal: true, raisedIn1107: false, decidedOnMerits: true },
+        { id: 'b', raisedOnDirectAppeal: false, raisedIn1107: true, decidedOnMerits: false },
+        { id: 'c', raisedOnDirectAppeal: false, raisedIn1107: false, decidedOnMerits: false },
+        { id: 'd', raisedOnDirectAppeal: true, raisedInPdr: false, raisedIn1107: false, decidedOnMerits: true },
+        { id: 'e', raisedOnDirectAppeal: false, raisedIn1107: false, decidedOnMerits: false, pending: true },
+      ],
+      priorWritsDecidedOnMerits: 1,
+    });
+    const text = JSON.stringify(m) + JSON.stringify(EXHAUSTION_STATUS_LABEL) + EXHAUSTION_RULE;
+    expect(text).not.toMatch(/\bexhausted\b/i);
+    expect(text).not.toMatch(/procedurally defaulted|procedurally_defaulted/i);
+    expect(text).not.toMatch(/\bv\. /);
+    expect(Object.values(EXHAUSTION_STATUS_LABEL)).toEqual(['state remedies: shown', 'state remedies: not shown', 'state remedies: unclear']);
   });
 
   it('delegates the AEDPA posture to computeDeadlinePosture rather than recomputing it', () => {
@@ -56,45 +80,72 @@ describe('E5 — §2254 exhaustion map', () => {
   });
 });
 
-describe('E5 — Art. 11.07 §4 posture', () => {
-  it('a first application is the one shot: no §4 flag, complete-inventory warning on', () => {
+describe('E5 / U5-b — Art. 11.07 §4 posture: recorded inputs and the rule', () => {
+  const RULE = 'Under Article 11.07 §4 a later application must plead one of the statutory exceptions unless the earlier one was dismissed without reaching the merits.';
+
+  it('no prior application recorded: the count, the rule, the complete-inventory line; no verdict about what is lost', () => {
     const p = posture1107({ vehicle: '11.07', priorWrits: 0 });
-    expect(p.subsequentWrit).toBe(false);
-    expect(p.section4Bar).toBe(false);
-    expect(p.oneShot).toBe(true);
+    expect(p.inputs).toEqual({ priorWrits: 0, priorWritsDecidedOnMerits: null, directAppealPending: false });
+    expect(p.priorApplicationsLine).toBe('Prior applications recorded: 0');
+    expect(p.rule).toBe(RULE);
+    expect(p.statutoryRule).toBe(true);
     expect(p.completeInventoryWarning).toBe(true);
-    expect(p.copyKeys).toContain('writ.one_shot');
-    expect(p.copyKeys).toContain('writ.complete_inventory');
+    expect(p.copyKeys).toEqual(['writ.complete_inventory', 'writ.no_rehearing']);
     expect(p.noRehearing.rule).toBe('TRAP 79.2(d)');
+    expect(p.notes).toEqual([]);
+    expect(JSON.stringify(p)).not.toMatch(/ordinarily lost|one-shot|oneShot|Applies|section4Bar|subsequentWrit/);
   });
 
-  it('a prior application decided on the merits raises the §4 subsequent-writ flag with its two exceptions', () => {
+  it('a prior application with the merits fact not recorded: the line says so and the note asks counsel to confirm', () => {
     const p = posture1107({ vehicle: '11.07', priorWrits: 1 });
-    expect(p.subsequentWrit).toBe(true);
-    expect(p.section4Bar).toBe(true);
-    expect(p.oneShot).toBe(false);
+    expect(p.inputs.priorWritsDecidedOnMerits).toBeNull();
+    expect(p.priorApplicationsLine).toBe('Prior applications recorded: 1; whether they were decided on the merits: not recorded');
+    expect(p.rule).toBe(RULE);
     expect(p.exceptions.map((e) => e.id)).toEqual(['4(a)(1)', '4(a)(2)']);
-    expect(p.copyKeys).toContain('writ.subsequent_bar');
+    expect(p.copyKeys).toContain('writ.prior_applications');
+    expect(p.notes.join(' ')).toMatch(/not recorded on this matter; counsel to confirm/);
     expect(p.authority).toMatch(/11\.07/);
+    // Nothing is assumed: the engine no longer treats an unrecorded fact as "decided on the merits".
+    expect(JSON.stringify(p)).not.toMatch(/assumed|Applies|Subsequent application/);
   });
 
-  it('prior applications dismissed without a merits ruling do not count as subsequent', () => {
-    const p = posture1107({ vehicle: '11.07', priorWrits: 2, priorWritsDecidedOnMerits: 0 });
-    expect(p.subsequentWrit).toBe(false);
-    expect(p.notes.join(' ')).toMatch(/dismiss/i);
+  it('the recorded fact prints as "yes" or "no" and the note disappears', () => {
+    const yes = posture1107({ vehicle: '11.07', priorWrits: 2, priorWritsDecidedOnMerits: true });
+    expect(yes.priorApplicationsLine).toBe('Prior applications recorded: 2; whether they were decided on the merits: yes');
+    expect(yes.notes).toEqual([]);
+    const no = posture1107({ vehicle: '11.07', priorWrits: 2, priorWritsDecidedOnMerits: false });
+    expect(no.priorApplicationsLine).toBe('Prior applications recorded: 2; whether they were decided on the merits: no');
+    expect(no.notes).toEqual([]);
+    expect(no.rule).toBe(RULE); // the same rule, whatever the fact: the engine prints both and concludes nothing
+    expect(decidedOnMeritsLabel(null)).toBe('not recorded');
+    expect(decidedOnMeritsLabel(undefined)).toBe('not recorded');
+    expect(decidedOnMeritsLabel(true)).toBe('yes');
+    expect(decidedOnMeritsLabel(false)).toBe('no');
   });
 
-  it('a pending direct appeal makes the filing premature', () => {
+  it('a pending direct appeal is echoed as an input with the premature-filing rule in neutral words', () => {
     const p = posture1107({ vehicle: '11.07', priorWrits: 0, directAppealPending: true });
-    expect(p.prematureFiling).toBe(true);
+    expect(p.inputs.directAppealPending).toBe(true);
     expect(p.copyKeys).toContain('writ.premature');
+    expect(p.prematureFilingRule).toMatch(/dismissed rather than held/);
+    expect(p.notes.join(' ')).toMatch(/recorded as pending/);
   });
 
-  it('11.072 and 11.071 carry their own subsequent-application bars; 11.09 has none in the statute', () => {
+  it('11.072 and 11.071 carry their own rules; 11.09 states none as read here, and the engine says so without a verdict', () => {
     expect(posture1107({ vehicle: '11.072', priorWrits: 1 }).authority).toMatch(/11\.072/);
+    expect(posture1107({ vehicle: '11.072', priorWrits: 1 }).rule).toMatch(/^Under Article 11\.072 §9 a later application must plead/);
     expect(posture1107({ vehicle: '11.071', priorWrits: 1 }).authority).toMatch(/11\.071/);
     const misd = posture1107({ vehicle: '11.09', priorWrits: 1 });
-    expect(misd.section4Bar).toBe(false);
-    expect(misd.subsequentWrit).toBe(true);
+    expect(misd.statutoryRule).toBe(false);
+    expect(misd.exceptions).toEqual([]);
+    expect(misd.rule).toMatch(/states no subsequent-application rule as read here/);
+    expect(misd.rule).toMatch(/for counsel/);
+    expect(misd.copyKeys).toContain('writ.no_statutory_rule');
+  });
+
+  it('names no case anywhere in its output', () => {
+    for (const p of [posture1107({ vehicle: '11.07', priorWrits: 2 }), posture1107({ vehicle: '11.07', priorWrits: 2, priorWritsDecidedOnMerits: false, directAppealPending: true }), posture1107({ vehicle: '11.09', priorWrits: 1 })]) {
+      expect(JSON.stringify(p)).not.toMatch(/\bv\. |Ex parte|Torres|Johnson/);
+    }
   });
 });
