@@ -1,7 +1,18 @@
 import { LangGraphOrchestrator } from '@hg/ai'
-import { AgentPersonas } from '@hg/ai/personas'
 import { HumanMessage } from '@langchain/core/messages'
 import * as readline from 'readline'
+
+/**
+ * The dev helper's own instruction (UPL review 2026-10-23, rec 12: the
+ * persona file is gone from the product tree; this is the one non-legal
+ * role it carried, kept here where the CLI uses it).
+ */
+const DEV_HELPER = {
+  name: 'Codebase helper',
+  systemPrompt:
+    'You help developers navigate this monorepo. Refer to docs/architecture/website_architecture.md before answering questions about state management or database design. ' +
+    'If a developer asks how to implement a feature, check whether an existing service can be reused first.',
+}
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -9,14 +20,14 @@ const rl = readline.createInterface({
 })
 
 async function runDevCli() {
-  console.log('🤖 Starting HabeasGraph Dev Agent (Codebase Architect)...')
+  console.log('Starting the dev helper...')
   console.log('Type your question or request. Type "exit" to quit.\n')
   
   const orchestrator = new LangGraphOrchestrator()
   const graph = orchestrator.createGraph()
   const compiledGraph = graph.compile()
   
-  const persona = AgentPersonas.codebase_architect
+  const persona = DEV_HELPER
 
   const chatLoop = () => {
     rl.question('You: ', async (input) => {

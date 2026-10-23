@@ -1,5 +1,9 @@
+import { NOT_A_LAW_FIRM, QUALITY_CHECKED } from '@hg/case-lifecycle'
+
 /** Bilingual landing content (i18n_localization.md R7): every change
- * updates BOTH languages; the parity test enforces structure. */
+ * updates BOTH languages; the parity test enforces structure. Voice rule
+ * (UPL review 2026-10-23): describe what the software does with the record;
+ * never compare it to a lawyer, weigh a claim, or hold anyone out as one. */
 export const LANDING_CONTENT = {
   en: {
     cta: 'See if this fits your case — free, 2 minutes',
@@ -8,7 +12,7 @@ export const LANDING_CONTENT = {
     ctaSticky: 'Free 2-minute check',
     heroTitle: 'Find out what’s really in the court record — before you spend thousands.',
     heroBody:
-      'AI built for one job: Texas convictions after the trial is over. It reads every page of your loved one’s record, asks the questions a post-conviction lawyer asks, and shows you only what it can prove with the exact words from the record — page and line. If a quote isn’t really there, it never reaches you. Explained in plain English. ',
+      'AI built for one job: Texas convictions after the trial is over. It reads every page of your loved one’s record, runs six checks for the issues post-conviction law recognises, and shows you only what it can prove with the exact words from the record — page and line. If a quote isn’t really there, it never reaches you. Explained in plain English. ',
     heroPrice: '$299. One price, no per-page fees.',
     heroSub: 'Free 2-minute check · Not a law firm · Information, not legal advice',
     sampleLink: 'See a sample report first',
@@ -16,17 +20,17 @@ export const LANDING_CONTENT = {
     whyIntro: 'You can. Here is what you would be missing.',
     why: [
       ['ChatGPT reads your files and gives you an answer.', 'We check every answer against your record. If a quote isn’t really there, it’s thrown out before you see it.'],
-      ['ChatGPT answers the questions you know to ask.', 'We ask the questions a Texas post-conviction lawyer asks — six checks, run on every page.'],
+      ['ChatGPT answers the questions you know to ask.', 'We run six checks for the issues Texas post-conviction law recognises — on every page of the record.'],
       ['ChatGPT can sound sure when it’s wrong — and you can’t tell.', 'Every finding shows the page and the exact words, so you and your lawyer can see it for yourselves.'],
       ['ChatGPT gives you a chat.', 'We give you a report a lawyer can work from — and the deadline math that says how much time is left.'],
     ],
     proof: [
       'Every quote is re-verified word-for-word against your documents before delivery.',
-      'The method was evaluated against real Texas cases and signed off by a licensed Texas attorney.',
-      'If we find nothing worth pursuing, we say so plainly — we don’t sell hope.',
+      'The method was evaluated against real Texas cases.',
+      'If we find nothing, we say so plainly — we don’t sell hope.',
     ],
     problem:
-      'A lawyer charges about $3,000 just to read the file and tell you if a writ is worth pursuing. Full representation runs $15,000 or more. Most families decide blind — or don’t decide at all.',
+      'A trial record runs to hundreds or thousands of pages, and most families never see what is in it — they decide blind, or don’t decide at all. Our software reads every page of the record and runs six checks for the issues post-conviction law recognises, so you and a lawyer start from what the record actually says.',
     howTitle: 'How it works',
     steps: [
       'Answer a few questions (free).',
@@ -64,7 +68,7 @@ export const LANDING_CONTENT = {
       'Secure handling, deleted on request',
     ],
     priceNote:
-      'More pages: $49 per additional 2,500 — we ask first, never surprise you. Re-run with new documents: $99. For comparison: an attorney review runs ~$3,000; medical second opinions $975–$2,000.',
+      'More pages: $49 per additional 2,500 — we ask first, never surprise you. Re-run with new documents: $99.',
     refundNote:
       'Refund policy: if we can’t read your records, we tell you before we analyze — and you choose re-upload or refund.',
     fitTitle: 'This is not for every case',
@@ -82,7 +86,7 @@ export const LANDING_CONTENT = {
       ],
       [
         "Couldn't I just upload the record to ChatGPT?",
-        "You can upload the files — the problem is what happens next. Nothing checks the chatbot's answer against the record, so a made-up quote or a wrong page number looks exactly like a real one, and it only looks for the problems you already know to ask about. Our system runs six checks a Texas post-conviction lawyer would run, on every page, and every finding must carry the exact words from your record — then each quote is re-checked against the document before you see it. Anything that fails is removed. In Texas, the first writ is effectively the only writ; that's why the checking matters more than the reading.",
+        "You can upload the files — the problem is what happens next. Nothing checks the chatbot's answer against the record, so a made-up quote or a wrong page number looks exactly like a real one, and it only looks for the problems you already know to ask about. Our system runs six checks for the issues Texas post-conviction law recognises, on every page, and every finding must carry the exact words from your record — then each quote is re-checked against the document before you see it. Anything that fails is removed. Texas law strictly limits second writs; that's why the checking matters more than the reading.",
       ],
       [
         'What if the news is bad?',
@@ -102,11 +106,10 @@ export const LANDING_CONTENT = {
       ],
       [
         '¿Está disponible en español?',
-        'Sí — toque «Español» arriba y todo el sitio cambia de idioma. Su reporte se entrega en inglés por ahora; la versión en español viene pronto.',
+        'En parte. Toque «Español» arriba: esta página, el inicio, Cómo funciona, Precio, Aprenda, la guía de documentos, las Preguntas, el informe de muestra, Quiénes somos y Contacto están en español. La revisión gratis, la compra, su cuenta, las páginas de su caso, los correos y el reporte se entregan en inglés por ahora.',
       ],
     ] as [string, string][],
-    footerLegal:
-      'Snot Nose Legal is not a law firm and does not provide legal advice. Reports are information about court records, prepared by AI built for this purpose, checked by automated quality gates and reviewed by staff when needed, for use in consultation with a licensed attorney.',
+    footerLegal: `${NOT_A_LAW_FIRM.en} Reports are AI-generated content about court records. ${QUALITY_CHECKED.en}`,
     staffSignIn: 'Staff sign in',
   },
   es: {
@@ -116,7 +119,7 @@ export const LANDING_CONTENT = {
     ctaSticky: 'Revisión gratis de 2 minutos',
     heroTitle: 'Descubra lo que realmente dice el expediente — antes de gastar miles de dólares.',
     heroBody:
-      'Inteligencia artificial creada para una sola tarea: condenas de Texas después del juicio. Lee cada página del expediente de su ser querido, hace las preguntas que haría un abogado de post-condena, y le muestra solo lo que puede probar con las palabras exactas del expediente — página y línea. Si una cita no está realmente ahí, nunca le llega. Explicado en palabras sencillas. ',
+      'Inteligencia artificial creada para una sola tarea: condenas de Texas después del juicio. Lee cada página del expediente de su ser querido, hace seis verificaciones de los problemas que la ley post-condena reconoce, y le muestra solo lo que puede probar con las palabras exactas del expediente — página y línea. Si una cita no está realmente ahí, nunca le llega. Explicado en palabras sencillas. ',
     heroPrice: '$299. Un solo precio, sin cargos por página.',
     heroSub:
       'Revisión gratis de 2 minutos · No somos un bufete de abogados · Información, no consejo legal',
@@ -125,17 +128,17 @@ export const LANDING_CONTENT = {
     whyIntro: 'Puede hacerlo. Esto es lo que le faltaría.',
     why: [
       ['ChatGPT lee sus archivos y le da una respuesta.', 'Nosotros verificamos cada respuesta contra su expediente. Si una cita no está realmente ahí, se descarta antes de que usted la vea.'],
-      ['ChatGPT responde las preguntas que usted sabe hacer.', 'Nosotros hacemos las preguntas que hace un abogado de post-condena en Texas — seis verificaciones, en cada página.'],
+      ['ChatGPT responde las preguntas que usted sabe hacer.', 'Nosotros hacemos seis verificaciones de los problemas que la ley post-condena de Texas reconoce — en cada página del expediente.'],
       ['ChatGPT puede sonar seguro cuando está equivocado — y usted no puede notarlo.', 'Cada hallazgo muestra la página y las palabras exactas, para que usted y su abogado lo vean con sus propios ojos.'],
       ['ChatGPT le da una conversación.', 'Nosotros le damos un reporte con el que un abogado puede trabajar — y el cálculo de plazos que dice cuánto tiempo queda.'],
     ],
     proof: [
       'Cada cita se verifica de nuevo palabra por palabra contra sus documentos antes de la entrega.',
-      'El método fue evaluado con casos reales de Texas y aprobado por un abogado con licencia de Texas.',
-      'Si no encontramos nada que valga la pena, se lo decimos claramente — no vendemos esperanza.',
+      'El método fue evaluado con casos reales de Texas.',
+      'Si no encontramos nada, se lo decimos claramente — no vendemos esperanza.',
     ],
     problem:
-      'Un abogado cobra unos $3,000 solo por leer el expediente y decirle si vale la pena presentar un recurso. La representación completa cuesta $15,000 o más. La mayoría de las familias deciden a ciegas — o no deciden nada.',
+      'Un expediente de juicio tiene cientos o miles de páginas, y la mayoría de las familias nunca ve lo que contiene — deciden a ciegas, o no deciden nada. Nuestro software lee cada página del expediente y hace seis verificaciones de los problemas que la ley post-condena reconoce, para que usted y un abogado empiecen desde lo que el expediente realmente dice.',
     howTitle: 'Cómo funciona',
     steps: [
       'Conteste unas preguntas (gratis).',
@@ -175,7 +178,7 @@ export const LANDING_CONTENT = {
       'Manejo seguro; se borra si usted lo pide',
     ],
     priceNote:
-      'Páginas adicionales: $49 por cada 2,500 — le preguntamos primero, nunca hay sorpresas. Repetir la revisión con documentos nuevos: $99. Para comparar: una revisión de abogado cuesta ~$3,000; una segunda opinión médica, $975–$2,000.',
+      'Páginas adicionales: $49 por cada 2,500 — le preguntamos primero, nunca hay sorpresas. Repetir la revisión con documentos nuevos: $99.',
     refundNote:
       'Política de reembolso: si no podemos leer sus documentos, se lo decimos antes de analizar — y usted decide entre subirlos de nuevo o recibir su reembolso.',
     fitTitle: 'Esto no es para todos los casos',
@@ -193,7 +196,7 @@ export const LANDING_CONTENT = {
       ],
       [
         '¿No podría simplemente subir el expediente a ChatGPT?',
-        'Puede subir los archivos — el problema es lo que pasa después. Nada verifica la respuesta del chatbot contra el expediente, así que una cita inventada o un número de página equivocado se ve igual que uno real, y solo busca los problemas que usted ya sabe preguntar. Nuestro sistema hace seis verificaciones que haría un abogado de post-condena en Texas, en cada página, y cada hallazgo debe llevar las palabras exactas de su expediente — después, cada cita se verifica de nuevo contra el documento antes de que usted la vea. Lo que falla se elimina. En Texas, el primer recurso es prácticamente el único; por eso la verificación importa más que la lectura.',
+        'Puede subir los archivos — el problema es lo que pasa después. Nada verifica la respuesta del chatbot contra el expediente, así que una cita inventada o un número de página equivocado se ve igual que uno real, y solo busca los problemas que usted ya sabe preguntar. Nuestro sistema hace seis verificaciones de los problemas que la ley post-condena de Texas reconoce, en cada página, y cada hallazgo debe llevar las palabras exactas de su expediente — después, cada cita se verifica de nuevo contra el documento antes de que usted la vea. Lo que falla se elimina. La ley de Texas limita fuertemente los segundos recursos; por eso la verificación importa más que la lectura.',
       ],
       [
         '¿Y si las noticias son malas?',
@@ -213,11 +216,10 @@ export const LANDING_CONTENT = {
       ],
       [
         'Is this available in English?',
-        'Yes — tap "English" above and the whole site switches. Reports are delivered in English today.',
+        'Yes — tap "English" above. This page, the home page, How it works, Pricing, Learn, the documents guide, the FAQ, the sample report, About and Contact are in both languages. The free check, the purchase, your account, your case pages, the emails and the report are in English today.',
       ],
     ] as [string, string][],
-    footerLegal:
-      'Snot Nose Legal no es un bufete de abogados y no ofrece asesoría legal. Los reportes son información sobre expedientes judiciales, preparados por inteligencia artificial creada para este fin, verificados por controles de calidad automáticos y revisados por personal cuando es necesario, para usarse en consulta con un abogado con licencia.',
+    footerLegal: `${NOT_A_LAW_FIRM.es} Los reportes son contenido generado por inteligencia artificial sobre expedientes judiciales. ${QUALITY_CHECKED.es}`,
     staffSignIn: 'Acceso para el personal',
   },
 }

@@ -11,6 +11,7 @@ import { useParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { trackerModel, formatCivilDate } from '@/lib/tracker'
 import CaseNav from '../../../../components/daybreak/CaseNav'
+import NotASubstitute from '../../../../components/NotASubstitute'
 import type { CustomerView } from '@hg/case-lifecycle'
 
 interface Checklist {
@@ -121,6 +122,7 @@ export default function CaseHome() {
           </ul>
         </section>
       )}
+      <NotASubstitute className="mt-6 text-db-muted" />
     </main>
   )
 }

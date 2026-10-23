@@ -1,5 +1,5 @@
 import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, BRAND, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist, normalizePreserved } from '@hg/case-lifecycle';
-import { PALETTES, SITE, TONE_COLOR, severityLabel, createDocument, installFooter, renderBrandHeader, citeWhere, type ReportPalette, type PaletteColors, type Pdf } from './pdf-helpers';
+import { PALETTES, SITE, TONE_COLOR, severityLabel, createDocument, installFooter, renderBrandHeader, renderCoverStatement, citeWhere, FAMILY_FOOTER, type ReportPalette, type PaletteColors, type Pdf } from './pdf-helpers';
 
 /**
  * ENG-11 report PDF (M5): renders the QA-approved findings snapshot —
@@ -101,11 +101,8 @@ export interface SummaryRowLike {
   cite?: { volume?: string | null; page?: number | null; quote: string };
 }
 
-const FOOTER =
-  `${BRAND.name} · ${BRAND.tagline} · ${SITE} · ` +
-  'This is an information report about the contents of a court record. It is not legal advice, ' +
-  'does not create an attorney-client relationship, and is not protected by attorney-client privilege. ' +
-  'Decisions about any filing should be made with a licensed attorney.';
+/** Every page's footer: the statement with the statutory words (UPL review 2026-10-23, E8), from pdf-helpers. */
+const FOOTER = FAMILY_FOOTER;
 
 /** The gap note, shared wording with the web report. */
 export function summaryGapNote(gap: { labels: string[]; documents: Array<{ kind: string; label: string }> }, rerunPriceCents?: number): string {
@@ -125,6 +122,7 @@ export function renderReportPdf(input: ReportPdfInput): Promise<Buffer> {
   });
   installFooter(doc, FOOTER);
   renderBrandHeader(doc);
+  renderCoverStatement(doc);
   renderFamilyReportBody(doc, input);
   doc.end();
   return done;

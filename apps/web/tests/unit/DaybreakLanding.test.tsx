@@ -32,18 +32,21 @@ describe('Daybreak landing (landing_page_spec §2 canon)', () => {
     expect(block).toHaveTextContent(/upload it to ChatGPT/)
     expect(block).toHaveTextContent(/You can\. Here is what you would be missing/)
     expect(block).toHaveTextContent(/thrown out before you see it/)
-    expect(block).toHaveTextContent(/questions a Texas post-conviction lawyer asks/)
+    expect(block).toHaveTextContent(/six checks for the issues Texas post-conviction law recognises/)
+    expect(block).not.toHaveTextContent(/lawyer asks|lawyer would/) // describes the software, never compares it to a lawyer
     expect(block).toHaveTextContent(/can sound sure when it’s wrong/)
     expect(block).not.toHaveTextContent(/fits in one message/) // the weak claim is gone
     expect(screen.getByTestId('hero-sample-link')).toHaveAttribute('href', '/sample-report')
     expect(screen.queryByText(/world-class/i)).toBeNull()
   })
 
-  it('makes no claim the pipeline no longer keeps (no per-report human review)', () => {
+  it('makes no claim the pipeline no longer keeps (no per-report human review, no attorney sign-off)', () => {
     render(<DaybreakLanding />)
     expect(screen.queryByText(/checked by a person, every time/i)).toBeNull()
     expect(screen.queryByText(/Human review of every report/i)).toBeNull()
-    expect(screen.getByTestId('proof')).toHaveTextContent(/signed off by a licensed Texas attorney/)
+    expect(screen.getByTestId('proof')).toHaveTextContent(/The method was evaluated against real Texas cases\./)
+    expect(screen.getByTestId('proof')).not.toHaveTextContent(/signed off|licensed Texas attorney|worth pursuing/)
+    expect(screen.queryByText(/\$3,000/)).toBeNull() // no lawyer price comparison
     expect(screen.getByText('All six checks')).toBeInTheDocument()
   })
 
@@ -55,7 +58,7 @@ describe('Daybreak landing (landing_page_spec §2 canon)', () => {
 
   it('carries the site-wide legal footer and no urgency theater', () => {
     render(<DaybreakLanding />)
-    expect(screen.getByText(/not a law firm and does not provide legal advice/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/is not a law firm\. This is information about what is in a court record/i).length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByText(/countdown|spots left|act now/i)).toBeNull()
   })
 })

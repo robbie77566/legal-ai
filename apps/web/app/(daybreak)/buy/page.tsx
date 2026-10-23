@@ -325,6 +325,11 @@ export default function BuyPage() {
             )}
           </div>
 
+          <p className="mt-4 text-sm text-db-muted" data-testid="policy-links">
+            The full{' '}
+            <Link href="/terms" className="underline">Terms of service</Link> and{' '}
+            <Link href="/refund-policy" className="underline">Refund policy</Link> say the same things at length.
+          </p>
           <label className="mt-6 flex items-start gap-3">
             <input
               type="checkbox"

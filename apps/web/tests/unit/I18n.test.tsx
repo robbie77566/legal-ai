@@ -15,6 +15,8 @@ import { HOW_CONTENT } from '@/lib/content/how-it-works'
 import { SAMPLE_REPORT_CONTENT } from '@/lib/content/sample-report'
 import { OVERAGE_CONTENT } from '@/lib/content/overage'
 import { NEW_EVIDENCE_CONTENT } from '@/lib/content/new-evidence'
+import { TERMS_CONTENT } from '@/lib/content/terms'
+import { REFUND_POLICY_CONTENT } from '@/lib/content/refund-policy'
 
 beforeEach(() => window.localStorage.clear())
 
@@ -47,6 +49,8 @@ describe('i18n (i18n_localization.md)', () => {
     assertParity(SAMPLE_REPORT_CONTENT.en, SAMPLE_REPORT_CONTENT.es, 'sample-report')
     assertParity(OVERAGE_CONTENT.en, OVERAGE_CONTENT.es, 'overage')
     assertParity(NEW_EVIDENCE_CONTENT.en, NEW_EVIDENCE_CONTENT.es, 'new-evidence')
+    assertParity(TERMS_CONTENT.en, TERMS_CONTENT.es, 'terms')
+    assertParity(REFUND_POLICY_CONTENT.en, REFUND_POLICY_CONTENT.es, 'refund-policy')
   })
 
   it('the switcher flips the landing to Spanish and persists', () => {

@@ -10,8 +10,9 @@ import FeedbackCard from '../../../../../components/FeedbackCard'
 import { apiFetch } from '@/lib/api'
 import { useContent } from '@/lib/i18n'
 import { NEW_EVIDENCE_CONTENT } from '@/lib/content/new-evidence'
-import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist } from '@hg/case-lifecycle'
+import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist, AI_GENERATED_LABEL, QUALITY_CHECKED, LRIS_URL, NO_REFERRAL_FEE } from '@hg/case-lifecycle'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
+import NotASubstitute from '../../../../../components/NotASubstitute'
 
 /**
  * S6 gated delivery (UI spec §5.7): the interstitial must be dismissed by
@@ -238,6 +239,7 @@ export default function CaseReport() {
     <main className="mx-auto max-w-xl px-5 py-8">
       <CaseNav caseId={caseId} current="report" />
       <h1 className="font-db-serif text-3xl font-semibold">Your case review</h1>
+      <NotASubstitute className="mt-3 text-db-muted" />
       <CaseSummaryBlock rows={data.caseSummary} gap={data.summaryGap} rerunPriceCents={data.rerunPriceCents} />
       {remembered && (
         <p className="mt-2 text-sm text-db-muted" data-testid="gentle-reminder">
@@ -451,9 +453,9 @@ export default function CaseReport() {
       <section className="mt-8 rounded-xl border-2 border-db-accent bg-db-accent-soft p-5">
         <h2 className="font-db-serif text-xl font-semibold">What to do next</h2>
         <p className="mt-2">
-          Take this report to a licensed Texas attorney — that is always the next step. The{' '}
-          <a href="https://www.texasbar.com" rel="noopener noreferrer" className="underline" data-testid="lris-link">State Bar of Texas Lawyer Referral &amp; Information Service</a>{' '}
-          can help you find one, and{' '}
+          Take this report to an attorney licensed in Texas — that is always the next step. The{' '}
+          <a href={LRIS_URL} rel="noopener noreferrer" className="underline" data-testid="lris-link">State Bar of Texas Lawyer Referral &amp; Information Service</a>{' '}
+          can help you find one ({NO_REFERRAL_FEE.en}), and{' '}
           <a href="https://www.tifa.org" rel="noopener noreferrer" className="underline" data-testid="tifa-link">TIFA</a>{' '}
           offers family support along the way.
         </p>
@@ -464,10 +466,12 @@ export default function CaseReport() {
         </p>
       </section>
 
-      <footer className="mt-8 border-t border-db-line pt-4 text-sm text-db-muted">
-        Information about court records — not legal advice, and not a prediction of any outcome.
-        Prepared with AI assistance and approved by a trained legal reviewer. Sharing this report
-        does not by itself create an attorney-client relationship or privilege.
+      <footer className="mt-8 border-t border-db-line pt-4 text-sm text-db-muted" data-testid="report-footer">
+        <NotASubstitute className="text-sm" />
+        <span className="mt-2 block">
+          {AI_GENERATED_LABEL.en}. {QUALITY_CHECKED.en} Not a prediction of any outcome. Sharing this
+          report does not by itself create an attorney-client relationship or privilege.
+        </span>
         <span className="mt-2 block" data-testid="report-site">Snot Nose Legal · <a href="https://www.snotnoselegal.com" className="underline">snotnoselegal.com</a></span>
       </footer>
     </main>

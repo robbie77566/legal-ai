@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { apiFetch, apiEventSource } from '@/lib/api'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
+import NotASubstitute from '../../../../../components/NotASubstitute'
 import { trackerModel, describeActivity, describeActivityItem, ago, agoFine, formatCivilDate, type TrackerModel } from '@/lib/tracker'
 import {
   emptyFeed,
@@ -346,6 +347,7 @@ export default function CaseStatus() {
         </p>
       )}
 
+      <NotASubstitute className="mt-6 text-db-muted" />
       <style>{`
         .db-breathe { animation: db-breathe 2s ease-in-out infinite; }
         @keyframes db-breathe { 0%,100% { opacity: 1 } 50% { opacity: .45 } }

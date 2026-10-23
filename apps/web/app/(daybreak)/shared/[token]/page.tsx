@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, investigationChecklist } from '@hg/case-lifecycle'
+import NotASubstitute from '../../../../components/NotASubstitute'
 
 /** The attorney's view of a shared Part B packet (ENG-8): token-gated, plain. */
 
@@ -47,6 +48,7 @@ export default function SharedReport() {
     <main className="mx-auto max-w-2xl px-5 py-8">
       <h1 className="font-db-serif text-2xl font-semibold">Attorney working packet — Part B</h1>
       <p className="mt-2 text-sm text-db-muted">{data.notice}</p>
+      <NotASubstitute className="mt-3" />
       <CaseSummaryBlock rows={(data as { caseSummary?: SummaryRow[] | null }).caseSummary} compact />
       {(data as { posture?: string }).posture && <p className="mt-3 rounded-lg border border-db-line bg-db-surface px-3 py-2 font-db-mono text-xs" data-testid="packet-posture">{(data as { posture?: string }).posture}</p>}
 

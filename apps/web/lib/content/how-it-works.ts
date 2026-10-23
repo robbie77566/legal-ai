@@ -8,7 +8,7 @@ export const HOW_CONTENT = {
     stages: [
       [
         '1 · The free check',
-        'Two minutes of questions. We tell you honestly whether this review can help — and if your situation needs different help (death-penalty cases, cases still on appeal, federal convictions), we say so and point you somewhere better. No payment, no account.',
+        'Two minutes of questions. We tell you honestly whether this review fits — and if your situation needs different help (death-penalty cases, cases still on appeal, federal convictions), we say so and point you somewhere better. No payment, no account.',
       ],
       [
         '2 · You collect the documents',
@@ -31,7 +31,7 @@ export const HOW_CONTENT = {
     parts: [
       [
         'Part A — for your family',
-        'What we found, in plain words: what each finding means, how strong it looks, and what a lawyer would want to know about it. If we found nothing worth pursuing, Part A says that plainly too.',
+        'What we found, in plain words: what the record shows for each finding, the page it is on, and why a lawyer would want to see it. If we found nothing, Part A says that plainly too.',
       ],
       [
         'Part B — for the lawyer',
@@ -51,7 +51,7 @@ export const HOW_CONTENT = {
     stages: [
       [
         '1 · La verificación gratis',
-        'Dos minutos de preguntas. Le decimos honestamente si esta revisión puede ayudar — y si su situación necesita otra ayuda (casos de pena de muerte, casos todavía en apelación, condenas federales), se lo decimos y le indicamos un mejor camino. Sin pago, sin cuenta.',
+        'Dos minutos de preguntas. Le decimos honestamente si esta revisión encaja — y si su situación necesita otra ayuda (casos de pena de muerte, casos todavía en apelación, condenas federales), se lo decimos y le indicamos un mejor camino. Sin pago, sin cuenta.',
       ],
       [
         '2 · Usted reúne los documentos',
@@ -74,7 +74,7 @@ export const HOW_CONTENT = {
     parts: [
       [
         'Parte A — para su familia',
-        'Lo que encontramos, en palabras sencillas: qué significa cada hallazgo, qué tan fuerte se ve, y qué querría saber un abogado al respecto. Si no encontramos nada que valga la pena, la Parte A también lo dice claramente.',
+        'Lo que encontramos, en palabras sencillas: qué muestra el expediente en cada hallazgo, en qué página está, y por qué un abogado querría verlo. Si no encontramos nada, la Parte A también lo dice claramente.',
       ],
       [
         'Parte B — para el abogado',

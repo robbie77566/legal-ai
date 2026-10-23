@@ -25,9 +25,10 @@ describe('tracker view-model (UI spec §5.6)', () => {
     expect(d.overlayCopy).toMatch(/on us, not your clock/)
   })
 
-  it('names the quality reviewer role and task concretely', () => {
-    expect(trackerModel(customerView('QA_REVIEW', [])).qualityReviewCopy).toMatch(
-      /trained legal reviewer.*every citation.*24 hours/
-    )
+  it('says truthfully how the report is checked — never a "legal reviewer" (UPL review 2026-10-23)', () => {
+    const copy = trackerModel(customerView('QA_REVIEW', [])).qualityReviewCopy
+    expect(copy).toContain('Checked by automated quality gates and by our review staff when anything looks off.')
+    expect(copy).toMatch(/24 hours/)
+    expect(copy).not.toMatch(/legal reviewer/i)
   })
 })

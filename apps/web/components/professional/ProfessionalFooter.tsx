@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { BRAND } from '@hg/case-lifecycle'
+import NotASubstitute from '../NotASubstitute'
 
 /**
- * Footer for the professional pages: the operator, the no-advice line in its
- * professional form (work product prepared at counsel's direction), the
+ * Footer for the professional pages: the operator, the one statement from
+ * the shared constant (UPL review 2026-10-23, rec 1), the no-advice line in
+ * its professional form (work product prepared at counsel's direction), the
  * security page and the policy pages. No family links — the family site is
  * reached only by typing it.
  */
@@ -19,9 +21,10 @@ export default function ProfessionalFooter() {
           </a>
           .
         </p>
+        <NotASubstitute className="text-sm" />
         <p>
-          We are not a law firm and do not provide legal advice. A Counsel Review is a record screen prepared at
-          counsel&rsquo;s direction for counsel&rsquo;s use; no attorney-client relationship is created with us.
+          A Counsel Review is a record screen prepared at counsel&rsquo;s direction for counsel&rsquo;s use; no
+          attorney-client relationship is created with us.
         </p>
         <p className="flex flex-wrap gap-x-4 gap-y-1">
           <a href={`mailto:${BRAND.email}`} className="underline">

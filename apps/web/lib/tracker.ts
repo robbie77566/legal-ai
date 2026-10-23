@@ -1,4 +1,4 @@
-import type { CustomerView } from '@hg/case-lifecycle'
+import { QUALITY_CHECKED, type CustomerView } from '@hg/case-lifecycle'
 
 /**
  * Tracker view-model (UI spec §5.6): the five named stages, derived purely
@@ -44,9 +44,9 @@ export function trackerModel(view: CustomerView): TrackerModel {
     activeIndex: idx,
     delivered: view.stage === 'delivered',
     overlayCopy: view.overlay ? OVERLAY_COPY[view.overlay] : null,
-    // Named role + concrete task (US-3: vague "human-reviewed" tests worse)
-    qualityReviewCopy:
-      'A trained legal reviewer is personally checking every citation in your report against your documents — expect it within 24 hours.',
+    // The one truthful sentence (UPL review 2026-10-23, rec 2): no one here
+    // is held out as a legal reviewer.
+    qualityReviewCopy: `${QUALITY_CHECKED.en} Expect your report within 24 hours.`,
   }
 }
 
