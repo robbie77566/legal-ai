@@ -234,7 +234,16 @@ describe('holding out (U1-a): no page, content object or email says a legal revi
     path.resolve(__dirname, '../../app'),
     path.resolve(__dirname, '../../../../packages/email'),
   ]
-  const banned = [/legal reviewer/i, /licensed Texas attorney/i, /trained reviewer/i, /abogado con licencia de Texas/i, /revisor legal/i]
+  // Holding-out forms only: a referral such as "A licensed Texas attorney is the
+  // person to take this to" is the product sending the reader to a lawyer, which
+  // is exactly what it should do (UPL review 2026-10-23, rec 3).
+  const banned = [
+    /legal reviewer/i,
+    /(signed off|approved|reviewed|checked|verified|vetted) by (a |an )?(licensed )?Texas attorney/i,
+    /trained reviewer/i,
+    /(aprobado|revisado|firmado|verificado) por un abogado con licencia de Texas/i,
+    /revisor legal/i,
+  ]
 
   it.each(roots)('%s', (root) => {
     const offenders: string[] = []
