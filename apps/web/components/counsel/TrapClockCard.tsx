@@ -2,9 +2,16 @@
  * The TRAP clock (packages/case-lifecycle/trap/clock.ts) on the matter page:
  * every step with its rule, due date, status and the jurisdictional label,
  * the next due line, the engine's notes, and the disclaimer the api's
- * `unsignedCount` drives — the vectors are proposed until counsel signs
- * them. Pure presentation; the api computed the clock.
+ * `unsignedCount` drives — the vectors are proposed until a Texas appellate
+ * lawyer signs them in the rule table. Pure presentation; the api computed
+ * the clock.
+ *
+ * Wording (UPL review 2026-10-23, P8): a step is never declared "Missed".
+ * The label and the banner come from the engine's own STEP_STATUS_LABEL and
+ * MISSED_JURISDICTIONAL_BANNER so the card and the packet say the same thing.
  */
+import { STEP_STATUS_LABEL, MISSED_JURISDICTIONAL_BANNER } from '@hg/case-lifecycle'
+
 export interface TrapStepView {
   id: string
   rule: string
@@ -30,10 +37,10 @@ export interface TrapClockView {
 }
 
 const STATUS: Record<TrapStepView['status'], { label: string; color: string }> = {
-  done: { label: 'Filed', color: 'var(--db-signal)' },
-  open: { label: 'Open', color: 'var(--db-review)' },
-  missed: { label: 'Missed', color: 'var(--db-urgent)' },
-  not_yet: { label: 'Not yet', color: 'var(--db-none)' },
+  done: { label: STEP_STATUS_LABEL.done, color: 'var(--db-signal)' },
+  open: { label: STEP_STATUS_LABEL.open, color: 'var(--db-review)' },
+  missed: { label: STEP_STATUS_LABEL.missed, color: 'var(--db-urgent)' },
+  not_yet: { label: STEP_STATUS_LABEL.not_yet, color: 'var(--db-none)' },
 }
 
 export default function TrapClockCard({ clock }: { clock: TrapClockView }) {
@@ -50,7 +57,7 @@ export default function TrapClockCard({ clock }: { clock: TrapClockView }) {
       )}
       {clock.missedJurisdictional && (
         <p className="mt-2 text-[15px] font-semibold" style={{ color: 'var(--db-urgent)' }} data-testid="trap-missed">
-          A jurisdictional step reads as missed. Verify the dates before relying on this.
+          {MISSED_JURISDICTIONAL_BANNER}
         </p>
       )}
       {clock.steps.length === 0 ? (
@@ -93,9 +100,9 @@ export default function TrapClockCard({ clock }: { clock: TrapClockView }) {
       )}
       <p className="mt-3 text-xs text-db-muted" data-testid="trap-disclaimer">
         {clock.unsignedCount > 0
-          ? `${clock.unsignedCount} of these vectors ${clock.unsignedCount === 1 ? 'is' : 'are'} proposed until counsel signs them. `
+          ? `${clock.unsignedCount} of these vectors ${clock.unsignedCount === 1 ? 'is' : 'are'} proposed until a Texas appellate lawyer signs ${clock.unsignedCount === 1 ? 'it' : 'them'} in our rule table. `
           : ''}
-        Every date is an estimate from the dates you gave; verify it against the rule in force and the court&rsquo;s calendar.
+        Every date is an estimate from the dates you gave; verify it against the rules in force and the court&rsquo;s calendar.
       </p>
     </section>
   )

@@ -164,10 +164,21 @@ export default function MatterForm({ onCreated }: { onCreated: (caseId: string) 
         <label className="flex items-start gap-3">
           <input type="checkbox" checked={f.subsequentWrit} onChange={(e) => set('subsequentWrit', e.target.checked)} className="mt-1 h-5 w-5" data-testid="matter-subsequent" />
           <span>
-            <span className="font-semibold">This would be a subsequent application</span>
-            <span className="block text-sm text-db-muted">Puts the matter in Art. 11.07 §4 posture; a prior writ counted above does the same.</span>
+            <span className="font-semibold">A prior application on this conviction exists</span>
+            <span className="block text-sm text-db-muted">Recorded as one prior application when the count above is blank. The packet prints the count and the Art. 11.07 §4 rule as read; it draws no conclusion from them.</span>
           </span>
         </label>
+        {(f.subsequentWrit || Number.parseInt(f.priorWrits, 10) > 0) && (
+          <label className="block sm:w-80">
+            <span className={label}>Were the prior applications decided on the merits?</span>
+            <select id="matter-prior-merits" value={f.priorWritsDecidedOnMerits} onChange={text('priorWritsDecidedOnMerits')} className={field} data-testid="matter-prior-merits">
+              <option value="">Not recorded yet</option>
+              <option value="yes">Yes — denied or granted on the merits</option>
+              <option value="no">No — dismissed without reaching the merits</option>
+            </select>
+            <span className="mt-1 block text-xs text-db-muted">Left blank, the packet says &ldquo;not recorded; counsel to confirm&rdquo;.</span>
+          </label>
+        )}
         <label className="flex items-start gap-3">
           <input type="checkbox" checked={f.capital} onChange={(e) => set('capital', e.target.checked)} className="mt-1 h-5 w-5" data-testid="matter-capital" />
           <span>

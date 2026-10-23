@@ -8,11 +8,18 @@
  * than offering a dead link. The re-run entry mirrors the family flow's
  * $99 re-run; a counsel checkout for it is not built, so it is arranged by
  * email.
+ *
+ * No options (UPL review 2026-10-23): the Part A client letter is withheld
+ * from the packet — counsel decision pending (question 8) — so the card
+ * offers no letter switch, and the court-facing templates are withheld
+ * (question 9), so none is offered either.
  */
 import { useEffect, useState } from 'react'
 import { BRAND } from '@hg/case-lifecycle'
 import { counselPacketPdfUrl, getCounselPacketSections } from '@/lib/api'
 import { RERUN_PRICE } from '@/lib/content/professional'
+
+export const PACKET_CONTENTS_LINE = 'Part B first, with the record inventory, the TRAP clock, the Art. 11.07 posture for a writ and the record citation list. A tool statement on the first page says what the software did and did not do. Every citation re-verified at render.'
 
 export default function PacketCard({ caseId, title }: { caseId: string; title: string }) {
   const [state, setState] = useState<'checking' | 'ready' | 'pending'>('checking')
@@ -32,7 +39,7 @@ export default function PacketCard({ caseId, title }: { caseId: string; title: s
       {state === 'checking' && <p className="mt-2 text-sm text-db-muted" aria-live="polite">Checking…</p>}
       {state === 'ready' && (
         <div>
-          <p className="mt-2 text-[15px] text-db-muted">Part B first, with the inventory, the TRAP clock and the disclosure blocks. Every citation re-verified at render.</p>
+          <p className="mt-2 text-[15px] text-db-muted">{PACKET_CONTENTS_LINE}</p>
           <a href={counselPacketPdfUrl(caseId)} className="mt-4 inline-block rounded-xl bg-db-accent px-5 py-3 font-semibold text-db-surface" data-testid="packet-download">
             Download the packet (PDF)
           </a>

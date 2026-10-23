@@ -128,6 +128,8 @@ export interface MatterFormState {
   recordFiledAt: string
   priorWrits: string
   subsequentWrit: boolean
+  /** '' = not recorded; the packet then says "not recorded; counsel to confirm". */
+  priorWritsDecidedOnMerits: '' | 'yes' | 'no'
   outsideRecordNote: string
   capital: boolean
 }
@@ -147,6 +149,7 @@ export const EMPTY_MATTER_FORM: MatterFormState = {
   recordFiledAt: '',
   priorWrits: '0',
   subsequentWrit: false,
+  priorWritsDecidedOnMerits: '',
   outsideRecordNote: '',
   capital: false,
 }
@@ -171,6 +174,7 @@ export function matterBodyFor(f: MatterFormState): MatterCreateInput {
     ...(opt(f.recordFiledAt) ? { recordFiledAt: opt(f.recordFiledAt) } : {}),
     priorWrits: Number.isFinite(priorWrits) ? priorWrits : 0,
     subsequentWrit: f.subsequentWrit,
+    ...(f.priorWritsDecidedOnMerits ? { priorWritsDecidedOnMerits: f.priorWritsDecidedOnMerits === 'yes' } : {}),
     ...(opt(f.outsideRecordNote) ? { outsideRecordNote: opt(f.outsideRecordNote) } : {}),
     capital: f.capital,
   }

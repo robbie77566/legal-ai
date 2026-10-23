@@ -140,7 +140,15 @@ export default function MatterPage() {
           {matter.offence && <div><dt className="inline text-db-muted">Offence: </dt><dd className="inline">{matter.offence}</dd></div>}
           {matter.sentence && <div><dt className="inline text-db-muted">Sentence: </dt><dd className="inline">{matter.sentence}</dd></div>}
           {matter.lane && <div><dt className="inline text-db-muted">Lane: </dt><dd className="inline">{matter.lane === 'PLEA' ? 'Plea' : 'Trial'}</dd></div>}
-          {(matter.subsequentWrit || matter.priorWrits > 0) && <div><dt className="inline text-db-muted">Posture: </dt><dd className="inline">Subsequent application (§4){matter.priorWrits > 0 ? ` · ${matter.priorWrits} prior` : ''}</dd></div>}
+          {(matter.subsequentWrit || matter.priorWrits > 0) && (
+            <div data-testid="matter-prior-applications">
+              <dt className="inline text-db-muted">Prior applications recorded: </dt>
+              <dd className="inline">
+                {Math.max(matter.priorWrits, matter.subsequentWrit ? 1 : 0)}
+                {matter.priorWritsDecidedOnMerits == null ? ' · decided on the merits: not recorded' : ` · decided on the merits: ${matter.priorWritsDecidedOnMerits ? 'yes' : 'no'}`}
+              </dd>
+            </div>
+          )}
           {DATE_LABEL.map(([k, l]) => matter[k] && (
             <div key={k}><dt className="inline text-db-muted">{l}: </dt><dd className="inline font-db-mono">{matter[k]}</dd></div>
           ))}
