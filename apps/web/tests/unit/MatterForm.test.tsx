@@ -36,6 +36,12 @@ describe('validateMatterForm (= MatterCreateSchema in the browser)', () => {
       vehicle: 'direct_appeal', county: 'Bexar', causeNumber: 'D-1', clientInitials: 'JF', judgmentSignedAt: '2019-09-12', priorWrits: 2, subsequentWrit: true, capital: false,
     })
   })
+  it('the merits fact is sent only when recorded: blank stays absent (the packet then says "not recorded"), yes/no become booleans', () => {
+    expect(matterBodyFor({ ...base, priorWrits: '1' })).not.toHaveProperty('priorWritsDecidedOnMerits')
+    expect(matterBodyFor({ ...base, priorWrits: '1', priorWritsDecidedOnMerits: 'yes' })).toMatchObject({ priorWritsDecidedOnMerits: true })
+    expect(matterBodyFor({ ...base, priorWrits: '1', priorWritsDecidedOnMerits: 'no' })).toMatchObject({ priorWritsDecidedOnMerits: false })
+    expect(validateMatterForm({ ...base, priorWrits: '1', priorWritsDecidedOnMerits: 'no' })).toEqual({})
+  })
 })
 
 describe('<MatterForm />', () => {
@@ -80,6 +86,23 @@ describe('<MatterForm />', () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith('case_1'))
     expect(calls[0].url).toMatch(/\/counsel\/matters$/)
     expect(calls[0].body).toMatchObject({ vehicle: '11.07', county: 'Travis', clientInitials: 'jf', causeNumber: 'D-1-DC-19-000000', capital: false })
+  })
+
+  it('asks whether prior applications reached the merits once one is recorded, and sends the answer; the copy draws no §4 conclusion', async () => {
+    const onCreated = vi.fn()
+    render(<MatterForm onCreated={onCreated} />)
+    expect(screen.queryByTestId('matter-prior-merits')).toBeNull()
+    expect(screen.getByTestId('matter-form').textContent).not.toMatch(/Puts the matter in Art\. 11\.07 §4 posture|subsequent application/i)
+    fireEvent.click(screen.getByTestId('vehicle-11.07'))
+    fireEvent.change(screen.getByLabelText(/^County/), { target: { value: 'Travis' } })
+    fireEvent.change(screen.getByLabelText(/^Client initials/), { target: { value: 'JF' } })
+    fireEvent.change(screen.getByLabelText(/^Prior writs filed/), { target: { value: '1' } })
+    const select = await screen.findByTestId('matter-prior-merits')
+    expect(select).toHaveTextContent('Not recorded yet')
+    fireEvent.change(select, { target: { value: 'no' } })
+    fireEvent.click(screen.getByTestId('matter-submit'))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('case_1'))
+    expect(calls[0].body).toMatchObject({ vehicle: '11.07', priorWrits: 1, priorWritsDecidedOnMerits: false })
   })
 
   it('shows the capital refusal inline from the api 422', async () => {

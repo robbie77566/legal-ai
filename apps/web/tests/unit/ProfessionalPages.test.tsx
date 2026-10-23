@@ -49,6 +49,26 @@ describe('/for-counsel', () => {
     expect(sample).toHaveTextContent('Did you ever attempt to contact Ms. Alvarez? A: I did not, no.')
     expect(sample).toHaveTextContent(/fictional/)
   })
+  it('sells only what ships and describes rather than argues (UPL review 2026-10-23, P8 P9, recommendation 12)', () => {
+    const { container } = render(<ForCounsel />)
+    const text = container.textContent ?? ''
+    // Marketing that outran the product, or named the wrong signer, is gone.
+    expect(text).not.toMatch(/exhaustion map/i)
+    expect(text).not.toMatch(/Errors-and-omissions|E&O|being bound/i)
+    expect(text).not.toMatch(/proposed until you sign/)
+    expect(text).toContain('proposed until a Texas appellate lawyer signs them in our rule table')
+    expect(text).not.toMatch(/found nothing on, so the brief can say so with a cite/)
+    expect(text).toContain("a record of what the engine looked for and what it found on each item, for counsel's own reading of the record")
+    expect(text).not.toMatch(/subsequent-application posture|§4 is on every page/)
+    // The "what it is not" list carries the new item.
+    expect(text).toContain('Not a substitute for the advice of an attorney, and not a decision about any filing.')
+    // The sample Part B shows what the record shows at the page and what counsel would want to see — it does not argue.
+    const sample = screen.getByTestId('sample-part-b').textContent ?? ''
+    expect(sample).not.toMatch(/prejudice argument|before a Brady ground is pleaded|the next step/)
+    expect(sample).toMatch(/The record does not show what the witness would have said/)
+    expect(sample).toMatch(/Counsel would want to see/)
+  })
+
   it('never links to the family funnel and links the sign-up page', () => {
     const { container } = render(<ForCounsel />)
     const links = hrefs(container)

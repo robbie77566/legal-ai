@@ -37,6 +37,22 @@ import { computeDue, HOLIDAY_TABLE_COVERAGE } from './rule-4-1';
 
 export type StepStatus = 'done' | 'open' | 'missed' | 'not_yet';
 
+/**
+ * The status as the packet and the matter page print it (UPL review
+ * 2026-10-23, P8): a step is never declared "Missed" — every due date is
+ * computed from the dates given under a proposed vector, so the label says
+ * what the arithmetic shows and on what it rests.
+ */
+export const STEP_STATUS_LABEL: Record<StepStatus, string> = {
+  done: 'Filed',
+  open: 'Open',
+  missed: 'Appears missed on the dates given',
+  not_yet: 'Not yet',
+};
+
+/** The line under the clock when a jurisdictional step appears missed or late without its extension met. */
+export const MISSED_JURISDICTIONAL_BANNER = 'A jurisdictional step appears missed on the dates given — verify at once with the rules in force.';
+
 export interface TrapClockInputs {
   vehicle: Vehicle;
   /** Fallback trigger when the sentencing date is not recorded (TRAP 26.2 counts from sentencing in open court). */

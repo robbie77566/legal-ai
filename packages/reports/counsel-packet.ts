@@ -7,30 +7,23 @@ import {
   harmLabel,
   vehicleLabel,
   hasStructuredFields,
+  decidedOnMeritsLabel,
+  STEP_STATUS_LABEL,
+  MISSED_JURISDICTIONAL_BANNER,
   type CounselVehicle,
   type ScreenId,
   type TrapClock,
   type TrapStep,
   type Posture1107,
-  type ExhaustionMap,
 } from '@hg/case-lifecycle';
 import { renderFamilyReportBody, type ReportFinding, type ReportPdfInput } from './family-report';
 import { PALETTES, SITE, MARGIN, TONE_COLOR, severityLabel, createDocument, installFooter, renderBrandHeader, renderCoverStatement, ensureRoom, STATUTORY_FOOTER_SENTENCE, type Pdf } from './pdf-helpers';
-import {
-  ND_TEX_47_2_E_DISCLOSURE,
-  TRAP_9_1_D_LOG,
-  WD_TEX_CERTIFICATE,
-  WORK_PRODUCT_FOOTER,
-  PREPARED_LINE,
-  instrumentStatusLine,
-} from './disclosures';
+import { TOOL_STATEMENT, TRAP_9_1_D_LOG, WITHHELD_PENDING_COUNSEL, WORK_PRODUCT_FOOTER, PREPARED_LINE, instrumentStatusLine } from './disclosures';
 
 /**
  * The counsel packet (persona_rollout_plan.md §3 writ practitioner / PD
  * appellate attorney, §5 E, January slice): a deliverable built for a
- * brief, not a family letter. Part B first; the optional Part A client
- * letter LAST, rendered by the family renderer's own content path so the
- * lawyer decides whether to hand it over.
+ * brief, not a family letter. Part B first.
  *
  * Like the family renderer this never touches the database. The caller
  * (apps/api counsel-packet.service) runs the FR-7 re-verification and hands
@@ -42,13 +35,19 @@ import {
  * `counselPacketSections(input)` is the same content as structured JSON,
  * in packet order; the PDF and the web page render the same sections.
  *
- * The packet emits record citations and doctrine categories, never case
- * citations (attorney_offering_and_pricing.md). The disclosure text, the
- * 9.1(d) wording and the TRAP vectors are proposed/draft pending counsel
- * review and the packet says so where each appears.
+ * Voice (UPL review 2026-10-23, docs/compliance/upl_review_2026-10-23.md,
+ * P4 P5 P6 P8 P9): the packet DESCRIBES the record and the rule. Nothing in
+ * it speaks in the first person as counsel or states what counsel has done;
+ * nothing says a bar "applies" or a step is "missed"; nothing names a case.
+ * Withheld pending counsel's answers (disclosures.ts
+ * `WITHHELD_PENDING_COUNSEL`): the 47.2(e) block and the W.D. Tex.
+ * certificate (question 9), the Part A client letter (question 8). The
+ * §2254 map is not printed until the grounds feature exists (question 11).
  *
- * February slice (not here): grounds grouping with the §4 tag, affidavit
- * topics, the TRAP 48.4 checklist.
+ * The packet emits record citations and doctrine categories, never case
+ * citations (attorney_offering_and_pricing.md). The 9.1(d) list wording and
+ * the TRAP vectors are proposed pending counsel review and the packet says
+ * so where each appears.
  */
 
 export const COUNSEL_TEMPLATE_VERSION = 'counsel-v1';
@@ -62,6 +61,8 @@ export interface CounselPacketMatter {
   clientInitials: string;
   priorWrits: number;
   subsequentWrit: boolean;
+  /** Whether the prior application(s) were decided on the merits, as recorded; null = not recorded. */
+  priorWritsDecidedOnMerits?: boolean | null;
   lane?: 'TRIAL' | 'PLEA' | null;
 }
 
@@ -110,13 +111,14 @@ export interface CounselPacketInput {
   trapClock: TrapClock;
   /** For writ vehicles (11.07 family); omitted otherwise. */
   posture?: Posture1107 | null;
-  /** When the matter has grounds data (February); omitted otherwise. */
-  exhaustion?: ExhaustionMap | null;
-  /** Off by default: counsel's own certificate, printed only when asked for. */
-  includeWdTexCertificate?: boolean;
-  /** Off by default: the Part A letter, last, in the family voice. */
-  includeClientLetter?: boolean;
-  /** The family report input the letter is rendered from (required when includeClientLetter). */
+  /** The screens the analysis ran (screen ids); the tool statement lists them. Defaults to the vehicle's weighted screens. */
+  screensRun?: string[];
+  /**
+   * Withheld — UPL review 2026-10-23: counsel decision pending (question 8).
+   * The family report input the Part A letter would be rendered from. Accepted
+   * so the path survives; ignored at render while
+   * `WITHHELD_PENDING_COUNSEL.clientLetter.enabled` is false.
+   */
   clientLetter?: ReportPdfInput | null;
   /** Test hook: uncompressed streams so assertions can read the text. */
   compress?: boolean;
@@ -167,7 +169,7 @@ export type CounselPacketSection =
       changeNotes: string[];
       footer: string;
     }
-  | { id: 'disclosure_47_2e'; heading: string; rule: string; status: string; reviewedBy: string | null; paragraphs: string[] }
+  | { id: 'tool_statement'; heading: string; paragraphs: string[] }
   | {
       id: 'inventory';
       volumes: Array<{ kind: string; label: string; files: number; pages: number; ocrConfidence: number | null; items: string[] }>;
@@ -188,6 +190,8 @@ export type CounselPacketSection =
         label: string;
         due: string | null;
         status: TrapStep['status'];
+        /** The status as printed (STEP_STATUS_LABEL): "Appears missed on the dates given", never "Missed". */
+        statusLabel: string;
         late: boolean;
         filedAt: string | null;
         jurisdiction: 'jurisdictional' | 'discretionary';
@@ -196,6 +200,8 @@ export type CounselPacketSection =
       }>;
       nextDue: TrapClock['nextDue'] | null;
       missedJurisdictional: boolean;
+      /** Printed when `missedJurisdictional`; null otherwise. */
+      missedBanner: string | null;
       unsignedCount: number;
       disclaimer: string | null;
       notes: string[];
@@ -211,6 +217,7 @@ export type CounselPacketSection =
       items: Array<{
         id: string;
         phase: string;
+        /** `AndersItem.printedText`: no case names, no reporter citations. */
         text: string;
         confidence: 'proposed' | 'signed';
         findings: Array<{ id: string; category: string; cite: string }>;
@@ -220,18 +227,17 @@ export type CounselPacketSection =
       disclaimer: string;
     }
   | { id: 'posture_1107'; lines: Array<{ label: string; value: string }>; exceptions: Array<{ id: string; label: string; text: string }>; notes: string[]; confidence: 'proposed' | 'signed' }
-  | { id: 'exhaustion_2254'; rule: string; grounds: ExhaustionMap['grounds']; summary: ExhaustionMap['summary']; mixedPetition: boolean; confidence: 'proposed' | 'signed' }
   | {
       id: 'verification_log';
       heading: string;
       rule: string;
       ruleStatus: string;
-      representation: string;
       note: string;
       entries: Array<{ findingId: string; category: string; cite: string; volume: string | null; page: number | null; line: number | null; status: 'verified at render' | 'dropped' }>;
       verifiedCount: number;
       droppedCount: number;
     }
+  // Withheld paths (disclosures.ts WITHHELD_PENDING_COUNSEL); never emitted while withheld.
   | { id: 'wd_tex_certificate'; heading: string; rule: string; status: string; paragraphs: string[]; signatureLines: string[] }
   | { id: 'client_letter'; note: string; caseTitle: string; findings: Array<{ id: string; category: string; severity: string; partAText: string }> };
 
@@ -289,10 +295,7 @@ export const TRAP_UNSIGNED_DISCLAIMER = (unsigned: number, total: number) =>
   `Deadline vectors proposed; counsel-signed vectors pending (${unsigned} of ${total} step${total === 1 ? '' : 's'} unsigned). Every date is an estimate computed from the dates on the matter under the rule as recalled; counsel must verify each against the rules in force before relying on it.`;
 
 export const ANDERS_DISCLAIMER =
-  'A record of process supporting counsel\'s own reading of the record — never a certification that the record shows no error. Items are proposed until an appellate lawyer signs the checklist.';
-
-const CLIENT_LETTER_NOTE =
-  'Optional. The family-voice report for the client, in plain English, rendered by the same path the family product uses. Counsel decides whether, and in what form, to hand it over; it is not addressed to the client by the operator.';
+  "A record of what the software looked for and what it found on each item, for counsel's own reading of the record — never a certification that the record shows no error. Items are proposed until an appellate lawyer signs the checklist.";
 
 function partBFinding(f: CounselPacketFinding): PartBFinding {
   const structured = hasStructuredFields(f);
@@ -313,6 +316,12 @@ function partBFinding(f: CounselPacketFinding): PartBFinding {
     dependsOn: f.dependsOn ?? [],
     verifiedAgainstRecord: true,
   };
+}
+
+/** The screens the tool statement names: what ran, else the vehicle's weighted screens, as the packet labels them. */
+function screensRunLabels(input: CounselPacketInput): string[] {
+  const ids = input.screensRun ?? VEHICLES[input.matter.vehicle].weightedScreens;
+  return ids.map((s) => (isScreenId(s) ? SCREEN_LABELS[s] : s.replace(/_/g, ' ')));
 }
 
 // ── The sections ────────────────────────────────────────────────────────────
@@ -347,18 +356,23 @@ export function counselPacketSections(input: CounselPacketInput): CounselPacketS
     footer: WORK_PRODUCT_FOOTER,
   });
 
-  // (b) 47.2(e) block
+  // (b) Tool statement — first page, third person, in place of the withheld 47.2(e) block.
+  const inv = input.inventory;
+  const digitised = inv.volumes.flatMap((v) => v.docs).filter((d) => d.digitised);
   out.push({
-    id: 'disclosure_47_2e',
-    heading: ND_TEX_47_2_E_DISCLOSURE.heading,
-    rule: ND_TEX_47_2_E_DISCLOSURE.rule,
-    status: instrumentStatusLine(ND_TEX_47_2_E_DISCLOSURE),
-    reviewedBy: ND_TEX_47_2_E_DISCLOSURE.reviewedBy ?? null,
-    paragraphs: ND_TEX_47_2_E_DISCLOSURE.paragraphs({ renderedAt, retained: retained.length, dropped: dropped.length }),
+    id: 'tool_statement',
+    heading: TOOL_STATEMENT.heading,
+    paragraphs: TOOL_STATEMENT.paragraphs({
+      renderedAt,
+      pagesRead: digitised.reduce((n, d) => n + d.pages, 0),
+      filesRead: digitised.length,
+      screens: screensRunLabels(input),
+      retained: retained.reduce((n, f) => n + Math.max(1, f.citations.length), 0),
+      dropped: dropped.reduce((n, f) => n + Math.max(1, f.citations.length), 0),
+    }),
   });
 
   // (c) Record inventory
-  const inv = input.inventory;
   const unlabelled = inv.volumes.filter((v) => v.kind === 'UNKNOWN').flatMap((v) => v.docs.map((d) => d.filename));
   out.push({
     id: 'inventory',
@@ -392,6 +406,7 @@ export function counselPacketSections(input: CounselPacketInput): CounselPacketS
       label: s.label,
       due: s.due,
       status: s.status,
+      statusLabel: STEP_STATUS_LABEL[s.status],
       late: s.late,
       filedAt: s.filedAt ?? null,
       jurisdiction: s.jurisdictional ? 'jurisdictional' : 'discretionary',
@@ -400,6 +415,7 @@ export function counselPacketSections(input: CounselPacketInput): CounselPacketS
     })),
     nextDue: clock.nextDue ?? null,
     missedJurisdictional: clock.missedJurisdictional,
+    missedBanner: clock.missedJurisdictional ? MISSED_JURISDICTIONAL_BANNER : null,
     unsignedCount: clock.unsignedCount,
     disclaimer: clock.unsignedCount > 0 ? TRAP_UNSIGNED_DISCLAIMER(clock.unsignedCount, clock.steps.length) : null,
     notes: clock.notes,
@@ -442,27 +458,32 @@ export function counselPacketSections(input: CounselPacketInput): CounselPacketS
     }
     const items = ANDERS_CHECKLIST.map((item) => {
       const findings = onItem.get(item.id) ?? [];
-      const note = item.screenIds.length === 0 ? 'Process item — counsel\'s own step; no screen maps to it.' : findings.length === 0 ? 'No finding on this record.' : null;
-      // The checklist's `source` (its provenance for the signer) is not printed: the packet carries no case citations.
-      return { id: item.id, phase: item.phase, text: item.text, confidence: item.confidence, findings, note };
+      const note = item.screenIds.length === 0 ? "Process item — counsel's own step; no screen maps to it." : findings.length === 0 ? 'No finding on this record.' : null;
+      // `text` and `source` (the item's provenance for the signer) are not printed: the packet carries no case names or citations.
+      return { id: item.id, phase: item.phase, text: item.printedText, confidence: item.confidence, findings, note };
     });
     out.push({ id: 'anders_appendix', items, proposedCount: items.filter((i) => i.confidence !== 'signed').length, disclaimer: ANDERS_DISCLAIMER });
   }
 
-  // (g) 11.07 posture; §2254 exhaustion map when grounds exist
+  // (g) Art. 11.07 posture — the recorded inputs and the rule, never a verdict.
+  // The §2254 map is not printed: UPL review 2026-10-23: counsel decision pending (question 11).
   if (input.posture) {
     const p = input.posture;
+    const decided = p.inputs.priorWritsDecidedOnMerits;
     out.push({
       id: 'posture_1107',
       lines: [
         { label: 'Vehicle', value: VEHICLES[p.vehicle].label },
-        { label: 'Authority', value: p.authority },
-        { label: 'Prior applications on this conviction', value: String(matter.priorWrits) },
-        { label: 'Subsequent application', value: p.subsequentWrit ? 'Yes — a prior application on this conviction was decided on the merits' : 'No' },
-        { label: 'Subsequent-application bar', value: p.section4Bar ? 'Applies — the application must plead one of the exceptions below' : 'Does not apply' },
-        { label: 'One-shot', value: p.oneShot ? 'First application: every ground not raised now is ordinarily lost' : 'Not the first application' },
-        { label: 'Complete inventory', value: 'Treat the record inventory above as the inventory of what was reviewed; anything not listed there was not reviewed.' },
-        { label: 'Premature filing', value: p.prematureFiling ? 'The direct appeal is pending: an application filed before the mandate issues is dismissed, not held' : 'No direct appeal recorded as pending' },
+        { label: 'Rule', value: p.authority },
+        { label: 'Prior applications recorded', value: String(p.inputs.priorWrits) },
+        {
+          label: 'Whether they were decided on the merits',
+          value: p.inputs.priorWrits === 0 ? 'none recorded' : decided == null ? 'not recorded; counsel to confirm' : decidedOnMeritsLabel(decided),
+        },
+        { label: 'The rule as read here', value: p.rule },
+        { label: 'Complete inventory', value: 'The record inventory above is the inventory of what was reviewed; anything not listed there was not reviewed.' },
+        { label: 'Direct appeal recorded as pending', value: p.inputs.directAppealPending ? 'yes' : 'no' },
+        { label: 'Filing while an appeal is pending', value: p.prematureFilingRule },
         { label: 'Rehearing', value: `${p.noRehearing.rule}: ${p.noRehearing.text}` },
         { label: 'Confidence', value: p.confidence },
       ],
@@ -471,12 +492,8 @@ export function counselPacketSections(input: CounselPacketInput): CounselPacketS
       confidence: p.confidence,
     });
   }
-  if (input.exhaustion) {
-    const e = input.exhaustion;
-    out.push({ id: 'exhaustion_2254', rule: e.rule, grounds: e.grounds, summary: e.summary, mixedPetition: e.mixedPetition, confidence: e.confidence });
-  }
 
-  // (h) Verification log — every record citation in the packet, once
+  // (h) Record citation list — every record citation in the packet, once
   const seen = new Set<string>();
   const entries: Extract<CounselPacketSection, { id: 'verification_log' }>['entries'] = [];
   const addEntries = (list: CounselPacketFinding[], status: 'verified at render' | 'dropped') => {
@@ -496,31 +513,31 @@ export function counselPacketSections(input: CounselPacketInput): CounselPacketS
     heading: TRAP_9_1_D_LOG.heading,
     rule: TRAP_9_1_D_LOG.rule,
     ruleStatus: TRAP_9_1_D_LOG.ruleStatus,
-    representation: TRAP_9_1_D_LOG.representation,
     note: TRAP_9_1_D_LOG.note,
     entries,
     verifiedCount: entries.filter((e) => e.status === 'verified at render').length,
     droppedCount: entries.filter((e) => e.status === 'dropped').length,
   });
 
-  // (i) W.D. Tex. certificate — optional
-  if (input.includeWdTexCertificate) {
+  // (i) W.D. Tex. certificate — withheld. UPL review 2026-10-23: counsel decision pending (question 9)
+  if (WITHHELD_PENDING_COUNSEL.wdTexCertificate.enabled) {
+    const w = WITHHELD_PENDING_COUNSEL.wdTexCertificate;
     out.push({
       id: 'wd_tex_certificate',
-      heading: WD_TEX_CERTIFICATE.heading,
-      rule: WD_TEX_CERTIFICATE.rule,
-      status: instrumentStatusLine(WD_TEX_CERTIFICATE),
-      paragraphs: WD_TEX_CERTIFICATE.paragraphs({ renderedAt }),
-      signatureLines: WD_TEX_CERTIFICATE.signatureLines,
+      heading: w.instrument.heading,
+      rule: w.instrument.rule,
+      status: instrumentStatusLine(w.instrument),
+      paragraphs: w.paragraphs({ renderedAt }),
+      signatureLines: w.signatureLines,
     });
   }
 
-  // (j) Part A client letter — optional, last
-  if (input.includeClientLetter && input.clientLetter) {
+  // (j) Part A client letter — withheld. UPL review 2026-10-23: counsel decision pending (question 8)
+  if (WITHHELD_PENDING_COUNSEL.clientLetter.enabled && input.clientLetter) {
     const letter = input.clientLetter;
     out.push({
       id: 'client_letter',
-      note: CLIENT_LETTER_NOTE,
+      note: WITHHELD_PENDING_COUNSEL.clientLetter.note,
       caseTitle: letter.caseTitle,
       findings: [...letter.strongSignals, ...letter.possibleIssues].map((f) => ({ id: f.id, category: f.category, severity: f.severity, partAText: f.partAText })),
     });
@@ -601,13 +618,11 @@ export function renderCounselPacketPdf(input: CounselPacketInput): Promise<Buffe
         doc.moveDown(1);
         break;
       }
-      case 'disclosure_47_2e': {
-        // First page, under the cover block: the court-facing disclosure.
+      case 'tool_statement': {
+        // First page, under the cover block.
         doc.save().rect(MARGIN, doc.y, doc.page.width - MARGIN * 2, 0.75).fill('#999999').restore();
         doc.y += 8;
         h2(doc, s.heading);
-        muted(doc, `${s.rule} · ${s.status}`);
-        doc.moveDown(0.2);
         for (const p of s.paragraphs) {
           body(doc, p, 9);
           doc.moveDown(0.25);
@@ -647,12 +662,12 @@ export function renderCounselPacketPdf(input: CounselPacketInput): Promise<Buffe
           ensureRoom(doc, 80);
           const color = st.status === 'missed' ? TONE_COLOR.urgent : st.status === 'open' ? TONE_COLOR.review : BODY;
           doc.font('Helvetica-Bold').fontSize(9.5).fillColor(color).text(`${st.rule} — ${st.label}`, { continued: true });
-          doc.font('Helvetica').fillColor(color).text(`  · due ${st.due ?? 'not yet'} · ${st.status.replace('_', ' ')}${st.late ? ' (late)' : ''} · ${st.jurisdiction} · ${st.confidence}`);
+          doc.font('Helvetica').fillColor(color).text(`  · due ${st.due ?? 'not yet'} · ${st.statusLabel}${st.late ? ' (late)' : ''} · ${st.jurisdiction} · ${st.confidence}`);
           muted(doc, st.basis, 8);
           doc.moveDown(0.2);
         }
         if (s.nextDue) kv(doc, 'Next due', `${s.nextDue.rule} on ${s.nextDue.due} (${s.nextDue.daysLeft} day${s.nextDue.daysLeft === 1 ? '' : 's'})`, 9);
-        if (s.missedJurisdictional) doc.font('Helvetica-Bold').fontSize(9.5).fillColor(TONE_COLOR.urgent).text('A jurisdictional step appears missed on the dates recorded — verify at once.');
+        if (s.missedBanner) doc.font('Helvetica-Bold').fontSize(9.5).fillColor(TONE_COLOR.urgent).text(s.missedBanner);
         for (const n of s.notes) muted(doc, n, 8);
         doc.moveDown(1);
         break;
@@ -719,21 +734,12 @@ export function renderCounselPacketPdf(input: CounselPacketInput): Promise<Buffe
       }
       case 'posture_1107': {
         ensureRoom(doc, 220);
-        h1(doc, 'Art. 11.07 posture');
-        draftBanner(doc, `Confidence: ${s.confidence} — the §4 reading is proposed until signed.`);
+        h1(doc, 'Art. 11.07 posture — recorded inputs and the rule');
+        draftBanner(doc, `Confidence: ${s.confidence} — the rule as read here is proposed until signed; the inputs are what was recorded on the matter.`);
         for (const l of s.lines) kv(doc, l.label, l.value, 9);
+        if (s.exceptions.length) muted(doc, 'The statutory exceptions the rule names, as recalled:', 8.5);
         for (const e of s.exceptions) body(doc, `• Exception ${e.id} — ${e.label}: ${e.text}`, 9);
         for (const n of s.notes) muted(doc, n, 8);
-        doc.moveDown(1);
-        break;
-      }
-      case 'exhaustion_2254': {
-        ensureRoom(doc, 200);
-        h1(doc, '§2254 exhaustion map');
-        draftBanner(doc, `Confidence: ${s.confidence}.`);
-        muted(doc, s.rule, 8.5);
-        for (const g of s.grounds) body(doc, `• ${g.id}: ${g.status.replace(/_/g, ' ')} — ${g.basis}`, 9);
-        kv(doc, 'Summary', `${s.summary.exhausted} exhausted · ${s.summary.unexhausted} unexhausted · ${s.summary.procedurallyDefaulted} procedurally defaulted${s.mixedPetition ? ' · mixed petition' : ''}`, 9);
         doc.moveDown(1);
         break;
       }
@@ -741,7 +747,6 @@ export function renderCounselPacketPdf(input: CounselPacketInput): Promise<Buffe
         doc.addPage();
         h1(doc, s.heading);
         draftBanner(doc, `${s.ruleStatus} — ${s.rule}`);
-        body(doc, s.representation, 9);
         muted(doc, s.note, 8.5);
         doc.moveDown(0.4);
         for (const e of s.entries) {
@@ -754,6 +759,7 @@ export function renderCounselPacketPdf(input: CounselPacketInput): Promise<Buffe
         doc.moveDown(1);
         break;
       }
+      // Withheld paths — kept so a founder-merged change can restore them once counsel rules.
       case 'wd_tex_certificate': {
         doc.addPage();
         h1(doc, s.heading);

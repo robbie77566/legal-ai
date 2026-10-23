@@ -29,6 +29,11 @@
  * the record — never a certification that the record shows no error
  * (persona doc, "its Anders twin"). The report renders findings against
  * each item and says plainly when a screen found nothing.
+ *
+ * UPL review 2026-10-23 (P4, P9): `text` and `source` are for the signer and
+ * may name cases; the packet prints `printedText`, which names no case and
+ * no reporter, because the packet carries no legal authorities and a case
+ * name in it would read as one. tests/trap.vehicles.test.ts pins that.
  */
 import type { ScreenId } from './vehicles';
 
@@ -37,7 +42,10 @@ export type AndersPhase = 'record' | 'review' | 'brief' | 'client' | 'after';
 export interface AndersItem {
   id: string;
   phase: AndersPhase;
+  /** The item as the signer reads it, with its sources; may name a case. */
   text: string;
+  /** The item as the PACKET prints it: no reporter citations and no case names (UPL review 2026-10-23, P4). */
+  printedText: string;
   source: string;
   /** Screens whose findings bear on this item; empty for pure process items. */
   screenIds: ScreenId[];
@@ -50,6 +58,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'record_complete',
     phase: 'record',
     text: "The clerk's and reporter's records are complete and accurate — every volume, every exhibit, every hearing the docket shows; gaps supplemented or corrected (TRAP 34.5(c), 34.6(d)). Items not reviewed (audio/video exhibits, missing volumes, low-confidence OCR pages) are listed.",
+    printedText: 'The clerk\'s and reporter\'s records are complete and accurate — every volume, every exhibit, every hearing the docket shows; gaps supplemented or corrected (TRAP 34.5(c), 34.6(d)). Items not reviewed (audio/video exhibits, missing volumes, low-confidence OCR pages) are listed.',
     source: 'Guideline 9.5(F); TRAP 34.5(c), 34.6(d)',
     screenIds: [],
     confidence: 'proposed',
@@ -58,6 +67,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'full_review',
     phase: 'review',
     text: 'Counsel personally and conscientiously examined the entire record for all reviewable errors; the engine\'s screens and page coverage are listed as a record of process, not as the review itself.',
+    printedText: 'Counsel\'s own personal and conscientious examination of the entire record for all reviewable errors; the engine\'s screens and page coverage are listed as a record of process, not as the review itself.',
     source: 'Anders v. California; Guideline 9.5(G)',
     screenIds: ['preserved_error', 'iac', 'brady', 'junk_science', 'sentencing', 'voir_dire', 'identification', 'plea_lane'],
     confidence: 'proposed',
@@ -66,6 +76,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'jurisdiction_and_certification',
     phase: 'review',
     text: "Appellate jurisdiction: the notice of appeal was timely (TRAP 26.2) and the trial court's certification of the defendant's right of appeal (TRAP 25.2(a)(2)) is in the record and correct — in a plea-bargain case, whether any matter was raised by written motion and ruled on before trial, or permission to appeal was given.",
+    printedText: 'Appellate jurisdiction: the notice of appeal was timely (TRAP 26.2) and the trial court\'s certification of the defendant\'s right of appeal (TRAP 25.2(a)(2)) is in the record and correct — in a plea-bargain case, whether any matter was raised by written motion and ruled on before trial, or permission to appeal was given.',
     source: 'TRAP 25.2, 26.2; Dears v. State (certification checked by the court of appeals)',
     screenIds: ['preserved_error', 'plea_lane'],
     confidence: 'proposed',
@@ -74,6 +85,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'charging_instrument',
     phase: 'review',
     text: 'The indictment or information: alleges an offense, was not fundamentally defective, and any defect was raised before trial (Art. 1.14(b)) or is forfeited.',
+    printedText: 'The indictment or information: alleges an offense, was not fundamentally defective, and any defect was raised before trial (Art. 1.14(b)) or is forfeited.',
     source: 'Tex. Code Crim. Proc. art. 1.14(b); Anders practice',
     screenIds: ['preserved_error'],
     confidence: 'proposed',
@@ -82,6 +94,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'pretrial_rulings',
     phase: 'review',
     text: 'Pretrial motions and rulings — suppression, competency, continuance, discovery — and whether each ruling was preserved and could arguably be error.',
+    printedText: 'Pretrial motions and rulings — suppression, competency, continuance, discovery — and whether each ruling was preserved and could arguably be error.',
     source: 'TRAP 33.1; Anders practice',
     screenIds: ['preserved_error', 'identification', 'brady'],
     confidence: 'proposed',
@@ -90,6 +103,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'jury_selection',
     phase: 'review',
     text: 'Jury selection: challenges for cause and their rulings, Batson objections, limits on questioning, any seated panelist with a disclosed bias or relationship, and the preservation steps for each.',
+    printedText: 'Jury selection: challenges for cause and their rulings, objections to peremptory strikes on the basis of race or sex, limits on questioning, any seated panelist with a disclosed bias or relationship, and the preservation steps for each.',
     source: 'Tex. Code Crim. Proc. art. 35.16; Batson v. Kentucky; Anders practice',
     screenIds: ['voir_dire', 'preserved_error'],
     confidence: 'proposed',
@@ -98,6 +112,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'evidence_and_objections',
     phase: 'review',
     text: 'Admission and exclusion of evidence: every objection traced to its ruling, running objections, limiting instructions, Confrontation issues, and the harm standard that would govern (TRAP 44.2(a)/(b)).',
+    printedText: 'Admission and exclusion of evidence: every objection traced to its ruling, running objections, limiting instructions, Confrontation issues, and the harm standard that would govern (TRAP 44.2(a)/(b)).',
     source: 'TRAP 33.1, 44.2; Anders practice',
     screenIds: ['preserved_error', 'junk_science', 'identification', 'brady'],
     confidence: 'proposed',
@@ -106,6 +121,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'expert_testimony',
     phase: 'review',
     text: 'Expert and quasi-expert testimony: qualification, reliability (Kelly/Daubert), scope beyond the underlying report, surrogate-analyst Confrontation issues.',
+    printedText: 'Expert and quasi-expert testimony: qualification, reliability under the Texas and federal reliability standards, scope beyond the underlying report, surrogate-analyst Confrontation issues.',
     source: 'Kelly v. State, 824 S.W.2d 568; Tex. R. Evid. 702; Anders practice',
     screenIds: ['junk_science'],
     confidence: 'proposed',
@@ -114,6 +130,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'jury_charge',
     phase: 'review',
     text: "The jury charge: application paragraphs, lesser-included offenses requested or refused, definitions, objections and requested instructions, and Almanza egregious-harm review for unobjected error.",
+    printedText: 'The jury charge: application paragraphs, lesser-included offenses requested or refused, definitions, objections and requested instructions, and the egregious-harm review that governs unobjected charge error.',
     source: 'Tex. Code Crim. Proc. art. 36.14, 36.19; Almanza v. State',
     screenIds: ['preserved_error'],
     confidence: 'proposed',
@@ -122,6 +139,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'sufficiency',
     phase: 'review',
     text: 'Legal sufficiency of the evidence on every element as charged, under Jackson v. Virginia as applied in Brooks v. State; the hypothetically correct jury charge (Malik).',
+    printedText: 'Legal sufficiency of the evidence on every element as charged, under the federal due-process standard as Texas applies it, measured against the hypothetically correct jury charge.',
     source: 'Jackson v. Virginia; Brooks v. State, 323 S.W.3d 893; Malik v. State',
     screenIds: ['preserved_error'],
     confidence: 'proposed',
@@ -130,6 +148,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'plea_voluntariness',
     phase: 'review',
     text: 'In a plea case: admonishments (Art. 26.13), the plea\'s voluntariness on the face of the record, the judgment against the plea agreement, and the limits TRAP 25.2(a)(2) places on what may be raised.',
+    printedText: 'In a plea case: admonishments (Art. 26.13), the plea\'s voluntariness on the face of the record, the judgment against the plea agreement, and the limits TRAP 25.2(a)(2) places on what may be raised.',
     source: 'Tex. Code Crim. Proc. art. 26.13; TRAP 25.2(a)(2)',
     screenIds: ['plea_lane'],
     confidence: 'proposed',
@@ -138,6 +157,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'punishment_and_judgment',
     phase: 'review',
     text: 'Punishment within the statutory range for the offense as found and enhanced; enhancement pleadings and findings; the written judgment against the oral pronouncement (the oral controls); court costs, fees and conditions the record does not support — reformation of the judgment is available even in an Anders appeal.',
+    printedText: 'Punishment within the statutory range for the offense as found and enhanced; enhancement pleadings and findings; the written judgment against the oral pronouncement (the oral controls); court costs, fees and conditions the record does not support — reformation of the judgment is available even in an Anders appeal.',
     source: 'Tex. Code Crim. Proc. art. 42.01; Taylor v. State (oral pronouncement controls); Bray v. State (reformation in Anders cases)',
     screenIds: ['sentencing'],
     confidence: 'proposed',
@@ -146,6 +166,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'ineffective_assistance_on_the_record',
     phase: 'review',
     text: 'Whether the record on its face shows ineffective assistance of trial counsel (rare on direct appeal — Thompson v. State; most such claims belong in an 11.07 application), and whether the client has been told so.',
+    printedText: 'Whether the record on its face shows ineffective assistance of trial counsel (rare on direct appeal; most such claims belong in an 11.07 application), and whether the client has been told so.',
     source: 'Strickland v. Washington; Thompson v. State, 9 S.W.3d 808',
     screenIds: ['iac'],
     confidence: 'proposed',
@@ -154,6 +175,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'brief_contents',
     phase: 'brief',
     text: 'The brief is a professional evaluation of the record: it refers to anything in the record that might arguably support the appeal, with record references and authorities explaining why each is not arguable, and does not merely conclude the appeal is frivolous.',
+    printedText: 'The brief as a professional evaluation of the record: referring to anything in the record that might arguably support the appeal, with record references and authorities explaining why each is not arguable, rather than merely concluding the appeal is frivolous.',
     source: 'Anders v. California; High v. State, 573 S.W.2d 807',
     screenIds: ['preserved_error', 'voir_dire', 'junk_science', 'sentencing', 'identification', 'plea_lane'],
     confidence: 'proposed',
@@ -162,6 +184,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'motion_to_withdraw',
     phase: 'brief',
     text: 'A motion to withdraw accompanies the brief.',
+    printedText: 'A motion to withdraw to accompany the brief.',
     source: 'Anders v. California; Kelly v. State',
     screenIds: [],
     confidence: 'proposed',
@@ -170,6 +193,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'client_notice',
     phase: 'client',
     text: 'The client was sent a copy of the brief and the motion to withdraw, with a letter explaining the right to review the record and to file a pro se response, the deadline, and the right to seek discretionary review if the court of appeals affirms.',
+    printedText: 'Notice to the client: a copy of the brief and the motion to withdraw, with a letter explaining the right to review the record and to file a pro se response, the deadline, and the right to seek discretionary review if the court of appeals affirms.',
     source: 'Kelly v. State, 436 S.W.3d 313',
     screenIds: [],
     confidence: 'proposed',
@@ -178,6 +202,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'record_access_form',
     phase: 'client',
     text: 'The client was given a form motion for pro se access to the appellate record, to be filed in the court of appeals within ten days (as recalled) of the letter.',
+    printedText: 'A form motion for the client\'s pro se access to the appellate record, to be filed in the court of appeals within ten days (as recalled) of the letter.',
     source: 'Kelly v. State, 436 S.W.3d 313',
     screenIds: [],
     confidence: 'proposed',
@@ -186,6 +211,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'certification_to_court',
     phase: 'client',
     text: "Counsel's certification to the court of appeals that the Kelly duties were performed, with the date and the client's address.",
+    printedText: 'Counsel\'s certification to the court of appeals that the client-notice duties were performed, with the date and the client\'s address.',
     source: 'Kelly v. State, 436 S.W.3d 313',
     screenIds: [],
     confidence: 'proposed',
@@ -194,6 +220,7 @@ export const ANDERS_CHECKLIST: readonly AndersItem[] = [
     id: 'post_affirmance',
     phase: 'after',
     text: 'After the court of appeals affirms: within five days send the client the opinion and judgment with notice of the right to file a pro se PDR, by certified mail, return receipt requested, and file a letter certifying compliance.',
+    printedText: 'After the court of appeals affirms: within five days send the client the opinion and judgment with notice of the right to file a pro se PDR, by certified mail, return receipt requested, and file a letter certifying compliance.',
     source: 'TRAP 48.4; Guideline 9.6 (certified-mail PDR advice)',
     screenIds: [],
     confidence: 'proposed',

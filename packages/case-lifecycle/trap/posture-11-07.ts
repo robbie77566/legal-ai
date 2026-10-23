@@ -1,33 +1,35 @@
 /**
- * Art. 11.07 posture beyond laches — the §4 framing the counsel packet
- * prints (data, not prose; copy keys name the paragraphs).
+ * Art. 11.07 posture — the inputs recorded on the matter and the rule, as
+ * data the counsel packet prints (copy keys name the paragraphs).
+ *
+ * UPL review 2026-10-23 (P5, recommendation 6): this module DESCRIBES. It
+ * prints what was recorded (how many prior applications; whether they were
+ * decided on the merits, or that nobody has recorded that yet) and the rule
+ * in neutral words. It never says the bar "applies", never calls an
+ * application "subsequent", and never tells counsel what is lost — those
+ * are counsel's conclusions on facts the software does not hold.
  *
  * Rule as recalled (confidence: proposed; see README.md):
  *  - Art. 11.07 §4(a): a court may not consider the merits of, or grant
- *    relief on, a SUBSEQUENT application (one filed after a prior
- *    application challenging the same conviction was finally disposed of)
- *    unless it contains sufficient specific facts establishing (1) that the
- *    legal or factual basis was unavailable when the prior application was
- *    filed, or (2) by a preponderance of the evidence, that but for a
- *    violation of the United States Constitution no rational juror could
- *    have found the applicant guilty beyond a reasonable doubt.
+ *    relief on, a later application challenging the same conviction unless
+ *    it contains sufficient specific facts establishing (1) that the legal
+ *    or factual basis was unavailable when the prior application was filed,
+ *    or (2) by a preponderance of the evidence, that but for a violation of
+ *    the United States Constitution no rational juror could have found the
+ *    applicant guilty beyond a reasonable doubt.
  *  - Only a prior application decided on the merits (denied, or granted in
- *    part) counts. Dismissals — for non-compliance with the form (TRAP 73.1/
- *    73.2), because the direct appeal was still pending (Ex parte Johnson),
- *    or otherwise without reaching the merits — do not make the next one
- *    "subsequent" (Ex parte Torres).
- *  - Art. 11.071 §5 and Art. 11.072 §9 carry parallel bars. Art. 11.09 has
- *    no statutory subsequent-application bar as read here, though an abuse-
- *    of-the-writ doctrine may apply — flagged, not asserted.
+ *    part) counts; one dismissed without reaching the merits does not.
+ *  - Art. 11.071 §5 and Art. 11.072 §9 carry parallel rules. Art. 11.09
+ *    states no subsequent-application rule as read here.
  *  - A filing while the direct appeal is pending (before the mandate) is
- *    dismissed, not held (FY2025: 70 "direct appeal pending" dismissals).
+ *    dismissed, not held.
  *  - TRAP 79.2(d): no motion for rehearing from a denial of an 11.07
  *    application; only a suggestion that the court reconsider on its own
  *    motion.
  *
- * The complete-inventory warning is unconditional for every writ vehicle:
- * the gravest harm the product can do is to let counsel believe the
- * inventory is complete (persona doc, "the §4 one-shot problem").
+ * The complete-inventory line is unconditional for every writ vehicle: the
+ * gravest harm the product can do is to let counsel believe the inventory
+ * is complete (persona doc, "the §4 one-shot problem").
  */
 import type { Vehicle } from './vehicles';
 
@@ -35,11 +37,11 @@ export type WritVehicle = Extract<Vehicle, '11.07' | '11.071' | '11.072' | '11.0
 
 export interface Posture1107Inputs {
   vehicle?: WritVehicle;
-  /** Prior applications challenging THIS conviction, of any outcome. */
+  /** Prior applications challenging THIS conviction, as recorded on the matter. */
   priorWrits: number;
-  /** How many of those were decided on the merits (denied/granted). Defaults to all of them — the conservative reading. */
-  priorWritsDecidedOnMerits?: number;
-  /** Direct appeal (or PDR) still pending — mandate not issued. */
+  /** Whether those applications were decided on the merits, as recorded; null or undefined = not recorded. */
+  priorWritsDecidedOnMerits?: boolean | null;
+  /** Direct appeal (or PDR) recorded as still pending — mandate not issued. */
   directAppealPending?: boolean;
 }
 
@@ -51,19 +53,28 @@ export interface Section4Exception {
 
 export interface Posture1107 {
   vehicle: WritVehicle;
-  /** A prior application on this conviction was decided on the merits. */
-  subsequentWrit: boolean;
-  /** The statutory bar applies to this vehicle AND this is a subsequent application. */
-  section4Bar: boolean;
-  /** Which bar: 'Art. 11.07 §4', 'Art. 11.071 §5', 'Art. 11.072 §9', or the no-bar note for 11.09. */
+  /** The rule's name for this vehicle, or the no-rule note for 11.09. */
   authority: string;
+  /** Whether the vehicle's statute states a subsequent-application rule as read here (a property of the vehicle, not of the case). */
+  statutoryRule: boolean;
+  /** The inputs, echoed so the packet prints exactly what was recorded. */
+  inputs: {
+    priorWrits: number;
+    /** null = not recorded. */
+    priorWritsDecidedOnMerits: boolean | null;
+    directAppealPending: boolean;
+  };
+  /** "Prior applications recorded: N; whether they were decided on the merits: not recorded / yes / no". */
+  priorApplicationsLine: string;
+  /** The rule in neutral words, for the vehicle. */
+  rule: string;
+  /** The statutory exceptions the rule names (the statute's own words, as recalled); empty when the vehicle states no rule. */
   exceptions: Section4Exception[];
-  /** First application: every ground not raised now is ordinarily lost. */
-  oneShot: boolean;
   completeInventoryWarning: true;
-  prematureFiling: boolean;
+  /** The premature-filing rule in neutral words. */
+  prematureFilingRule: string;
   noRehearing: { rule: 'TRAP 79.2(d)'; text: string };
-  copyKeys: Array<'writ.one_shot' | 'writ.complete_inventory' | 'writ.subsequent_bar' | 'writ.premature' | 'writ.no_rehearing' | 'writ.no_statutory_bar'>;
+  copyKeys: Array<'writ.prior_applications' | 'writ.complete_inventory' | 'writ.premature' | 'writ.no_rehearing' | 'writ.no_statutory_rule'>;
   notes: string[];
   confidence: 'proposed' | 'signed';
 }
@@ -81,50 +92,58 @@ const EXCEPTIONS: Section4Exception[] = [
   },
 ];
 
-const BAR_AUTHORITY: Record<WritVehicle, { bars: boolean; authority: string }> = {
-  '11.07': { bars: true, authority: 'Tex. Code Crim. Proc. art. 11.07 §4' },
-  '11.071': { bars: true, authority: 'Tex. Code Crim. Proc. art. 11.071 §5 (capital — refused for the Counsel Review)' },
-  '11.072': { bars: true, authority: 'Tex. Code Crim. Proc. art. 11.072 §9' },
-  '11.09': { bars: false, authority: 'Art. 11.09 states no subsequent-application bar as read here (proposed); abuse-of-the-writ principles may still apply' },
+const RULE_AUTHORITY: Record<WritVehicle, { rule: boolean; authority: string; name: string }> = {
+  '11.07': { rule: true, authority: 'Tex. Code Crim. Proc. art. 11.07 §4', name: 'Article 11.07 §4' },
+  '11.071': { rule: true, authority: 'Tex. Code Crim. Proc. art. 11.071 §5 (capital — refused for the Counsel Review)', name: 'Article 11.071 §5' },
+  '11.072': { rule: true, authority: 'Tex. Code Crim. Proc. art. 11.072 §9', name: 'Article 11.072 §9' },
+  '11.09': { rule: false, authority: 'Art. 11.09 states no subsequent-application rule as read here (proposed)', name: 'Article 11.09' },
 };
+
+/** "not recorded" / "yes" / "no" — the recorded fact, never an assumption. */
+export function decidedOnMeritsLabel(v: boolean | null | undefined): 'not recorded' | 'yes' | 'no' {
+  return v == null ? 'not recorded' : v ? 'yes' : 'no';
+}
 
 export function posture1107(i: Posture1107Inputs): Posture1107 {
   const vehicle: WritVehicle = i.vehicle ?? '11.07';
-  const bar = BAR_AUTHORITY[vehicle];
+  const auth = RULE_AUTHORITY[vehicle];
   const notes: string[] = [];
+  const priorWrits = Math.max(0, i.priorWrits);
+  const decided = i.priorWritsDecidedOnMerits ?? null;
+  const directAppealPending = Boolean(i.directAppealPending);
 
-  const onMerits = Math.max(0, Math.min(i.priorWrits, i.priorWritsDecidedOnMerits ?? i.priorWrits));
-  if (i.priorWritsDecidedOnMerits === undefined && i.priorWrits > 0) {
-    notes.push('Prior applications are assumed decided on the merits (the conservative reading). Pass priorWritsDecidedOnMerits when a prior application was dismissed without reaching the merits.');
-  }
-  if (i.priorWrits > onMerits) {
-    notes.push(`${i.priorWrits - onMerits} prior application(s) dismissed without a merits ruling (non-compliance, direct appeal pending, or similar) do not count toward the subsequent-application bar (Ex parte Torres).`);
-  }
+  const priorApplicationsLine =
+    priorWrits === 0
+      ? 'Prior applications recorded: 0'
+      : `Prior applications recorded: ${priorWrits}; whether they were decided on the merits: ${decidedOnMeritsLabel(decided)}`;
 
-  const subsequentWrit = onMerits > 0;
-  const section4Bar = bar.bars && subsequentWrit;
-  const oneShot = !subsequentWrit;
-  const prematureFiling = Boolean(i.directAppealPending);
+  const rule = auth.rule
+    ? `Under ${auth.name} a later application must plead one of the statutory exceptions unless the earlier one was dismissed without reaching the merits.`
+    : `${auth.authority}; whether any other doctrine bears on a later application is for counsel.`;
+
+  if (priorWrits > 0 && decided === null) {
+    notes.push('Whether the prior application(s) reached the merits is not recorded on this matter; counsel to confirm from the disposition.');
+  }
 
   const copyKeys: Posture1107['copyKeys'] = ['writ.complete_inventory'];
-  if (oneShot) copyKeys.push('writ.one_shot');
-  if (section4Bar) copyKeys.push('writ.subsequent_bar');
-  if (subsequentWrit && !bar.bars) copyKeys.push('writ.no_statutory_bar');
-  if (prematureFiling) copyKeys.push('writ.premature');
+  if (priorWrits > 0) copyKeys.push('writ.prior_applications');
+  if (priorWrits > 0 && !auth.rule) copyKeys.push('writ.no_statutory_rule');
+  if (directAppealPending) copyKeys.push('writ.premature');
   copyKeys.push('writ.no_rehearing');
 
-  if (prematureFiling) notes.push('The direct appeal is pending: an application filed before the mandate issues is dismissed, not held, and the time is wasted.');
-  if (subsequentWrit && !bar.bars) notes.push(`A prior application exists but ${bar.authority}.`);
+  const prematureFilingRule = 'As read here, an application filed while the direct appeal is pending — before the mandate issues — is dismissed rather than held.';
+  if (directAppealPending) notes.push(`The direct appeal is recorded as pending. ${prematureFilingRule}`);
 
   return {
     vehicle,
-    subsequentWrit,
-    section4Bar,
-    authority: bar.authority,
-    exceptions: section4Bar ? EXCEPTIONS : [],
-    oneShot,
+    authority: auth.authority,
+    statutoryRule: auth.rule,
+    inputs: { priorWrits, priorWritsDecidedOnMerits: decided, directAppealPending },
+    priorApplicationsLine,
+    rule,
+    exceptions: auth.rule ? EXCEPTIONS : [],
     completeInventoryWarning: true,
-    prematureFiling,
+    prematureFilingRule,
     noRehearing: {
       rule: 'TRAP 79.2(d)',
       text: 'No motion for rehearing may be filed from the denial of an Art. 11.07 application; the only route is a suggestion that the Court reconsider on its own motion.',

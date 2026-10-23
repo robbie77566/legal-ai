@@ -64,15 +64,15 @@ export const FOR_COUNSEL = {
         title: 'Direct appeal',
         items: [
           'Preserved error, objection and ruling cited, with the harm standard each finding falls under.',
-          'The TRAP clock for the matter: 26.2, 26.3, 35.2, 38.6, 49.1, 68.2 — due dates labelled jurisdictional or discretionary, proposed until you sign them.',
-          'An Anders appendix: what the engine looked for and found nothing on, so the brief can say so with a cite.',
+          'The TRAP clock for the matter: 26.2, 26.3, 35.2, 38.6, 49.1, 68.2 — due dates labelled jurisdictional or discretionary, proposed until a Texas appellate lawyer signs them in our rule table.',
+          "An Anders appendix: a record of what the engine looked for and what it found on each item, for counsel's own reading of the record.",
         ],
       },
       {
         title: 'Art. 11.07',
         items: [
           'Ineffective assistance, Brady and 11.073 findings on the trial record, each with the pages a claim would rest on.',
-          'A prior writ declared at intake puts the matter in subsequent-application posture, so §4 is on every page.',
+          'The prior applications you record at intake, and whether they reached the merits, printed beside the Art. 11.07 §4 rule in the packet — the inputs and the rule, for your reading.',
           'Grounds grouped to the CCA form and the affidavit list from the IAC screen arrive in February.',
         ],
       },
@@ -80,7 +80,6 @@ export const FOR_COUNSEL = {
         title: 'Federal (§2254)',
         items: [
           'AEDPA posture from the dates you give: finality, tolling, the year, and what is pausing it.',
-          'An exhaustion map of which findings have been through the state courts and which have not.',
           'The same record cites, so the federal petition and the state application share one spine.',
         ],
       },
@@ -92,6 +91,7 @@ export const FOR_COUNSEL = {
       { title: 'Not research.', body: 'It reads one trial record. For case law, use a research platform such as vLex or Westlaw.' },
       { title: 'Not a citator.', body: 'It does not tell you whether an authority is still good law.' },
       { title: 'Not a drafting tool.', body: 'It does not write the brief or the application. It gives you the cites to write them from.' },
+      { title: 'Not advice.', body: 'Not a substitute for the advice of an attorney, and not a decision about any filing.' },
     ],
   },
   pricing: {
@@ -109,7 +109,7 @@ export const FOR_COUNSEL = {
       { title: 'Grounding is a hard filter.', body: 'Every finding is re-verified against the record text at render time. A finding that does not match the record is dropped and listed as dropped.' },
       { title: 'Your record is never training data.', body: 'Model providers are used under API terms; records are processed per page and never used to train a model.' },
       { title: 'One organisation, one tenant.', body: 'Row-level security in the database keeps every organisation\'s rows apart; a forged cross-tenant read is refused by the database itself.' },
-      { title: 'Cover.', body: 'Errors-and-omissions cover is being bound before the January launch and will be named on the security page.' },
+      // UPL review 2026-10-23 (P9): the errors-and-omissions line returns only when an insurer is named.
       { title: 'Deletion on request.', body: 'Case content is hard-deleted on a verified request; the payment ledger and an audit skeleton are all that remain.' },
       { title: 'Work product.', body: 'The packet is prepared at counsel\'s direction for counsel\'s use. We hold no client relationship and give no legal advice.' },
     ],

@@ -39,7 +39,7 @@ export const SAMPLE_PART_B = {
       harmStandard: 'Strickland prejudice',
       vehicle: 'Art. 11.07',
       partBText:
-        'Trial counsel conceded on the record that he made no attempt to contact the alibi witness the defendant had identified before trial. The State then argued in closing that no one had come to say the defendant was elsewhere. The deficiency and the prejudice argument both rest on pages the record itself supplies; an affidavit from the witness would close the gap on what she would have said.',
+        'Trial counsel stated on the record that he made no attempt to contact the alibi witness the defendant had identified before trial (RR vol. 4, p. 212). The defendant\'s testimony puts the name and a workplace number in counsel\'s hands before jury selection (RR vol. 2, p. 88). The State\'s closing told the jury that no one had come to say the defendant was elsewhere (RR vol. 5, p. 301). The record does not show what the witness would have said; counsel would want to see a statement from her before reading these pages together.',
       citations: [
         { volume: 'RR vol. 4', page: 212, lines: '14–16', excerpt: 'Q: Did you ever attempt to contact Ms. Alvarez? A: I did not, no.' },
         { volume: 'RR vol. 2', page: 88, lines: '3–9', excerpt: 'He gave me her name and the number for the shop where she worked. That was before we picked the jury.' },
@@ -54,7 +54,7 @@ export const SAMPLE_PART_B = {
       harmStandard: 'Materiality (Bagley)',
       vehicle: 'Art. 11.07',
       partBText:
-        'The laboratory analyst testified that her bench notes were kept in the State\'s working file and were produced to no one. Materiality cannot be judged from this record alone; the notes are not in it. A records request for the complete laboratory case file is the next step before a Brady ground is pleaded.',
+        'The laboratory analyst testified that her bench notes were kept in the State\'s working file and were produced to no one (RR vol. 3, p. 145). The notes themselves are not in the record, so the record does not show what they contain. Counsel would want to see the complete laboratory case file before reading this page further.',
       citations: [
         { volume: 'RR vol. 3', page: 145, lines: '8–10', excerpt: 'We kept those in our working file. They weren\'t produced to anybody.' },
       ],

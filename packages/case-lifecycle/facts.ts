@@ -16,6 +16,8 @@ export const CaseFactsSchema = z
     appeal: z.enum(['decided', 'pending', 'none']).optional(),
     noAppealReason: z.enum(['never_filed_requested', 'chose_not', 'unsure']).optional(),
     priorWrit: z.enum(['no', 'yes', 'unsure']).optional(),
+    /** Counsel matters only (matters.ts): whether the prior application(s) were decided on the merits; absent = not recorded. */
+    priorWritsDecidedOnMerits: z.boolean().optional(),
     newEvidence: z.boolean().optional(),
     county: z.string().max(64).optional(),
     convictionYear: z.number().int().min(1950).max(2100).optional(),

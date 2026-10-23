@@ -7,10 +7,10 @@ Workstream E of the persona rollout plan, January slice: the engine and data beh
 | `vehicles.ts` | The seven vehicles (`direct_appeal`, `pdr_clock`, `11.07`, `11.071`, `11.072`, `11.09`, `2254`), their court, filer, weighted screens, and the refusal gate (`vehicleAcceptance`: 11.071 refused outright; capital refused on every vehicle). |
 | `trap-chain.ts` | The vector table: TRAP 21.4, 26.2, 26.3, 35.2, 38.6, 48.4, 49.1, 68.2 (direct-appeal chain) and Art. 11.07 §3(b)/(c), TRAP 73.4, 73.5 (11.07 chain), each labelled jurisdictional or discretionary. `unsignedVectors()` lists what nobody has signed. |
 | `rule-4-1.ts` | TRAP 4.1(a) counting and roll-forward with the 2026–2027 Texas legal-holiday table and its documented limitations. |
-| `clock.ts` | `computeTrapClock(inputs)`: ordered steps with due date, basis, status (`done` / `open` / `missed` / `not_yet`), `nextDue`, `missedJurisdictional`, `unsignedCount`. |
-| `posture-11-07.ts` | `posture1107(...)`: the §4 subsequent-writ flag, one-shot and complete-inventory framing, premature-filing and no-rehearing notes, as data with copy keys. |
-| `exhaustion-2254.ts` | `exhaustionMap(...)`: per-ground `exhausted` / `unexhausted` / `procedurally_defaulted` under a six-line rule, plus the AEDPA year delegated to `computeDeadlinePosture` (never recomputed). |
-| `anders.ts` | `ANDERS_CHECKLIST`: the items an *Anders* brief and its *Kelly* duties must address, each with a source and the screen ids whose findings the report maps onto it. |
+| `clock.ts` | `computeTrapClock(inputs)`: ordered steps with due date, basis, status (`done` / `open` / `missed` / `not_yet`), `nextDue`, `missedJurisdictional`, `unsignedCount`. `STEP_STATUS_LABEL` and `MISSED_JURISDICTIONAL_BANNER` are the printed words the packet and the matter page share: a past-due step is "Appears missed on the dates given", never "Missed". |
+| `posture-11-07.ts` | `posture1107(...)`: the recorded inputs (prior applications; whether they were decided on the merits — `null` = not recorded; a pending direct appeal) echoed as data, the §4 rule in neutral words, the statute's exceptions as its own words, the complete-inventory line, the premature-filing and no-rehearing rules, with copy keys. It never says a bar "applies" or what is lost (UPL review 2026-10-23, P5). |
+| `exhaustion-2254.ts` | `exhaustionMap(...)`: per-ground **state remedies: `shown` / `not_shown` / `unclear`** under a six-line reading, plus the AEDPA year delegated to `computeDeadlinePosture` (never recomputed). The legal labels ("exhausted", "procedurally defaulted") return only after counsel's answer to question 11 of the UPL review; the packet does not print the map until the grounds feature exists. |
+| `anders.ts` | `ANDERS_CHECKLIST`: the items an *Anders* brief and its client-notice duties must address, each with a `source` and `text` for the signer (which may name cases), a `printedText` the packet prints (no case names, no reporters), and the screen ids whose findings the report maps onto it. |
 
 ## Signed versus proposed
 
@@ -31,4 +31,4 @@ Re-sign after any TRAP amendment that touches a listed rule; the vector's `note`
 
 - Legal holidays come from Tex. Gov't Code §662.003 for 2026–2027 only. Observed federal days, court closure orders and TRAP 4.1(b) (clerk's office inaccessible) are not modelled; outside the table only weekends roll and the clock says so in `notes`.
 - Accelerated appeals (20-day brief), State's appeals (26.2(b)), the 11.072 and 11.09 timetables, and 11.071 are not modelled; the clock returns no steps for those vehicles and explains why.
-- The exhaustion map does not decide cause-and-prejudice, *Martinez*/*Trevino*, or actual-innocence gateways.
+- The state-remedies map does not decide cause-and-prejudice, ineffective assistance of initial-review habeas counsel as cause, or actual-innocence gateways; its labels describe the recorded path, not its legal effect.
