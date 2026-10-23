@@ -15,6 +15,7 @@ import { HOW_CONTENT } from '@/lib/content/how-it-works'
 import { SAMPLE_REPORT_CONTENT } from '@/lib/content/sample-report'
 import { OVERAGE_CONTENT } from '@/lib/content/overage'
 import { NEW_EVIDENCE_CONTENT } from '@/lib/content/new-evidence'
+import { ATTORNEY_PACKET_CONTENT } from '@/lib/content/attorney-packet'
 
 beforeEach(() => window.localStorage.clear())
 
@@ -47,6 +48,7 @@ describe('i18n (i18n_localization.md)', () => {
     assertParity(SAMPLE_REPORT_CONTENT.en, SAMPLE_REPORT_CONTENT.es, 'sample-report')
     assertParity(OVERAGE_CONTENT.en, OVERAGE_CONTENT.es, 'overage')
     assertParity(NEW_EVIDENCE_CONTENT.en, NEW_EVIDENCE_CONTENT.es, 'new-evidence')
+    assertParity(ATTORNEY_PACKET_CONTENT.en, ATTORNEY_PACKET_CONTENT.es, 'attorney-packet')
   })
 
   it('the switcher flips the landing to Spanish and persists', () => {

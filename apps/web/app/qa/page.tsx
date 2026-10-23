@@ -33,6 +33,30 @@ interface Finding {
   vehicle?: string | null
   develop?: string | null
   dependsOn?: string[]
+  /** UPL review 2026-10-23 (E3): advice-language lint hits recorded at analysis; null when clean. */
+  lintFlags?: { adviceLintHit: boolean; partA: { phrase: string; index: number }[]; partB: { phrase: string; index: number }[] } | null
+}
+
+/**
+ * Why a case was held (UPL review 2026-10-23, recommendation 11): the
+ * advice-language lint found wording that advises, instructs or predicts.
+ * A Part A hit is what holds the case from auto-delivery; Part B hits are
+ * shown so the reviewer sees them too. Rewriting the text is the fix.
+ */
+function AdviceLintBadge({ flags }: { flags: Finding['lintFlags'] }) {
+  if (!flags || (flags.partA.length === 0 && flags.partB.length === 0)) return null
+  const phrases = (hits: { phrase: string }[]) => [...new Set(hits.map((h) => h.phrase))].join(', ')
+  return (
+    <span
+      className={`rounded px-2 py-0.5 ${flags.adviceLintHit ? 'bg-[#F85149]/20 text-[#F85149]' : 'bg-[#D29922]/20 text-[#D29922]'}`}
+      title="Advice wording: the text advises, instructs or predicts. Describe what the record shows instead."
+      data-testid="advice-lint-badge"
+    >
+      advice wording
+      {flags.partA.length > 0 ? ` · Part A: ${phrases(flags.partA)}` : ''}
+      {flags.partB.length > 0 ? ` · Part B: ${phrases(flags.partB)}` : ''}
+    </span>
+  )
 }
 
 export default function QaConsole() {
@@ -218,6 +242,7 @@ export default function QaConsole() {
                       {f.provenance === 'ai_human_edited' && (
                         <span className="text-[#3FB950]">edited</span>
                       )}
+                      <AdviceLintBadge flags={f.lintFlags} />
                     </div>
 
                     {f.citations[0] && (

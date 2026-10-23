@@ -10,6 +10,8 @@ import FeedbackCard from '../../../../../components/FeedbackCard'
 import { apiFetch } from '@/lib/api'
 import { useContent } from '@/lib/i18n'
 import { NEW_EVIDENCE_CONTENT } from '@/lib/content/new-evidence'
+import { ATTORNEY_PACKET_CONTENT } from '@/lib/content/attorney-packet'
+import { useFlags } from '@/lib/flags'
 import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist } from '@hg/case-lifecycle'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
 
@@ -25,7 +27,8 @@ interface ReportFinding {
   severity: string
   confidence?: number
   partAText: string
-  partBText: string
+  /** Absent while Part B is sealed (family_part_b off): the API omits the attorney fields. */
+  partBText?: string
   citations: { volume: string | null; page: number | null; excerpt: string }[]
   preserved?: string
   harmStandard?: string
@@ -76,7 +79,7 @@ interface ReportData {
  *  red, not green — green read as "good news" next to a strong signal. */
 const TONE_VAR = { urgent: 'var(--db-urgent)', review: 'var(--db-review)', muted: 'var(--db-none)' } as const
 
-function FindingCard({ f }: { f: ReportFinding }) {
+function FindingCard({ f, partB }: { f: ReportFinding; partB: boolean }) {
   const w = issueWeight(f.severity, f.confidence)
   return (
     <div
@@ -95,18 +98,60 @@ function FindingCard({ f }: { f: ReportFinding }) {
           {f.citations[0].page ? `, p. ${f.citations[0].page}` : ''}: “{f.citations[0].excerpt}”
         </p>
       )}
-      <details className="mt-2 text-sm text-db-muted">
-        <summary className="cursor-pointer">For your lawyer (Part B)</summary>
-        <p className="mt-1">{f.partBText}</p>
-        {hasStructuredFields(f) && (
-          <div className="mt-2 space-y-1 text-xs" data-testid="finding-counsel-fields">
-            <p>{preservedLabel(f.preserved)} · {vehicleLabel(f.vehicle)} · {harmLabel(f.harmStandard)}</p>
-            {f.develop && <p><span className="font-semibold">To develop:</span> {f.develop}</p>}
-            {f.dependsOn && f.dependsOn.length > 0 && <p style={{ color: 'var(--db-review)' }}>Depends on records not provided: {f.dependsOn.join('; ')}</p>}
-          </div>
-        )}
-      </details>
+      {/* UPL review 2026-10-23: counsel decision pending (question 3) — the
+          Part B fold renders only while family_part_b is on; otherwise the
+          attorney content is the sealed packet (ForYourLawyerCard). */}
+      {partB ? (
+        <details className="mt-2 text-sm text-db-muted">
+          <summary className="cursor-pointer">For your lawyer (Part B)</summary>
+          <p className="mt-1">{f.partBText}</p>
+          {hasStructuredFields(f) && (
+            <div className="mt-2 space-y-1 text-xs" data-testid="finding-counsel-fields">
+              <p>{preservedLabel(f.preserved)} · {vehicleLabel(f.vehicle)} · {harmLabel(f.harmStandard)}</p>
+              {f.develop && <p><span className="font-semibold">To develop:</span> {f.develop}</p>}
+              {f.dependsOn && f.dependsOn.length > 0 && <p style={{ color: 'var(--db-review)' }}>Depends on records not provided: {f.dependsOn.join('; ')}</p>}
+            </div>
+          )}
+        </details>
+      ) : (
+        f.dependsOn && f.dependsOn.length > 0 && (
+          <p className="mt-2 text-xs" style={{ color: 'var(--db-review)' }} data-testid="finding-depends-on">Depends on records not provided: {f.dependsOn.join('; ')}</p>
+        )
+      )}
     </div>
+  )
+}
+
+/**
+ * UPL review 2026-10-23 (E2, recommendation 5): with Part B sealed, the one
+ * card that replaces the Part B folds and the priority section — where the
+ * attorney content is and the two ways it reaches the lawyer.
+ */
+function ForYourLawyerCard({ caseId, version }: { caseId: string; version: number | null }) {
+  const copy = useContent(ATTORNEY_PACKET_CONTENT)
+  return (
+    <section className="mt-8 rounded-xl border-2 border-db-accent bg-db-surface p-5" data-testid="for-your-lawyer">
+      <h2 className="font-db-serif text-xl font-semibold">{copy.title}</h2>
+      <p className="mt-2">{copy.body}</p>
+      <div className="mt-4 flex flex-col gap-3">
+        <a
+          href={`${API_URL}/cases/${caseId}/attorney-packet.pdf${version ? `?version=${version}` : ''}`}
+          onClick={() => window.dispatchEvent(new Event('snl:attorney-packet-download'))}
+          className="block rounded-xl bg-db-accent px-5 py-3 text-center font-semibold text-db-surface"
+          data-testid="attorney-packet-download"
+        >
+          {copy.download}
+        </a>
+        <Link
+          href={`/case/${caseId}/next-steps`}
+          className="block rounded-xl border-2 border-db-accent px-5 py-3 text-center font-semibold text-db-accent"
+          data-testid="attorney-packet-share"
+        >
+          {copy.share}
+        </Link>
+      </div>
+      <p className="mt-3 text-sm text-db-muted">{copy.sealedNote}</p>
+    </section>
   )
 }
 
@@ -182,6 +227,11 @@ export default function CaseReport() {
   const [versions, setVersions] = useState<Version[]>([])
   const [changes, setChanges] = useState<Changes | null>(null)
   const [version, setVersion] = useState<number | null>(requestedVersion ? Number(requestedVersion) : null)
+  // UPL review 2026-10-23: counsel decision pending (question 3). The API is
+  // the real gate (it omits the attorney fields while the flag is off); this
+  // only chooses which card to draw. Dark until the flags load.
+  const { flags } = useFlags()
+  const partB = flags.family_part_b
 
   useEffect(() => {
     if (!opened) return
@@ -414,7 +464,7 @@ export default function CaseReport() {
           </h2>
           <div className="mt-3 space-y-3">
             {data.strongSignals.map((f, i) => (
-              <FindingCard key={i} f={f} />
+              <FindingCard key={i} f={f} partB={partB} />
             ))}
           </div>
         </section>
@@ -427,13 +477,17 @@ export default function CaseReport() {
           </h2>
           <div className="mt-3 space-y-3">
             {data.possibleIssues.map((f, i) => (
-              <FindingCard key={i} f={f} />
+              <FindingCard key={i} f={f} partB={partB} />
             ))}
           </div>
         </section>
       )}
 
-      <CounselSection findings={[...data.strongSignals, ...data.possibleIssues]} />
+      {partB ? (
+        <CounselSection findings={[...data.strongSignals, ...data.possibleIssues]} />
+      ) : (
+        <ForYourLawyerCard caseId={caseId} version={version} />
+      )}
 
       {nothingFound && (
         <section className="mt-8 rounded-xl border border-db-line bg-db-surface p-5">
