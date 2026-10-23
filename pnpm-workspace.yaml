@@ -30,5 +30,6 @@ auditConfig:
   ignoreGhsas:
     - GHSA-p293-qw3h-jr36 # next: RCE on Windows-hosted servers — we run on Linux (Render)
     - GHSA-2xp9-vwfh-vxw4 # next: Image Optimization API AVIF RCE — /_next/image closed (images.unoptimized → 404)
+    - GHSA-2464-fhr4-w9xw # next: Image Optimization API SVG RCE — same closed endpoint (images.unoptimized → 404); exit = Next ≥ 15.5.28
     - GHSA-5gmw-xhrv-c9v3 # tinypool: prototype-pollution RCE in worker options — vitest's worker pool, dev/test only; vitest 3 pins ^1.x, fix is in 2.1.2 (exit: vitest ≥4)
     - GHSA-85c8-ppgw-ccpr # tinypool: prototype-pollution RCE in run() options — same package, same exit condition

@@ -6,6 +6,7 @@ CI runs `pnpm audit --audit-level critical`; a critical advisory fails the job (
 |---|---|---|---|
 | GHSA-p293-qw3h-jr36 — Unauthenticated RCE on **Windows-hosted** servers | next 14.2.35 (< 15.5.24) | Both services run on Render's Linux hosts; there is no Windows deployment path. | Remove the ignore when Next is upgraded to ≥ 15.5.24. |
 | GHSA-2xp9-vwfh-vxw4 — RCE in the **Image Optimization API** when AVIF files are used | next 14.2.35 (< 15.5.24) | The app never uses `next/image`; `next.config.mjs` sets `images.unoptimized = true`, and Next 14 then answers `/_next/image` with a **404** before any optimizer code runs (`server/next-server.js`, `imagesConfig.unoptimized → render404`). The endpoint is closed. Verified in production after deploy: `curl -I https://www.snotnoselegal.com/_next/image?url=/x.avif&w=64&q=75` → 404. | Remove the ignore when Next is upgraded to ≥ 15.5.24. |
+| GHSA-2464-fhr4-w9xw — RCE in the **Image Optimization API** when SVG files are used (published 2026-10-23) | next 14.2.35 (< 15.5.28) | Same endpoint, same closure: `images.unoptimized = true` makes `/_next/image` a 404 before any optimizer code runs; no `next/image` in the app. | Remove the ignore when Next is upgraded to ≥ 15.5.28 (the tracked Next 15 upgrade below). |
 | GHSA-5gmw-xhrv-c9v3 — Prototype-pollution gadget to RCE in **worker options** | tinypool 1.1.1 (< 2.1.1) | tinypool is vitest's worker pool: a devDependency used only to run the test suites. It is not in either production build (`apps/api` bundles with tsup; `apps/web` is a Next build) and no production code path imports it. The gadget needs attacker-controlled worker options inside a test run. | Remove the ignore when vitest is upgraded to a major that depends on tinypool ≥ 2.1.2 (vitest 3.2 pins `^1.1.1`; vitest 4+ uses the 2.x line). |
 | GHSA-85c8-ppgw-ccpr — Prototype-pollution gadget to RCE in **run() options** | tinypool 1.1.1 (< 2.1.2) | Same package, same dev-only exposure. | Same exit condition. |
 
@@ -20,7 +21,7 @@ Two critical advisories were in transitive *runtime* dependencies with a patch-l
 
 An override is a floor, not a fork: when the dependents move past these versions on their own, the lines become no-ops and can be deleted.
 
-## Tracked: Next.js 15.5.24+ upgrade
+## Tracked: Next.js 15.5.28+ upgrade
 
 The real fix for both is the Next 15 line. It is a major upgrade from 14.2 (async request APIs — `cookies()`, `headers()`, route `params` become promises; new caching defaults; React 19), so it is scheduled as its own change with the full gate, not folded into a security patch. Until then the two accepted advisories above are re-checked whenever `pnpm audit` reports anything new for `next`.
 
