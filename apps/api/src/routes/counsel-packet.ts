@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { withTenant } from '@hg/database';
 import { requireFlag } from '../plugins/flags';
-import { requireAccountKind } from '../plugins/guards';
+import { requireAccountKind, requireLawyerSeat } from '../plugins/guards';
 import { AuditService, LogAction } from '../services/audit.service';
 import { loadCounselPacket, type PacketLoad } from '../services/counsel-packet.service';
 
@@ -20,6 +20,11 @@ import { loadCounselPacket, type PacketLoad } from '../services/counsel-packet.s
  * Both take `?version=`, `?clientLetter=1` (the Part A letter, last) and
  * `?wdtex=1` (the W.D. Tex. certificate). Every fetch is audited with ids
  * and the switches only — never initials, a cause number or a county.
+ *
+ * The packet is lawyer-only output (UPL review 2026-10-23, P1 + P2): after
+ * the seat hook, requireLawyerSeat refuses an investigator or viewer seat
+ * (LAWYER_SEAT_REQUIRED) and a lawyer seat whose bar number is pending or
+ * rejected (BAR_PENDING / BAR_REJECTED), each a 403 with `reason`.
  */
 
 const bit = z.preprocess((v) => (v === '1' || v === 'true' ? true : v === undefined || v === '0' || v === 'false' || v === '' ? false : v), z.boolean());
@@ -44,6 +49,7 @@ export default async function counselPacketRoutes(fastify: FastifyInstance) {
     if (!seat) return reply.status(403).send({ error: 'No active seat in an organisation' });
     request.counsel = seat;
   });
+  fastify.addHook('preHandler', requireLawyerSeat());
 
   const refusal = (load: PacketLoad) =>
     load.status === 'not_found'

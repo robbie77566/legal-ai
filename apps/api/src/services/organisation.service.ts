@@ -32,6 +32,23 @@ export function allowanceSummary(o: Organisation) {
   };
 }
 
+/**
+ * Is this a clinic the product may deliver a consented packet to? Staff-
+ * verified CLINIC kind with the supervising attorney's bar number on file
+ * (UPL review 2026-10-23, P3). A self-declared clinic is not.
+ */
+export const isVerifiedClinic = (o: Pick<Organisation, 'kind' | 'clinicVerifiedAt'>): boolean =>
+  o.kind === 'CLINIC' && o.clinicVerifiedAt !== null;
+
+/** The clinic verification as staff set it — the bar number is staff-only. */
+export function clinicVerificationSummary(o: Organisation) {
+  return {
+    clinicVerifiedAt: o.clinicVerifiedAt,
+    clinicVerifiedBy: o.clinicVerifiedBy,
+    clinicSupervisingBar: o.clinicSupervisingBar,
+  };
+}
+
 /** What a member sees of their own organisation. */
 export function organisationView(o: Organisation) {
   return {
@@ -43,6 +60,10 @@ export function organisationView(o: Organisation) {
     securityContact: o.securityContact,
     isTest: o.isTest,
     createdAt: o.createdAt,
+    // U4 (P3): whether staff have verified the clinic; the supervising
+    // attorney's bar number stays on the staff side.
+    clinicVerified: o.clinicVerifiedAt !== null,
+    clinicVerifiedAt: o.clinicVerifiedAt,
     ...allowanceSummary(o),
   };
 }
@@ -54,6 +75,7 @@ export function organisationStaffView(o: Organisation & { _count?: { memberships
     tenantId: o.tenantId,
     features: o.features,
     updatedAt: o.updatedAt,
+    ...clinicVerificationSummary(o),
     ...(o._count ? { memberCount: o._count.memberships } : {}),
   };
 }

@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvestigationRequest, InvestigationStatus } from '@prisma/client';
-import prisma, { withTenant } from '@hg/database';
+import prisma, { withTenant, Prisma } from '@hg/database';
 import { caseLabel } from '@hg/case-lifecycle';
 import { AuditService, LogAction } from '../services/audit.service';
 import { requireFlag } from '../plugins/flags';
@@ -22,6 +22,14 @@ import { investigationSla } from './ops-professional';
  * the ops plugin, whose hook admits Admin everywhere and Support on reads
  * plus the PATCH; the route itself keeps Support to the unblocking
  * transitions, staff_console_access_model §5).
+ *
+ * The chronology template (UPL review 2026-10-23, recommendation 9, P10):
+ * what the Record Desk delivers is a STRUCTURED chronology —
+ * `deliverable: { entries: [{ date, volume?, page?, event }], note? }` — a
+ * description of the record, dated and cited, never an opinion about it.
+ * The free-text `staffNote` remains as a PROCESS note (what was done, when
+ * it was sent) and both notes are refused when they carry advice language
+ * (lintProcessNote below): "should", "file", "grounds", "viable", "winnable".
  */
 
 const KINDS = ['CHRONOLOGY', 'RECORDS_TRACKER', 'OTHER'] as const;
@@ -37,13 +45,43 @@ const FileSchema = z.object({
   note: z.string().trim().min(1).max(4000),
 });
 
+/** One line of a chronology: when, where in the record, what the record shows happened. */
+export const ChronologyEntrySchema = z.object({
+  date: z.string().trim().min(1).max(40),
+  volume: z.string().trim().max(40).optional(),
+  page: z.union([z.string().trim().max(20), z.number().int().positive().max(100_000)]).optional(),
+  event: z.string().trim().min(1).max(1000),
+});
+export const DeliverableSchema = z.object({
+  entries: z.array(ChronologyEntrySchema).max(500),
+  note: z.string().trim().max(4000).optional(),
+});
+export type Deliverable = z.infer<typeof DeliverableSchema>;
+
+/**
+ * The family lint phrases, applied to the Record Desk's notes: a process
+ * note says what was done with the record, never what someone should do
+ * about it. Whole words, any case. Replace with `lintAdvice` from
+ * services/advice-lint.ts once that lint lands on main (UPL review rec. 11).
+ */
+export const PROCESS_NOTE_PHRASES = ['should', 'file', 'grounds', 'viable', 'winnable'] as const;
+export function lintProcessNote(text: string | null | undefined): string[] {
+  if (!text) return [];
+  const hits: string[] = [];
+  for (const phrase of PROCESS_NOTE_PHRASES) {
+    if (new RegExp(`\\b${phrase}\\b`, 'i').test(text)) hits.push(phrase);
+  }
+  return hits;
+}
+
 const StaffPatchSchema = z
   .object({
     status: z.enum(STATUSES).optional(),
     assignedTo: z.string().min(1).max(64).nullable().optional(),
     note: z.string().trim().max(4000).nullable().optional(),
+    deliverable: DeliverableSchema.nullable().optional(),
   })
-  .refine((b) => b.status !== undefined || b.assignedTo !== undefined || b.note !== undefined, { message: 'Nothing to change' });
+  .refine((b) => b.status !== undefined || b.assignedTo !== undefined || b.note !== undefined || b.deliverable !== undefined, { message: 'Nothing to change' });
 
 const view = (r: InvestigationRequest) => ({
   id: r.id,
@@ -57,6 +95,7 @@ const view = (r: InvestigationRequest) => ({
   status: r.status,
   assignedTo: r.assignedTo,
   staffNote: r.staffNote,
+  deliverable: (r.deliverable as Deliverable | null) ?? null,
   deliveredAt: r.deliveredAt,
   createdAt: r.createdAt,
   updatedAt: r.updatedAt,
@@ -158,13 +197,25 @@ export async function opsInvestigationRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ error: 'Support can take a request on and mark it delivered — declining or reopening one needs an Ops administrator' });
     }
 
-    const data: Partial<Pick<InvestigationRequest, 'status' | 'assignedTo' | 'staffNote' | 'deliveredAt'>> = {};
+    // Advice language is refused before anything is written (UPL review P10).
+    const linted = [...lintProcessNote(body.note), ...lintProcessNote(body.deliverable?.note)];
+    if (linted.length > 0) {
+      const phrases = Array.from(new Set(linted));
+      return reply.status(422).send({
+        error: `A Record Desk note describes what was done with the record, never what anyone should do about it — remove: ${phrases.map((p) => `"${p}"`).join(', ')}`,
+        reason: 'ADVICE_LANGUAGE',
+        phrases,
+      });
+    }
+
+    const data: Partial<Pick<InvestigationRequest, 'status' | 'assignedTo' | 'staffNote' | 'deliveredAt'>> & { deliverable?: Prisma.InputJsonValue | typeof Prisma.DbNull } = {};
     if (body.status !== undefined) {
       data.status = body.status;
       if (body.status === 'DELIVERED' && !existing.deliveredAt) data.deliveredAt = new Date();
     }
     if (body.assignedTo !== undefined) data.assignedTo = body.assignedTo;
     if (body.note !== undefined) data.staffNote = body.note;
+    if (body.deliverable !== undefined) data.deliverable = body.deliverable === null ? Prisma.DbNull : (body.deliverable as Prisma.InputJsonValue);
 
     const updated = await withTenant(existing.tenantId, (tx) => tx.investigationRequest.update({ where: { id }, data }));
     await AuditService.log({
@@ -176,6 +227,8 @@ export async function opsInvestigationRoutes(fastify: FastifyInstance) {
         after: updated.status,
         assignedTo: updated.assignedTo,
         noteChanged: body.note !== undefined,
+        // The chronology's shape, never its text: how many entries were delivered.
+        ...(body.deliverable !== undefined ? { deliverableEntries: body.deliverable?.entries.length ?? 0 } : {}),
       },
     });
     return { request: view(updated) };

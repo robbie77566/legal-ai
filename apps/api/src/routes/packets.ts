@@ -5,6 +5,7 @@ import { isFlagOn } from '@hg/database/flags';
 import { caseLabel, caseRef } from '@hg/case-lifecycle';
 import { AuditService, LogAction } from '../services/audit.service';
 import { requireFlag } from '../plugins/flags';
+import { isVerifiedClinic } from '../services/organisation.service';
 
 /**
  * The consented-packet inbox (persona_rollout_plan.md §3 clinic director,
@@ -22,13 +23,28 @@ import { requireFlag } from '../plugins/flags';
  * The flag is read against the CLINIC's tenant: the test-in-production
  * protocol lights a clinic with a tenant override, and families can then
  * deliver to it; a family's own tenant never needs an override.
+ *
+ * UPL review 2026-10-23 (P3). Two changes. (1) Only a STAFF-VERIFIED clinic
+ * — kind CLINIC with `clinicVerifiedAt` set and the supervising attorney's
+ * bar number on file (ops-organisations.ts) — appears in the picker,
+ * receives a delivery (404 otherwise, like a dark flag) or has an inbox (403
+ * CLINIC_UNVERIFIED). A self-declared clinic is a professional organisation
+ * like any other. (2) The inbox delivers exactly what the family's consent
+ * names — "the attorney packet (Part B) and the case reference, nothing
+ * else" — so the PDF is the ATTORNEY packet (attorney-packet.service.ts: the
+ * share link's content), never the family report with its Part A text and
+ * bottom line.
  */
 
 const DeliverSchema = z.object({ clinicOrganisationId: z.string().min(1).max(64) });
 
-/** The clinics a family may deliver to: kind CLINIC with clinic_inbox on. */
+/** The clinics a family may deliver to: kind CLINIC, staff-verified, with clinic_inbox on. */
 async function liveClinics() {
-  const clinics = await prisma.organisation.findMany({ where: { kind: 'CLINIC' }, select: { id: true, name: true, tenantId: true }, orderBy: { name: 'asc' } });
+  const clinics = await prisma.organisation.findMany({
+    where: { kind: 'CLINIC', clinicVerifiedAt: { not: null } },
+    select: { id: true, name: true, tenantId: true },
+    orderBy: { name: 'asc' },
+  });
   const live: { id: string; name: string }[] = [];
   for (const c of clinics) if (await isFlagOn('clinic_inbox', c.tenantId)) live.push({ id: c.id, name: c.name });
   return live;
@@ -76,7 +92,7 @@ export default async function packetRoutes(fastify: FastifyInstance) {
     if (gate.error) return reply.status(gate.error).send({ error: gate.message });
 
     const clinic = await prisma.organisation.findUnique({ where: { id: clinicOrganisationId } });
-    if (!clinic || clinic.kind !== 'CLINIC' || !(await isFlagOn('clinic_inbox', clinic.tenantId))) {
+    if (!clinic || !isVerifiedClinic(clinic) || !(await isFlagOn('clinic_inbox', clinic.tenantId))) {
       return reply.status(404).send({ error: 'Not available' });
     }
 
@@ -110,7 +126,8 @@ export default async function packetRoutes(fastify: FastifyInstance) {
     );
     await AuditService.log({
       tenantId, caseId: id, action: LogAction.PACKET_DELIVERY, userId,
-      details: { op: 'packet_delivered', deliveryId: delivery.id, organisationId: clinic.id, versionNo: report.versionNo },
+      // What was delivered: the attorney packet (Part B), the only content the consent names.
+      details: { op: 'packet_delivered', deliveryId: delivery.id, organisationId: clinic.id, versionNo: report.versionNo, content: 'attorney_packet_part_b', clinicVerifiedAt: clinic.clinicVerifiedAt?.toISOString() ?? null },
     });
     return { alreadyDelivered: false, delivery: { id: delivery.id, organisationId: clinic.id, reportVersion: report.versionNo, deliveredAt: delivery.deliveredAt } };
   });
@@ -120,8 +137,15 @@ export default async function packetRoutes(fastify: FastifyInstance) {
 export async function clinicInboxRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', requireFlag('clinic_inbox'));
   fastify.addHook('preHandler', async (request, reply) => {
-    if (request.counsel!.organisation.kind !== 'CLINIC') {
-      return reply.status(403).send({ error: 'The packet inbox is for clinic organisations' });
+    const org = request.counsel!.organisation;
+    if (org.kind !== 'CLINIC') {
+      return reply.status(403).send({ error: 'The packet inbox is for clinic organisations', reason: 'NOT_A_CLINIC' });
+    }
+    if (!isVerifiedClinic(org)) {
+      return reply.status(403).send({
+        error: 'This clinic has not been verified by our staff yet; packets are delivered once a supervising attorney is on file',
+        reason: 'CLINIC_UNVERIFIED',
+      });
     }
   });
 
@@ -152,6 +176,9 @@ export async function clinicInboxRoutes(fastify: FastifyInstance) {
     return { items };
   });
 
+  // The PDF is the ATTORNEY packet (Part B), the content the consent names.
+  // TODO(ws/u3-part-b-split): switch to the shared attorney-packet renderer
+  // that branch adds (see attorney-packet.service.ts).
   fastify.get('/:deliveryId/report.pdf', async (request, reply) => {
     const seat = request.counsel!;
     const { deliveryId } = request.params as { deliveryId: string };
@@ -162,9 +189,10 @@ export async function clinicInboxRoutes(fastify: FastifyInstance) {
     const { report, revoked } = await sourceOf(delivery);
     if (revoked || !report) return reply.status(410).send({ error: 'The family has withdrawn consent for this packet' });
 
-    const { staffReportPdf } = await import('../services/case-file.service');
-    const out = await staffReportPdf(delivery.caseId, report.versionNo);
-    if (!out) return reply.status(410).send({ error: 'This packet is no longer available' });
+    const { loadAttorneyPacket, renderAttorneyPacketPdf } = await import('../services/attorney-packet.service');
+    const loaded = await loadAttorneyPacket(delivery.caseId, delivery.reportId);
+    if (loaded.status !== 'ok') return reply.status(410).send({ error: 'This packet is no longer available' });
+    const out = { pdf: await renderAttorneyPacketPdf(loaded.input), versionNo: loaded.versionNo };
 
     if (!delivery.openedAt) {
       await withTenant(seat.tenantId, (tx) =>
@@ -179,11 +207,11 @@ export async function clinicInboxRoutes(fastify: FastifyInstance) {
     }
     await AuditService.log({
       tenantId: seat.tenantId, caseId: `delivery:${delivery.id}`, action: LogAction.PACKET_DELIVERY, userId: request.auth.userId,
-      details: { op: 'packet_opened', sourceCaseId: delivery.caseId, versionNo: out.versionNo, firstOpen: !delivery.openedAt },
+      details: { op: 'packet_opened', sourceCaseId: delivery.caseId, versionNo: out.versionNo, firstOpen: !delivery.openedAt, content: 'attorney_packet_part_b' },
     });
     return reply
       .header('content-type', 'application/pdf')
-      .header('content-disposition', `attachment; filename="snot-nose-legal-packet-${caseRef(delivery.caseId)}-v${out.versionNo}.pdf"`)
+      .header('content-disposition', `attachment; filename="snot-nose-legal-attorney-packet-${caseRef(delivery.caseId)}-v${out.versionNo}.pdf"`)
       .send(out.pdf);
   });
 }

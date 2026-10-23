@@ -75,7 +75,8 @@ beforeAll(async () => {
   tenantId = t.id;
   const u = await prisma.user.create({ data: { email: `${run}@x.com`, tenantId, role: 'CLIENT' } });
   userId = u.id;
-  const r = await prisma.user.create({ data: { email: `${run}_qa@x.com`, tenantId, role: 'ATTORNEY' } });
+  // The reading-level edit below touches Part A, which needs a licence on the staff account (UPL review 2026-10-23, rec. 9).
+  const r = await prisma.user.create({ data: { email: `${run}_qa@x.com`, tenantId, role: 'ATTORNEY', barNumber: '24066666', barState: 'TX', barVerifiedAt: new Date(), barVerificationStatus: 'VERIFIED' } });
   reviewerId = r.id;
   clientCookie = `next-auth.session-token=${await encodeSessionToken({ userId, tenantId, role: 'CLIENT' })}`;
   qaCookie = `next-auth.session-token=${await encodeSessionToken({ userId: reviewerId, tenantId, role: 'ATTORNEY' })}`;

@@ -100,6 +100,14 @@ export default async function qaRoutes(fastify: FastifyInstance) {
   // the fields the counsel packet prints. Same provenance mark, same
   // event, one QA_EDIT row naming the fields and the before/after of the
   // structured ones.
+  //
+  // The licence rule (UPL review 2026-10-23, recommendation 9, P10): the
+  // legal text — partAText, partBText, harmStandard, develop — is edited
+  // only by a staff member whose account carries a verified bar number
+  // (recorded by an Admin on the Team page). `preserved` is a reading of
+  // the record (objection and ruling on the page) and stays open to every
+  // reviewer. Refusal: 403 { reason: 'LICENCE_REQUIRED' }.
+  const LICENSED_FIELDS = ['partAText', 'partBText', 'harmStandard', 'develop'] as const;
   const QaPatchSchema = z
     .object({
       partAText: z.string().min(1).max(2000).optional(),
@@ -116,6 +124,18 @@ export default async function qaRoutes(fastify: FastifyInstance) {
 
     const finding = await prisma.finding.findUnique({ where: { id: findingId } });
     if (!finding) return reply.status(404).send({ error: 'Not found' });
+
+    const touchesLegalText = LICENSED_FIELDS.some((k) => body[k] !== undefined);
+    if (touchesLegalText) {
+      const editor = await prisma.user.findUnique({ where: { id: request.auth.userId }, select: { barVerifiedAt: true, barVerificationStatus: true } });
+      if (!editor?.barVerifiedAt || editor.barVerificationStatus === 'REJECTED') {
+        return reply.status(403).send({
+          error: 'Editing the legal text of a finding needs a bar number on your staff account — an Ops administrator records it on the Team page. The preservation call stays open to every reviewer.',
+          reason: 'LICENCE_REQUIRED',
+          fields: LICENSED_FIELDS.filter((k) => body[k] !== undefined),
+        });
+      }
+    }
 
     // The vehicle is derived, never asserted: it follows the preservation
     // call and the harm standard whenever either changes.
