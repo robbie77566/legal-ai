@@ -1,4 +1,4 @@
-import { BRAND } from '@hg/case-lifecycle';
+import { BRAND, NOT_A_LAW_FIRM, QUALITY_CHECKED } from '@hg/case-lifecycle';
 /**
  * Transactional email (M2, ENG-9, auth design Phase 2).
  *
@@ -60,8 +60,12 @@ export function __setEmailProviderForTests(p: EmailProvider | undefined) {
   provider = p;
 }
 
+/**
+ * Every email ends with the full statement in both languages (UPL review
+ * 2026-10-23, rec 1: F4 — no Spanish disclaimer reached the emails).
+ */
 const FOOTER =
-  `\n\n—\n${BRAND.name} · ${BRAND.tagline} · ${BRAND.site}. We are not a law firm and this is not legal advice. Questions? Just reply to this email.`;
+  `\n\n—\n${BRAND.name} · ${BRAND.tagline} · ${BRAND.site}\n${NOT_A_LAW_FIRM.en}\n${NOT_A_LAW_FIRM.es}\nQuestions? Just reply to this email.`;
 
 /**
  * Staging guard (environment_reference.md → Staging). EMAIL_ALLOWLIST is a
@@ -168,7 +172,7 @@ export function sendRecordsComplete(to: string, opts: { expectedReadyBy?: string
 
 We'll email you as your review moves through each step, and you can watch progress any time${
       opts.statusUrl ? ` here: ${opts.statusUrl}` : ' on your case page'
-    }. A trained legal reviewer checks every report before it reaches you.`,
+    }. ${QUALITY_CHECKED.en}`,
   });
 }
 
@@ -216,7 +220,24 @@ export function sendReportReady(to: string, opts: { caseUrl: string }) {
   return send({
     to,
     subject: 'Your report is ready',
-    text: `Your case review is complete, checked by a trained legal reviewer, and ready for you to read.
+    text: `Your case review is complete and ready for you to read. ${QUALITY_CHECKED.en}
+
+Read it when you're ready — it will be right there when you are, and some families choose to read it together: ${opts.caseUrl}
+
+Whatever it says, there is a next step, and the report walks you through it.`,
+  });
+}
+
+/**
+ * UPL review 2026-10-23 (E4): the automatic approval path sends its own
+ * email. It says what happened — the report passed the automated quality
+ * gates and was not held for staff review — and nothing more.
+ */
+export function sendReportReadyAutoChecked(to: string, opts: { caseUrl: string }) {
+  return send({
+    to,
+    subject: 'Your report is ready',
+    text: `Your case review is complete and ready for you to read. It passed our automated quality gates — every quoted line re-checked word-for-word against your documents — and was not held for staff review.
 
 Read it when you're ready — it will be right there when you are, and some families choose to read it together: ${opts.caseUrl}
 
@@ -243,10 +264,10 @@ Your earlier version is still available from the same page, and the "New since y
 export function sendQualityHold(to: string, opts: { caseUrl: string }) {
   return send({
     to,
-    subject: 'A specialist is giving your review a closer look',
+    subject: 'A closer look at your review before it reaches you',
     text:
       "Good news and a small pause: our automated quality check flagged something in your review that we want a person to verify before you see it. Nothing is wrong with your case — this is the system being careful.\n\n" +
-      'A trained legal reviewer is checking it personally. Expect your report within 24 hours.\n\n' +
+      `${QUALITY_CHECKED.en} Expect your report within 24 hours.\n\n` +
       `You can watch progress any time: ${opts.caseUrl}`,
   });
 }

@@ -14,7 +14,7 @@ const EXTRA = {
     ],
     [
       'What happens if you find nothing?',
-      'The report says so, plainly, and explains what we checked. A clear "nothing strong here" protects your family from spending thousands chasing weak claims — that is real information, and it is treated with the same care as any other result.',
+      'The report says so, plainly, and explains what we checked. A clear "nothing found" is real information, and it is treated with the same care as any other result. Whatever the report says, the next step is the same: take it to a lawyer.',
     ],
     [
       'What happens to our documents and data?',
@@ -40,7 +40,7 @@ const EXTRA = {
     ],
     [
       '¿Qué pasa si no encuentran nada?',
-      'El informe lo dice claramente y explica qué verificamos. Un "no hay nada fuerte aquí" honesto protege a su familia de gastar miles persiguiendo reclamos débiles — esa también es información real, y se trata con el mismo cuidado que cualquier otro resultado.',
+      'El informe lo dice claramente y explica qué verificamos. Un "no se encontró nada" claro también es información real, y se trata con el mismo cuidado que cualquier otro resultado. Diga lo que diga el informe, el siguiente paso es el mismo: llevárselo a un abogado.',
     ],
     [
       '¿Qué pasa con nuestros documentos y datos?',

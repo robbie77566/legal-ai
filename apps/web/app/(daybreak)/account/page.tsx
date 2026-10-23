@@ -11,6 +11,7 @@ import { signOut, useSession } from 'next-auth/react'
 import { apiFetch, API_URL } from '@/lib/api'
 import FamilyNav, { firstName } from '../../../components/daybreak/FamilyNav'
 import PasswordField from '../../../components/daybreak/PasswordField'
+import NotASubstitute from '../../../components/NotASubstitute'
 import { trackerModel } from '@/lib/tracker'
 import type { CustomerView } from '@hg/case-lifecycle'
 
@@ -206,6 +207,7 @@ export default function AccountPage() {
           </div>
         </section>
 
+        <NotASubstitute className="mt-8 text-db-muted" />
         <div className="mt-8 flex items-center justify-between border-t border-db-line pt-4 text-[15px]">
           <Link href="/contact">Contact us</Link>
           <button onClick={() => void signOut({ callbackUrl: '/' })} className="text-db-muted" data-testid="sign-out">Sign out</button>

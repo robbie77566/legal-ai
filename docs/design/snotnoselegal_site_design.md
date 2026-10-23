@@ -28,6 +28,8 @@ Timing is right: DNS isn't live yet, so moving the conversion page from `/` to `
 /about                 Who we are: Tangent Solutions LLC, why this exists (new)
 /faq                   Expanded FAQ (landing keeps its short accordion) (new)
 /contact               admin@snotnoselegal.com + response expectation (new)
+/terms                 Terms of service — DRAFT pending counsel (added 2026-10-23, UPL review rec 10)
+/refund-policy         Refund policy — DRAFT pending counsel (added 2026-10-23, UPL review rec 10)
 /disclosures /privacy /accessibility   (exist)
 ```
 
@@ -41,11 +43,12 @@ Timing is right: DNS isn't live yet, so moving the conversion page from `/` to `
 - **About (`/about`)** — operated by Tangent Solutions LLC; why a software company built this (the access gap: $3,000 to have someone read a file); the human+AI method stated the way the landing already frames it; what we are not (not a law firm, no legal advice — linked to /disclosures). No stock-photo team pages, no invented credentials.
 - **FAQ (`/faq`)** — superset of the landing accordion + operational questions (how long, what formats, refunds, Spanish, data handling/retention, what if you find nothing).
 - **Contact (`/contact`)** — email, expected response time, and what support can/can't discuss (no legal advice — UPL guardrail restated gently).
+- **Terms (`/terms`)** and **Refund policy (`/refund-policy`)** — added 2026-10-23 (`../compliance/upl_review_2026-10-23.md` rec 10). Each is headed "DRAFT — pending review by licensed counsel", carries the statement, and assembles the promises the buy cards and the landing already make: what the service is and is not, no outcome promised, price and scope, refund if records cannot be read, the re-run price, data handling, sharing. Both languages through the content-object pattern (`lib/content/terms.ts`, `lib/content/refund-policy.ts`, one `PolicyPage` component); linked from the site footer and from the buy page's disclosure step.
 
 ## 4. Shared chrome
 
 - **Site nav** (brand pages): How it works · Pricing · Learn · About · FAQ + the persistent "Start the free check" button. **The conversion landing keeps its minimal nav** (logo + CTA + language switch only) — its job is focus.
-- **Footer** (all pages, exists today): legal line, Tangent Solutions LLC, admin@, © , links to disclosures/privacy/accessibility + new pages.
+- **Footer** (all pages, exists today): the statement from `packages/case-lifecycle/brand.ts` (`NOT_A_LAW_FIRM`, rendered by `<NotASubstitute />` in the current language), Tangent Solutions LLC, admin@, © , links to terms/refund-policy/disclosures/privacy/accessibility + the brand pages. Every page body also carries the statement (UPL review 2026-10-23, rec 1; `tests/unit/NotASubstitute.test.tsx`).
 - **Bilingual everywhere** (i18n R1–R7): every new page ships as an `{en, es}` content object with parity-test coverage; text-labeled language switch in nav; English governs legal copy pending counsel.
 - **Design language:** the existing Daybreak token system as-is. The palette A/B experiment stays **confined to `/review` + `/check`** (conversion surfaces) so brand pages render stable.
 

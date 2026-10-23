@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { apiFetch, startCheckout } from '@/lib/api'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
+import NotASubstitute from '../../../../../components/NotASubstitute'
 import { formatCivilDate } from '@/lib/tracker'
 import { tpl, useContent } from '@/lib/i18n'
 import { OVERAGE_CONTENT } from '@/lib/content/overage'
@@ -1163,6 +1164,7 @@ export default function CaseDocuments() {
           </div>
         </div>
       )}
+      <NotASubstitute className="mt-6 text-db-muted" />
     </main>
   )
 }

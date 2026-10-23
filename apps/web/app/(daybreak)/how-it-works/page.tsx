@@ -4,6 +4,7 @@ import Link from 'next/link'
 import SiteNav from '../../../components/site/SiteNav'
 import { useContent } from '../../../lib/i18n'
 import { HOW_CONTENT as H } from '../../../lib/content/how-it-works'
+import NotASubstitute from '../../../components/NotASubstitute'
 
 export default function HowItWorks() {
   const t = useContent(H)
@@ -12,6 +13,7 @@ export default function HowItWorks() {
       <SiteNav />
       <h1 className="mt-6 font-db-serif text-3xl font-bold">{t.title}</h1>
       <p className="mt-3 text-db-muted">{t.intro}</p>
+      <NotASubstitute className="mt-4 text-db-muted" />
 
       <ol className="mt-8 space-y-4">
         {t.stages.map(([stage, body]) => (

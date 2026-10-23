@@ -15,7 +15,7 @@ import {
   type ExhaustionMap,
 } from '@hg/case-lifecycle';
 import { renderFamilyReportBody, type ReportFinding, type ReportPdfInput } from './family-report';
-import { PALETTES, SITE, MARGIN, TONE_COLOR, severityLabel, createDocument, installFooter, renderBrandHeader, ensureRoom, type Pdf } from './pdf-helpers';
+import { PALETTES, SITE, MARGIN, TONE_COLOR, severityLabel, createDocument, installFooter, renderBrandHeader, renderCoverStatement, ensureRoom, STATUTORY_FOOTER_SENTENCE, type Pdf } from './pdf-helpers';
 import {
   ND_TEX_47_2_E_DISCLOSURE,
   TRAP_9_1_D_LOG,
@@ -570,8 +570,11 @@ export function renderCounselPacketPdf(input: CounselPacketInput): Promise<Buffe
       Subject: `Counsel packet for report ${input.reportId} v${input.versionNo} (template ${COUNSEL_TEMPLATE_VERSION} over ${input.reportTemplateVersion}) — ${SITE}`,
     },
   });
-  installFooter(doc, WORK_PRODUCT_FOOTER);
+  // UPL review 2026-10-23 (P7): the work-product footer plus the statutory
+  // words on every page, and the statement with the AI label on the cover.
+  installFooter(doc, `${WORK_PRODUCT_FOOTER} ${STATUTORY_FOOTER_SENTENCE}`);
   renderBrandHeader(doc);
+  renderCoverStatement(doc);
 
   for (const s of sections) {
     switch (s.id) {

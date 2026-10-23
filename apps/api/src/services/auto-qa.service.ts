@@ -175,8 +175,10 @@ export async function autoApproveCase(
     : null;
   if (owner?.email) {
     const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
-    const { sendReportReady } = await import('@hg/email');
-    void sendReportReady(owner.email, { caseUrl: `${origin}/case/${caseId}/report` });
+    // UPL review 2026-10-23 (E4): the auto-approved report gets its own
+    // email — it passed the automated gates and was not held for staff review.
+    const { sendReportReadyAutoChecked } = await import('@hg/email');
+    void sendReportReadyAutoChecked(owner.email, { caseUrl: `${origin}/case/${caseId}/report` });
   }
 
   console.log(`[auto-qa] case ${caseId} auto-approved → READY (report ${result.report.id}${spotcheck ? ', SPOT-CHECK flagged' : ''})`);

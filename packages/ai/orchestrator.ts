@@ -3,7 +3,23 @@ import { BaseMessage, SystemMessage } from '@langchain/core/messages'
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { findPrecedent, isGoodLaw } from '../mcp/servers/mcp-tx-case-law';
 import { formatCitation } from '../mcp/servers/mcp-bluebook-sanitizer';
-import { AgentPersonas } from './personas';
+
+/**
+ * Node instructions (UPL review 2026-10-23, E9/rec 12): the drafting
+ * personas — "Senior Texas Appellate Attorney", CREAC writ formatter,
+ * clemency advocate — are gone from the product tree. Every node DESCRIBES
+ * what the record shows, by volume, page and line; none advises, concludes
+ * about anyone's rights, predicts what a court would do, or addresses a
+ * family.
+ */
+const DESCRIBE_RULE =
+  'Describe only what the court record shows, citing volume, page and line with the verbatim excerpt. ' +
+  'Never advise, never conclude about anyone\'s rights, never predict what a lawyer or court would do, and never address the family.';
+const NODE_INSTRUCTIONS = {
+  counsel_conduct: `Read the transcript for what it shows about defense counsel's actions and omissions: objections made or not made, witnesses contacted or not, motions filed or not. ${DESCRIBE_RULE}`,
+  disclosure: `Read the transcript for testimony about material the State held and whether the record shows it was produced to the defense. ${DESCRIBE_RULE}`,
+  record_summary: `Arrange the passages already found into a plain list by record location, each with its verbatim excerpt and the doctrine category it was found under. Add nothing that is not in the record. ${DESCRIBE_RULE}`,
+} as const;
 
 export interface AgentState {
   messages: BaseMessage[]
@@ -28,7 +44,7 @@ export class LangGraphOrchestrator {
     const modelWithTools = this.llm.bindTools(tools);
     
     const messages = [
-      new SystemMessage(AgentPersonas.iac_specialist.systemPrompt),
+      new SystemMessage(NODE_INSTRUCTIONS.counsel_conduct),
       ...state.messages
     ];
     
@@ -41,7 +57,7 @@ export class LangGraphOrchestrator {
     // Brady Auditor primarily diffs text (Transcript vs Pre-Trial Disclosure).
     // In a full implementation, it would use an MCP tool to fetch the disclosure log.
     const messages = [
-      new SystemMessage(AgentPersonas.brady_auditor.systemPrompt),
+      new SystemMessage(NODE_INSTRUCTIONS.disclosure),
       ...state.messages
     ];
     
@@ -55,7 +71,7 @@ export class LangGraphOrchestrator {
     const modelWithTools = this.llm.bindTools(tools);
     
     const messages = [
-      new SystemMessage(AgentPersonas.writ_formatter.systemPrompt),
+      new SystemMessage(NODE_INSTRUCTIONS.record_summary),
       ...state.messages
     ];
     

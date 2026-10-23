@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
+import NotASubstitute from '../../../../../components/NotASubstitute'
+import { LRIS_URL, NO_REFERRAL_FEE } from '@hg/case-lifecycle'
 
 /**
  * S7 next steps (UI spec §5.8): consent card (default OFF, names who and
@@ -280,6 +282,10 @@ export default function NextSteps() {
           </div>
         )}
         {packetNotice && <p className="mt-2 text-sm" data-testid="packet-notice">{packetNotice}</p>}
+        {/* R-7 on the clinic card too (UPL review 2026-10-23, F7). */}
+        <p className="mt-2 text-xs text-db-muted" data-testid="clinic-r7">
+          Sharing does not by itself create an attorney-client relationship or privilege.
+        </p>
       </section>
 
       {/* Directory (R-6-compliant) */}
@@ -287,16 +293,18 @@ export default function NextSteps() {
         <h2 className="font-db-serif text-lg font-semibold">Find a lawyer</h2>
         <p className="mt-2 text-sm text-db-muted">
           The State Bar of Texas runs a certified Lawyer Referral &amp; Information Service — a
-          neutral way to find licensed counsel. We receive nothing from any referral.
+          neutral way to find licensed counsel. {NO_REFERRAL_FEE.en}
         </p>
         <a
-          href="https://www.texasbar.com/lris"
+          href={LRIS_URL}
+          data-testid="lris-link"
           rel="noopener noreferrer"
           className="mt-3 inline-block rounded-lg border border-db-accent px-4 py-2 text-sm font-semibold text-db-accent"
         >
           State Bar Lawyer Referral Service
         </a>
       </section>
+      <NotASubstitute className="mt-6 text-db-muted" />
     </main>
   )
 }

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import NotASubstitute from '@/components/NotASubstitute'
 
 /**
  * Post-checkout landing: the case is created by the Stripe webhook, which can
@@ -78,6 +79,7 @@ function Success() {
           </p>
         )}
       </div>
+      <NotASubstitute className="mt-6 text-db-muted" />
     </main>
   )
 }

@@ -5,6 +5,7 @@ import '../(daybreak)/daybreak.css'
 import { CounselProvider } from '../../components/counsel/CounselContext'
 import ProfessionalNav from '../../components/counsel/ProfessionalNav'
 import CounselGate from '../../components/counsel/CounselGate'
+import NotASubstitute from '../../components/NotASubstitute'
 
 /**
  * The professional app's shell (persona_rollout_plan.md §5 F): the Daybreak
@@ -29,6 +30,8 @@ export default function CounselLayout({ children }: { children: React.ReactNode 
         <ProfessionalNav />
         <main className="mx-auto w-full max-w-5xl px-5 py-8">
           <CounselGate>{children}</CounselGate>
+          {/* UPL review 2026-10-23 (P7, rec 1): the statement on every professional page too. */}
+          <NotASubstitute className="mt-12 border-t border-db-line pt-6 text-sm text-db-muted" />
         </main>
       </CounselProvider>
     </div>

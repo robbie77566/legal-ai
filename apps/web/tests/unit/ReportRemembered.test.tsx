@@ -28,7 +28,7 @@ describe('report — remembered interstitial and linked resources', () => {
     render(<CaseReport />)
     expect(screen.queryByRole('button', { name: /Read it now/ })).toBeNull()
     expect(await screen.findByTestId('gentle-reminder')).toHaveTextContent(/there is a next step/)
-    expect(screen.getByTestId('lris-link')).toHaveAttribute('href', 'https://www.texasbar.com')
+    expect(screen.getByTestId('lris-link')).toHaveAttribute('href', 'https://www.texasbar.com/lris')
     expect(screen.getByTestId('tifa-link')).toHaveAttribute('href', 'https://www.tifa.org')
   })
 })

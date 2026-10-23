@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import fs from 'node:fs';
 import path from 'node:path';
-import { BRAND } from '@hg/case-lifecycle';
+import { BRAND, NOT_A_LAW_FIRM, AI_GENERATED_LABEL, STATUTORY_WORDS } from '@hg/case-lifecycle';
 
 /**
  * PDFKit helpers shared by the family report (index.ts) and the counsel
@@ -29,6 +29,20 @@ export function logoAvailable(): boolean {
 
 export const SITE = 'snotnoselegal.com';
 export const MARGIN = 54;
+
+/**
+ * The per-page footer's type size (UPL review 2026-10-23, E8/P7): raised
+ * from 6.5 pt — unreadable in print — to 8.5 pt, and the footer wraps onto
+ * up to three lines instead of being cut to one with an ellipsis.
+ */
+export const FOOTER_FONT_SIZE = 8.5;
+const FOOTER_HEIGHT = 36;
+
+/** The family PDF's per-page footer: the brand, the site, and the statement with the statutory words. */
+export const FAMILY_FOOTER = `${BRAND.name} · ${SITE} · ${NOT_A_LAW_FIRM.en} No attorney-client relationship or privilege is created.`;
+
+/** Appended to the counsel packet's work-product footer so every page carries the statutory words. */
+export const STATUTORY_FOOTER_SENTENCE = `Not legal advice and ${STATUTORY_WORDS.en}.`;
 
 /** Same reds/ambers the web report uses: urgent, review, muted. */
 export const TONE_COLOR: Record<'urgent' | 'review' | 'muted', string> = { urgent: '#8a1c1c', review: '#8a4b00', muted: '#555555' };
@@ -63,6 +77,8 @@ export function createDocument(opts: { compress: boolean; info: { Title: string;
  * page, which fires pageAdded, which writes a footer… (live 500 on the
  * first 73-finding report). Restore the cursor and guard re-entrancy.
  * Writes the footer on the current page and on every page added after.
+ * The `height` option is what keeps pdfkit from adding a page when the
+ * footer wraps: with a height set, the wrapper stops instead of paging.
  */
 export function installFooter(doc: Pdf, text: string): void {
   let inFooter = false;
@@ -71,11 +87,11 @@ export function installFooter(doc: Pdf, text: string): void {
     inFooter = true;
     const { x, y } = doc;
     doc.save();
-    doc.fontSize(6.5).fillColor('#666666').font('Helvetica');
-    doc.text(text, MARGIN, doc.page.height - MARGIN - 14, {
+    doc.fontSize(FOOTER_FONT_SIZE).fillColor('#555555').font('Helvetica');
+    doc.text(text, MARGIN, doc.page.height - MARGIN - 22, {
       width: doc.page.width - MARGIN * 2,
-      height: 24,
-      lineBreak: false,
+      height: FOOTER_HEIGHT,
+      lineBreak: true,
       ellipsis: true,
     });
     doc.restore();
@@ -99,6 +115,21 @@ export function renderBrandHeader(doc: Pdf): void {
   doc.save().rect(MARGIN, doc.y + 2, 150, 6).fill(BRAND.colors.highlight).restore();
   doc.y += 12;
   doc.font('Helvetica').fontSize(10).fillColor('#555555').text(`${BRAND.tagline} · ${SITE}`);
+}
+
+/**
+ * The cover statement (UPL review 2026-10-23, rec 1): the AI label and the
+ * one statement at body size, under the brand header of both PDFs. Both
+ * languages — the family may read either, and the PDF has no switch.
+ */
+export function renderCoverStatement(doc: Pdf): void {
+  doc.moveDown(0.6);
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#555555').text(`${AI_GENERATED_LABEL.en} · ${AI_GENERATED_LABEL.es}`);
+  doc.moveDown(0.2);
+  doc.font('Helvetica').fontSize(10).fillColor(BRAND.colors.charcoal).text(NOT_A_LAW_FIRM.en);
+  doc.moveDown(0.2);
+  doc.font('Helvetica').fontSize(10).fillColor(BRAND.colors.charcoal).text(NOT_A_LAW_FIRM.es);
+  doc.moveDown(0.4);
 }
 
 /** "RR3 p. 214" / "p. 214" / "" — the family wording for where a quote sits. */

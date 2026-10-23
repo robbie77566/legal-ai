@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import NotASubstitute from '../../../../../components/NotASubstitute'
 
 /** S2 case interview (UI spec §5.4): short, plain, builds the checklist. */
 export default function CaseInterview() {
@@ -264,6 +265,7 @@ export default function CaseInterview() {
           {busy ? 'Saving…' : locked ? 'Save changes' : returning ? 'Save and continue to documents' : 'Build my document checklist'}
         </button>
       </form>
+      <NotASubstitute className="mt-6 text-db-muted" />
     </main>
   )
 }

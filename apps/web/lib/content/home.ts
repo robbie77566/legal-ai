@@ -11,7 +11,7 @@ export const HOME_CONTENT = {
     ctaSub: 'Two minutes. No payment, no account, no obligation.',
     stepsTitle: 'How it works',
     steps: [
-      'Answer a few questions — we tell you honestly whether this review can help your case.',
+      'Answer a few questions — we tell you honestly whether this review fits your case.',
       'Send us the court papers. We show you exactly how to get each one, and phone photos are fine.',
       'Our system reads every page, runs its checks, and you get a report you can hand to a lawyer.',
     ],
@@ -19,8 +19,8 @@ export const HOME_CONTENT = {
     trust: [
       'Every finding quotes the record word-for-word — and every quote is re-checked against your documents before you ever see it.',
       'Automated quality gates review every report; anything suspicious is held for human review before delivery.',
-      'The analysis method was evaluated against real cases and signed off by a licensed Texas attorney.',
-      'If we find nothing worth pursuing, the report says so plainly. We don’t sell hope.',
+      'The method was evaluated against real Texas cases.',
+      'If we find nothing, the report says so plainly. We don’t sell hope.',
     ],
     learnTitle: 'Learn before you spend anything',
     learnCards: [
@@ -43,7 +43,7 @@ export const HOME_CONTENT = {
     ctaSub: 'Dos minutos. Sin pago, sin cuenta, sin compromiso.',
     stepsTitle: 'Cómo funciona',
     steps: [
-      'Responda unas preguntas — le decimos honestamente si esta revisión puede ayudar en su caso.',
+      'Responda unas preguntas — le decimos honestamente si esta revisión encaja con su caso.',
       'Envíenos los documentos del tribunal. Le mostramos exactamente cómo conseguir cada uno, y las fotos del teléfono sirven.',
       'Nuestro sistema lee cada página, hace sus verificaciones, y usted recibe un informe que puede entregar a un abogado.',
     ],
@@ -51,8 +51,8 @@ export const HOME_CONTENT = {
     trust: [
       'Cada hallazgo cita el expediente palabra por palabra — y cada cita se verifica de nuevo contra sus documentos antes de que usted la vea.',
       'Controles de calidad automáticos revisan cada informe; cualquier cosa sospechosa se detiene para revisión humana antes de entregarse.',
-      'El método de análisis fue evaluado con casos reales y aprobado por un abogado con licencia de Texas.',
-      'Si no encontramos nada que valga la pena, el informe lo dice claramente. No vendemos esperanza.',
+      'El método fue evaluado con casos reales de Texas.',
+      'Si no encontramos nada, el informe lo dice claramente. No vendemos esperanza.',
     ],
     learnTitle: 'Aprenda antes de gastar nada',
     learnCards: [
@@ -64,6 +64,6 @@ export const HOME_CONTENT = {
     honestTitle: 'No es para todos los casos',
     honestBody:
       'Los casos de pena de muerte, los casos todavía en apelación directa y las condenas federales necesitan otra ayuda — la revisión gratis le dice si esa es su situación y le indica un mejor camino. Preferimos decirle que no antes que tomar $299 que no podemos ganar.',
-    footerCta: 'Averigüe si su caso califica — gratis',
+    footerCta: 'Averigüe si su caso encaja — gratis',
   },
 }

@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
 import { useContent } from '@/lib/i18n'
 import { CHECK_OUTCOME_COPY } from '@/lib/content/check-outcomes'
+import { LRIS_URL, NO_REFERRAL_FEE } from '@hg/case-lifecycle'
+import NotASubstitute from '@/components/NotASubstitute'
 import {
   nextQuestion,
   routeEligibility,
@@ -117,13 +119,25 @@ function OutcomeScreen({ result }: { result: EligibilityResult }) {
         </a>
       </li>
       <li>
-        <a className="underline" href="https://www.texasbar.com" rel="noopener noreferrer">
+        <a className="underline" href={LRIS_URL} rel="noopener noreferrer" data-testid="lris-link">
           {copy.resources.lris}
-        </a>
+        </a>{' '}
+        <span className="text-db-muted">{NO_REFERRAL_FEE.en}</span>
       </li>
     </ul>
   )
 
+  // UPL review 2026-10-23 (E6, rec 1): the statement sits at the top of
+  // every outcome screen, before the outcome itself.
+  return (
+    <div data-testid="outcome">
+      <NotASubstitute className="mb-4 text-db-muted" />
+      {outcomeCard(result, resources)}
+    </div>
+  )
+}
+
+function outcomeCard(result: EligibilityResult, resources: React.ReactNode) {
   switch (result.outcome) {
     case 'capital':
       return (

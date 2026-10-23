@@ -24,9 +24,9 @@ export const PRICING_CONTENT = {
       'Uploading documents — take weeks if you need to; iterate as much as you like before you start the review',
       'The documents guide, and skipped files inside a ZIP',
     ],
-    anchorTitle: 'What this usually costs',
+    anchorTitle: 'What $299 buys',
     anchorBody:
-      'Having an attorney read a trial record typically runs around $3,000 before any advice is given. We are not a substitute for a lawyer — the report exists to make the lawyer you do hire faster and better informed.',
+      'A trial record often runs to hundreds or thousands of pages. For $299 the software reads every page and runs six checks for the issues post-conviction law recognises, so the lawyer you hire starts from what the record says. The report is not a substitute for the advice of an attorney — it exists to make that conversation faster and better informed.',
     sampleLink: 'See a sample report before you decide',
     payTitle: 'Paying',
     payBody: 'Card, or installments through Affirm/Klarna at checkout. If you have a promo code, it applies before payment.',
@@ -55,9 +55,9 @@ export const PRICING_CONTENT = {
       'Subir documentos — tómese semanas si las necesita; repita cuantas veces quiera antes de empezar la revisión',
       'La guía de documentos, y los archivos omitidos dentro de un ZIP',
     ],
-    anchorTitle: 'Lo que esto normalmente cuesta',
+    anchorTitle: 'Qué compran los $299',
     anchorBody:
-      'Que un abogado lea un expediente de juicio normalmente cuesta alrededor de $3,000 antes de recibir cualquier consejo. No somos un sustituto de un abogado — el informe existe para que el abogado que usted contrate trabaje más rápido y mejor informado.',
+      'Un expediente de juicio suele tener cientos o miles de páginas. Por $299 el software lee cada página y hace seis verificaciones de los problemas que la ley post-condena reconoce, para que el abogado que usted contrate empiece desde lo que dice el expediente. El informe no sustituye el consejo de un abogado — existe para que esa conversación sea más rápida y mejor informada.',
     sampleLink: 'Vea un informe de muestra antes de decidir',
     payTitle: 'Formas de pago',
     payBody: 'Tarjeta, o pagos a plazos con Affirm/Klarna al pagar. Si tiene un código promocional, se aplica antes del pago.',

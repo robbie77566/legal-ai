@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import crypto from 'crypto';
 import { z } from 'zod';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
+import { QUALITY_CHECKED } from '@hg/case-lifecycle';
 import { verifyFindings } from '../services/analysis.service';
 
 /**
@@ -204,7 +205,7 @@ export async function sharedReportRoutes(fastify: FastifyInstance) {
       return {
         // R-7: sharing creates no attorney-client relationship or privilege.
         notice:
-          'Attorney working packet (Part B). Prepared with AI assistance, approved by a trained reviewer. Access to this packet does not itself create an attorney-client relationship or privilege.',
+          `Attorney working packet (Part B). AI-generated content. ${QUALITY_CHECKED.en} Access to this packet does not itself create an attorney-client relationship or privilege.`,
         templateVersion: report.templateVersion,
         posture: (await import('../services/bottom-line.service')).bottomLineFor(snapshot.findings.filter((f) => verified.includes(f.id)), packetCase?.subsequentWrit ?? false, null).forLawyer,
         caseSummary: await (await import('../services/case-summary.service')).summaryRowsForReport(report.runId, packetCase ?? {}),

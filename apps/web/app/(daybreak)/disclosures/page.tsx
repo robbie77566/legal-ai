@@ -6,6 +6,8 @@
  * versioned artifact: adding a state there bumps DISCLOSURE_SET_VERSION
  * under counsel review — this page informs, that gate binds.
  */
+import { BRAND } from '@hg/case-lifecycle'
+
 export default function Disclosures() {
   return (
     <main className="mx-auto max-w-xl px-5 py-8">
@@ -20,8 +22,8 @@ export default function Disclosures() {
       <h2 className="mt-8 font-db-serif text-xl font-semibold">Who we are — and are not</h2>
       <ul className="mt-2 list-disc space-y-2 pl-5">
         <li>
-          We are <strong>not a law firm</strong>, and no one here acts as your attorney. Family Case
-          Review is an information service operated by Tangent Solutions LLC.
+          We are <strong>not a law firm</strong>, and no one here acts as your attorney. {BRAND.name} is
+          an information service operated by {BRAND.operator}.
         </li>
         <li>
           Buying a review does <strong>not</strong> create an attorney-client relationship, and what
@@ -49,7 +51,7 @@ export default function Disclosures() {
       <h2 className="mt-8 font-db-serif text-xl font-semibold">Texas</h2>
       <p className="mt-2">
         We are not attorneys licensed in Texas, and we cannot represent you before any Texas court.
-        Only a licensed Texas attorney may give legal advice about an appeal, a writ of habeas
+        Only an attorney licensed in Texas may give legal advice about an appeal, a writ of habeas
         corpus, or any filing deadline. Texas law strictly limits second habeas applications — a
         first application filed without counsel can permanently forfeit claims, which is why our
         reports exist to be reviewed by an attorney, never to substitute for one. If you cannot

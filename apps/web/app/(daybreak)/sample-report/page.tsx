@@ -10,6 +10,7 @@ import Link from 'next/link'
 import SiteNav from '../../../components/site/SiteNav'
 import { useContent } from '../../../lib/i18n'
 import { SAMPLE_REPORT_CONTENT as S } from '../../../lib/content/sample-report'
+import NotASubstitute from '../../../components/NotASubstitute'
 
 function SampleCard({
   f,
@@ -52,6 +53,7 @@ export default function SampleReport() {
 
       <h1 className="mt-6 font-db-serif text-3xl font-bold">{t.title}</h1>
       <p className="mt-3 text-db-muted">{t.intro}</p>
+      <NotASubstitute className="mt-4 text-db-muted" />
 
       <h2 className="mt-8 font-db-serif text-2xl font-semibold">{t.strongTitle}</h2>
       <p className="mt-1 text-sm text-db-muted">{t.strongIntro}</p>
