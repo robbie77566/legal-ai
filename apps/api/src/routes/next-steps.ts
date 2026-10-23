@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { verifyFindings } from '../services/analysis.service';
+import { buildAttorneyPacketInput } from '../services/attorney-packet.service';
 
 /**
  * S7 — act (US-5, ENG-8): consent-based referral (opt-in only, default off,
@@ -171,6 +172,12 @@ export default async function nextStepsRoutes(fastify: FastifyInstance) {
 /**
  * The attorney-facing view: anonymous, token-verified, Part B only.
  * Registered separately under /shared (public path in the auth plugin).
+ *
+ * UPL review 2026-10-23 (E2): the page renders `sections` — the same
+ * `attorneyPacketSections` the sealed attorney packet PDF prints, from the
+ * same verified input — so the link and the download never drift. The
+ * flat fields (`findings`, `posture`, `caseSummary`) stay for callers that
+ * read them.
  */
 export async function sharedReportRoutes(fastify: FastifyInstance) {
   fastify.get('/:token', async (request, reply) => {
@@ -200,16 +207,26 @@ export async function sharedReportRoutes(fastify: FastifyInstance) {
         },
       });
 
-      const packetCase = await tx.case.findUnique({ where: { id: report.caseId }, select: { county: true, convictionYear: true, facts: true, deadlineFacts: true, subsequentWrit: true } });
+      const packetCase = await tx.case.findUnique({ where: { id: report.caseId } });
+      const { attachConfidence } = await import('../services/finding-confidence.service');
+      const visible = await attachConfidence(tx, snapshot.findings.filter((f) => verified.includes(f.id)));
+      const { attorneyPacketSections, ATTORNEY_PACKET_NOTICE } = await import('@hg/reports');
+      const input = await buildAttorneyPacketInput({
+        kase: packetCase ?? { id: report.caseId, title: 'Case review', subsequentWrit: false },
+        report,
+        visible: visible as Parameters<typeof buildAttorneyPacketInput>[0]['visible'],
+        droppedByReverification: snapshot.findings.length - visible.length,
+      });
       return {
         // R-7: sharing creates no attorney-client relationship or privilege.
-        notice:
-          'Attorney working packet (Part B). Prepared with AI assistance, approved by a trained reviewer. Access to this packet does not itself create an attorney-client relationship or privilege.',
+        // The words are the packet cover's (UPL review 2026-10-23: no claim
+        // of a reviewer's approval, which no licence is required for).
+        notice: ATTORNEY_PACKET_NOTICE,
         templateVersion: report.templateVersion,
-        posture: (await import('../services/bottom-line.service')).bottomLineFor(snapshot.findings.filter((f) => verified.includes(f.id)), packetCase?.subsequentWrit ?? false, null).forLawyer,
-        caseSummary: await (await import('../services/case-summary.service')).summaryRowsForReport(report.runId, packetCase ?? {}),
-        findings: (await (await import('../services/finding-confidence.service')).attachConfidence(tx, snapshot.findings.filter((f) => verified.includes(f.id))))
-          .map(({ id: _id, ...f }) => f),
+        posture: input.posture,
+        caseSummary: input.caseSummary,
+        findings: visible.map(({ id: _id, ...f }) => f),
+        sections: attorneyPacketSections(input),
       };
     });
   });
