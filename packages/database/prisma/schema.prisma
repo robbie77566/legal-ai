@@ -77,6 +77,12 @@ model Organisation {
   // security contact named on the office/clinic security one-pager.
   publicInterest    Boolean          @default(false)
   securityContact   String?
+  // U4 (UPL review 2026-10-23, P3): a clinic receives consented packets only
+  // once staff have verified it and recorded its supervising attorney's bar
+  // number. Null = self-declared, inbox and delivery closed.
+  clinicVerifiedAt     DateTime?
+  clinicSupervisingBar String?
+  clinicVerifiedBy     String?
   memberships       Membership[]
   invitations       Invitation[]
   packetDeliveries  PacketDelivery[]
@@ -483,6 +489,13 @@ model User {
   barVerifiedAt       DateTime?
   barVerifiedBy       String?
   practiceType        String? // writ | appellate | trial | pd | clinic | investigator | other
+  // U4 (UPL review 2026-10-23, P1): the decision staff made on the bar
+  // number. PENDING until a person decides; VERIFIED opens the lawyer-only
+  // counsel routes (with an OWNER or ATTORNEY seat); REJECTED closes them
+  // and is reversible by a later verify. The note is internal.
+  barVerificationStatus BarVerificationStatus @default(PENDING)
+  barRejectedAt       DateTime?
+  barRejectionNote    String?
 
   passwordChangedAt   DateTime?
   // Activity for the admin's Accounts page: set by authorize() on every
@@ -977,6 +990,9 @@ model InvestigationRequest {
   status         InvestigationStatus @default(OPEN)
   assignedTo     String?
   staffNote      String?
+  // U4 (UPL review 2026-10-23, P10): the structured chronology the Record
+  // Desk delivers — { entries: [{ date, volume?, page?, event }], note? }.
+  deliverable    Json?
   deliveredAt    DateTime?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
@@ -1056,4 +1072,14 @@ model EvalRun {
 
   @@index([startedAt])
   @@index([ledger, startedAt])
+}
+
+// ── U4: lawyer gates (UPL review 2026-10-23, recommendations 4 and 9) ────────
+// Columns live on User (barVerificationStatus, barRejectedAt, barRejectionNote),
+// Organisation (clinicVerifiedAt, clinicSupervisingBar, clinicVerifiedBy) and
+// InvestigationRequest (deliverable); migration 20261023000039_lawyer_gates.
+enum BarVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
 }
