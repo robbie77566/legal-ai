@@ -23,6 +23,9 @@ export const FLAG_KEYS = [
   'record_desk',
   'clinic_inbox',
   'long_records',
+  // UPL review 2026-10-23 (E2, counsel question 3): off = the family report
+  // carries Part A only and the attorney content ships as a sealed packet.
+  'family_part_b',
 ] as const
 
 export type FlagKey = (typeof FLAG_KEYS)[number]

@@ -21,6 +21,7 @@ export const FLAG_KEYS = [
   'record_desk',
   'clinic_inbox',
   'long_records',
+  'family_part_b',
 ] as const
 
 export type FlagKey = (typeof FLAG_KEYS)[number]
