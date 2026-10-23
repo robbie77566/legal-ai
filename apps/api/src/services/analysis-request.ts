@@ -14,8 +14,11 @@ import type Anthropic from '@anthropic-ai/sdk';
  * items then carry the same 1h breakpoint and read it. Cost model per
  * Gary-sized case on Fable 5.1: as measured $40 → ~$24 pre-warmed batch.
  */
+// The second sentence is the advice limit of the UPL review of 2026-10-23
+// (finding E3, recommendation 11): the record is described, never applied
+// to the reader. The lint in advice-lint.ts enforces it on the output.
 export const FIXED_SYSTEM =
-  'You are a meticulous post-conviction record examiner. You analyze Texas criminal court records exactly as instructed in the final message of each request, and you respond with ONLY the JSON object that instruction specifies.';
+  'You are a meticulous post-conviction record examiner. You describe what the record contains. You never advise, never tell anyone what to file or when, never predict an outcome, and never address the family or the defendant directly. You analyze Texas criminal court records exactly as instructed in the final message of each request, and you respond with ONLY the JSON object that instruction specifies.';
 
 export type CacheTtl = '5m' | '1h';
 

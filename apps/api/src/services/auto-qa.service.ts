@@ -1,5 +1,6 @@
 import prisma, { withTenant, appendCaseEvent } from '@hg/database';
 import { verifyFindings } from './analysis.service';
+import { lintAdvice } from './advice-lint';
 import { AuditService, LogAction } from './audit.service';
 import type { AnalysisSummary } from './analysis.service';
 
@@ -18,7 +19,9 @@ import type { AnalysisSummary } from './analysis.service';
  *  - grounding drop ratio ≤ AUTO_APPROVE_MAX_DROP_RATIO (default 0.5) —
  *    the fresh-regression RED run measured 0.40 vs the healthy 0.125,
  *    so runaway dropping routes to a human;
- *  - FR-7 verification passes (as in the manual gate — never waived).
+ *  - FR-7 verification passes (as in the manual gate — never waived);
+ *  - no Part A text trips the advice-language lint (UPL review 2026-10-23,
+ *    E3): a family sentence that advises holds the case for a human.
  *
  * Spot-checks: AUTO_APPROVE_SPOTCHECK_PERCENT (default 10) of auto-
  * approved cases are flagged in the audit log for after-the-fact review
@@ -63,6 +66,14 @@ export async function autoApproveCase(
   if (summary.findingsPersisted < minFindings)
     reasons.push(`findings ${summary.findingsPersisted} < ${minFindings}`);
   if (dropRatio > maxDropRatio) reasons.push(`drop ratio ${dropRatio.toFixed(2)} > ${maxDropRatio}`);
+
+  // UPL review 2026-10-23 (E3, recommendation 11): no automatic approval
+  // while any family text advises. Linted live from the rows, not from the
+  // stored lintFlags, so a reviewer's rewrite of Part A clears the hold.
+  const latestRun = await prisma.analysisRun.findFirst({ where: { caseId }, orderBy: { runNo: 'desc' }, select: { id: true } });
+  const partAs = latestRun ? await prisma.finding.findMany({ where: { runId: latestRun.id }, select: { partAText: true } }) : [];
+  const advising = partAs.filter((f) => !lintAdvice(f.partAText, { audience: 'family' }).ok).length;
+  if (advising > 0) reasons.push(`advice wording in ${advising} finding(s)`);
 
   if (reasons.length > 0) {
     console.warn(`[auto-qa] case ${caseId} HELD for human review: ${reasons.join('; ')}`);

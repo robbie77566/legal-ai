@@ -1,8 +1,12 @@
 import crypto from 'crypto';
 import { z } from 'zod';
 import { CaseSummarySchema, normalizePreserved, normalizeHarmStandard, vehicleFor, isVehicle, screenWeights, orderScreensByWeight, type CaseSummary, type CounselVehicle } from '@hg/case-lifecycle';
-import { withTenant, appendCaseEvent } from '@hg/database';
+import { withTenant, appendCaseEvent, Prisma } from '@hg/database';
 import { beginStep, pulse, endStep } from './progress-pulse.service';
+import { lintFinding } from './advice-lint';
+
+/** The lint result as a Json column value (UPL review 2026-10-23, E3): null when clean. */
+const lintFlagsJson = (partA: string, partB: string) => (lintFinding(partA, partB) as unknown as Prisma.InputJsonValue | null) ?? Prisma.JsonNull;
 
 /**
  * The analysis orchestrator (system design §6, ENG-2). Drives the case
@@ -168,7 +172,7 @@ const SUMMARY_INSTRUCTIONS =
 
 const OUTPUT_INSTRUCTIONS = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>"}]}. Severity calibration: "dispositive" = could plausibly justify relief or major posture change on its own (illegal sentence, seated biased juror, suppressed exculpatory evidence); "supportive" = strengthens a claim package but needs companions; "background" = context a lawyer should know. The quote MUST be copied character-for-character from one excerpt. If nothing qualifies, return {"findings":[]}.`;
 
-const OUTPUT_INSTRUCTIONS_V2 = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|identification|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level, no advice>","partB":"<precise statement for an attorney>","preserved":"yes|partial|no|unknown","preservedCite":"<VERBATIM objection or ruling text from the record, or omit>","harmStandard":"structural|constitutional|nonconstitutional|none","develop":"<one sentence, max 40 words: the record or investigation step that would prove or rule this out — obtain X, subpoena Y, compare Z>","dependsOn":["<a record or exhibit this finding needs that was not provided, e.g. Volume 6 exhibits>"]}]}. Severity calibration: "dispositive" = could plausibly justify relief or major posture change on its own (an illegal or void sentence, a seated biased juror, suppressed exculpatory evidence, a preserved constitutional error going to the core of the State's proof); "supportive" = strengthens a claim package but needs companions; "background" = context a lawyer should know. Weigh the review standard: a preserved constitutional error is reviewed under TRAP 44.2(a) — reversal unless the State shows it harmless beyond a reasonable doubt — and is at least supportive; a preserved non-constitutional error under 44.2(b) is supportive unless the record shows harm to a substantial right; an unpreserved record error is background unless structural, since it is reachable only through counsel's performance. "preserved" means an objection was made and ruled on; "partial" means a running or general objection, or an objection without a ruling. The quote MUST be copied character-for-character from one excerpt. Keep "develop" concrete and short. If nothing qualifies, return {"findings":[]}.`;
+const OUTPUT_INSTRUCTIONS_V2 = `Respond with ONLY a JSON object: {"findings":[{"category":"<preserved_error|iac|brady|junk_science|sentencing|identification|deadline|appeal_restoration — or a short specific label if none fits>","severity":"dispositive|supportive|background","confidence":0..1,"chunkIndex":<index of the excerpt the finding cites>,"quote":"<VERBATIM text copied from that excerpt>","partA":"<plain English for a family, 8th-grade level: describe what the record shows at the cited page; no advice, no instruction, no prediction, no 'you should'>","partB":"<precise statement for an attorney>","preserved":"yes|partial|no|unknown","preservedCite":"<VERBATIM objection or ruling text from the record, or omit>","harmStandard":"structural|constitutional|nonconstitutional|none","develop":"<one sentence, max 40 words: the record or investigation step that would prove or rule this out — obtain X, subpoena Y, compare Z>","dependsOn":["<a record or exhibit this finding needs that was not provided, e.g. Volume 6 exhibits>"]}]}. Severity calibration: "dispositive" = could plausibly justify relief or major posture change on its own (an illegal or void sentence, a seated biased juror, suppressed exculpatory evidence, a preserved constitutional error going to the core of the State's proof); "supportive" = strengthens a claim package but needs companions; "background" = context a lawyer should know. Weigh the review standard: a preserved constitutional error is reviewed under TRAP 44.2(a) — reversal unless the State shows it harmless beyond a reasonable doubt — and is at least supportive; a preserved non-constitutional error under 44.2(b) is supportive unless the record shows harm to a substantial right; an unpreserved record error is background unless structural, since it is reachable only through counsel's performance. "preserved" means an objection was made and ruled on; "partial" means a running or general objection, or an objection without a ruling. The quote MUST be copied character-for-character from one excerpt. Keep "develop" concrete and short. If nothing qualifies, return {"findings":[]}.`;
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
@@ -881,6 +885,7 @@ async function runAnalysisInner(
                     engine: f.engine ?? model.name,
                     partAText: f.partA,
                     partBText: f.partB,
+                    lintFlags: lintFlagsJson(f.partA, f.partB),
                     harmStandard: incoming.harmStandard,
                     develop: incoming.develop ?? null,
                     vehicle: vehicleFor({ screen: screenId, category: f.category, preserved: dup.preserved, harmStandard: incoming.harmStandard }),
@@ -908,6 +913,9 @@ async function runAnalysisInner(
             ...v2,
             partAText: f.partA,
             partBText: f.partB,
+            // UPL review 2026-10-23 (E3): wording that advises is recorded on
+            // the row; a Part A hit holds the case for a human (auto-qa.service).
+            lintFlags: lintFlagsJson(f.partA, f.partB),
             citations: {
               create: {
                 documentId: f.chunk.documentId,
