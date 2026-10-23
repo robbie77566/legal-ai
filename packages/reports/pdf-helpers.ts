@@ -60,7 +60,16 @@ export function createDocument(opts: { compress: boolean; info: { Title: string;
     size: 'LETTER',
     margins: { top: MARGIN, bottom: MARGIN + 28, left: MARGIN, right: MARGIN },
     info: opts.info,
+    // Pages stay buffered so the footer can be drawn on every page in one
+    // pass at the end (installFooter/flushFooters), independent of the order
+    // pages were added in.
+    bufferPages: true,
   });
+  const end = doc.end.bind(doc);
+  doc.end = (() => {
+    flushFooters(doc);
+    return end();
+  }) as typeof doc.end;
   const done = new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
     doc.on('data', (c: Buffer) => chunks.push(c));
@@ -80,27 +89,40 @@ export function createDocument(opts: { compress: boolean; info: { Title: string;
  * The `height` option is what keeps pdfkit from adding a page when the
  * footer wraps: with a height set, the wrapper stops instead of paging.
  */
+const FOOTERS = new WeakMap<object, string>();
+
+/**
+ * Register the per-page footer. It is drawn on EVERY page in one pass when the
+ * document ends (createDocument wraps doc.end), so it can never miss a page:
+ * the previous pageAdded hook skipped any page that pdfkit opened while the
+ * footer itself was being written (found 2026-10-23 when the statutory
+ * sentence made the footer three lines).
+ */
 export function installFooter(doc: Pdf, text: string): void {
-  let inFooter = false;
-  const footer = () => {
-    if (inFooter) return;
-    inFooter = true;
-    const { x, y } = doc;
+  FOOTERS.set(doc as unknown as object, text);
+}
+
+/** Draw the registered footer on every buffered page. Called by doc.end (createDocument). */
+export function flushFooters(doc: Pdf): void {
+  const text = FOOTERS.get(doc as unknown as object);
+  if (!text) return;
+  const range = doc.bufferedPageRange();
+  for (let i = range.start; i < range.start + range.count; i++) {
+    doc.switchToPage(i);
+    const bottom = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0; // no pagination can start from inside the footer
     doc.save();
     doc.fontSize(FOOTER_FONT_SIZE).fillColor('#555555').font('Helvetica');
-    doc.text(text, MARGIN, doc.page.height - MARGIN - 22, {
+    doc.text(text, MARGIN, doc.page.height - MARGIN - 4 - FOOTER_HEIGHT, {
       width: doc.page.width - MARGIN * 2,
       height: FOOTER_HEIGHT,
       lineBreak: true,
       ellipsis: true,
     });
     doc.restore();
-    doc.x = x;
-    doc.y = y;
-    inFooter = false;
-  };
-  footer();
-  doc.on('pageAdded', footer);
+    doc.page.margins.bottom = bottom;
+  }
+  FOOTERS.delete(doc as unknown as object);
 }
 
 /** Cover header: the logo when the file is present, else the lockup; then the highlighter stroke and the tagline. */

@@ -132,12 +132,12 @@ function OutcomeScreen({ result }: { result: EligibilityResult }) {
   return (
     <div data-testid="outcome">
       <NotASubstitute className="mb-4 text-db-muted" />
-      {outcomeCard(result, resources)}
+      {outcomeCard(result, resources, copy)}
     </div>
   )
 }
 
-function outcomeCard(result: EligibilityResult, resources: React.ReactNode) {
+function outcomeCard(result: EligibilityResult, resources: React.ReactNode, copy: typeof CHECK_OUTCOME_COPY.en) {
   switch (result.outcome) {
     case 'capital':
       return (
