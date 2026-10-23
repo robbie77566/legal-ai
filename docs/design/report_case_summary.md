@@ -30,11 +30,11 @@ Right after "What we found": a headline and two or three short paragraphs answer
 
 | Tier | When | Headline |
 |---|---|---|
-| strong | ≥1 dispositive finding | There is a real reason to talk to a lawyer. |
-| consult | supportive findings only | Worth a consultation — nothing here stands alone yet. |
-| limited | nothing dispositive or supportive | This review did not find a path in the record itself. |
+| strong | ≥1 dispositive finding | The review found issues that stand on their own in this record. |
+| consult | supportive findings only | The review found issues that add to a bigger picture, and none that stand on their own. |
+| limited | nothing dispositive or supportive | The review did not find issues in this record on the questions it checks. |
 
-Modifiers add a paragraph: the §4 subsequent-writ bar; an estimated-expired federal window; a running clock (≤180 days or laches urgency). The ROI framing is qualitative — "a first consultation costs a small fraction of a full writ; this report is built to make that hour count" — no dollar figures. Every version ends with the not-legal-advice sentence, and the unit test forbids "you should file", "we recommend filing", "will win", "guarantee". **This wording is in the counsel review queue** (UPL): it is the closest the product comes to an opinion.
+**Bottom line and deadlines rewritten as description, 2026-10-23 (UPL review E1, E5, E6, E7).** Every tier now opens with the not-advice sentence, counts what was found and of what kind, says that each item is quoted from the record with its page, states the scope (a reading of the record, not a verdict on innocence; things outside the record are not part of the review), and closes with the same sentence every time: *"A licensed Texas attorney is the person to take this to."* The §4 line states the rule ("Texas law limits later applications; the rule is Article 11.07 §4"); the federal-window lines print the date by our count ("ended on DATE" / "is open until DATE" / "is paused while the state court decides") and that a lawyer must check the dates. The merit opinions, the ROI framing, the urgency lines and the dissuasion sentence ("saves you from paying for a full review that would likely say the same") are gone. The copy ships in `{en, es}` (`BOTTOM_LINE_COPY`, `bottomLine(input, lang)`); `describe-not-conclude.test.ts` forbids the old phrases in every tier, every weight label and (in the web suite) every check outcome. The same round rewrote the PDF and page "Time limits" section (verify sentence first at body size; no "CLOSED", no bold day count; laches stated as a rule a lawyer can apply), the check outcomes (product fit only), the "Writ type" fact line ("How we read this record … a lawyer decides what, if anything, is filed") and the check-back emails.
 
 ## The weight line on every issue (PO, 2026-09-12)
 
@@ -44,9 +44,9 @@ Modifiers add a paragraph: the §4 subsequent-writ bar; an estimated-expired fed
 
 | Weight (from severity) | Color | Means |
 |---|---|---|
-| Could stand on its own (`dispositive`) | red (`--db-urgent`) | on its own could justify relief or change the posture |
-| Supports a larger claim (`supportive`) | amber (`--db-review`) | strengthens a claim package, unlikely to carry a filing alone |
-| Background | gray (`--db-none`) | context a lawyer should know |
+| Stands on its own (`dispositive`) | red (`--db-urgent`) | the record alone shows this issue |
+| Adds to a bigger picture (`supportive`) | amber (`--db-review`) | matters together with other issues |
+| Background | gray (`--db-none`) | context for the lawyer who reads the report |
 
 "How sure we are" is the analysis confidence (0–1) in bands: high ≥ 80 %, medium 55–79 %, low < 55 %, "not rated" when a snapshot carries none. It is our confidence that the issue is really in the record (every citation is re-checked word-for-word at render), **not a chance of winning** — the legend says so, and the unit test forbids outcome language.
 

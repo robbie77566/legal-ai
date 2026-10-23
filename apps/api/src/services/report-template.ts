@@ -12,7 +12,7 @@ export const TEMPLATE_CHANGELOG: Array<{ version: string; notes: string[] }> = [
       'Every issue now opens with a weight line: how much it could matter if it holds up, and how sure we are that it is really in the record, as a percentage.',
       'Strong signals are shown in red and possible issues in amber so the most serious items stand out, with a short legend above the issues explaining the words.',
       'A new "About this case" section at the top: the person, county, dates, offense, verdict, and any appeals or writs, each marked as from the record or from your answers.',
-      'A new "The bottom line" section right after the summary: whether what we found is worth taking to a lawyer, in plain words.',
+      'A new "The bottom line" section right after the summary: what the review found in the record, in plain words, with the same next step every time.',
       'Our website, snotnoselegal.com, is named on the cover, in the footer, and in the closing note.',
     ],
   },

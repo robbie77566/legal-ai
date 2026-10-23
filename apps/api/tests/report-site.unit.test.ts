@@ -20,7 +20,7 @@ describe('report PDF names the site', () => {
     const buf = await renderReportPdf({
       caseTitle: 'Site Reference Case', reportId: 'rep_site', versionNo: 1, templateVersion: '2026-08-29.1', renderedAt: new Date(),
       subsequentWritMode: false, strongSignals: [finding('dispositive', 0.91)], possibleIssues: [finding('background'), ...Array.from({ length: 13 }, () => finding('supportive', 0.6))], droppedByReverification: 0,
-      bottomLine: { headline: 'There is a real reason to talk to a lawyer.', body: ['This review found 1 issue that could support a claim on its own.', 'This is information about what is in the record, not legal advice.'] },
+      bottomLine: { headline: 'The review found issues that stand on their own in this record.', body: ['This is information about what is in the record, not legal advice.', 'This review found 1 issue that stands on its own in the record.', 'A licensed Texas attorney is the person to take this to.'] },
       summaryGap: { labels: ['County', 'Offense'], documents: [{ kind: 'judgment', label: 'Judgment and sentence' }, { kind: 'indictment', label: 'Indictment' }] },
       rerunPriceCents: 9900,
       summary: [
@@ -42,7 +42,7 @@ describe('report PDF names the site', () => {
     expect(text).toContain('are at snotnoselegal.com');
     expect(text).toContain('About this case');
     expect(text).toContain('The bottom line');
-    expect(text).toContain('There is a real reason to talk to a lawyer.');
+    expect(text).toContain('The review found issues that stand on their own in this record.');
     expect(text).toContain('GARY W. DOE (RR1 p. 3)');
     expect(text).toContain('as your family told us');
     expect(text).toContain('not stated in the record');
@@ -53,8 +53,8 @@ describe('report PDF names the site', () => {
     expect(buf.toString('latin1')).toContain('snotnoselegal.com'); // metadata Author, literal
     // Per-issue weight line (PO, 2026-09-12) and its legend, once.
     expect(text).toContain('How to read each issue');
-    expect(text).toContain('Weight: could stand on its own · How sure we are: high (91%)');
-    expect(text).toContain('Weight: supports a larger claim · How sure we are: medium (60%)');
+    expect(text).toContain('Weight: stands on its own · How sure we are: high (91%)');
+    expect(text).toContain('Weight: adds to a bigger picture · How sure we are: medium (60%)');
     expect(text).toContain('Weight: background · How sure we are: not rated');
     expect(text).toContain('not a chance of winning');
   });

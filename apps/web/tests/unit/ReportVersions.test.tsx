@@ -76,11 +76,11 @@ describe('report versions', () => {
     if (gate) fireEvent.click(gate)
     const cards = await screen.findAllByTestId('finding-card')
     expect(cards[0]).toHaveAttribute('data-tone', 'urgent')
-    expect(cards[0]).toHaveTextContent('Weight: could stand on its own · How sure we are: high (86%)')
+    expect(cards[0]).toHaveTextContent('Weight: stands on its own · How sure we are: high (86%)')
     expect(cards[0].style.borderLeftColor).toBe('var(--db-urgent)')
     expect(cards[1]).toHaveAttribute('data-tone', 'review')
     expect(cards[1]).toHaveTextContent('How sure we are: medium (62%)')
-    expect(screen.getByTestId('weight-legend')).toHaveTextContent(/Could stand on its own:.*Supports a larger claim:.*Background:/)
+    expect(screen.getByTestId('weight-legend')).toHaveTextContent(/Stands on its own:.*Adds to a bigger picture:.*Background:/)
     expect(screen.getByTestId('weight-legend')).toHaveTextContent(/not a chance of winning/)
   })
 
