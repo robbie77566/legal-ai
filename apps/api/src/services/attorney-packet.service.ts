@@ -1,7 +1,10 @@
-import { computeDeadlinePosture, type DeadlineInputs } from '@hg/case-lifecycle';
+import prisma, { withTenant } from '@hg/database';
+import { computeDeadlinePosture, caseLabel, caseRef, type DeadlineInputs } from '@hg/case-lifecycle';
 import type { AttorneyPacketInput, ReportFinding } from '@hg/reports';
 import { summaryRowsForReport } from './case-summary.service';
 import { bottomLineFor } from './bottom-line.service';
+import { verifyFindings } from './analysis.service';
+import { attachConfidence } from './finding-confidence.service';
 
 /**
  * The sealed attorney packet's input (UPL review 2026-10-23, E2;
@@ -81,4 +84,39 @@ export function stripAttorneyFields<T extends object>(f: T): Omit<T, (typeof ATT
   const out: Record<string, unknown> = { ...(f as Record<string, unknown>) };
   for (const k of ATTORNEY_ONLY_FIELDS) delete out[k];
   return out as Omit<T, (typeof ATTORNEY_ONLY_FIELDS)[number]>;
+}
+
+export type AttorneyPacketLoad =
+  | { status: 'gone' }
+  | { status: 'ok'; input: AttorneyPacketInput; versionNo: number };
+
+/**
+ * The clinic inbox's packet (UPL review 2026-10-23, P3): the attorney
+ * content the consent names, read under the FAMILY's tenant exactly as the
+ * share link reads it — the report the delivery points at, FR-7 re-verified
+ * at this render, confidence attached — and built through the SAME input
+ * builder as the family's sealed download and the share link, so the three
+ * never drift. The case is labelled county · year and reference, never the
+ * family's own title.
+ */
+export async function loadAttorneyPacket(caseId: string, reportId: string, opts: { compress?: boolean } = {}): Promise<AttorneyPacketLoad> {
+  const kase = await prisma.case.findUnique({ where: { id: caseId } });
+  if (!kase || kase.status === 'DELETED') return { status: 'gone' };
+  return withTenant(kase.tenantId, async (tx) => {
+    const report = await tx.report.findUnique({ where: { id: reportId } });
+    if (!report || report.caseId !== caseId) return { status: 'gone' as const };
+    const snapshot = report.findingsSnapshot as unknown as { findings: Array<ReportFinding & { id: string }> };
+    const { verified, failed } = await verifyFindings(tx, snapshot.findings.map((f) => f.id));
+    const visible = (await attachConfidence(tx, snapshot.findings.filter((f) => verified.includes(f.id)))) as unknown as ReportFinding[];
+    const input = await buildAttorneyPacketInput({
+      kase: {
+        ...kase,
+        title: `${caseLabel({ county: kase.county, convictionYear: kase.convictionYear, createdAt: kase.createdAt })} · ${caseRef(kase.id)}`,
+      },
+      report,
+      visible,
+      droppedByReverification: failed.length,
+    });
+    return { status: 'ok' as const, versionNo: report.versionNo, input: { ...input, compress: opts.compress } };
+  });
 }

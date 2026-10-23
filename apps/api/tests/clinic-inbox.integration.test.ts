@@ -21,7 +21,9 @@ const cookieFor = async (userId: string, tenantId: string) =>
 interface Org { tenantId: string; orgId: string; ownerId: string; cookie: string }
 const mkOrg = async (tag: string, kind: 'CLINIC' | 'FIRM'): Promise<Org> => {
   const tenantId = (await prisma.tenant.create({ data: { name: `${run}_${tag}` } })).id;
-  const orgId = (await prisma.organisation.create({ data: { tenantId, kind, name: `${run} ${tag}` } })).id;
+  // A clinic receives packets only once staff verify it with a supervising attorney on file (UPL review 2026-10-23, P3).
+  const verified = kind === 'CLINIC' ? { clinicVerifiedAt: new Date(), clinicSupervisingBar: '24000001', clinicVerifiedBy: 'staff' } : {};
+  const orgId = (await prisma.organisation.create({ data: { tenantId, kind, name: `${run} ${tag}`, ...verified } })).id;
   const ownerId = (await prisma.user.create({
     data: { email: `${run}_${tag}@example.com`, name: `${tag} owner`, tenantId, role: 'CLIENT', accountKind: 'PROFESSIONAL' },
   })).id;

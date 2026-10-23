@@ -75,7 +75,8 @@ beforeAll(async () => {
   staffTenant = (await prisma.tenant.create({ data: { name: `${run}_staff` } })).id;
   adminId = (await prisma.user.create({ data: { email: `${run}_admin@example.com`, name: 'Robbie', tenantId: staffTenant, role: 'ADMIN' } })).id;
   supportId = (await prisma.user.create({ data: { email: `${run}_support@example.com`, name: 'Dana', tenantId: staffTenant, role: 'SUPPORT' } })).id;
-  reviewerId = (await prisma.user.create({ data: { email: `${run}_reviewer@example.com`, name: 'Lee', tenantId: staffTenant, role: 'ATTORNEY' } })).id;
+  // The reviewer carries a bar number: the QA edit to legal text needs one (UPL review 2026-10-23, rec. 9; proven in staff-licence.integration.test.ts).
+  reviewerId = (await prisma.user.create({ data: { email: `${run}_reviewer@example.com`, name: 'Lee', tenantId: staffTenant, role: 'ATTORNEY', barNumber: '24055555', barState: 'TX', barVerifiedAt: new Date(), barVerificationStatus: 'VERIFIED' } })).id;
   adminCookie = await cookieFor(adminId, staffTenant, 'ADMIN');
   supportCookie = await cookieFor(supportId, staffTenant, 'SUPPORT');
   reviewerCookie = await cookieFor(reviewerId, staffTenant, 'ATTORNEY');
@@ -87,7 +88,7 @@ beforeAll(async () => {
     const u = await prisma.user.create({
       data: {
         email: `${run}_${tag}@example.com`, name: `Attorney ${tag}`, tenantId: firmTenant, role: 'CLIENT', accountKind: 'PROFESSIONAL',
-        barNumber: bar, barState: bar ? 'TX' : null, practiceType: 'writ', ...(verified ? { barVerifiedAt: new Date(), barVerifiedBy: adminId } : {}),
+        barNumber: bar, barState: bar ? 'TX' : null, practiceType: 'writ', ...(verified ? { barVerifiedAt: new Date(), barVerifiedBy: adminId, barVerificationStatus: 'VERIFIED' as const } : {}),
       },
     });
     await prisma.membership.create({ data: { organisationId: firmOrgId, tenantId: firmTenant, userId: u.id, role: tag === 'a' ? 'OWNER' : 'ATTORNEY' } });
@@ -242,6 +243,10 @@ describe('G3 + G1 — bar verification is a human act', () => {
     expect(user.deletedAt).toBeNull();
     expect(user.barNumber).toBe('24022222');
     expect(user.barVerifiedAt).toBeNull();
+    // UPL review 2026-10-23 (P1): the decision now lives on the account and closes counsel review.
+    expect(user.barVerificationStatus).toBe('REJECTED');
+    expect(user.barRejectedAt).toBeTruthy();
+    expect(user.barRejectionNote).toBe('Number belongs to a suspended licence per the directory');
 
     const audit = await auditRows('BAR_VERIFICATION', `verification:${pendingB.id}`);
     expect(audit).toHaveLength(1);
@@ -267,8 +272,14 @@ describe('G3 + G1 — bar verification is a human act', () => {
     expect(ids).not.toContain(pendingB.id);
     expect((await post(`/ops/verifications/${supportId}/verify`, adminCookie)).statusCode).toBe(404);
     expect((await post(`/ops/verifications/nope/reject`, adminCookie, { note: 'x' })).statusCode).toBe(404);
-    const status = (await get('/ops/status', adminCookie)).json();
-    expect(status.professional.verificationsPending).toBe(ids.length);
+    // Both numbers are global and other suites sign professionals up (and verify them) in parallel: read until the two agree.
+    let pending = -1;
+    let queued = -2;
+    for (let i = 0; i < 5 && pending !== queued; i++) {
+      queued = ((await get('/ops/verifications', adminCookie)).json().verifications as Array<{ id: string }>).length;
+      pending = (await get('/ops/status', adminCookie)).json().professional.verificationsPending;
+    }
+    expect(pending).toBe(queued);
   });
 });
 

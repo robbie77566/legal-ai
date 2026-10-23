@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { withTenant } from '@hg/database';
 import { requireFlag } from '../plugins/flags';
-import { requireAccountKind } from '../plugins/guards';
+import { requireAccountKind, requireLawyerSeat } from '../plugins/guards';
 import { AuditService, LogAction } from '../services/audit.service';
 import { loadCounselPacket, type PacketLoad } from '../services/counsel-packet.service';
 
@@ -23,6 +23,11 @@ import { loadCounselPacket, type PacketLoad } from '../services/counsel-packet.s
  * paths behind `WITHHELD_PENDING_COUNSEL` — and an old link must not 400.
  * Every fetch is audited with ids only — never initials, a cause number or
  * a county.
+ *
+ * The packet is lawyer-only output (UPL review 2026-10-23, P1 + P2): after
+ * the seat hook, requireLawyerSeat refuses an investigator or viewer seat
+ * (LAWYER_SEAT_REQUIRED) and a lawyer seat whose bar number is pending or
+ * rejected (BAR_PENDING / BAR_REJECTED), each a 403 with `reason`.
  */
 
 const PacketQuery = z.object({
@@ -42,6 +47,7 @@ export default async function counselPacketRoutes(fastify: FastifyInstance) {
     if (!seat) return reply.status(403).send({ error: 'No active seat in an organisation' });
     request.counsel = seat;
   });
+  fastify.addHook('preHandler', requireLawyerSeat());
 
   const refusal = (load: PacketLoad) =>
     load.status === 'not_found'

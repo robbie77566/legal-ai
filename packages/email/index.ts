@@ -137,7 +137,9 @@ To take your seat:
 
 What you will see: ${opts.whatYouSee}
 
-Seats for investigators and viewers are free. If the link has expired, ask ${opts.invitedBy} to send it again. If you were not expecting this, you can ignore this email — nothing is active until you take the seat.`,
+Seats for investigators and viewers are free. The matter detail, the deadline clock, the quote and the counsel packet are for the organisation's attorneys — an owner or attorney seat whose Texas bar number our staff have verified. If you are taking an attorney seat, add your bar number on your Account page after you sign in; it is checked by a person before those open.
+
+If the link has expired, ask ${opts.invitedBy} to send it again. If you were not expecting this, you can ignore this email — nothing is active until you take the seat.`,
   });
 }
 
@@ -429,24 +431,26 @@ export function sendBarVerified(to: string, opts: { counselUrl: string }) {
   return send({
     to,
     subject: 'Your bar number is verified — your first review is free',
-    text: `We have verified your bar number. Your account is open for counsel review, and your first review is free.
+    text: `A member of our staff has verified your bar number against the State Bar roll. Counsel review is now open on your account — opening matters, the quote and the counsel packet — and your first review is free.
 
 Open a matter when you have a record ready: ${opts.counselUrl}
 
-The quote comes before the analysis, from the page count, and nothing starts until you accept it.`,
+The quote comes before the analysis, from the page count, and nothing starts until you accept it. The packet describes the record for your own review; it is not legal advice and we are not a law firm.`,
   });
 }
 
 /**
  * The neutral answer when a number could not be verified: no reason given
- * (the staff note is internal), no number repeated, the account untouched,
- * and a plain way to sort it out.
+ * (the staff note is internal), no number repeated, the account and its
+ * data untouched, and a plain way to sort it out. True to the product: the
+ * decision closes counsel review on the account (guards.ts requireLawyerSeat)
+ * until a person verifies the number.
  */
 export function sendBarNotVerified(to: string, opts: { counselUrl: string }) {
   return send({
     to,
     subject: 'We could not verify your bar number',
-    text: `We could not verify the bar number on your account, so counsel review is not open on it yet. Your account and anything you have entered are unchanged.
+    text: `We could not verify the bar number on your account, so counsel review is not open on it: matters, quotes and the counsel packet stay closed until a person verifies the number. Your account and anything you have entered are unchanged.
 
 If the number was mistyped, or you are admitted under a different name, reply to this email and we will look again. You can check what is on the account here: ${opts.counselUrl}`,
   });

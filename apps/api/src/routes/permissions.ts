@@ -52,15 +52,38 @@ const GrantAccessSchema = z.object({
   role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER', 'SUPPORT']).default('VIEWER')
 });
 
+/**
+ * The licence of a staff member (UPL review 2026-10-23, recommendation 9,
+ * P10). Optional on create and on patch: an Admin who records a bar number
+ * for a colleague has looked it up in the State Bar directory themselves,
+ * the same human act as the attorney queue, so the number is stored
+ * VERIFIED under the Admin's name. `null` clears it. `PATCH /qa/findings`
+ * refuses edits to the legal text unless the editor has one.
+ */
+const BarNumber = z.string().trim().min(1).max(32);
+const BarState = z.string().trim().regex(/^[A-Za-z]{2}$/).transform((v) => v.toUpperCase());
+
 const CreateUserSchema = z.object({
   email: z.string().email(),
   name: z.string().optional(),
-  role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER', 'SUPPORT']).default('ATTORNEY')
+  role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER', 'SUPPORT']).default('ATTORNEY'),
+  barNumber: BarNumber.optional(),
+  barState: BarState.optional(),
 });
 
-const UpdateUserSchema = z.object({
-  role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER', 'SUPPORT'])
-});
+const UpdateUserSchema = z
+  .object({
+    role: z.enum(['ADMIN', 'ATTORNEY', 'INVESTIGATOR', 'VIEWER', 'SUPPORT']).optional(),
+    barNumber: BarNumber.nullable().optional(),
+    barState: BarState.optional(),
+  })
+  .refine((b) => b.role !== undefined || b.barNumber !== undefined, { message: 'Nothing to change' });
+
+/** The licence columns for a staff account: recorded as verified by the Admin, or cleared. */
+const licenceData = (barNumber: string | null, barState: string | undefined, by: string) =>
+  barNumber
+    ? { barNumber, barState: barState ?? 'TX', barVerifiedAt: new Date(), barVerifiedBy: by, barVerificationStatus: 'VERIFIED' as const, barRejectedAt: null, barRejectionNote: null }
+    : { barNumber: null, barState: null, barVerifiedAt: null, barVerifiedBy: null, barVerificationStatus: 'PENDING' as const };
 
 export default async function permissionsRoutes(fastify: FastifyInstance) {
   // The caller's role comes from the verified token, but the DB stays
@@ -87,11 +110,13 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
 
     const users = await prisma.user.findMany({
       where: { tenantId },
-      select: { id: true, name: true, email: true, role: true, passwordHash: true, inviteExpires: true },
+      select: { id: true, name: true, email: true, role: true, passwordHash: true, inviteExpires: true, barNumber: true, barState: true, barVerifiedAt: true },
       orderBy: { createdAt: 'desc' }
     });
-    return users.map(({ passwordHash, inviteExpires, ...u }) => ({
+    return users.map(({ passwordHash, inviteExpires, barVerifiedAt, ...u }) => ({
       ...u,
+      // The licence on file (UPL review rec. 9): who may edit legal text in QA.
+      barVerified: barVerifiedAt !== null,
       // Invite state for the team list: nothing is active until a password is set.
       active: !!passwordHash,
       invitePending: !passwordHash && !!inviteExpires && inviteExpires > new Date(),
@@ -107,7 +132,7 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ error: 'Requires ADMIN privileges' });
     }
 
-    const { email, name, role } = CreateUserSchema.parse(request.body);
+    const { email, name, role, barNumber, barState } = CreateUserSchema.parse(request.body);
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -125,6 +150,7 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
         role: role as any,
         accountKind: 'STAFF',
         tenantId,
+        ...(barNumber ? licenceData(barNumber, barState, callerId) : {}),
         ...(grantKind ? { grants: { create: { kind: grantKind, grantedBy: callerId } } } : {}),
       }
     });
@@ -134,9 +160,9 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
     const invite = await sendInviteFor(user, callerId);
     await AuditService.log({
       tenantId, caseId: `user:${user.id}`, action: LogAction.CASE_ACCESS, userId: callerId,
-      details: { op: 'staff_invited', targetUserId: user.id, role, delivered: invite.delivered },
+      details: { op: 'staff_invited', targetUserId: user.id, role, delivered: invite.delivered, licenceRecorded: !!barNumber },
     });
-    return { success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role }, invite };
+    return { success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, barVerified: user.barVerifiedAt !== null }, invite };
   });
 
   // Resend the invite (rotates the token). Accounts that already have a
@@ -169,25 +195,34 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ error: 'Requires ADMIN privileges' });
     }
 
-    const { role } = UpdateUserSchema.parse(request.body);
+    const { role, barNumber, barState } = UpdateUserSchema.parse(request.body);
 
     const target = await prisma.user.findUnique({ where: { id: userId } });
     if (!target || target.tenantId !== tenantId) {
       return reply.status(404).send({ error: 'User not found in this tenant' });
     }
+    if (target.accountKind === 'PROFESSIONAL') {
+      // A professional's bar number is verified from /ops/verifications, never here.
+      return reply.status(404).send({ error: 'User not found in this tenant' });
+    }
+
+    // The licence (UPL review rec. 9): recorded or cleared beside the role.
+    const licence = barNumber !== undefined ? licenceData(barNumber, barState, callerId) : {};
 
     // Role and grants move together: the old grant is revoked (timestamp,
     // never a delete), the new one granted or re-activated.
-    const grantKind = grantKindForRole(role);
+    const grantKind = role !== undefined ? grantKindForRole(role) : null;
     const [updatedUser] = await prisma.$transaction([
       prisma.user.update({
         where: { id: userId },
-        data: { role: role as any, accountKind: 'STAFF' }
+        data: { ...(role !== undefined ? { role: role as any, accountKind: 'STAFF' as const } : {}), ...licence }
       }),
-      prisma.staffGrant.updateMany({
-        where: { userId, revokedAt: null, ...(grantKind ? { kind: { not: grantKind } } : {}) },
-        data: { revokedAt: new Date() },
-      }),
+      ...(role !== undefined
+        ? [prisma.staffGrant.updateMany({
+            where: { userId, revokedAt: null, ...(grantKind ? { kind: { not: grantKind } } : {}) },
+            data: { revokedAt: new Date() },
+          })]
+        : []),
       ...(grantKind
         ? [prisma.staffGrant.upsert({
             where: { userId_kind: { userId, kind: grantKind } },
@@ -197,7 +232,21 @@ export default async function permissionsRoutes(fastify: FastifyInstance) {
         : []),
     ]);
 
-    return { success: true, user: updatedUser };
+    if (barNumber !== undefined) {
+      // Audited like the attorney queue; the number itself never enters the row.
+      await AuditService.log({
+        tenantId, caseId: `verification:${userId}`, action: LogAction.BAR_VERIFICATION, userId: callerId,
+        details: {
+          op: barNumber ? 'staff_licence_recorded' : 'staff_licence_cleared',
+          userId,
+          before: { barVerifiedAt: target.barVerifiedAt?.toISOString() ?? null },
+          after: { barVerifiedAt: updatedUser.barVerifiedAt?.toISOString() ?? null, barVerifiedBy: updatedUser.barVerifiedBy },
+        },
+      });
+    }
+
+    const { passwordHash: _p, inviteToken: _i, resetToken: _r, emailChangeToken: _e, ...safe } = updatedUser;
+    return { success: true, user: { ...safe, barVerified: updatedUser.barVerifiedAt !== null } };
   });
 
   // Delete a user from the tenant

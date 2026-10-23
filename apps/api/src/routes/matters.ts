@@ -28,7 +28,7 @@ import {
   type MatterView,
 } from '@hg/case-lifecycle';
 import { requireFlag } from '../plugins/flags';
-import { requireAccountKind } from '../plugins/guards';
+import { requireAccountKind, requireLawyerSeat, checkLawyerSeat } from '../plugins/guards';
 import { AuditService, LogAction } from '../services/audit.service';
 import { seedChecklist } from '../services/case-setup.service';
 
@@ -52,6 +52,16 @@ import { seedChecklist } from '../services/case-setup.service';
  * organisationId test — so a professional from another organisation gets a
  * 404, never a hint. Client identity is initials only; nothing here accepts,
  * stores, logs or audits a client name or a date of birth.
+ *
+ * The lawyer gate (UPL review 2026-10-23, P1 + P2): opening and editing a
+ * matter is for a verified lawyer seat (requireLawyerSeat — OWNER or
+ * ATTORNEY with a staff-verified bar number; 403 BAR_PENDING / BAR_REJECTED /
+ * LAWYER_SEAT_REQUIRED otherwise). The list stays open to every seat (titles
+ * and status). The detail answers every seat, but a non-lawyer seat gets a
+ * stripped view — title, status, identifiers, the checklist and upload
+ * count — never the TRAP clock, the lock list, the dates or the posture
+ * fields: an investigator uploads the record, a viewer reads the status,
+ * and what a lawyer reads stays with lawyers.
  */
 
 const CIVIL_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -101,6 +111,12 @@ function matterView(m: Matter, caseFacts: unknown = null): MatterView {
   };
 }
 
+/** The keys of a matter a non-lawyer seat may read: identifiers only, never a date, the posture or the note. */
+export const NON_LAWYER_MATTER_KEYS = ['id', 'caseId', 'organisationId', 'openedBy', 'vehicle', 'vehicleLabel', 'county', 'court', 'causeNumber', 'clientInitials', 'createdAt', 'updatedAt'] as const;
+export type NonLawyerMatterView = Pick<MatterView, (typeof NON_LAWYER_MATTER_KEYS)[number]>;
+export const nonLawyerMatterView = (v: MatterView): NonLawyerMatterView =>
+  Object.fromEntries(NON_LAWYER_MATTER_KEYS.map((k) => [k, v[k]])) as NonLawyerMatterView;
+
 export default async function mattersRoutes(fastify: FastifyInstance) {
   // Order matters: the flag answers 404 before anything confirms the surface
   // exists; then the account kind (403); then the seat (403).
@@ -115,7 +131,7 @@ export default async function mattersRoutes(fastify: FastifyInstance) {
     request.counsel = seat;
   });
 
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', { preHandler: requireLawyerSeat() }, async (request, reply) => {
     const input = MatterCreateSchema.parse(request.body);
     const { tenantId, userId } = request.auth;
     const seat = request.counsel!;
@@ -254,6 +270,7 @@ export default async function mattersRoutes(fastify: FastifyInstance) {
     const { asOf } = AsOfQuery.parse(request.query ?? {});
     const { tenantId } = request.auth;
     const seat = request.counsel!;
+    const lawyer = await checkLawyerSeat(request);
 
     return withTenant(tenantId, async (tx) => {
       const matter = await tx.matter.findUnique({ where: { caseId }, include: { case: true } });
@@ -263,6 +280,18 @@ export default async function mattersRoutes(fastify: FastifyInstance) {
       const view = matterView(matter, matter.case.facts);
       const items = await tx.checklistItem.findMany({ where: { caseId }, orderBy: { createdAt: 'asc' } });
       const documents = await tx.document.count({ where: { caseId, quarantined: false } });
+      if (!lawyer.ok) {
+        // A non-lawyer seat (or a lawyer whose bar is pending / rejected):
+        // what is needed to upload the record and read the status, nothing
+        // a lawyer reads — no clock, no lock list, no dates, no posture.
+        return {
+          matter: nonLawyerMatterView(view),
+          case: { id: matter.case.id, title: matter.case.title, status: matter.case.status, vehicle: matter.case.vehicle },
+          checklist: { items, readiness: checklistReadiness(items), documents },
+          lawyerSeat: false,
+          lawyerSeatReason: lawyer.reason,
+        };
+      }
       // Every clock is replayable: `asOf` (tests, "what did it say on the
       // 30th") defaults to today. Estimates for counsel's verification —
       // the result carries the FR-5 disclaimer key and the unsigned count.
@@ -283,11 +312,12 @@ export default async function mattersRoutes(fastify: FastifyInstance) {
         checklist: { items, readiness: checklistReadiness(items), documents },
         /** Fields a PATCH would refuse right now (the engine has consumed them). */
         locked: matterFactsLocked(matter.case.status as CaseStatus) ? [...MATTER_LOCKED_AFTER_DOCS_COMPLETE] : [],
+        lawyerSeat: true,
       };
     });
   });
 
-  fastify.patch('/:caseId', async (request, reply) => {
+  fastify.patch('/:caseId', { preHandler: requireLawyerSeat() }, async (request, reply) => {
     const { caseId } = request.params as { caseId: string };
     const { tenantId, userId } = request.auth;
     const seat = request.counsel!;

@@ -26,11 +26,36 @@ export function organisationKindFor(practiceType: CounselSignupBody['practiceTyp
   return 'FIRM'
 }
 
+export type BarVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED'
+export type LawyerSeatReason = 'NOT_PROFESSIONAL' | 'NO_SEAT' | 'LAWYER_SEAT_REQUIRED' | 'BAR_PENDING' | 'BAR_REJECTED'
+
 /** What `/counsel/me` answers (apps/api/src/routes/counsel.ts). */
 export interface CounselMe {
-  user: { id: string; email: string; name: string | null; barNumber: string | null; barState: string | null; practiceType: string | null; barVerified: boolean; barVerifiedAt: string | null }
-  organisation: { id: string; kind: OrganisationKind | 'FAMILY'; name: string; pilot: boolean; pilotEndsAt: string | null; allowanceRecords: number; allowanceResetsAt: string | null }
+  user: { id: string; email: string; name: string | null; barNumber: string | null; barState: string | null; practiceType: string | null; barVerified: boolean; barVerifiedAt: string | null; barVerificationStatus: BarVerificationStatus }
+  organisation: { id: string; kind: OrganisationKind | 'FAMILY'; name: string; pilot: boolean; pilotEndsAt: string | null; allowanceRecords: number; allowanceResetsAt: string | null; clinicVerified?: boolean }
   membership: { role: 'OWNER' | 'ATTORNEY' | 'INVESTIGATOR' | 'VIEWER' }
+  /** The lawyer gate's answer (UPL review 2026-10-23, P1 + P2): matters, quotes, the clock and the packet open only when true. */
+  lawyerSeat: boolean
+  lawyerSeatReason?: LawyerSeatReason
+}
+
+/**
+ * The one sentence each closed seat reads, in the places the api refuses
+ * (the home banner, the matter page, the sign-up confirmation). Describes
+ * the state; never a promise about the outcome.
+ */
+export const LAWYER_GATE_COPY: Record<LawyerSeatReason, string> = {
+  BAR_PENDING: 'Your bar number is being checked by our staff; matters open once it is verified.',
+  BAR_REJECTED: 'We could not verify your bar number, so counsel review is not open on this account. Reply to the email we sent and we will look again.',
+  LAWYER_SEAT_REQUIRED: "The matter detail, the deadline clock, the quote and the counsel packet are for the organisation's attorneys. Your seat can upload the record and ask the Record Desk.",
+  NO_SEAT: 'Your account has no seat in an organisation.',
+  NOT_PROFESSIONAL: 'This is for counsel accounts.',
+}
+export const BAR_STATUS_LABEL: Record<BarVerificationStatus, string> = { PENDING: 'Pending verification', VERIFIED: 'Verified', REJECTED: 'Could not be verified' }
+/** The sentence for a seat the gate refuses, or null when it passes. */
+export function lawyerGateMessage(me: Pick<CounselMe, 'lawyerSeat' | 'lawyerSeatReason'> | null | undefined): string | null {
+  if (!me || me.lawyerSeat) return null
+  return LAWYER_GATE_COPY[me.lawyerSeatReason ?? 'LAWYER_SEAT_REQUIRED']
 }
 
 /**

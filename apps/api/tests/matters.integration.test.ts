@@ -41,7 +41,8 @@ const signup = async (tag: string) => {
   });
   expect(res.statusCode).toBe(200);
   const { userId, organisationId } = res.json();
-  const { tenantId } = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  // The lawyer gate (UPL review 2026-10-23, P1): matters open once staff verify the bar; proven in lawyer-gates.integration.test.ts.
+  const { tenantId } = await prisma.user.update({ where: { id: userId }, data: { barVerifiedAt: new Date(), barVerificationStatus: 'VERIFIED' } });
   return { userId, tenantId, orgId: organisationId as string, cookie: await cookieFor(userId, tenantId) };
 };
 

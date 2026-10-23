@@ -7,11 +7,16 @@
  * the allowance or credits summary when the organisation has one. The
  * allowance and credit reads sit behind counsel_checkout and simply do not
  * render while that flag is dark.
+ *
+ * The lawyer gate (UPL review 2026-10-23, P1 + P2): /counsel/me says whether
+ * this seat passes it. A pending or rejected bar number, or an investigator
+ * or viewer seat, reads one banner sentence and never sees "Open a matter";
+ * the api refuses the POST anyway — the page only decides what to render.
  */
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getAllowance, listCredits, listMatters, type MatterSummary } from '@/lib/api'
-import { BUCKET_LABEL, professionalStatus } from '@/lib/counsel'
+import { BUCKET_LABEL, lawyerGateMessage, professionalStatus } from '@/lib/counsel'
 import { useCounsel } from '@/components/counsel/CounselContext'
 
 interface Allowance { kind: 'PILOT' | 'PUBLIC_INTEREST' | 'OFFICE'; granted: number; used: number; remaining: number; resetsAt: string | null; pilot: boolean }
@@ -39,7 +44,8 @@ export default function CounselHome() {
     void listCredits().then(async (r) => { if (r.ok) setCredits((await r.json()) as { live: number }) }).catch(() => {})
   }, [flags.counsel_checkout])
 
-  const canOpen = me?.membership.role !== 'VIEWER'
+  const canOpen = me?.lawyerSeat === true
+  const gate = lawyerGateMessage(me)
 
   return (
     <section>
@@ -54,6 +60,12 @@ export default function CounselHome() {
           </Link>
         )}
       </div>
+
+      {gate && (
+        <p role="status" data-testid="lawyer-gate-banner" className="mt-5 rounded-xl border border-db-line bg-db-accent-soft px-4 py-3 text-[15px]">
+          {gate}
+        </p>
+      )}
 
       {(allowance || (credits && credits.live > 0)) && (
         <div className="mt-5 grid gap-3 sm:grid-cols-2" data-testid="allowance-summary">
@@ -92,7 +104,7 @@ export default function CounselHome() {
               Open your first matter
             </Link>
           ) : (
-            <p className="mt-4 text-sm text-db-muted">A viewer seat reads matters; ask an attorney or the owner to open one.</p>
+            <p className="mt-4 text-sm text-db-muted">{gate ?? 'This seat reads matters; an attorney or the owner opens one.'}</p>
           )}
         </div>
       )}

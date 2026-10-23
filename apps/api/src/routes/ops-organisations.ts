@@ -4,7 +4,7 @@ import type { Organisation } from '@prisma/client';
 import prisma from '@hg/database';
 import { pilotAllowance, publicInterestAllowance } from '@hg/case-lifecycle';
 import { AuditService, LogAction } from '../services/audit.service';
-import { allowanceSummary, organisationStaffView } from '../services/organisation.service';
+import { allowanceSummary, clinicVerificationSummary, organisationStaffView } from '../services/organisation.service';
 
 /**
  * Staff grants on organisations (persona_rollout_plan.md §4 "PD pilot",
@@ -21,6 +21,14 @@ import { allowanceSummary, organisationStaffView } from '../services/organisatio
  * Cross-tenant by nature, so reads are on the owner connection; every write
  * is one ORGANISATION_CHANGE audit row under the organisation's tenant with
  * the fields before and after.
+ *
+ * Clinic verification (UPL review 2026-10-23, P3): a CLINIC receives
+ * consented packets only once an Admin has verified it and recorded the
+ * supervising attorney's bar number — `POST /:id/clinic-verify
+ * { supervisingBar }` sets clinicVerifiedAt / clinicVerifiedBy /
+ * clinicSupervisingBar; `POST /:id/clinic-unverify` clears them. Both are
+ * audited; the bar number itself never enters the audit row (the same rule
+ * as the attorney queue).
  */
 
 const KINDS = ['FIRM', 'PD_OFFICE', 'CLINIC'] as const; // FAMILY organisations are never set by hand
@@ -98,6 +106,45 @@ export async function opsOrganisationRoutes(fastify: FastifyInstance) {
     await AuditService.log({
       tenantId: before.tenantId, caseId: `organisation:${id}`, action: LogAction.ORGANISATION_CHANGE, userId: request.auth.userId,
       details: { op: 'organisation_updated', before: pick(before, keys), after: pick(after, keys) },
+    });
+    return { organisation: organisationStaffView(after) };
+  });
+
+  // Clinic verification (UPL review P3): a human act, like the attorney
+  // queue — the Admin checks the supervising attorney's bar number in the
+  // State Bar directory themselves and records it here.
+  fastify.post('/:id/clinic-verify', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { supervisingBar } = z.object({ supervisingBar: z.string().trim().min(1, 'The supervising attorney\'s bar number is required').max(32) }).parse(request.body ?? {});
+    const before = await prisma.organisation.findUnique({ where: { id } });
+    if (!before) return reply.status(404).send({ error: 'No such organisation' });
+    if (before.kind !== 'CLINIC') return reply.status(409).send({ error: 'Only a clinic is verified this way — set the kind to Clinic first', reason: 'NOT_A_CLINIC' });
+    const now = new Date();
+    const after = await prisma.organisation.update({
+      where: { id },
+      data: { clinicVerifiedAt: now, clinicVerifiedBy: request.auth.userId, clinicSupervisingBar: supervisingBar },
+    });
+    const strip = (o: Organisation) => { const { clinicSupervisingBar: _bar, ...rest } = clinicVerificationSummary(o); return { ...rest, supervisingBarRecorded: o.clinicSupervisingBar !== null }; };
+    await AuditService.log({
+      tenantId: before.tenantId, caseId: `organisation:${id}`, action: LogAction.ORGANISATION_CHANGE, userId: request.auth.userId,
+      details: { op: 'clinic_verified', before: strip(before), after: strip(after) },
+    });
+    return { organisation: organisationStaffView(after) };
+  });
+
+  fastify.post('/:id/clinic-unverify', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const before = await prisma.organisation.findUnique({ where: { id } });
+    if (!before) return reply.status(404).send({ error: 'No such organisation' });
+    if (!before.clinicVerifiedAt) return reply.status(409).send({ error: 'This clinic is not verified' });
+    const after = await prisma.organisation.update({
+      where: { id },
+      data: { clinicVerifiedAt: null, clinicVerifiedBy: null, clinicSupervisingBar: null },
+    });
+    const strip = (o: Organisation) => { const { clinicSupervisingBar: _bar, ...rest } = clinicVerificationSummary(o); return { ...rest, supervisingBarRecorded: o.clinicSupervisingBar !== null }; };
+    await AuditService.log({
+      tenantId: before.tenantId, caseId: `organisation:${id}`, action: LogAction.ORGANISATION_CHANGE, userId: request.auth.userId,
+      details: { op: 'clinic_unverified', before: strip(before), after: strip(after) },
     });
     return { organisation: organisationStaffView(after) };
   });

@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Membership, Organisation } from '@prisma/client';
 import { withTenant } from '@hg/database';
-import { requireAccountKind } from '../plugins/guards';
+import { requireAccountKind, requireLawyerSeat } from '../plugins/guards';
 import { requireFlag } from '../plugins/flags';
 import {
   acceptQuote, buyPack, listCredits, quoteCase, requestQuote, allowanceView, QUOTE_METHODS, type QuoteError,
@@ -27,6 +27,12 @@ import {
  *
  * `bucket` (query or body) names the record bucket until the page meter
  * (workstream D) stores Case.recordBucket; a stored bucket always wins.
+ *
+ * The lawyer gate (UPL review 2026-10-23, P1 + P2): the quote — the decision
+ * that starts a counsel review — and the packs are for a verified lawyer
+ * seat (requireLawyerSeat: OWNER or ATTORNEY with a staff-verified bar
+ * number; 403 with `reason` otherwise). Credits and the allowance are reads
+ * of the organisation's own ledger and stay open to every seat.
  */
 
 const Bucket = z.enum(['SHORT', 'STANDARD', 'EXTENDED', 'LONG']).optional();
@@ -50,7 +56,9 @@ export default async function counselCheckoutRoutes(fastify: FastifyInstance) {
     request.counsel = seat;
   });
 
-  fastify.get('/matters/:caseId/quote', async (request, reply) => {
+  const lawyer = { preHandler: requireLawyerSeat() };
+
+  fastify.get('/matters/:caseId/quote', lawyer, async (request, reply) => {
     const { caseId } = request.params as { caseId: string };
     const q = z.object({ bucket: Bucket, promoCode: z.string().max(32).optional() }).parse(request.query ?? {});
     const out = await quoteCase(caseId, request.auth, q);
@@ -58,7 +66,7 @@ export default async function counselCheckoutRoutes(fastify: FastifyInstance) {
     return out;
   });
 
-  fastify.post('/matters/:caseId/quote/accept', async (request, reply) => {
+  fastify.post('/matters/:caseId/quote/accept', lawyer, async (request, reply) => {
     const { caseId } = request.params as { caseId: string };
     const body = z
       .object({ method: z.enum(QUOTE_METHODS as [string, ...string[]]), bucket: Bucket, promoCode: z.string().max(32).optional() })
@@ -71,7 +79,7 @@ export default async function counselCheckoutRoutes(fastify: FastifyInstance) {
     return out;
   });
 
-  fastify.post('/matters/:caseId/quote/request', async (request, reply) => {
+  fastify.post('/matters/:caseId/quote/request', lawyer, async (request, reply) => {
     const { caseId } = request.params as { caseId: string };
     const body = z.object({ note: z.string().trim().max(2000).optional(), bucket: Bucket }).parse(request.body ?? {});
     const out = await requestQuote(caseId, request.auth, body);
@@ -82,7 +90,7 @@ export default async function counselCheckoutRoutes(fastify: FastifyInstance) {
     return out;
   });
 
-  fastify.post('/packs', async (request, reply) => {
+  fastify.post('/packs', lawyer, async (request, reply) => {
     const { rung } = z.object({ rung: z.enum(['SHORT', 'STANDARD', 'EXTENDED']) }).parse(request.body ?? {});
     const out = await buyPack(rung, request.auth);
     if (!out.ok) {

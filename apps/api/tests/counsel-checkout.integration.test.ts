@@ -97,8 +97,8 @@ let adminEmail: string;
 let admin2Email: string;
 let adminCookie: string;
 let family: Account;
-let attorney: Account; // FIRM, bar unverified — packs and card
-let verified: Account; // FIRM, bar verified — the free first review and partner codes
+let attorney: Account; // FIRM, bar verified, free review already taken (last month) — packs and card
+let verified: Account; // FIRM, bar verified, first review still to come — the free first review and partner codes
 let dark: Account; // FIRM, counsel_checkout off
 let pd: Account; // PD_OFFICE on pilot
 const tenants: string[] = [];
@@ -112,7 +112,8 @@ async function signup(tag: string, extra: Record<string, unknown> = {}): Promise
   });
   expect(res.statusCode).toBe(200);
   const { userId, organisationId } = res.json();
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  // The quote routes are behind the lawyer gate (UPL review 2026-10-23, P1): every quoting account is verified.
+  const user = await prisma.user.update({ where: { id: userId }, data: { barVerifiedAt: new Date(), barVerificationStatus: 'VERIFIED' } });
   tenants.push(user.tenantId);
   return { userId, organisationId, tenantId: user.tenantId, email, cookie: `next-auth.session-token=${await encodeSessionToken({ userId, tenantId: user.tenantId, role: 'CLIENT' })}` };
 }
@@ -157,7 +158,12 @@ beforeAll(async () => {
   verified = await signup('verified');
   dark = await signup('dark');
   pd = await signup('pd', { practiceType: 'pd', organisationName: 'Travis County Public Defender', organisationKind: 'PD_OFFICE' });
-  await prisma.user.update({ where: { id: verified.userId }, data: { barVerifiedAt: new Date(), barVerifiedBy: admin.id } });
+  await prisma.user.update({ where: { id: verified.userId }, data: { barVerifiedBy: admin.id } });
+  // "attorney" took the free first review last month: quotes are PAY (NOT_FIRST_REVIEW) and the month cap is untouched.
+  const lastMonth = new Date(); lastMonth.setUTCMonth(lastMonth.getUTCMonth() - 1, 15);
+  await prisma.payment.create({
+    data: { stripeId: `free_prior_${run}`, userId: attorney.userId, tenantId: attorney.tenantId, kind: 'REVIEW', status: 'SUCCEEDED', amountCents: 0, promoCode: 'FIRST_REVIEW_FREE', sku: 'COUNSEL_SHORT', rung: 'SHORT', createdAt: lastMonth },
+  });
   await prisma.organisation.update({
     where: { id: pd.organisationId },
     data: { pilot: true, pilotEndsAt: new Date(Date.now() + 90 * 86400_000), allowanceRecords: 15 },
@@ -188,17 +194,17 @@ afterAll(async () => {
 
 describe('B7 — quote by bucket through the route', () => {
   it.each([
-    ['SHORT', 80, 14900, 'COUNSEL_SHORT'],
-    ['STANDARD', 300, 24900, 'COUNSEL_STANDARD'],
-    ['EXTENDED', 900, 34900, 'COUNSEL_EXTENDED'],
-  ] as const)('%s → PAY %i (%s)', async (bucket, pages, cents, sku) => {
+    ['SHORT', 80, 14900, 'COUNSEL_SHORT', 'NOT_FIRST_REVIEW'],
+    ['STANDARD', 300, 24900, 'COUNSEL_STANDARD', 'NOT_FIRST_REVIEW'],
+    ['EXTENDED', 900, 34900, 'COUNSEL_EXTENDED', 'TOO_MANY_PAGES'],
+  ] as const)('%s → PAY %i (%s)', async (bucket, pages, cents, sku, freeFirstRefused) => {
     const c = await mkCase(attorney, bucket, pages);
     const res = await quoteOf(attorney, c.id);
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
       caseId: c.id, status: 'DOCS_COMPLETE', audience: 'ATTORNEY', bucket,
       meteredPages: { reporter: pages, total: pages },
-      decision: { kind: 'PAY', cents, listCents: cents, rung: bucket, sku, freeFirstRefused: 'BAR_NOT_VERIFIED' },
+      decision: { kind: 'PAY', cents, listCents: cents, rung: bucket, sku, freeFirstRefused },
       methods: ['CARD'],
       allowance: null,
       credits: { live: 0, unspent: 0 },

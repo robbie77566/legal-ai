@@ -7,12 +7,19 @@
  * (counsel_checkout); the status line while the pipeline runs; the packet
  * download when READY/DELIVERED. Everything is read from the api on load
  * and after every action; nothing is computed here.
+ *
+ * The lawyer gate (UPL review 2026-10-23, P1 + P2): the api answers a
+ * non-lawyer seat (investigator, viewer, or a lawyer whose bar number is
+ * pending or rejected) a stripped matter — title, status, identifiers, the
+ * checklist and the upload count, `lawyerSeat: false` — without the TRAP
+ * clock, the lock list, the dates or the posture. This page then shows the
+ * uploader and the inventory and one sentence in place of the lawyer cards.
  */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { getInventory, getMatter, getQuote, recordsComplete, type MatterView } from '@/lib/api'
-import { PACKET_STATUSES, QUOTABLE_STATUSES, RUNNING_STATUSES, professionalStatus } from '@/lib/counsel'
+import { LAWYER_GATE_COPY, PACKET_STATUSES, QUOTABLE_STATUSES, RUNNING_STATUSES, professionalStatus, type LawyerSeatReason } from '@/lib/counsel'
 import { useCounsel } from '@/components/counsel/CounselContext'
 import TrapClockCard, { type TrapClockView } from '@/components/counsel/TrapClockCard'
 import RecordInventoryCard, { type InventoryView } from '@/components/counsel/RecordInventoryCard'
@@ -21,11 +28,14 @@ import QuoteCard, { type QuoteView } from '@/components/counsel/QuoteCard'
 import PacketCard from '@/components/counsel/PacketCard'
 
 interface MatterPage {
-  matter: MatterView
-  case: { id: string; title: string; status: string; expectedReadyAt: string | null }
-  trapClock: TrapClockView
+  /** Every field for a lawyer seat; identifiers only (no dates, no posture) for the rest. */
+  matter: Partial<MatterView> & Pick<MatterView, 'id' | 'caseId' | 'vehicle' | 'vehicleLabel' | 'county' | 'clientInitials'>
+  case: { id: string; title: string; status: string; expectedReadyAt?: string | null }
+  trapClock?: TrapClockView
   checklist: { documents: number }
-  locked: string[]
+  locked?: string[]
+  lawyerSeat: boolean
+  lawyerSeatReason?: LawyerSeatReason
 }
 
 const DATE_LABEL: Array<[keyof Pick<MatterView, 'judgmentSignedAt' | 'sentenceImposedAt' | 'noticeOfAppealFiledAt' | 'recordFiledAt'>, string]> = [
@@ -60,7 +70,7 @@ export default function MatterPage() {
     setData(page)
     const inv = await getInventory(caseId)
     if (inv.ok) setInventory((await inv.json()) as InventoryView)
-    if (QUOTABLE_STATUSES.includes(page.case.status) && flags.counsel_checkout) {
+    if (page.lawyerSeat && QUOTABLE_STATUSES.includes(page.case.status) && flags.counsel_checkout) {
       const q = await getQuote(caseId)
       if (q.ok) {
         setQuote((await q.json()) as QuoteView)
@@ -121,7 +131,8 @@ export default function MatterPage() {
   const status = kase.status
   const recordOpen = status === 'AWAITING_DOCS'
   const running = RUNNING_STATUSES.includes(status)
-  const packet = PACKET_STATUSES.includes(status)
+  const lawyer = data.lawyerSeat
+  const packet = lawyer && PACKET_STATUSES.includes(status)
   const hasDocs = data.checklist.documents > 0
 
   return (
@@ -140,11 +151,11 @@ export default function MatterPage() {
           {matter.offence && <div><dt className="inline text-db-muted">Offence: </dt><dd className="inline">{matter.offence}</dd></div>}
           {matter.sentence && <div><dt className="inline text-db-muted">Sentence: </dt><dd className="inline">{matter.sentence}</dd></div>}
           {matter.lane && <div><dt className="inline text-db-muted">Lane: </dt><dd className="inline">{matter.lane === 'PLEA' ? 'Plea' : 'Trial'}</dd></div>}
-          {(matter.subsequentWrit || matter.priorWrits > 0) && (
+          {(matter.subsequentWrit || (matter.priorWrits ?? 0) > 0) && (
             <div data-testid="matter-prior-applications">
               <dt className="inline text-db-muted">Prior applications recorded: </dt>
               <dd className="inline">
-                {Math.max(matter.priorWrits, matter.subsequentWrit ? 1 : 0)}
+                {Math.max(matter.priorWrits ?? 0, matter.subsequentWrit ? 1 : 0)}
                 {matter.priorWritsDecidedOnMerits == null ? ' · decided on the merits: not recorded' : ` · decided on the merits: ${matter.priorWritsDecidedOnMerits ? 'yes' : 'no'}`}
               </dd>
             </div>
@@ -158,6 +169,13 @@ export default function MatterPage() {
 
       {error && <p role="alert" className="rounded-lg border p-3 text-sm" style={{ borderColor: 'var(--db-urgent)', color: 'var(--db-urgent)' }}>{error}</p>}
 
+      {!lawyer && (
+        <section data-testid="lawyer-gate-matter" className="rounded-xl border border-db-line bg-db-accent-soft p-5">
+          <h2 className="font-db-serif text-xl font-semibold">For the organisation&rsquo;s attorneys</h2>
+          <p className="mt-1 text-[15px]">{LAWYER_GATE_COPY[data.lawyerSeatReason ?? 'LAWYER_SEAT_REQUIRED']}</p>
+        </section>
+      )}
+
       {packet && <PacketCard caseId={caseId} title={kase.title} />}
 
       {running && (
@@ -170,7 +188,7 @@ export default function MatterPage() {
       )}
 
       {quote && <QuoteCard quote={quote} onSettled={load} />}
-      {QUOTABLE_STATUSES.includes(status) && !quote && (
+      {lawyer && QUOTABLE_STATUSES.includes(status) && !quote && (
         <section data-testid="quote-pending" className="rounded-xl border border-db-line bg-db-surface p-5">
           <h2 className="font-db-serif text-xl font-semibold">Quote</h2>
           <p className="mt-1 text-[15px] text-db-muted">
@@ -179,7 +197,7 @@ export default function MatterPage() {
         </section>
       )}
 
-      <TrapClockCard clock={data.trapClock} />
+      {lawyer && data.trapClock && <TrapClockCard clock={data.trapClock} />}
 
       {(recordOpen || status === 'DOCS_COMPLETE' || status === 'QUOTED') && (
         <RecordUploader caseId={caseId} disabled={!recordOpen} onUploaded={load} />
@@ -187,7 +205,7 @@ export default function MatterPage() {
 
       {inventory && <RecordInventoryCard inventory={inventory} />}
 
-      {recordOpen && (
+      {lawyer && recordOpen && (
         <section data-testid="records-complete" className="rounded-xl border border-db-line bg-db-surface p-5">
           <h2 className="font-db-serif text-xl font-semibold">Close the record</h2>
           <p className="mt-1 text-[15px] text-db-muted">

@@ -4,15 +4,17 @@
  * /counsel/record-desk — Record Desk requests (workstream I): the
  * organisation's requests with their status and the staff note, and the
  * form to file a new one (chronology, records tracker, other). In January
- * the Record Desk delivers by hand: a status and a note, no file. Behind
- * record_desk; prices are on request by design.
+ * the Record Desk delivers by hand: a status, a structured chronology
+ * (date · volume · page · what the record shows) and a process note. Behind
+ * record_desk; prices are on request by design. The chronology describes
+ * the record; it is not advice (UPL review 2026-10-23, P10).
  */
 import { useCallback, useEffect, useState } from 'react'
-import { fileInvestigationRequest, listInvestigationRequests, listMatters, type InvestigationRequestBody, type MatterSummary } from '@/lib/api'
+import { fileInvestigationRequest, listInvestigationRequests, listMatters, type ChronologyDeliverable, type InvestigationRequestBody, type MatterSummary } from '@/lib/api'
 import { useCounsel } from '@/components/counsel/CounselContext'
 import NotAvailable from '@/components/counsel/NotAvailable'
 
-interface Req { id: string; caseId: string | null; kind: InvestigationRequestBody['kind']; pages: number | null; dueBy: string | null; note: string; status: 'OPEN' | 'IN_PROGRESS' | 'DELIVERED' | 'DECLINED'; staffNote: string | null; deliveredAt: string | null; createdAt: string }
+interface Req { id: string; caseId: string | null; kind: InvestigationRequestBody['kind']; pages: number | null; dueBy: string | null; note: string; status: 'OPEN' | 'IN_PROGRESS' | 'DELIVERED' | 'DECLINED'; staffNote: string | null; deliverable?: ChronologyDeliverable | null; deliveredAt: string | null; createdAt: string }
 const KIND_LABEL: Record<InvestigationRequestBody['kind'], string> = { CHRONOLOGY: 'Chronology', RECORDS_TRACKER: 'Records tracker', OTHER: 'Other' }
 const STATUS_LABEL: Record<Req['status'], string> = { OPEN: 'Open', IN_PROGRESS: 'In progress', DELIVERED: 'Delivered', DECLINED: 'Declined' }
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -134,7 +136,30 @@ export default function RecordDeskPage() {
                   Filed {day(r.createdAt)}{r.pages ? ` · ${r.pages.toLocaleString('en-US')} pages` : ''}{r.dueBy ? ` · needed by ${r.dueBy.slice(0, 10)}` : ''}{r.deliveredAt ? ` · delivered ${day(r.deliveredAt)}` : ''}
                 </p>
                 <p className="mt-1 text-sm">{r.note}</p>
-                {r.staffNote && <p className="mt-2 rounded-lg bg-db-bg px-3 py-2 text-sm"><span className="font-semibold">Record Desk:</span> {r.staffNote}</p>}
+                {r.deliverable && r.deliverable.entries.length > 0 && (
+                  <div className="mt-3 overflow-x-auto rounded-lg border border-db-line" data-testid={`chronology-${r.id}`}>
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-db-line text-xs uppercase tracking-wider text-db-muted">
+                          <th className="px-3 py-2 font-semibold">Date</th><th className="px-3 py-2 font-semibold">Volume</th><th className="px-3 py-2 font-semibold">Page</th><th className="px-3 py-2 font-semibold">What the record shows</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.deliverable.entries.map((e, i) => (
+                          <tr key={i} className="border-b border-db-line last:border-b-0 align-top">
+                            <td className="whitespace-nowrap px-3 py-2 font-db-mono text-xs">{e.date}</td>
+                            <td className="whitespace-nowrap px-3 py-2 font-db-mono text-xs">{e.volume ?? ''}</td>
+                            <td className="whitespace-nowrap px-3 py-2 font-db-mono text-xs">{e.page ?? ''}</td>
+                            <td className="px-3 py-2">{e.event}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {r.deliverable.note && <p className="border-t border-db-line px-3 py-2 text-sm text-db-muted">{r.deliverable.note}</p>}
+                    <p className="border-t border-db-line px-3 py-2 text-xs text-db-muted">Built by a person from the record you sent, cited to volume and page. It describes the record; what to do with it is counsel&rsquo;s decision.</p>
+                  </div>
+                )}
+                {r.staffNote && <p className="mt-2 rounded-lg bg-db-bg px-3 py-2 text-sm" data-testid={`process-note-${r.id}`}><span className="font-semibold">Process note:</span> {r.staffNote}</p>}
               </li>
             ))}
           </ul>

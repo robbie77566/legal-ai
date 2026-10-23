@@ -12,8 +12,18 @@ import { AuditService, LogAction } from '../services/audit.service';
  *
  * Bar verification is a HUMAN act: a staff member looks the number up in the
  * State Bar directory themselves and presses one of two buttons. Nothing
- * here calls the State Bar; nothing here stores a reason outside the audit
- * row; the bar number never enters an audit row or an email.
+ * here calls the State Bar; the bar number never enters an audit row or an
+ * email.
+ *
+ * UPL review 2026-10-23 (P1): the decision now lives on the account —
+ * User.barVerificationStatus PENDING | VERIFIED | REJECTED, plus
+ * barRejectedAt and the internal barRejectionNote — because the lawyer gate
+ * (guards.ts requireLawyerSeat) reads it on every request. Verify sets
+ * VERIFIED and opens matters, quotes and the packet; reject sets REJECTED
+ * and closes them on the next request (a verified number can be rejected
+ * later — that revokes it); verify after a rejection reopens. Practice types
+ * `investigator` and `other` cannot be verified as a lawyer: staff decline
+ * them and the owner invites the investigator to a seat instead.
  */
 
 const WEB_ORIGIN = () => (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
@@ -32,14 +42,11 @@ export function investigationSla(createdAt: Date, now = new Date()) {
 /** "Near zero" for an organisation allowance: this many records or fewer left of a grant. */
 const ALLOWANCE_NEAR_ZERO = 2;
 
-/** Users rejected from the queue: the decision lives only in the audit row, so the queue reads it from there. */
-async function rejectedUserIds(): Promise<Set<string>> {
-  const rows = await prisma.auditLog.findMany({
-    where: { action: LogAction.BAR_VERIFICATION, caseId: { startsWith: 'verification:' } },
-    select: { caseId: true, details: true },
-  });
-  return new Set(rows.filter((r) => (r.details as { op?: string }).op === 'rejected').map((r) => r.caseId.slice('verification:'.length)));
-}
+/** Practice types that describe a non-lawyer: the account may exist, but it is never verified as a lawyer. */
+export const NON_LAWYER_PRACTICE_TYPES: ReadonlySet<string> = new Set(['investigator', 'other']);
+
+/** The verification queue's filter: a professional with a bar number, undecided. */
+const PENDING_WHERE = { accountKind: 'PROFESSIONAL' as const, barNumber: { not: null }, barVerifiedAt: null, barVerificationStatus: 'PENDING' as const, deletedAt: null };
 
 /** Monday 00:00 (America/Chicago civil week) as a UTC instant for "this week" counts. */
 function weekStart(now = new Date()): Date {
@@ -53,9 +60,8 @@ function weekStart(now = new Date()): Date {
 
 /** The Today page's professional group (plan §7 "Observability"): five numbers, each a door. */
 export async function professionalOverview(now = new Date()) {
-  const [pending, rejected, quoteRequestsOpen, pilotEntries, testOrgs, orgs, entries, open] = await Promise.all([
-    prisma.user.findMany({ where: { accountKind: 'PROFESSIONAL', barNumber: { not: null }, barVerifiedAt: null, deletedAt: null }, select: { id: true } }),
-    rejectedUserIds(),
+  const [pending, quoteRequestsOpen, pilotEntries, testOrgs, orgs, entries, open] = await Promise.all([
+    prisma.user.count({ where: PENDING_WHERE }),
     prisma.quoteRequest.count({ where: { status: 'OPEN' } }),
     prisma.allowanceEntry.findMany({ where: { kind: 'PILOT', consumedAt: { gte: weekStart(now) } }, select: { organisationId: true } }),
     prisma.organisation.findMany({ where: { isTest: true }, select: { id: true } }),
@@ -78,7 +84,7 @@ export async function professionalOverview(now = new Date()) {
     .filter((r) => r.pastSla && !testOrgIds.has(r.organisationId))
     .sort((a, b) => b.businessDaysOpen - a.businessDaysOpen);
   return {
-    verificationsPending: pending.filter((u) => !rejected.has(u.id)).length,
+    verificationsPending: pending,
     quoteRequestsOpen,
     pilotRecordsThisWeek: pilotEntries.filter((e) => !testOrgIds.has(e.organisationId)).length,
     allowancesNearZero,
@@ -89,64 +95,83 @@ export async function professionalOverview(now = new Date()) {
 export async function opsProfessionalRoutes(fastify: FastifyInstance) {
   // ── Bar verification queue ────────────────────────────────────────────
   fastify.get('/verifications', async () => {
-    const [users, rejected] = await Promise.all([
-      prisma.user.findMany({
-        where: { accountKind: 'PROFESSIONAL', barNumber: { not: null }, barVerifiedAt: null, deletedAt: null },
-        select: {
-          id: true, name: true, email: true, barNumber: true, barState: true, practiceType: true, createdAt: true,
-          memberships: { select: { role: true, organisation: { select: { id: true, name: true, kind: true, isTest: true } } }, orderBy: { createdAt: 'asc' }, take: 1 },
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      rejectedUserIds(),
-    ]);
+    const users = await prisma.user.findMany({
+      where: PENDING_WHERE,
+      select: {
+        id: true, name: true, email: true, barNumber: true, barState: true, practiceType: true, barVerificationStatus: true, createdAt: true,
+        memberships: { select: { role: true, organisation: { select: { id: true, name: true, kind: true, isTest: true } } }, orderBy: { createdAt: 'asc' }, take: 1 },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
     return {
-      verifications: users
-        .filter((u) => !rejected.has(u.id))
-        .map((u) => ({
-          id: u.id, name: u.name, email: u.email, barNumber: u.barNumber, barState: u.barState, practiceType: u.practiceType, signedUpAt: u.createdAt,
-          organisation: u.memberships[0]?.organisation ?? null,
-          seat: u.memberships[0]?.role ?? null,
-        })),
+      verifications: users.map((u) => ({
+        id: u.id, name: u.name, email: u.email, barNumber: u.barNumber, barState: u.barState, practiceType: u.practiceType, signedUpAt: u.createdAt,
+        barVerificationStatus: u.barVerificationStatus,
+        // The page shows this so staff decline a non-lawyer practice type rather than verify it.
+        lawyerPracticeType: !NON_LAWYER_PRACTICE_TYPES.has(u.practiceType ?? ''),
+        organisation: u.memberships[0]?.organisation ?? null,
+        seat: u.memberships[0]?.role ?? null,
+      })),
     };
   });
 
-  const pendingProfessional = async (userId: string) => {
-    const u = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, tenantId: true, accountKind: true, barNumber: true, barVerifiedAt: true, barVerifiedBy: true, deletedAt: true } });
+  const professionalWithBar = async (userId: string) => {
+    const u = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, tenantId: true, accountKind: true, barNumber: true, barVerifiedAt: true, barVerifiedBy: true, barVerificationStatus: true, practiceType: true, deletedAt: true },
+    });
     if (!u || u.accountKind !== 'PROFESSIONAL' || !u.barNumber || u.deletedAt) return null;
     return u;
   };
 
   fastify.post('/verifications/:userId/verify', async (request, reply) => {
     const { userId } = request.params as { userId: string };
-    const u = await pendingProfessional(userId);
+    const u = await professionalWithBar(userId);
     if (!u) return reply.status(404).send({ error: 'No professional account with a bar number to verify' });
-    if (u.barVerifiedAt) return reply.status(409).send({ error: 'Already verified' });
+    if (u.barVerifiedAt && u.barVerificationStatus === 'VERIFIED') return reply.status(409).send({ error: 'Already verified' });
+    if (NON_LAWYER_PRACTICE_TYPES.has(u.practiceType ?? '')) {
+      return reply.status(409).send({
+        error: 'An investigator or other non-lawyer practice type cannot be verified as a lawyer — record it as not verified; investigators take a seat by invitation from an organisation owner',
+        reason: 'NOT_A_LAWYER_PRACTICE',
+      });
+    }
     const now = new Date();
-    await prisma.user.update({ where: { id: u.id }, data: { barVerifiedAt: now, barVerifiedBy: request.auth.userId } });
+    const before = { barVerifiedAt: u.barVerifiedAt?.toISOString() ?? null, barVerifiedBy: u.barVerifiedBy, barVerificationStatus: u.barVerificationStatus };
+    await prisma.user.update({
+      where: { id: u.id },
+      data: { barVerifiedAt: now, barVerifiedBy: request.auth.userId, barVerificationStatus: 'VERIFIED', barRejectedAt: null, barRejectionNote: null },
+    });
     await AuditService.log({
       tenantId: u.tenantId, caseId: `verification:${u.id}`, action: LogAction.BAR_VERIFICATION, userId: request.auth.userId,
-      details: { op: 'verified', userId: u.id, before: { barVerifiedAt: null, barVerifiedBy: null }, after: { barVerifiedAt: now.toISOString(), barVerifiedBy: request.auth.userId } },
+      details: { op: 'verified', userId: u.id, before, after: { barVerifiedAt: now.toISOString(), barVerifiedBy: request.auth.userId, barVerificationStatus: 'VERIFIED' } },
     });
     const { sendBarVerified } = await import('@hg/email');
     const mail = await sendBarVerified(u.email, { counselUrl: COUNSEL_URL() });
-    return { ok: true, userId: u.id, barVerifiedAt: now, barVerifiedBy: request.auth.userId, emailed: mail.delivered };
+    return { ok: true, userId: u.id, barVerifiedAt: now, barVerifiedBy: request.auth.userId, barVerificationStatus: 'VERIFIED', emailed: mail.delivered };
   });
 
   fastify.post('/verifications/:userId/reject', async (request, reply) => {
     const { userId } = request.params as { userId: string };
     const { note } = z.object({ note: z.string().trim().min(1).max(2000) }).parse(request.body ?? {});
-    const u = await pendingProfessional(userId);
+    const u = await professionalWithBar(userId);
     if (!u) return reply.status(404).send({ error: 'No professional account with a bar number to verify' });
-    if (u.barVerifiedAt) return reply.status(409).send({ error: 'Already verified' });
-    // The account is untouched: the decision and its reason live in the audit row alone.
+    if (u.barVerificationStatus === 'REJECTED') return reply.status(409).send({ error: 'Already recorded as not verified' });
+    // The account stays and the number stays; the decision closes counsel
+    // review (guards.ts) and the reason is internal — the audit row and the
+    // staff-only note column, never the email.
+    const now = new Date();
+    const revoked = u.barVerifiedAt !== null;
+    await prisma.user.update({
+      where: { id: u.id },
+      data: { barVerificationStatus: 'REJECTED', barRejectedAt: now, barRejectionNote: note, barVerifiedAt: null, barVerifiedBy: null },
+    });
     await AuditService.log({
       tenantId: u.tenantId, caseId: `verification:${u.id}`, action: LogAction.BAR_VERIFICATION, userId: request.auth.userId,
-      details: { op: 'rejected', userId: u.id, note },
+      details: { op: 'rejected', userId: u.id, note, revoked, before: { barVerificationStatus: u.barVerificationStatus }, after: { barVerificationStatus: 'REJECTED', barRejectedAt: now.toISOString() } },
     });
     const { sendBarNotVerified } = await import('@hg/email');
     const mail = await sendBarNotVerified(u.email, { counselUrl: COUNSEL_URL() });
-    return { ok: true, userId: u.id, emailed: mail.delivered };
+    return { ok: true, userId: u.id, barVerificationStatus: 'REJECTED', revoked, emailed: mail.delivered };
   });
 
   // ── Credits (money; the hook keeps Support off it) ───────────────────

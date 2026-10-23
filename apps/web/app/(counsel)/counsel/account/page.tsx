@@ -9,10 +9,10 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { apiFetch } from '@/lib/api'
+import { addCounselBarNumber, apiFetch } from '@/lib/api'
 import PasswordField from '@/components/daybreak/PasswordField'
 import { useCounsel } from '@/components/counsel/CounselContext'
-import { PRACTICE_TYPES } from '@/lib/counsel'
+import { BAR_STATUS_LABEL, LAWYER_GATE_COPY, PRACTICE_TYPES } from '@/lib/counsel'
 
 interface Me { user: { name: string | null; email: string; pendingEmail: string | null; passwordChangedAt: string | null; memberSince: string } }
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -35,6 +35,7 @@ export default function CounselAccount() {
   const [form, setForm] = useState<Record<string, string>>({})
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const [bar, setBar] = useState('')
 
   const load = useCallback(async () => {
     const r = await apiFetch('/me')
@@ -58,6 +59,22 @@ export default function CounselAccount() {
   if (!me) return <p className="py-10 text-sm text-db-muted">Loading…</p>
   const u = me.user
   const practice = PRACTICE_TYPES.find(([v]) => v === counsel?.user.practiceType)?.[1] ?? counsel?.user.practiceType ?? '—'
+  const barStatus = counsel?.user.barVerificationStatus ?? (counsel?.user.barVerified ? 'VERIFIED' : 'PENDING')
+  // An invited attorney or owner has no bar number yet; adding one puts it in the staff queue (UPL review 2026-10-23, P1).
+  const lawyerSeatRole = counsel?.membership.role === 'OWNER' || counsel?.membership.role === 'ATTORNEY'
+  const needsBar = !!counsel && lawyerSeatRole && !counsel.user.barNumber
+  const addBar = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setNotice('')
+    const r = await addCounselBarNumber(bar.trim())
+    const d = (await r.json().catch(() => ({}))) as { error?: string }
+    setBusy(false)
+    if (!r.ok) return setNotice(d.error ?? 'That did not save — please try again.')
+    setBar('')
+    setNotice(LAWYER_GATE_COPY.BAR_PENDING)
+    reload()
+  }
 
   return (
     <section className="mx-auto max-w-xl">
@@ -68,7 +85,23 @@ export default function CounselAccount() {
       <section className="mt-6" data-testid="profile">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-db-muted">Professional profile</h2>
         <div className="mt-2 rounded-xl border border-db-line bg-db-surface">
-          <Row label="Texas bar number" value={counsel?.user.barNumber ? <span className="font-db-mono">{counsel.user.barNumber}</span> : <span className="text-db-muted">Not given</span>} action={<span className="text-sm text-db-muted">{counsel?.user.barVerified ? 'Verified' : 'Pending verification'}</span>} />
+          <Row
+            label="Texas bar number"
+            value={counsel?.user.barNumber ? <span className="font-db-mono">{counsel.user.barNumber}</span> : <span className="text-db-muted">Not given</span>}
+            action={counsel?.user.barNumber ? <span className="text-sm text-db-muted" data-testid="bar-status">{BAR_STATUS_LABEL[barStatus]}</span> : undefined}
+          />
+          {counsel?.user.barNumber && barStatus !== 'VERIFIED' && (
+            <p className="border-t border-db-line px-4 py-3 text-sm text-db-muted" data-testid="bar-status-note">{barStatus === 'REJECTED' ? LAWYER_GATE_COPY.BAR_REJECTED : LAWYER_GATE_COPY.BAR_PENDING}</p>
+          )}
+          {needsBar && (
+            <form onSubmit={addBar} className="border-t border-db-line px-4 py-3" data-testid="bar-number-form">
+              <p className="text-sm">Your seat opens matters, the clock and the packet once a person on our staff has verified your Texas bar number. Add it here.</p>
+              <div className="mt-2 flex gap-2">
+                <input aria-label="Texas bar number" required maxLength={32} inputMode="numeric" value={bar} onChange={(e) => setBar(e.target.value)} className={input} />
+                <button disabled={busy || !bar.trim()} className="rounded-lg bg-db-accent px-3 font-semibold text-db-surface disabled:opacity-40" data-testid="bar-number-submit">Add</button>
+              </div>
+            </form>
+          )}
           <Row label="Practice type" value={practice} />
           <Row label="Organisation" value={counsel ? `${counsel.organisation.name} · ${counsel.membership.role.charAt(0) + counsel.membership.role.slice(1).toLowerCase()}` : '—'} />
         </div>

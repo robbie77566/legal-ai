@@ -18,7 +18,7 @@ import crypto from 'crypto';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { fastify } from '../src/index';
 import prisma from '@hg/database';
-import { setFlag, __invalidateFlagCache } from '@hg/database/flags';
+import { setOverride, clearOverride, __invalidateFlagCache } from '@hg/database/flags';
 import { encodeSessionToken } from '@hg/auth';
 import { NOT_A_LAW_FIRM } from '@hg/case-lifecycle';
 import { runAnalysis, type AnalysisModel } from '../src/services/analysis.service';
@@ -114,15 +114,18 @@ async function pdfTextOf(buf: Buffer): Promise<string> {
   return (await parser.getText()).text.replace(/\s+/g, ' ');
 }
 
+// A tenant OVERRIDE, never the global row: the flags suite runs in parallel
+// on the same database and asserts every seeded key is dark.
 const flag = async (on: boolean) => {
-  await setFlag('family_part_b', on, 'u3-test');
+  await setOverride('family_part_b', tenantId, on, 'u3-test', 'u3-test');
   __invalidateFlagCache();
 };
 
 const ATTORNEY_FIELDS = ['partBText', 'preserved', 'harmStandard', 'vehicle', 'develop'];
 
 afterAll(async () => {
-  await flag(false);
+  await clearOverride('family_part_b', tenantId, 'u3-test').catch(() => undefined);
+  __invalidateFlagCache();
   await prisma.shareLink.deleteMany({ where: { tenantId } });
   await prisma.findingCitation.deleteMany({ where: { finding: { tenantId } } });
   await prisma.finding.deleteMany({ where: { tenantId } });

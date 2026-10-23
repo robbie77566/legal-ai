@@ -7,6 +7,12 @@
  * the staff member looks the number up in the State Bar of Texas directory
  * themselves — nothing here calls the State Bar — and presses one of two
  * buttons. Admin decides; Support reads. Industrial Authority palette.
+ *
+ * UPL review 2026-10-23 (P1): Verify opens matters, quotes and the counsel
+ * packet on the account; "Could not verify" closes them until a later
+ * verify. An `investigator` or `other` practice type is never verified as
+ * a lawyer — the row says so and Verify is disabled; staff record it as not
+ * verified and the owner invites the investigator to a seat.
  */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -23,6 +29,9 @@ interface Row {
   signedUpAt: string
   organisation: { id: string; name: string; kind: string; isTest: boolean } | null
   seat: string | null
+  barVerificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED'
+  /** False for `investigator` / `other`: never verified as a lawyer. */
+  lawyerPracticeType?: boolean
 }
 
 const when = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
@@ -70,9 +79,11 @@ export default function VerificationsPage() {
       </div>
       <p className="mt-2 max-w-3xl text-xs text-[#8B949E]" data-testid="verification-policy">
         Verification is a human act. Look the number up in the State Bar of Texas directory yourself and check the name
-        matches — nothing on this page calls the State Bar. <strong className="text-[#E6EDF3]">Verify</strong> opens counsel review and emails
-        the attorney that their first review is free. <strong className="text-[#E6EDF3]">Could not verify</strong> keeps the account as it is,
-        sends a neutral email with no reason, and files your note in the audit log where only staff read it.
+        matches — nothing on this page calls the State Bar. <strong className="text-[#E6EDF3]">Verify</strong> opens counsel review — matters, quotes and
+        the counsel packet — and emails the attorney that their first review is free. <strong className="text-[#E6EDF3]">Could not verify</strong> keeps the
+        account and its data, closes counsel review until a later verify, sends a neutral email with no reason, and files your note where only staff read it.
+        An <strong className="text-[#E6EDF3]">investigator</strong> or <strong className="text-[#E6EDF3]">other</strong> practice type is never verified as a lawyer: record it as not
+        verified; the organisation owner invites investigators to a free seat instead.
         {!canDecide && ' Deciding needs an Ops administrator; you can read the queue.'}
       </p>
       {notice && <p className="mt-3 text-sm text-[#D29922]" data-testid="notice">{notice}</p>}
@@ -91,7 +102,10 @@ export default function VerificationsPage() {
                 <div className="font-mono text-[11px] text-[#8B949E]">{r.email}</div>
               </td>
               <td className="font-mono">{r.barNumber} <span className="text-xs text-[#8B949E]">{r.barState ?? ''}</span></td>
-              <td className="text-xs">{r.practiceType ?? '—'}</td>
+              <td className="text-xs">
+                {r.practiceType ?? '—'}
+                {r.lawyerPracticeType === false && <div className="mt-0.5 font-mono text-[10px] text-[#D29922]" data-testid={`non-lawyer-${r.id}`}>not a lawyer practice — decline</div>}
+              </td>
               <td className="text-xs">
                 {r.organisation ? (
                   <Link href={`/ops/organisations/${r.organisation.id}`} className="underline hover:text-[#D4AF37]">{r.organisation.name}</Link>
@@ -116,7 +130,7 @@ export default function VerificationsPage() {
                   ) : (
                     <div className="flex justify-end gap-2">
                       <button onClick={() => setRejecting({ id: r.id, note: '' })} disabled={busy === r.id} className="rounded border border-[#30363D] px-2 py-1 text-xs disabled:opacity-40" data-testid={`reject-${r.id}`}>Could not verify…</button>
-                      <button onClick={() => void verify(r)} disabled={busy === r.id} className="rounded bg-[#D4AF37] px-2 py-1 text-xs font-semibold text-[#0B0E14] disabled:opacity-40" data-testid={`verify-${r.id}`}>Verify</button>
+                      <button onClick={() => void verify(r)} disabled={busy === r.id || r.lawyerPracticeType === false} title={r.lawyerPracticeType === false ? 'An investigator or other practice type is not verified as a lawyer' : undefined} className="rounded bg-[#D4AF37] px-2 py-1 text-xs font-semibold text-[#0B0E14] disabled:opacity-40" data-testid={`verify-${r.id}`}>Verify</button>
                     </div>
                   )}
                 </td>

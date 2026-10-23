@@ -58,3 +58,16 @@ The product is built on the right principle (describe the record, send the famil
 ## Questions for Texas counsel
 
 See the doc, section "Questions for Texas counsel" (13 items): statute text, where describing ends and advising begins, whether a family may receive Part B, licence for human reviewers, the free-check outcomes, professional-tier gates, clinics as law practices, the client letter, the disclosure templates, partner codes and the planned directory, the 11.07 and §2254 outputs, TRAIGA, and Spanish.
+
+## Implementation status — 2026-10-23
+
+All twelve recommendations are implemented on `main` (branches `ws/u1-statement-holding-out`, `ws/u2-describe-not-conclude`, `ws/u3-part-b-split`, `ws/u4-professional-gates`, `ws/u5-packet-content`, merged the same day). Where the review left a decision to counsel the code takes the conservative default and carries the comment `UPL review 2026-10-23: counsel decision pending (question N)`:
+
+| Question | Default in code today | Reversal |
+| --- | --- | --- |
+| 3 — may a family receive Part B? | No. Flag `family_part_b` is off: the family report is Part A only and the attorney content is a sealed packet (`GET /cases/:id/attorney-packet.pdf`, the share link, the clinic inbox) | Flip the flag per tenant or globally from `/ops/flags` |
+| 8 — the client letter in the counsel packet | Withheld (`WITHHELD_PENDING_COUNSEL.clientLetter`) | Founder-merged change in `packages/reports/disclosures.ts` |
+| 9 — 47.2(e) block and W.D. Tex. certificate | Withheld; a third-person tool statement prints instead | Same |
+| 11 — 11.07 posture and §2254 exhaustion as conclusions | Inputs and rule only; exhaustion section removed; labels "shown / not shown / unclear" | `packages/case-lifecycle/trap/*` after counsel's answer |
+
+Still human-only: counsel's review of the statement, the Terms and Refund Policy drafts, the disclosures and privacy pages, the tool statement and the TRAP vectors; the GTM document outside the repository.
