@@ -14,7 +14,7 @@ const CHECKLIST = {
     { key: 'conviction', label: 'Conviction', value: 'Travis County · 2019' },
     { key: 'trialOrPlea', label: 'How it was decided', value: 'A trial', shapesReview: true },
     { key: 'custody', label: 'Where they are now', value: 'On probation (community supervision)' },
-    { key: 'vehicle', label: 'Writ type', value: 'Article 11.072', derived: true },
+    { key: 'vehicle', label: 'How we read this record', value: 'as an Article 11.072 case (a lawyer decides what, if anything, is filed)', derived: true },
     { key: 'appeal', label: 'Direct appeal', value: 'Decided (denied or affirmed)', shapesReview: true },
     { key: 'priorWrit', label: 'Prior writ', value: 'None that you know of', shapesReview: true },
   ],
@@ -34,7 +34,7 @@ describe('interview', () => {
     render(<CaseInterview />)
     const known = await screen.findByTestId('known-facts')
     expect(known).toHaveTextContent(/Direct appeal.*Decided/)
-    expect(known).toHaveTextContent(/Article 11\.072.*we chose this from your answers/)
+    expect(known).toHaveTextContent(/as an Article 11\.072 case \(a lawyer decides what, if anything, is filed\).*from your answers/)
     expect(screen.queryByTestId('appeal-question')).toBeNull()
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Confirm the details')
     expect((screen.getByDisplayValue('Travis') as HTMLInputElement).value).toBe('Travis')

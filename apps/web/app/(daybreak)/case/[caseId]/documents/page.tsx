@@ -1084,7 +1084,7 @@ export default function CaseDocuments() {
             {data.factLines.filter((l) => l.value).map((l) => (
               <div key={l.key} className="contents">
                 <dt className="text-db-muted">{l.label}</dt>
-                <dd>{l.value}{l.derived && <span className="ml-1 text-xs text-db-muted">(chosen from your answers)</span>}</dd>
+                <dd>{l.value}{l.derived && <span className="ml-1 text-xs text-db-muted">(from your answers)</span>}</dd>
               </div>
             ))}
           </dl>

@@ -133,7 +133,8 @@ export function describeFacts(
     { key: 'trialOrPlea', label: 'How it was decided', value: trialOrPlea === 'trial' ? 'A trial' : trialOrPlea === 'plea' ? 'A guilty or no-contest plea' : null, shapesReview: true },
     { key: 'trialDays', label: 'Trial length', value: f.trialDays != null ? `About ${f.trialDays} day${f.trialDays === 1 ? '' : 's'}` : null },
     { key: 'custody', label: 'Where they are now', value: f.custody ? CUSTODY[f.custody] : null },
-    { key: 'vehicle', label: 'Writ type', value: kase.vehicle ? `Article ${kase.vehicle}` : null, derived: true },
+    // UPL review 2026-10-23 (E7): how the review reads the record, not the family's "writ type" — a lawyer decides what, if anything, is filed.
+    { key: 'vehicle', label: 'How we read this record', value: kase.vehicle ? `as an Article ${kase.vehicle} case (a lawyer decides what, if anything, is filed)` : null, derived: true },
     { key: 'appeal', label: 'Direct appeal', value: f.appeal ? `${APPEAL[f.appeal]}${f.appeal === 'none' && f.noAppealReason ? ` — ${NO_APPEAL[f.noAppealReason]}` : ''}` : null, shapesReview: true },
     { key: 'priorWrit', label: 'Prior writ', value: priorWrit ? PRIOR_WRIT[priorWrit] : null, shapesReview: true },
     { key: 'newEvidence', label: 'New evidence', value: f.newEvidence === true ? 'Yes — evidence that was never presented' : f.newEvidence === false ? 'None that you know of' : null },

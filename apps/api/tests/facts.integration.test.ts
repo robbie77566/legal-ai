@@ -147,7 +147,7 @@ describe('the free check survives purchase', () => {
     expect(checklist.facts).toMatchObject({ county: 'Travis', appeal: 'decided' });
     const line = (k: string) => checklist.factLines.find((l: { key: string }) => l.key === k);
     expect(line('conviction').value).toBe('Travis County · 2019 · felony · Texas state court');
-    expect(line('vehicle')).toMatchObject({ value: 'Article 11.072', derived: true });
+    expect(line('vehicle')).toMatchObject({ value: 'as an Article 11.072 case (a lawyer decides what, if anything, is filed)', derived: true });
     expect(line('appeal').value).toMatch(/Decided/);
     expect(checklist.rerun).toBeNull();
   });

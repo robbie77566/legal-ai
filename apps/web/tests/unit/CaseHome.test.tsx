@@ -15,7 +15,7 @@ const CHECKLIST = {
   factLines: [
     { key: 'conviction', label: 'Conviction', value: 'Travis County · 2019 · felony · Texas state court' },
     { key: 'trialOrPlea', label: 'How it was decided', value: 'A trial', shapesReview: true },
-    { key: 'vehicle', label: 'Writ type', value: 'Article 11.07', derived: true },
+    { key: 'vehicle', label: 'How we read this record', value: 'as an Article 11.07 case (a lawyer decides what, if anything, is filed)', derived: true },
   ],
   rerun: null,
 }
@@ -35,7 +35,7 @@ describe('case home', () => {
     expect(screen.getByTestId('primary-action')).toHaveAttribute('href', '/case/case_1/documents')
     const about = screen.getByTestId('about-case')
     expect(about).toHaveTextContent(/A trial/)
-    expect(about).toHaveTextContent(/Article 11\.07.*chosen from your answers/)
+    expect(about).toHaveTextContent(/How we read this record.*as an Article 11\.07 case \(a lawyer decides what, if anything, is filed\).*from your answers/)
     expect(screen.getByRole('link', { name: 'Change' })).toHaveAttribute('href', '/case/case_1/interview')
     expect(screen.getByTestId('unlock-deadlines')).toHaveTextContent(/Add the judgment date/)
     const nav = screen.getByTestId('case-nav')

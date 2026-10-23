@@ -1,4 +1,4 @@
-import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, BRAND, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist, normalizePreserved } from '@hg/case-lifecycle';
+import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, BRAND, federalWindowEndDate, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist, normalizePreserved } from '@hg/case-lifecycle';
 import { PALETTES, SITE, TONE_COLOR, severityLabel, createDocument, installFooter, renderBrandHeader, citeWhere, type ReportPalette, type PaletteColors, type Pdf } from './pdf-helpers';
 
 /**
@@ -91,6 +91,29 @@ export const NEW_EVIDENCE_COPY = {
   said: 'What you told us',
   answeredYes: 'When we asked whether there is evidence that was never presented — like a recantation, an alibi, or a new witness — you answered yes.',
   next: 'Tell your attorney about it in your first conversation — it is not in the court record, so nothing in this report speaks to it.',
+} as const;
+
+/**
+ * "Time limits" and the rule lines, as description (UPL review 2026-10-23,
+ * E5) — the same English words the web report shows
+ * (lib/content/report-deadlines.ts). `{x}` placeholders are filled at render.
+ */
+export const DEADLINE_COPY = {
+  title: 'Time limits (as of {asOf})',
+  verify:
+    'These dates are counted from the dates your family gave and the standard rules. They are not legal advice. A lawyer must check every date before anyone relies on it.',
+  ended: 'By our count from the dates you gave, the one-year federal window ended on {date}.',
+  endedNoDate: 'By our count from the dates you gave, the one-year federal window has ended.',
+  open: 'By our count from the dates you gave, the one-year federal window is open until about {date}.',
+  openNoDate: 'By our count from the dates you gave, the one-year federal window is open.',
+  paused: 'By our count, the one-year federal window is paused while the state court decides.',
+  basis: 'The count starts when the conviction became final ({finalityDate} — {finalityBasis}); about {daysElapsed} countable days have passed.',
+  basisTolled: ' {daysTolled} of the days since then were paused during state filings.',
+  pauseRule: 'A properly filed state application pauses this count only while it is pending; it does not restart it.',
+  laches:
+    'This conviction is old. Texas state habeas has no fixed deadline. Texas courts may consider delay (the rule is called laches); a lawyer can tell you whether it applies.',
+  subsequentWrit:
+    'A writ was already filed on this conviction. Texas law limits later applications; the rule is Article 11.07 §4. A licensed Texas attorney is the person to take this to.',
 } as const;
 
 export interface SummaryRowLike {
@@ -193,64 +216,39 @@ export function renderFamilyReportBody(doc: Pdf, input: ReportPdfInput): void {
   }
 
   if (input.subsequentWritMode) {
+    // UPL review 2026-10-23 (E1/E5): the rule, stated; no bar "applies", no instruction.
     doc.moveDown(0.5);
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(10)
-      .fillColor('#8a4b00')
-      .text(
-        'Important: our records indicate a prior application may have been filed. Texas strictly limits second applications — discuss the subsequent-writ bar with an attorney before any filing.'
-      );
+    doc.font('Helvetica').fontSize(10).fillColor('#222222').text(DEADLINE_COPY.subsequentWrit);
   }
   doc.moveDown(1);
 
-  // FR-5: elapsed/remaining prominent, dates stamped "as of", the
-  // tolling direction stated correctly, laches urgency for old cases.
+  // FR-5 as description (UPL review 2026-10-23, E5): the dates given and
+  // what was counted from them, the rule, and the verify sentence first at
+  // body size. No verdicts: no "CLOSED", no bold day count, no urgency.
   if (input.deadlinePosture) {
     const d = input.deadlinePosture;
-    doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text('Time limits (as of ' + d.asOf + ')');
+    const date = federalWindowEndDate({ expired: d.aedpa.expired, tollingNow: d.aedpa.tollingNow, estimatedExpiryDate: d.aedpa.estimatedExpiryDate, finalityDate: d.finalityDate, daysTolled: d.aedpa.daysTolled });
+    doc.font('Helvetica-Bold').fontSize(13).fillColor(pal.ink).text(DEADLINE_COPY.title.replace('{asOf}', d.asOf));
     doc.moveDown(0.3);
-    doc.font('Helvetica').fontSize(10).fillColor('#222222');
-    if (d.aedpa.expired) {
-      doc
-        .font('Helvetica-Bold')
-        .fillColor('#8a1c1c')
-        .text(
-          `Based on the dates provided, the one-year federal habeas window appears to have CLOSED (about ${d.aedpa.daysElapsed} countable days have passed since the conviction became final on ${d.finalityDate}). An attorney should verify — exceptions exist, and state filings remain possible.`
-        );
-    } else if (d.aedpa.tollingNow) {
-      doc.text(
-        `The one-year federal habeas clock is currently PAUSED because a state application is pending. About ${d.aedpa.daysElapsed} countable days have already been used; roughly ${d.aedpa.daysRemaining} days will remain when the state court rules. Important: a state filing pauses this clock only while it is pending — it does not restart it.`
-      );
-    } else {
-      doc
-        .font('Helvetica-Bold')
-        .text(
-          `About ${d.aedpa.daysRemaining} days appear to remain in the one-year federal habeas window (estimated end: ${d.aedpa.estimatedExpiryDate ?? 'n/a'}).`
-        );
-      doc
-        .font('Helvetica')
-        .text(
-          `The clock started when the conviction became final (${d.finalityDate} — ${d.finalityBasis}); about ${d.aedpa.daysElapsed} countable days have been used${d.aedpa.daysTolled > 0 ? `, and ${d.aedpa.daysTolled} days were paused during state filings` : ''}. A properly filed state application pauses this clock while it is pending — but only while it is pending.`
-        );
-    }
+    doc.font('Helvetica').fontSize(10).fillColor('#222222').text(DEADLINE_COPY.verify);
+    doc.moveDown(0.3);
+    const count = d.aedpa.expired
+      ? date ? DEADLINE_COPY.ended.replace('{date}', date) : DEADLINE_COPY.endedNoDate
+      : d.aedpa.tollingNow
+        ? DEADLINE_COPY.paused
+        : date ? DEADLINE_COPY.open.replace('{date}', date) : DEADLINE_COPY.openNoDate;
+    doc.font('Helvetica').fontSize(10).fillColor('#222222').text(count);
+    doc.moveDown(0.2);
+    doc.text(
+      DEADLINE_COPY.basis.replace('{finalityDate}', d.finalityDate).replace('{finalityBasis}', d.finalityBasis).replace('{daysElapsed}', String(d.aedpa.daysElapsed)) +
+        (d.aedpa.daysTolled > 0 ? DEADLINE_COPY.basisTolled.replace('{daysTolled}', String(d.aedpa.daysTolled)) : '') +
+        ' ' +
+        DEADLINE_COPY.pauseRule
+    );
     if (d.lachesUrgency) {
       doc.moveDown(0.3);
-      doc
-        .fontSize(9.5)
-        .fillColor('#8a4b00')
-        .text(
-          'This conviction is old. Texas state habeas has no fixed deadline, but courts can refuse applications that waited too long (laches) — acting promptly matters even where no clock is shown.'
-        );
+      doc.font('Helvetica').fontSize(10).fillColor('#222222').text(DEADLINE_COPY.laches);
     }
-    doc.moveDown(0.3);
-    doc
-      .font('Helvetica-Oblique')
-      .fontSize(8.5)
-      .fillColor('#555555')
-      .text(
-        'These time estimates are computed from the dates your family provided and standard rules; they are not legal advice. An attorney must verify every date and deadline before relying on them.'
-      );
     doc.moveDown(1);
   }
 

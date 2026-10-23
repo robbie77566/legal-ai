@@ -8,9 +8,10 @@ import CaseSummaryBlock, { type SummaryRow, type SummaryGap } from '../../../../
 import { getPaletteVariant } from '../../../../../lib/ab'
 import FeedbackCard from '../../../../../components/FeedbackCard'
 import { apiFetch } from '@/lib/api'
-import { useContent } from '@/lib/i18n'
+import { tpl, useContent } from '@/lib/i18n'
 import { NEW_EVIDENCE_CONTENT } from '@/lib/content/new-evidence'
-import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist } from '@hg/case-lifecycle'
+import { REPORT_DEADLINE_CONTENT } from '@/lib/content/report-deadlines'
+import { issueWeight, WEIGHT_LEGEND, SURENESS_LEGEND, federalWindowEndDate, hasStructuredFields, preservedLabel, harmLabel, vehicleLabel, rankIssues, investigationChecklist } from '@hg/case-lifecycle'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
 
 /**
@@ -129,6 +130,34 @@ function NewEvidenceCard({ flag }: { flag: { told: true; note?: string } | null 
   )
 }
 
+/**
+ * "Time limits" as description (UPL review 2026-10-23, E5): the verify
+ * sentence first at body size, the dates given and what was counted from
+ * them, the rule, and nothing else. No "CLOSED", no bold day count, no
+ * urgency. Same copy as the PDF, in both languages.
+ */
+function DeadlineSection({ d }: { d: DeadlinePosture }) {
+  const copy = useContent(REPORT_DEADLINE_CONTENT)
+  const date = federalWindowEndDate({ expired: d.aedpa.expired, tollingNow: d.aedpa.tollingNow, estimatedExpiryDate: d.aedpa.estimatedExpiryDate, finalityDate: d.finalityDate, daysTolled: d.aedpa.daysTolled })
+  const count = d.aedpa.expired
+    ? date ? tpl(copy.ended, { date }) : copy.endedNoDate
+    : d.aedpa.tollingNow
+      ? copy.paused
+      : date ? tpl(copy.open, { date }) : copy.openNoDate
+  return (
+    <section className="mt-6 rounded-xl border border-db-line p-4" data-testid="deadline-section">
+      <h2 className="font-db-serif text-lg font-semibold">{tpl(copy.title, { asOf: d.asOf })}</h2>
+      <p className="mt-2 text-sm" data-testid="deadline-verify">{copy.verify}</p>
+      <p className="mt-2 text-sm" data-testid="deadline-count">{count}</p>
+      <p className="mt-2 text-sm text-db-muted" data-testid="deadline-basis">
+        {tpl(copy.basis, { finalityDate: d.finalityDate, finalityBasis: d.finalityBasis, daysElapsed: d.aedpa.daysElapsed })}
+        {d.aedpa.daysTolled > 0 ? tpl(copy.basisTolled, { daysTolled: d.aedpa.daysTolled }) : ''} {copy.pauseRule}
+      </p>
+      {d.lachesUrgency && <p className="mt-2 text-sm text-db-muted" data-testid="deadline-laches">{copy.laches}</p>}
+    </section>
+  )
+}
+
 /** The two things a manual appellate review ends with — for the lawyer, not the family. */
 function CounselSection({ findings }: { findings: ReportFinding[] }) {
   if (!findings.some(hasStructuredFields)) return null
@@ -182,6 +211,7 @@ export default function CaseReport() {
   const [versions, setVersions] = useState<Version[]>([])
   const [changes, setChanges] = useState<Changes | null>(null)
   const [version, setVersion] = useState<number | null>(requestedVersion ? Number(requestedVersion) : null)
+  const ruleCopy = useContent(REPORT_DEADLINE_CONTENT)
 
   useEffect(() => {
     if (!opened) return
@@ -298,18 +328,12 @@ export default function CaseReport() {
           ))}
         </section>
       ) : (
-        <p className="mt-2">
-          {nothingFound
-            ? 'In short: we did not find issues in this record that we can point a lawyer to — and we tell you what that does and doesn’t mean below.'
-            : 'In short: we found things in this record a lawyer should look at.'}
-        </p>
+        <p className="mt-2" data-testid="in-short">{nothingFound ? ruleCopy.inShortNone : ruleCopy.inShortFound}</p>
       )}
 
       {data.subsequentWritMode && (
-        <p className="mt-4 rounded-xl border p-4 text-sm" style={{ borderColor: 'var(--db-review)', color: 'var(--db-review)' }}>
-          Because a writ was already filed on this conviction, Texas law sets a severe bar for
-          another one. Show this report to a lawyer — the findings below are marked for the narrow
-          exceptions the law allows.
+        <p className="mt-4 rounded-xl border border-db-line p-4 text-sm" data-testid="subsequent-writ-rule">
+          {ruleCopy.subsequentWrit}
         </p>
       )}
 
@@ -355,43 +379,7 @@ export default function CaseReport() {
 
       <FeedbackCard caseId={caseId} variant={variant} />
 
-      {data.deadlinePosture && (
-        <section
-          className="mt-6 rounded-xl border p-4"
-          style={{ borderColor: data.deadlinePosture.aedpa.expired ? 'var(--db-review)' : 'var(--db-line)' }}
-        >
-          <h2 className="font-db-serif text-lg font-semibold">Time limits (as of {data.deadlinePosture.asOf})</h2>
-          {data.deadlinePosture.aedpa.expired ? (
-            <p className="mt-2 text-sm">
-              Based on the dates you provided, the one-year federal habeas window appears to have
-              closed. An attorney should verify — exceptions exist, and state filings remain possible.
-            </p>
-          ) : data.deadlinePosture.aedpa.tollingNow ? (
-            <p className="mt-2 text-sm">
-              The one-year federal clock is currently paused while a state application is pending.
-              About {data.deadlinePosture.aedpa.daysRemaining} days will remain when the state court
-              rules. A state filing pauses this clock only while it is pending — it does not restart it.
-            </p>
-          ) : (
-            <p className="mt-2 text-sm">
-              About <strong>{data.deadlinePosture.aedpa.daysRemaining} days</strong> appear to remain in
-              the one-year federal habeas window (estimated end:{' '}
-              {data.deadlinePosture.aedpa.estimatedExpiryDate ?? 'n/a'}). A properly filed state
-              application pauses this clock while it is pending — but only while it is pending.
-            </p>
-          )}
-          {data.deadlinePosture.lachesUrgency && (
-            <p className="mt-2 text-sm text-db-muted">
-              This conviction is old. Texas state habeas has no fixed deadline, but courts can refuse
-              applications that waited too long — acting promptly matters.
-            </p>
-          )}
-          <p className="mt-2 text-xs text-db-muted">
-            Estimates from the dates your family provided; an attorney must verify every date before
-            relying on them.
-          </p>
-        </section>
-      )}
+      {data.deadlinePosture && <DeadlineSection d={data.deadlinePosture} />}
 
       {data.strongSignals.length + data.possibleIssues.length > 0 && (
         <section className="mt-8 rounded-xl border border-db-line bg-db-surface p-4 text-sm" data-testid="weight-legend">
@@ -457,11 +445,7 @@ export default function CaseReport() {
           <a href="https://www.tifa.org" rel="noopener noreferrer" className="underline" data-testid="tifa-link">TIFA</a>{' '}
           offers family support along the way.
         </p>
-        <p className="mt-3 text-sm text-db-muted">
-          A first writ must raise every claim it can — claims left out are ordinarily lost. This
-          report is an inventory for a lawyer to complete, not the whole universe of what&rsquo;s
-          possible.
-        </p>
+        <p className="mt-3 text-sm text-db-muted" data-testid="first-writ-rule">{ruleCopy.firstWrit}</p>
       </section>
 
       <footer className="mt-8 border-t border-db-line pt-4 text-sm text-db-muted">
