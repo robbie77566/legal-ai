@@ -13,6 +13,8 @@ import FamilyNav, { firstName } from '../../../components/daybreak/FamilyNav'
 import PasswordField from '../../../components/daybreak/PasswordField'
 import NotASubstitute from '../../../components/NotASubstitute'
 import { trackerModel } from '@/lib/tracker'
+import { tpl, useContent, useLang } from '@/lib/i18n'
+import { BACKUP_EMAIL_CONTENT } from '@/lib/content/backup-email'
 import type { CustomerView } from '@hg/case-lifecycle'
 
 interface Review {
@@ -21,7 +23,11 @@ interface Review {
   shareLink: { createdAt: string; expiresAt: string; revokedAt: string | null; opens: number } | null; clinicConsent: boolean
 }
 interface Me {
-  user: { name: string | null; email: string; pendingEmail: string | null; passwordChangedAt: string | null; memberSince: string }
+  user: {
+    name: string | null; email: string; pendingEmail: string | null; passwordChangedAt: string | null; memberSince: string
+    // Backup email (2026-10-24); the api never sends the token.
+    backupEmail?: string | null; backupEmailVerified?: boolean; backupEmailVerifiedAt?: string | null; backupEmailAddedAt?: string | null
+  }
   reviews: Review[]
   payments: Array<{ id: string; kind: string; amountCents: number; status: string; free: boolean; promoCode: string | null; cardBrand: string | null; cardLast4: string | null; receiptUrl: string | null; caseTitle: string | null; createdAt: string }>
   refunds: Array<{ id: string; amountCents: number; reason: string; partial: boolean; caseTitle: string | null; createdAt: string }>
@@ -61,9 +67,13 @@ export default function AccountPage() {
   const [me, setMe] = useState<Me | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [editing, setEditing] = useState<'name' | 'email' | 'password' | 'delete' | null>(null)
+  const [editing, setEditing] = useState<'name' | 'email' | 'password' | 'backup' | 'delete' | null>(null)
   const [form, setForm] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  // Backup email (2026-10-24): Daybreak copy in {en, es}; dates follow the language.
+  const be = useContent(BACKUP_EMAIL_CONTENT)
+  const { lang } = useLang()
+  const beDay = (iso: string) => new Date(iso).toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { month: 'long', day: 'numeric' })
 
   const load = useCallback(async () => {
     const r = await apiFetch('/me')
@@ -142,6 +152,28 @@ export default function AccountPage() {
                 </form>
               )}
             </>} action={editing === 'email' ? <button onClick={() => setEditing(null)} className="text-db-muted">Cancel</button> : <button onClick={() => { setForm({}); setEditing('email') }} className="text-db-accent">Change</button>} />
+
+            <Row label={be.label} testid="backup-email-row" value={<>
+              {!u.backupEmail ? (
+                <span className="text-db-muted">{be.none}</span>
+              ) : u.backupEmailVerified ? (
+                <span className="text-[15px]" data-testid="backup-email-verified">{tpl(be.verified, { email: u.backupEmail, date: beDay(u.backupEmailVerifiedAt ?? new Date().toISOString()) })}</span>
+              ) : (
+                <span className="text-sm" data-testid="backup-email-pending">
+                  {tpl(be.pending, { email: u.backupEmail, date: beDay(u.backupEmailAddedAt ?? new Date().toISOString()) })}{' '}
+                  <button onClick={async () => { const d = await post('/me/backup-email', 'POST', { email: u.backupEmail }); if (d) { setNotice(tpl(be.notices.resent, { email: d.backupEmail })); await load() } }} className="underline" data-testid="backup-email-resend">{be.resend}</button>
+                </span>
+              )}
+              <div className="mt-1 text-[13px] text-db-muted">{be.explain}</div>
+              {editing === 'backup' && (
+                <form className="mt-2 flex gap-2" onSubmit={async (e) => { e.preventDefault(); const d = await post('/me/backup-email', 'POST', { email: form.backupEmail }); if (d) { setEditing(null); setNotice(tpl(be.notices.added, { email: d.backupEmail })); await load() } }}>
+                  <input aria-label={be.placeholder} type="email" required placeholder={be.placeholder} value={form.backupEmail ?? ''} onChange={(e) => setForm({ ...form, backupEmail: e.target.value })} className="w-full rounded-lg border border-db-line p-2 text-[15px]" />
+                  <button disabled={busy} className="whitespace-nowrap rounded-lg bg-db-accent px-3 font-semibold text-db-surface" data-testid="backup-email-add">{be.add}</button>
+                </form>
+              )}
+            </>} action={editing === 'backup' ? <button onClick={() => setEditing(null)} className="text-db-muted">{be.cancel}</button> : u.backupEmail ? (
+              <span className="flex gap-3"><button onClick={() => { setForm({}); setEditing('backup') }} className="text-db-accent" data-testid="backup-email-change">{be.change}</button><button onClick={async () => { const d = await post('/me/backup-email', 'DELETE'); if (d) { setNotice(be.notices.removed); await load() } }} className="text-db-muted" data-testid="backup-email-remove">{be.remove}</button></span>
+            ) : <button onClick={() => { setForm({}); setEditing('backup') }} className="text-db-accent" data-testid="backup-email-open">{be.add}</button>} />
 
             <Row label="Password" value={<>
               {u.passwordChangedAt ? `Last changed ${day(u.passwordChangedAt)}` : 'Set'}
