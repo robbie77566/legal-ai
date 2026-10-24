@@ -154,7 +154,7 @@ test.describe('F2 — the signed-in professional flow (local api)', () => {
     await expect(clock).toContainText('TRAP clock')
     await expect(clock).toContainText('26.2')
     await expect(clock).toContainText('Jurisdictional')
-    await expect(page.getByTestId('trap-disclaimer')).toContainText('proposed until counsel signs')
+    await expect(page.getByTestId('trap-disclaimer')).toContainText('proposed until a Texas appellate lawyer signs')
     const uploader = page.getByTestId('record-uploader')
     await expect(uploader).toBeVisible()
     await expect(uploader.getByTestId('volume-kind')).toHaveValue('REPORTER')
