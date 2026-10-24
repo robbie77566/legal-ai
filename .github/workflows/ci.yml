@@ -60,7 +60,7 @@ jobs:
         # pin (pnpm@11.1.0). Setting both makes action-setup@v4 refuse with
         # "Multiple versions of pnpm specified", which failed EVERY run from
         # the Aug-31 Render corepack pin until 2026-09-02.
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
