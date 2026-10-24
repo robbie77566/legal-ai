@@ -33,7 +33,9 @@ Admin is a superset of Support by construction. The web nav is UX gating only (`
 | `/ops/record-desk` | The Record Desk queue: status, organisation, kind, pages, due, assigned reviewer (picker from `/ops/staff`), SLA badge (10 business days), the staff note the organisation reads | Admin; Support may assign, note, and move to IN_PROGRESS / DELIVERED |
 | `/ops/flags` | **Feature flags** (§10): the six dark professional surfaces, global switch, per-organisation overrides | Admin (flips), Support (read-only) |
 | `/ops/team` | Create staff accounts (sends the invite), change roles, resend invites (moved from `/dashboard/permissions` by workstream F, 2026-10-19, when the 2025 `/dashboard` and `/workspace` build was removed) | Admin (linked as **Team** in the nav) |
+| `/ops/profile` | **Your profile** (header chip): first, last, phone, email, role, password; **Backup email** card (2026-10-24, `your_account.md` "Backup email") — none / pending since … (Resend link, Remove) / verified on … (Change, Remove); the api owns the write (`POST`/`DELETE /me/backup-email`), the primary address hears every step | every staff role, own account only |
 | `/auth/setup-password` | Invite acceptance — the first password for an admin-created account | public, token-verified |
+| `/auth/backup-email/confirm` | The backup-email link lands here, signed in or not; shared with families | public, token-verified |
 
 ## 3. Money and refunds (OPS-2)
 

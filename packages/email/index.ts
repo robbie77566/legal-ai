@@ -382,6 +382,68 @@ If this wasn't you, sign in and change your password now, then reply to this ema
   });
 }
 
+/**
+ * Mask an address for a message that goes to the OTHER address on an
+ * account: `r•••@gmail.com`. First character of the local part, three dots,
+ * the full domain — enough to recognise, never enough to copy.
+ */
+export function maskEmail(address: string): string {
+  const at = address.indexOf('@');
+  if (at <= 0) return '•••';
+  return `${address[0]}•••${address.slice(at)}`;
+}
+
+/**
+ * Backup email (your_account "Backup email (2026-10-24)"): the new address
+ * confirms from a link; the account's other address hears about every step.
+ */
+export function sendBackupEmailConfirm(to: string, opts: { confirmUrl: string; primaryMasked: string }) {
+  return send({
+    to,
+    subject: 'Confirm your backup email address',
+    text: `Someone — we hope you — asked to use this address as the backup email for the ${BRAND.name} account signed in as ${opts.primaryMasked}.
+
+Confirm it here (the link works for 24 hours):
+${opts.confirmUrl}
+
+Once confirmed, this address can receive password-reset links for that account, and it will hear about changes to the account's password and email.
+
+If this wasn't you, ignore this message and nothing changes.`,
+  });
+}
+
+export type BackupEmailEvent = 'added' | 'verified' | 'removed' | 'reset_requested_from_backup';
+
+const BACKUP_NOTICE: Record<BackupEmailEvent, { subject: string; body: (m: string) => string }> = {
+  added: {
+    subject: 'A backup email was added to your account',
+    body: (m) => `A backup email address, ${m}, was added to your ${BRAND.name} account. Nothing changes until that address confirms from the link we sent it.`,
+  },
+  verified: {
+    subject: 'Your backup email is verified',
+    body: (m) => `The backup email address ${m} on your ${BRAND.name} account is now verified. From now on it can receive password-reset links for the account, and it will hear about changes to the account's password and email.`,
+  },
+  removed: {
+    subject: 'The backup email was removed from your account',
+    body: (m) => `The backup email address ${m} was removed from your ${BRAND.name} account. Password-reset links now go only to the account's main address.`,
+  },
+  reset_requested_from_backup: {
+    subject: 'A password reset was requested from your backup email',
+    body: (m) => `Someone asked to reset the password on your ${BRAND.name} account using the backup address ${m}. The reset link went to that address. If that was you, nothing more to do here.`,
+  },
+};
+
+export function sendBackupEmailNotice(to: string, opts: { event: BackupEmailEvent; backupMasked: string }) {
+  const n = BACKUP_NOTICE[opts.event];
+  return send({
+    to,
+    subject: n.subject,
+    text: `${n.body(opts.backupMasked)}
+
+If this wasn't you, sign in and change your password now, then reply to this email so we can help.`,
+  });
+}
+
 /** Staff notification (staff_console_access_model §6): one email per request. */
 export function sendStaffRequest(
   to: string,
@@ -475,6 +537,20 @@ export function sendPilotInterest(
 Reply to them directly: ${opts.email}
 
 When the office is ready, create its organisation and start the pilot from the console: ${opts.consoleUrl}`,
+  });
+}
+
+/**
+ * The password changed (2026-10-24): sent to the primary address and, once
+ * verified, the backup — the backup exists so a lost primary still hears.
+ */
+export function sendPasswordChangedNotice(to: string) {
+  return send({
+    to,
+    subject: 'Your password was changed',
+    text: `The password on your ${BRAND.name} account was just changed. Other devices were signed out.
+
+If this was you, there is nothing more to do. If it wasn't, use "Forgot password" on the sign-in page right away to set a new one, then reply to this email so we can help.`,
   });
 }
 

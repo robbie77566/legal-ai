@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { PasswordInput } from '@/components/auth/PasswordInput'
-import { getProfile, updateProfile, changePassword, type Profile } from '@/app/ops/profile/_actions'
+import { getProfile, updateProfile, changePassword, addBackupEmail, resendBackupEmailLink, removeBackupEmail, type Profile } from '@/app/ops/profile/_actions'
 
 const ROLE_WORDS: Record<string, string> = {
   ADMIN: 'Ops administrator — everything, including money and deletion',
@@ -28,9 +28,41 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
   const [pwError, setPwError] = useState<string | null>(null)
+  // Backup email (2026-10-24): the "Change" form on a verified address; busy while the api answers.
+  const [beOpen, setBeOpen] = useState(false)
+  const [beBusy, setBeBusy] = useState(false)
 
   const load = async () => setP(await getProfile())
   useEffect(() => { void load() }, [])
+
+  const saveBackupEmail = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setBeBusy(true); setNotice(null)
+    try {
+      const r = await addBackupEmail(null, new FormData(e.currentTarget))
+      if (r.success) {
+        setBeOpen(false)
+        setNotice({ tone: 'ok', text: `We sent a link to ${r.backupEmail}. The backup starts working once it is opened.` })
+        await load()
+      } else setNotice({ tone: 'bad', text: r.error ?? 'Could not add the backup email' })
+    } finally { setBeBusy(false) }
+  }
+  const resendBackupEmail = async () => {
+    setBeBusy(true); setNotice(null)
+    try {
+      const r = await resendBackupEmailLink()
+      if (r.success) { setNotice({ tone: 'ok', text: `We sent a new link to ${r.backupEmail}.` }); await load() }
+      else setNotice({ tone: 'bad', text: r.error ?? 'Could not resend the link' })
+    } finally { setBeBusy(false) }
+  }
+  const dropBackupEmail = async () => {
+    setBeBusy(true); setNotice(null)
+    try {
+      const r = await removeBackupEmail()
+      if (r.success) { setBeOpen(false); setNotice({ tone: 'ok', text: 'Backup email removed.' }); await load() }
+      else setNotice({ tone: 'bad', text: r.error ?? 'Could not remove the backup email' })
+    } finally { setBeBusy(false) }
+  }
 
   const saveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -109,6 +141,45 @@ export default function ProfilePage() {
             {saving ? 'Saving…' : 'Save profile'}
           </button>
         </form>
+      </section>
+
+      {/* Backup email (your_account "Backup email (2026-10-24)"): none / pending / verified. */}
+      <section className="mt-6 rounded border border-[#30363D] bg-[#0D1117] p-4" data-testid="backup-email-section">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[11px] uppercase tracking-wider text-[#8B949E]">Backup email</h2>
+          {p.backupEmail && p.backupEmailVerifiedAt && !beOpen && (
+            <button onClick={() => setBeOpen(true)} className="text-sm text-[#D4AF37]" data-testid="backup-email-change">Change</button>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-[#8B949E]">
+          Used to reach you if you lose access to your main address. Password-reset links can go to it once it is verified.
+        </p>
+        <p className="mt-2 text-sm" data-testid="backup-email-state">
+          {!p.backupEmail ? (
+            <span className="text-[#8B949E]">None</span>
+          ) : p.backupEmailVerifiedAt ? (
+            <><span className="font-mono">{p.backupEmail}</span> · verified on {day(p.backupEmailVerifiedAt)}</>
+          ) : (
+            <><span className="font-mono">{p.backupEmail}</span> · pending verification{p.backupEmailAddedAt ? ` since ${day(p.backupEmailAddedAt)}` : ''} — check that inbox for the link</>
+          )}
+        </p>
+        {p.backupEmail && (
+          <div className="mt-2 flex gap-4 text-sm">
+            {!p.backupEmailVerifiedAt && (
+              <button type="button" onClick={() => void resendBackupEmail()} disabled={beBusy} className="text-[#D4AF37] disabled:opacity-50" data-testid="backup-email-resend">Resend link</button>
+            )}
+            <button type="button" onClick={() => void dropBackupEmail()} disabled={beBusy} className="text-[#F85149] disabled:opacity-50" data-testid="backup-email-remove">Remove</button>
+          </div>
+        )}
+        {(!p.backupEmail || beOpen) && (
+          <form onSubmit={(e) => void saveBackupEmail(e)} className="mt-3 flex flex-wrap gap-2">
+            <input name="email" type="email" required maxLength={254} aria-label="Backup email address" placeholder="Backup email address" className={`${field} sm:w-auto sm:flex-1`} data-testid="backup-email-input" />
+            <button type="submit" disabled={beBusy} className="rounded bg-[#D4AF37] px-4 py-2 text-sm font-semibold text-[#0B0E14] disabled:opacity-50" data-testid="backup-email-add">
+              {beBusy ? 'Sending…' : 'Add backup email'}
+            </button>
+            {beOpen && <button type="button" onClick={() => setBeOpen(false)} className="px-3 py-2 text-sm text-[#8B949E]">Cancel</button>}
+          </form>
+        )}
       </section>
 
       <section className="mt-6 rounded border border-[#30363D] bg-[#0D1117] p-4" data-testid="password-section">

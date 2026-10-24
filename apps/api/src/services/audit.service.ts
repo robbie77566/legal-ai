@@ -25,6 +25,7 @@ export enum LogAction {
   // verify, a bar number by hand. The row never carries the number.
   BAR_VERIFICATION = 'BAR_VERIFICATION',
   PILOT_INTEREST = 'PILOT_INTEREST', // the public PD-pilot form (workstream F); office and county only, never the sender's name or email
+  ACCOUNT_SECURITY = 'ACCOUNT_SECURITY', // backup email added / verified / removed (your_account 2026-10-24); ids and the op only, never an address
 }
 
 export class AuditService {

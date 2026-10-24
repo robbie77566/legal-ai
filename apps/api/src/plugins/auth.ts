@@ -64,6 +64,7 @@ const PUBLIC_PREFIXES = [
   '/auth/reset', // token-verified in-route
   '/auth/setup', // invite acceptance — token-verified in-route
   '/me/email/confirm', // email change — token-verified in-route
+  '/me/backup-email/confirm', // backup email — token-verified in-route; POST/DELETE /me/backup-email stay authenticated
   '/counsel/org/invitations/', // seat acceptance (…/:token/accept) — token-verified in-route; the OWNER's POST /counsel/org/invitations stays authenticated
 ]
 

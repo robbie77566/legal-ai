@@ -514,6 +514,15 @@ model User {
   inviteExpires       DateTime?
   resetToken          String?
   resetExpires        DateTime?
+  // Backup email (your_account "Backup email (2026-10-24)"): a second address,
+  // verified from a link sent to it, that password-reset links may go to and
+  // that hears every security notice. Not unique — two accounts may name the
+  // same recovery address — but never equal to any account's primary `email`.
+  // The token is the sha256 of the raw link token, like the others.
+  backupEmail           String?
+  backupEmailVerifiedAt DateTime?
+  backupEmailToken      String?
+  backupEmailExpires    DateTime?
 
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt

@@ -1,44 +1,13 @@
 import { PrismaClient } from '@prisma/client'
-import bcrypt from 'bcryptjs'
+import { seedAdmin } from './seed-admin'
 
 const prisma = new PrismaClient()
 
 async function main() {
-  const systemTenantName = process.env.SYSTEM_TENANT_NAME || 'System Admin'
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@legalai.local'
-  const adminPassword = process.env.ADMIN_PASSWORD || 'changeme-before-production'
-
-  if (adminPassword === 'changeme-before-production') {
-    console.warn('WARNING: Using default admin password. Set ADMIN_PASSWORD in .env before deploying.')
-  }
-
   console.log('Seeding database...')
-
-  const passwordHash = await bcrypt.hash(adminPassword, 12)
-
-  // Create initial tenant
-  const tenant = await prisma.tenant.upsert({
-    where: { id: 'system-tenant' },
-    update: {},
-    create: {
-      id: 'system-tenant',
-      name: systemTenantName,
-    },
-  })
-
-  // Create initial admin user
-  await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: { passwordHash, role: 'ADMIN' },
-    create: {
-      email: adminEmail,
-      name: 'System Administrator',
-      role: 'ADMIN', // without this the schema default applies and /ops rejects the account
-      passwordHash,
-      tenantId: tenant.id,
-    },
-  })
-
+  // The system tenant and the ADMIN account; ADMIN_BACKUP_EMAIL (optional,
+  // seed-only) stores a verified backup email on it. See seed-admin.ts.
+  await seedAdmin(prisma, process.env)
   console.log('Seed completed.')
 }
 

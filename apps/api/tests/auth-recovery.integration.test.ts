@@ -159,3 +159,98 @@ describe('POST /auth/reset', () => {
     expect([400, 500]).toContain(res.statusCode);
   });
 });
+
+/**
+ * Backup email (your_account "Backup email (2026-10-24)"): a VERIFIED backup
+ * answers /auth/forgot — the link goes to the backup and the primary is told;
+ * an unverified backup is indistinguishable from an unknown address. These
+ * calls come from their own address so the 5/15-min limit the tests above
+ * already spent does not apply to them.
+ */
+describe('backup email recovery', () => {
+  const BACKUP = `${run}_backup@example.com`;
+  const UNVERIFIED = `${run}_unverified@example.com`;
+  let withBackupId: string;
+  let unverifiedId: string;
+  const forgot = (email: string, remoteAddress = '10.9.0.1') =>
+    fastify.inject({ method: 'POST', url: '/auth/forgot', payload: { email }, remoteAddress });
+  const until = async (pred: () => boolean) => {
+    for (let i = 0; i < 40 && !pred(); i++) await new Promise((r) => setTimeout(r, 25));
+    expect(pred()).toBe(true);
+  };
+
+  beforeAll(async () => {
+    withBackupId = (await prisma.user.create({
+      data: {
+        email: `${run}_withbackup@example.com`, tenantId, role: 'CLIENT',
+        passwordHash: await bcrypt.hash('OldPassword99!', 12),
+        backupEmail: BACKUP, backupEmailVerifiedAt: new Date(),
+      },
+    })).id;
+    unverifiedId = (await prisma.user.create({
+      data: {
+        email: `${run}_unverifiedowner@example.com`, tenantId, role: 'CLIENT',
+        passwordHash: await bcrypt.hash('OldPassword99!', 12),
+        backupEmail: UNVERIFIED, backupEmailToken: 'a'.repeat(64), backupEmailExpires: new Date(Date.now() + 3_600_000),
+      },
+    })).id;
+  });
+  afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: { in: [withBackupId, unverifiedId] } } });
+  });
+
+  it('forgot with a verified backup sends the reset link to the backup and a notice to the primary', async () => {
+    const res = await forgot(BACKUP.toUpperCase());
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true });
+    await until(() => sent.length >= 2);
+    const reset = sent.find((m) => m.to.toLowerCase() === BACKUP)!;
+    const notice = sent.find((m) => m.to === `${run}_withbackup@example.com`)!;
+    expect(reset.subject).toMatch(/reset your password/i);
+    const link = extractToken(reset)!;
+    expect(link.id).toBe(withBackupId);
+    expect(notice.subject).toMatch(/password reset was requested from your backup email/i);
+    expect(notice.text).toContain('r•••@example.com');
+    expect(notice.text).not.toContain(BACKUP);
+    expect(notice.text).not.toMatch(/token=/); // the link never goes to the primary
+
+    // The link works, and the reset tells both addresses.
+    sent.length = 0;
+    const done = await fastify.inject({
+      method: 'POST', url: '/auth/reset', remoteAddress: '10.9.0.1',
+      payload: { userId: link.id, token: link.token, password: 'BrandNewPass1!x' },
+    });
+    expect(done.statusCode).toBe(200);
+    await until(() => sent.filter((m) => /password was changed/i.test(m.subject)).length >= 2);
+    expect(sent.map((m) => m.to).sort()).toEqual([`${run}_withbackup@example.com`, BACKUP].sort());
+  });
+
+  it('forgot with an UNVERIFIED backup behaves exactly like an unknown address', async () => {
+    const res = await forgot(UNVERIFIED);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(sent).toHaveLength(0);
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: unverifiedId } })).resetToken).toBeNull();
+  });
+
+  it('POST /me/password tells the primary and the verified backup; an unverified backup hears nothing', async () => {
+    const { encodeSessionToken } = await import('@hg/auth');
+    const change = async (userId: string) =>
+      fastify.inject({
+        method: 'POST', url: '/me/password',
+        headers: { cookie: `next-auth.session-token=${await encodeSessionToken({ userId, tenantId, role: 'CLIENT' })}` },
+        payload: { currentPassword: 'BrandNewPass1!x', newPassword: 'AnotherPass22!x' },
+      });
+    expect((await change(withBackupId)).statusCode).toBe(200);
+    await until(() => sent.filter((m) => /password was changed/i.test(m.subject)).length >= 2);
+    expect(sent.map((m) => m.to).sort()).toEqual([`${run}_withbackup@example.com`, BACKUP].sort());
+
+    sent.length = 0;
+    await prisma.user.update({ where: { id: unverifiedId }, data: { passwordHash: await bcrypt.hash('BrandNewPass1!x', 12) } });
+    expect((await change(unverifiedId)).statusCode).toBe(200);
+    await until(() => sent.length >= 1);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(sent.map((m) => m.to)).toEqual([`${run}_unverifiedowner@example.com`]);
+  });
+});

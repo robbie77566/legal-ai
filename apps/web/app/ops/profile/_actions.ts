@@ -4,6 +4,7 @@ import { authOptions } from '@hg/auth';
 import prisma from '@hg/database';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { API_URL } from '@/lib/api';
 
 // Either the legacy single "name" field, or first/last/phone (ops /profile).
 const updateProfileSchema = z.object({
@@ -22,7 +23,13 @@ export type Profile = {
   email: string; role: string; name: string | null
   firstName: string | null; lastName: string | null; phone: string | null
   passwordChangedAt: string | null; memberSince: string
+  // Backup email (your_account "Backup email (2026-10-24)"): the address and
+  // its state — never the token. `backupEmailAddedAt` is set only while pending.
+  backupEmail: string | null; backupEmailVerifiedAt: string | null; backupEmailAddedAt: string | null
 }
+
+// The confirm link lives 24 hours (apps/api/src/routes/me.ts BACKUP_WINDOW_MS).
+const BACKUP_WINDOW_MS = 24 * 3_600_000;
 
 /** The signed-in staff member's own profile (ops /profile). */
 export async function getProfile(): Promise<Profile | null> {
@@ -30,13 +37,86 @@ export async function getProfile(): Promise<Profile | null> {
   if (!session?.user?.id) return null;
   const u = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { email: true, role: true, name: true, firstName: true, lastName: true, phone: true, passwordChangedAt: true, createdAt: true },
+    select: {
+      email: true, role: true, name: true, firstName: true, lastName: true, phone: true, passwordChangedAt: true, createdAt: true,
+      backupEmail: true, backupEmailVerifiedAt: true, backupEmailExpires: true,
+    },
   });
   if (!u) return null;
   return {
     email: u.email, role: u.role, name: u.name, firstName: u.firstName, lastName: u.lastName, phone: u.phone,
     passwordChangedAt: u.passwordChangedAt?.toISOString() ?? null, memberSince: u.createdAt.toISOString(),
+    backupEmail: u.backupEmail,
+    backupEmailVerifiedAt: u.backupEmail ? u.backupEmailVerifiedAt?.toISOString() ?? null : null,
+    backupEmailAddedAt: u.backupEmail && !u.backupEmailVerifiedAt && u.backupEmailExpires
+      ? new Date(u.backupEmailExpires.getTime() - BACKUP_WINDOW_MS).toISOString()
+      : null,
   };
+}
+
+// ── Backup email ──────────────────────────────────────────────────────────────
+// The api owns the write path (token, emails, audit); these actions call it
+// with this request's session cookie, the way lib/flags.ts getFlags does.
+
+type ApiResult = { ok: boolean; status: number; body: Record<string, unknown> };
+
+async function apiAsUser(path: string, method: 'POST' | 'DELETE', body?: unknown): Promise<ApiResult> {
+  const { cookies } = await import('next/headers');
+  const store = await cookies();
+  const cookie = store.getAll().map((c) => `${c.name}=${c.value}`).join('; ');
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(cookie ? { cookie } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: 'no-store',
+  });
+  const parsed = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  return { ok: res.ok, status: res.status, body: parsed };
+}
+
+const apiError = (r: ApiResult, fallback: string) =>
+  r.status === 429 ? 'Too many tries in a row — wait 15 minutes and try once more.' : (typeof r.body.error === 'string' ? r.body.error : fallback);
+
+/** POST /me/backup-email — stores the address unverified and mails the link to it. Re-posting replaces a pending address. */
+export async function addBackupEmail(
+  _prev: unknown,
+  formData: FormData
+): Promise<{ success: boolean; error?: string; backupEmail?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return { success: false, error: 'Unauthorized' };
+  const parsed = z.string().trim().email('Enter a valid email address').max(254).safeParse(formData.get('email'));
+  if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+  try {
+    const r = await apiAsUser('/me/backup-email', 'POST', { email: parsed.data });
+    if (!r.ok) return { success: false, error: apiError(r, 'Could not add the backup email') };
+    return { success: true, backupEmail: String(r.body.backupEmail ?? parsed.data.toLowerCase()) };
+  } catch {
+    return { success: false, error: 'The service did not answer — please try again.' };
+  }
+}
+
+/** Re-posts the pending address, which re-issues the link (POST /me/backup-email). */
+export async function resendBackupEmailLink(): Promise<{ success: boolean; error?: string; backupEmail?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return { success: false, error: 'Unauthorized' };
+  const u = await prisma.user.findUnique({ where: { id: session.user.id }, select: { backupEmail: true, backupEmailVerifiedAt: true } });
+  if (!u?.backupEmail || u.backupEmailVerifiedAt) return { success: false, error: 'There is no pending backup email to resend to' };
+  const fd = new FormData();
+  fd.set('email', u.backupEmail);
+  return addBackupEmail(null, fd);
+}
+
+/** DELETE /me/backup-email — clears the address, pending or verified. */
+export async function removeBackupEmail(): Promise<{ success: boolean; error?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return { success: false, error: 'Unauthorized' };
+  try {
+    const r = await apiAsUser('/me/backup-email', 'DELETE');
+    if (!r.ok) return { success: false, error: apiError(r, 'Could not remove the backup email') };
+    return { success: true };
+  } catch {
+    return { success: false, error: 'The service did not answer — please try again.' };
+  }
 }
 
 const changePasswordSchema = z.object({

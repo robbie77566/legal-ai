@@ -115,7 +115,7 @@ All are fire-and-forget through the guarded sender; a failed send is logged, nev
 - **GO-LIVE GATE: keep AUTO_APPROVE=0 in production until (a) validation testing passes and (b) counsel signs off on the founder's rewritten disclosures/policy copy** (the current pages still describe human review of every report — the founder owns that rewrite).
 
 ### Admin bootstrap & the Sentry drill
-- Admin account: seeded as `admin@snotnoselegal.com` (ADMIN role — the seed sets it explicitly; the schema default is ATTORNEY and would be rejected by /ops).
+- Admin account: seeded as `admin@snotnoselegal.com` (ADMIN role — the seed sets it explicitly; the schema default is ATTORNEY and would be rejected by /ops). Optional `ADMIN_BACKUP_EMAIL` on the same seed run stores a **verified** backup email on that account (password-reset links can go to it; `your_account.md` "Backup email"); the same thing can be done signed in, from `/ops/profile`. Seed-only — never a service variable; the seed logs "backup email set" without the address.
 - Alert drill: **"Fire Sentry alert drill"** button on the ops console (or GET `/ops/sentry-test` as ADMIN; script pattern in the session scratchpad). A 500 response proves the throw; **delivery additionally requires SENTRY_DSN on that instance** — dev without a DSN shows the same 500 and sends nothing. Verified end-to-end 2026-09-01 (2 events in Issues). Remaining: the Sentry alert RULE (Alerts → new issue → email) is what actually pages a human.
 
 ### Render deploy failure playbook (every entry hit for real)

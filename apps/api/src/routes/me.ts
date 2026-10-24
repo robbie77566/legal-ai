@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import { createHash } from 'crypto';
 import AdmZip from 'adm-zip';
 import prisma from '@hg/database';
 import { generateToken, verifyToken } from '@hg/auth';
@@ -24,6 +25,15 @@ const PasswordSchema = z
   .regex(/[0-9!@#$%^&*()_+\-=\[\]{}|;':",.<>\/?]/, 'Must contain a number or symbol');
 
 const origin = () => (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
+// Backup email (your_account "Backup email (2026-10-24)"): the confirm link
+// lives 24 hours, like the email-change link.
+const BACKUP_WINDOW_MS = 24 * 3_600_000;
+// Neutral on purpose: it must read the same whether the address is another
+// account's sign-in email or simply refused, so nothing about other accounts leaks.
+const BACKUP_REFUSED = "That address can't be used as a backup here";
+/** The verified backup address, or null — the only backup a notice may go to. */
+const verifiedBackup = (u: { backupEmail: string | null; backupEmailVerifiedAt: Date | null }) =>
+  u.backupEmail && u.backupEmailVerifiedAt ? u.backupEmail : null;
 const MID_PIPELINE: CaseStatus[] = ['DOCS_COMPLETE', 'DIGITIZING', 'ANALYZING', 'ADJUDICATING', 'QA_REVIEW', 'QA_REJECTED'];
 const EXPORT_MAX_DOCS = 50;
 // Review (2026-09-09): the bundle is built in memory — cap bytes, not just files.
@@ -34,7 +44,10 @@ export default async function meRoutes(fastify: FastifyInstance) {
     const { userId, tenantId } = request.auth;
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, pendingEmail: true, passwordChangedAt: true, createdAt: true, deletedAt: true },
+      select: {
+        id: true, name: true, email: true, pendingEmail: true, passwordChangedAt: true, createdAt: true, deletedAt: true,
+        backupEmail: true, backupEmailVerifiedAt: true, backupEmailExpires: true,
+      },
     });
     if (!user || user.deletedAt) return reply.status(404).send({ error: 'Not found' });
 
@@ -89,6 +102,14 @@ export default async function meRoutes(fastify: FastifyInstance) {
         pendingEmail: user.pendingEmail,
         passwordChangedAt: user.passwordChangedAt,
         memberSince: user.createdAt,
+        // Backup email (2026-10-24): the address and its state, never the token.
+        // "Added" is derived from the token window while verification is pending.
+        backupEmail: user.backupEmail,
+        backupEmailVerified: !!user.backupEmail && !!user.backupEmailVerifiedAt,
+        backupEmailVerifiedAt: user.backupEmail ? user.backupEmailVerifiedAt : null,
+        backupEmailAddedAt: user.backupEmail && !user.backupEmailVerifiedAt && user.backupEmailExpires
+          ? new Date(user.backupEmailExpires.getTime() - BACKUP_WINDOW_MS)
+          : null,
       },
       reviews: cases.map((c) => {
         const holds: CaseHold[] = [];
@@ -160,7 +181,10 @@ export default async function meRoutes(fastify: FastifyInstance) {
     const { currentPassword, newPassword } = z
       .object({ currentPassword: z.string().min(1), newPassword: PasswordSchema })
       .parse(request.body);
-    const user = await prisma.user.findUnique({ where: { id: request.auth.userId }, select: { passwordHash: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: request.auth.userId },
+      select: { email: true, passwordHash: true, backupEmail: true, backupEmailVerifiedAt: true },
+    });
     if (!user?.passwordHash || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
       return reply.status(400).send({ error: 'Current password is incorrect' });
     }
@@ -168,6 +192,12 @@ export default async function meRoutes(fastify: FastifyInstance) {
       where: { id: request.auth.userId },
       data: { passwordHash: await bcrypt.hash(newPassword, 12), passwordChangedAt: new Date() },
     });
+    // Security notice to the primary address and, once verified, the backup
+    // (2026-10-24) — the backup exists so a lost primary still hears.
+    const { sendPasswordChangedNotice } = await import('@hg/email');
+    void sendPasswordChangedNotice(user.email);
+    const backup = verifiedBackup(user);
+    if (backup) void sendPasswordChangedNotice(backup);
     // The client refreshes its session (passwordChanged) so this device stays signed in; others are signed out.
     return { ok: true };
   });
@@ -195,6 +225,9 @@ export default async function meRoutes(fastify: FastifyInstance) {
     const { sendEmailChangeConfirm, sendEmailChangeNotice } = await import('@hg/email');
     void sendEmailChangeConfirm(email, { confirmUrl: `${origin()}/account/confirm-email?token=${raw}&id=${user.id}` });
     void sendEmailChangeNotice(user.email, { newEmail: email });
+    // The verified backup hears too (2026-10-24) — unless it IS the new address.
+    const backup = verifiedBackup(user);
+    if (backup && backup.toLowerCase() !== email) void sendEmailChangeNotice(backup, { newEmail: email });
     return { ok: true, pendingEmail: email };
   });
 
@@ -206,15 +239,100 @@ export default async function meRoutes(fastify: FastifyInstance) {
     if (!verifyToken(token, user.emailChangeToken)) return fail();
     const taken = await prisma.user.findFirst({ where: { email: { equals: user.pendingEmail, mode: 'insensitive' }, NOT: { id: user.id } } });
     if (taken) return reply.status(409).send({ error: 'That address is already in use' });
+    // A backup that becomes the primary stops being a backup (2026-10-24):
+    // the two addresses on an account are never the same one.
+    const backupBecomesPrimary = !!user.backupEmail && user.backupEmail.toLowerCase() === user.pendingEmail.toLowerCase();
     await prisma.user.update({
       where: { id: user.id },
-      data: { email: user.pendingEmail, pendingEmail: null, emailChangeToken: null, emailChangeExpires: null },
+      data: {
+        email: user.pendingEmail, pendingEmail: null, emailChangeToken: null, emailChangeExpires: null,
+        ...(backupBecomesPrimary ? { backupEmail: null, backupEmailVerifiedAt: null, backupEmailToken: null, backupEmailExpires: null } : {}),
+      },
     });
     return { ok: true, email: user.pendingEmail };
   });
 
   fastify.delete('/email/pending', async (request) => {
     await prisma.user.update({ where: { id: request.auth.userId }, data: { pendingEmail: null, emailChangeToken: null, emailChangeExpires: null } });
+    return { ok: true };
+  });
+
+  // ── Backup email (your_account "Backup email (2026-10-24)") ─────────────────
+  // A second address, verified from a link sent to it, that password-reset
+  // links may go to (auth-recovery.ts) and that hears every security notice.
+  // The primary address is told about every step. Audit rows carry ids and
+  // the op only — never an address.
+  const backupLimit = { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } };
+  const auditBackup = (tenantId: string, userId: string, op: 'backup_email_add' | 'backup_email_verify' | 'backup_email_remove') =>
+    AuditService.log({ tenantId, caseId: `account:${userId}`, action: LogAction.ACCOUNT_SECURITY, userId, details: { op } });
+
+  fastify.post('/backup-email', backupLimit, async (request, reply) => {
+    const { email: raw } = z.object({ email: z.string().trim().email().max(254) }).parse(request.body);
+    const email = raw.trim().toLowerCase();
+    const { userId, tenantId } = request.auth;
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, deletedAt: true } });
+    if (!user || user.deletedAt) return reply.status(404).send({ error: 'Not found' });
+    if (email === user.email.toLowerCase()) {
+      return reply.status(400).send({ error: 'That is your sign-in address — a backup has to be a different one' });
+    }
+    // Another account's sign-in address is refused with the neutral message.
+    const taken = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' }, NOT: { id: user.id } }, select: { id: true } });
+    if (taken) return reply.status(400).send({ error: BACKUP_REFUSED });
+
+    // Re-posting replaces whatever was there (pending or verified) and re-issues the link.
+    const { raw: token, hash } = generateToken();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { backupEmail: email, backupEmailVerifiedAt: null, backupEmailToken: hash, backupEmailExpires: new Date(Date.now() + BACKUP_WINDOW_MS) },
+    });
+    await auditBackup(tenantId, userId, 'backup_email_add');
+    const { sendBackupEmailConfirm, sendBackupEmailNotice, maskEmail } = await import('@hg/email');
+    void sendBackupEmailConfirm(email, { confirmUrl: `${origin()}/auth/backup-email/confirm?token=${token}`, primaryMasked: maskEmail(user.email) });
+    void sendBackupEmailNotice(user.email, { event: 'added', backupMasked: maskEmail(email) });
+    return { ok: true, backupEmail: email, backupEmailVerified: false };
+  });
+
+  // Public (plugins/auth.ts PUBLIC_PREFIXES): the link alone proves the
+  // address; the token is looked up by its hash and checked timing-safely.
+  fastify.post('/backup-email/confirm', backupLimit, async (request, reply) => {
+    const { token } = z.object({ token: z.string().min(1).max(128) }).parse(request.body);
+    const fail = () => reply.status(400).send({ error: 'This link is invalid or has expired — add the backup email again from your account page to get a new one.' });
+    const hash = createHash('sha256').update(token).digest('hex');
+    const user = await prisma.user.findFirst({
+      where: { backupEmailToken: hash, deletedAt: null },
+      select: { id: true, tenantId: true, email: true, backupEmail: true, backupEmailToken: true, backupEmailExpires: true },
+    });
+    if (!user?.backupEmail || !user.backupEmailToken || !user.backupEmailExpires || user.backupEmailExpires < new Date()) return fail();
+    if (!verifyToken(token, user.backupEmailToken)) return fail();
+    // Someone may have taken the address as a sign-in email meanwhile.
+    const taken = await prisma.user.findFirst({ where: { email: { equals: user.backupEmail, mode: 'insensitive' }, NOT: { id: user.id } }, select: { id: true } });
+    if (taken) return reply.status(400).send({ error: BACKUP_REFUSED });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { backupEmailVerifiedAt: new Date(), backupEmailToken: null, backupEmailExpires: null },
+    });
+    await auditBackup(user.tenantId, user.id, 'backup_email_verify');
+    const { sendBackupEmailNotice, maskEmail } = await import('@hg/email');
+    const backupMasked = maskEmail(user.backupEmail);
+    void sendBackupEmailNotice(user.email, { event: 'verified', backupMasked });
+    void sendBackupEmailNotice(user.backupEmail, { event: 'verified', backupMasked });
+    return { ok: true, backupEmail: user.backupEmail };
+  });
+
+  fastify.delete('/backup-email', async (request) => {
+    const { userId, tenantId } = request.auth;
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, backupEmail: true } });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { backupEmail: null, backupEmailVerifiedAt: null, backupEmailToken: null, backupEmailExpires: null },
+    });
+    if (user?.backupEmail) {
+      await auditBackup(tenantId, userId, 'backup_email_remove');
+      const { sendBackupEmailNotice, maskEmail } = await import('@hg/email');
+      const backupMasked = maskEmail(user.backupEmail);
+      void sendBackupEmailNotice(user.email, { event: 'removed', backupMasked });
+      void sendBackupEmailNotice(user.backupEmail, { event: 'removed', backupMasked });
+    }
     return { ok: true };
   });
 
