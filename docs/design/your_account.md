@@ -47,3 +47,21 @@ The family never deletes directly. `POST /me/delete-request` opens an `ACCOUNT_D
 ## Not done
 
 Phone number and first/last for families (staff have them at `/ops/profile`); changing a staff email (admin, Team page); a per-review download when the account export is too large (the documents page lists files individually today).
+
+## Backup email (2026-10-24)
+
+A second address on the account, verified from a link sent to it, then used for account recovery and security notices. Staff first (`/ops/profile`, "Backup email" card under the email field); the same card sits in the family account's settings in the Daybreak voice, `{en, es}` (`apps/web/lib/content/backup-email.ts`).
+
+| | |
+|---|---|
+| Schema | `User.backupEmail`, `backupEmailVerifiedAt`, `backupEmailToken` (sha256 of the raw link token), `backupEmailExpires`. No uniqueness — two accounts may name the same recovery address — but a backup may never equal the account's own `email` or another account's `email` (case-insensitive). Migration `20261024000040_backup_email`. |
+| Add | `POST /me/backup-email { email }` (10/15 min): stored unverified with a 24-hour token; the confirmation goes to the **new** address (`/auth/backup-email/confirm?token=…`), a notice to the primary ("a backup email was added; if this wasn't you, change your password"). Re-posting replaces a pending (or verified) address and re-issues the link. The account's own address is refused in plain words; another account's sign-in address is refused with the neutral *"That address can't be used as a backup here"* — nothing about other accounts leaks. |
+| Confirm | `POST /me/backup-email/confirm { token }` — public, token looked up by hash and checked timing-safely, single-use. Sets `backupEmailVerifiedAt`, clears the token; both addresses are told. The confirm page is shared by staff and families and links to sign in. |
+| Remove | `DELETE /me/backup-email` clears all four fields; both addresses are told. |
+| Read | `GET /me` returns `backupEmail`, `backupEmailVerified`, `backupEmailVerifiedAt`, `backupEmailAddedAt` (while pending) — never the token. |
+| Recovery | `POST /auth/forgot` also matches a **verified** backup (case-insensitive): the reset link goes to the backup, the primary gets "a password reset was requested from your backup email". An unverified backup never matches (indistinguishable from an unknown address). When one backup address stands on several accounts, each gets its own link. |
+| Notices | Password changes (`POST /me/password`, `POST /auth/reset`) and a primary-email change request tell the verified backup as well as the primary. Addresses in notice bodies are masked (`r•••@example.com`). If a pending primary-email change confirms to the address that was the backup, the backup fields clear (the two addresses are never the same one). |
+| Audit | `ACCOUNT_SECURITY` rows with `op: backup_email_add | backup_email_verify | backup_email_remove` — ids only, never an address. |
+| Seed | `ADMIN_BACKUP_EMAIL` (optional, seed-only) stores a verified backup on the admin account; the seed logs "backup email set" without the address (`environment_reference.md` → Bootstrap). |
+
+Tests: `backup-email.integration.test.ts` (13), `auth-recovery.integration.test.ts` (+3), `OpsProfileBackupEmail.test.tsx` (4), `AccountBackupEmail.test.tsx` (6, with the `{en, es}` parity check), `BackupEmailConfirmPage.test.tsx` (4), `seed-admin.integration.test.ts` (3).

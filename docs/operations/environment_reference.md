@@ -92,6 +92,7 @@ In production (Render) there are no files: every value is a service env var (blu
 | Var | Purpose |
 |---|---|
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `SYSTEM_TENANT_NAME` | One-shot admin bootstrap: `DATABASE_URL=<prod> ADMIN_EMAIL=… ADMIN_PASSWORD=… pnpm --filter @hg/database db:seed` |
+| `ADMIN_BACKUP_EMAIL` | Optional, same seed run: stores a **verified** backup email on the admin account (the founder running the seed is the verification) — password-reset links can then go to it (your_account.md "Backup email"). Must differ from `ADMIN_EMAIL`. Unset = the backup on the account is left as it is. Seed-only: never on a service, never in a blueprint; the seed logs that it was set without printing the address |
 
 ## Legacy (read by parked code, safe to leave unset)
 
