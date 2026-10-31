@@ -7,6 +7,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import prisma from "@hg/database"
 import bcrypt from "bcryptjs"
+import { clientOf, recordSignInAttempt } from "./sign-in-events"
 
 // Pre-computed at startup so the timing-safe path runs the same bcrypt cost as real logins.
 // This prevents account enumeration: both "no account" and "wrong password" take ~300ms.
@@ -76,17 +77,22 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
         rememberMe: { label: "Remember me", type: "text" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
 
         // Case-insensitive, trimmed: phone keyboards capitalize the first
         // letter, and an exact-match lookup then rejected a correct password
         // as "invalid email" (2026-09-05). Existing mixed-case rows still match.
         const email = credentials.email.trim().toLowerCase();
+        // Sign-in log (staff_console.md §12 "Sign-in log and alerts"): every
+        // exit below records one attempt with the caller's address and user
+        // agent from the request headers; the recorder never throws.
+        const client = clientOf(req);
         // NextAuth v4 surfaces a thrown message as result.error, so the
         // minutes remaining ride along: "RateLimit:12" → the form says so.
         const waitMinutes = checkRateLimit(email);
         if (waitMinutes > 0) {
+          await recordSignInAttempt({ email, outcome: 'RATE_LIMITED', ...client });
           throw new Error(`RateLimit:${waitMinutes}`);
         }
 
@@ -103,13 +109,22 @@ export const authOptions: NextAuthOptions = {
 
         if (!user?.passwordHash) {
           await bcrypt.compare(credentials.password, TIMING_SAFE_DUMMY_HASH);
+          await recordSignInAttempt({ email, user, outcome: user ? 'NO_PASSWORD' : 'UNKNOWN_EMAIL', ...client });
           return null;
         }
 
         const passwordValid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!passwordValid) return null;
+        if (!passwordValid) {
+          await recordSignInAttempt({ email, user, outcome: 'BAD_PASSWORD', ...client });
+          return null;
+        }
 
         clearRateLimit(email);
+
+        // The attempt, and — when this account's loginCount is still 0 — the
+        // admin's one SMS and the FIRST_SIGN_IN audit row. Read before the
+        // increment below so "first" means first.
+        await recordSignInAttempt({ email, user, outcome: 'SUCCESS', ...client });
 
         // Last sign-in for the admin's Accounts page. Telemetry never blocks
         // a sign-in: a failure here is logged and the session is still issued.
