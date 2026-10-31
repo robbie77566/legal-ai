@@ -294,6 +294,16 @@ const start = async () => {
     );
   }, 24 * 3600 * 1000).unref();
 
+  // Sign-in log retention (staff_console.md §12 "Sign-in log and alerts"):
+  // attempts older than 180 days go, hourly. Also on demand: POST /ops/sign-ins/prune.
+  setInterval(() => {
+    void import('./services/sign-ins.service').then(({ pruneSignInAttempts }) =>
+      pruneSignInAttempts()
+        .then((r) => { if (r.deleted > 0) fastify.log.info(r, 'sign-in attempts pruned'); })
+        .catch((e) => fastify.log.warn({ err: e }, 'sign-in prune sweep failed'))
+    );
+  }, 60 * 60 * 1000).unref();
+
   if (getStripe()) {
     // Once shortly after start, then hourly: the timer alone was reset by
     // every deploy, so on a busy release day the sweep never ran (2026-09-12).

@@ -26,6 +26,10 @@ export enum LogAction {
   BAR_VERIFICATION = 'BAR_VERIFICATION',
   PILOT_INTEREST = 'PILOT_INTEREST', // the public PD-pilot form (workstream F); office and county only, never the sender's name or email
   ACCOUNT_SECURITY = 'ACCOUNT_SECURITY', // backup email added / verified / removed (your_account 2026-10-24); ids and the op only, never an address
+  // Written by the WEB process (packages/auth/sign-in-events.ts) on an account's
+  // first successful sign-in (staff_console.md §12 "Sign-in log and alerts");
+  // details { userId } only — never the IP, which lives on SignInAttempt.
+  FIRST_SIGN_IN = 'FIRST_SIGN_IN',
 }
 
 export class AuditService {

@@ -17,6 +17,8 @@ import opsCommerceRoutes from './ops-commerce';
 import { opsOrganisationRoutes } from './ops-organisations';
 import { opsInvestigationRoutes } from './investigations';
 import { opsProfessionalRoutes, professionalOverview } from './ops-professional';
+import { opsSignInRoutes } from './ops-sign-ins';
+import { signInCounts } from '../services/sign-ins.service';
 
 /**
  * Ops console API (US-9, OPS-1..7) — ADMIN-only staff surface. Reads use the
@@ -71,6 +73,8 @@ export default async function opsRoutes(fastify: FastifyInstance) {
   fastify.register(opsInvestigationRoutes, { prefix: '/investigations' });
   // Workstream G: bar verification, credits, the staff list (staff_console.md §12).
   await fastify.register(opsProfessionalRoutes);
+  // Sign-in log and the account summary the admin's SMS links to (staff_console.md §12).
+  await fastify.register(opsSignInRoutes);
 
   // OPS-6 contact log: what Support said to the family, on the case file.
   fastify.post('/cases/:id/contact', async (request, reply) => {
@@ -1051,11 +1055,14 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     // Today's professional group (persona_rollout_plan.md §7 "Observability"),
     // plus the eval gate's one line (workstream J): latest finished run per
     // ledger — green, red, or never run.
-    const [professional, evalGate] = await Promise.all([professionalOverview(), evalGateStatus()]);
+    const [professional, evalGate, signIns] = await Promise.all([professionalOverview(), evalGateStatus(), signInCounts()]);
 
     return {
       storage,
       professional: { ...professional, evalGate },
+      // Today's two sign-in numbers (staff_console.md §12): first sign-ins
+      // today (America/Chicago) and failed attempts in the last 24 hours.
+      signIns,
       email: process.env.RESEND_API_KEY
         ? { configured: true, from: process.env.EMAIL_FROM ?? 'Snot Nose Legal <noreply@snotnoselegal.com>' }
         : { configured: false, from: null },
