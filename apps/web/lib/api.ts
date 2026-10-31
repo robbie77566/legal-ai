@@ -249,3 +249,53 @@ export interface ChronologyEntry { date: string; volume?: string; page?: string 
 export interface ChronologyDeliverable { entries: ChronologyEntry[]; note?: string }
 /** PATCH /ops/investigations/:id { deliverable } — the structured chronology; `null` clears it. 422 ADVICE_LANGUAGE when a note carries advice words. */
 export const opsDeliverChronology = (id: string, deliverable: ChronologyDeliverable | null) => apiFetch(`/ops/investigations/${encodeURIComponent(id)}`, json('PATCH', { deliverable }))
+
+// ── Sign-in log and the account summary (staff_console.md §12 "Sign-in log and alerts", 2026-10-31) ──
+// apps/api/src/routes/ops-sign-ins.ts. Admin and Support read both; the admin's SMS links to the account page.
+export type SignInOutcome = 'SUCCESS' | 'BAD_PASSWORD' | 'UNKNOWN_EMAIL' | 'RATE_LIMITED' | 'NO_PASSWORD'
+/** The log's filter: one outcome, or FAILED = anything but SUCCESS. */
+export type SignInFilter = SignInOutcome | 'FAILED'
+export const SIGN_IN_FILTERS: SignInFilter[] = ['SUCCESS', 'FAILED', 'BAD_PASSWORD', 'UNKNOWN_EMAIL', 'RATE_LIMITED', 'NO_PASSWORD']
+export interface SignInAttemptRow {
+  id: string
+  email: string
+  userId: string | null
+  outcome: SignInOutcome
+  firstSignIn: boolean
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
+}
+export interface AccountSummary {
+  id: string
+  email: string
+  name: string | null
+  accountKind: 'FAMILY' | 'PROFESSIONAL' | 'STAFF'
+  role: string
+  grants: string[]
+  seat: string | null
+  organisation: { id: string; kind: string; name: string; isTest: boolean } | null
+  bar: { number: string | null; state: string | null; status: 'PENDING' | 'VERIFIED' | 'REJECTED'; verifiedAt: string | null; practiceType: string | null } | null
+  createdAt: string
+  deletedAt: string | null
+  lastSignInAt: string | null
+  signInCount: number
+  cases: number
+  backupEmail: { address: string; verified: boolean; verifiedAt: string | null } | null
+  attempts: SignInAttemptRow[]
+}
+export interface SignInsPage { attempts: SignInAttemptRow[]; page: number; pageSize: number; total: number; hasMore: boolean }
+/** GET /ops/accounts/:id — any account (family, professional, staff); 404 when there is none. */
+export const opsGetAccount = (id: string) => apiFetch(`/ops/accounts/${encodeURIComponent(id)}`)
+/** GET /ops/sign-ins — newest first, paged. */
+export const opsListSignIns = (params: { outcome?: SignInFilter | ''; since?: string; q?: string; first?: boolean; page?: number; pageSize?: number } = {}) => {
+  const qs = new URLSearchParams()
+  if (params.outcome) qs.set('outcome', params.outcome)
+  if (params.since) qs.set('since', params.since)
+  if (params.q) qs.set('q', params.q)
+  if (params.first) qs.set('first', '1')
+  if (params.page && params.page > 1) qs.set('page', String(params.page))
+  if (params.pageSize) qs.set('pageSize', String(params.pageSize))
+  const tail = qs.toString()
+  return apiFetch(`/ops/sign-ins${tail ? `?${tail}` : ''}`)
+}

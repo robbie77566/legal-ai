@@ -5,6 +5,7 @@
  *  (ledger survives, email freed). The exact email must be retyped —
  *  never a one-misclick action. */
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
 import { formatDuration, formatWhen } from '@/lib/duration'
 
@@ -104,7 +105,10 @@ export default function AccountAdmin() {
           <tbody>
             {results.map((a) => (
               <tr key={a.id} className="border-b border-[#21262D]">
-                <td className="py-2 font-mono text-xs">{a.email}</td>
+                <td className="py-2 font-mono text-xs">
+                  {/* The account page (staff_console.md §12): summary + sign-in attempts; the admin's SMS lands there too. */}
+                  <Link href={`/ops/accounts/${a.id}`} className="underline hover:text-[#D4AF37]" data-testid={`account-link-${a.id}`}>{a.email}</Link>
+                </td>
                 <td>{a.name ?? '—'}</td>
                 <td>{a.cases}</td>
                 <td data-testid={`last-login-${a.id}`}>

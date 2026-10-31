@@ -23,6 +23,9 @@ const NAV: [string, string][] = [
   ['/ops/quotes', 'Quotes'],
   ['/ops/record-desk', 'Record Desk'],
   ['/ops/accounts', 'Accounts'],
+  // Sign-in log (staff_console.md §12 "Sign-in log and alerts"): every
+  // attempt, and the first sign-ins the admin was texted about.
+  ['/ops/sign-ins', 'Sign-ins'],
   ['/ops/promos', 'Promos'],
   ['/ops/money', 'Money'],
   ['/ops/feedback', 'Feedback'],
@@ -42,7 +45,7 @@ const NAV: [string, string][] = [
 // customer-facing surfaces. Everything else isn't greyed out — it isn't there.
 // The professional pages are read-only for Support (the api refuses the
 // writes); the Record Desk lets Support move a request along.
-const SUPPORT_NAV = new Set(['/ops', '/ops/cases', '/ops/organisations', '/ops/verifications', '/ops/quotes', '/ops/record-desk', '/ops/accounts', '/ops/feedback'])
+const SUPPORT_NAV = new Set(['/ops', '/ops/cases', '/ops/organisations', '/ops/verifications', '/ops/quotes', '/ops/record-desk', '/ops/accounts', '/ops/sign-ins', '/ops/feedback'])
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? ''

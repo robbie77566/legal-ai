@@ -34,6 +34,8 @@ interface Status {
     // The weekly eval gate (plan §5 J): latest finished run per ledger.
     evalGate?: { lastRunAt: string | null; pass: boolean | null; failedLedgers: string[]; neverRun?: string[] }
   }
+  // Sign-in log (staff_console.md §12): first sign-ins today (America/Chicago), failed attempts in 24h.
+  signIns?: { firstToday: number; failed24h: number }
 }
 interface Hold { caseId: string; title: string; ref: string; reasons: string[]; heldAt: string; slaRemainingHours: number }
 interface QueueRow {
@@ -190,6 +192,21 @@ export default function OpsOverview() {
           )}
         </div>
       </section>
+
+      {/* Sign-ins (staff_console.md §12): new accounts today — each one texted the admin — and failed attempts. Both roles. */}
+      {status?.signIns && (
+        <section className="mt-8" data-testid="sign-ins">
+          <h2 className="font-serif text-lg font-bold text-[#D4AF37]">Sign-ins</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Link href="/ops/sign-ins?first=1" className="block" data-testid="signins-first-today">
+              <Tile label="New accounts signed in today" value={String(status.signIns.firstToday)} tone={status.signIns.firstToday ? 'ok' : 'neutral'} hint="first sign-ins · the admin was texted" />
+            </Link>
+            <Link href="/ops/sign-ins?outcome=FAILED" className="block" data-testid="signins-failed-24h">
+              <Tile label="Failed sign-ins (24h)" value={String(status.signIns.failed24h)} tone={status.signIns.failed24h >= 20 ? 'warn' : 'neutral'} hint={status.signIns.failed24h >= 20 ? 'unusually many — open the log' : 'wrong passwords, unknown addresses, rate limits'} />
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Professional group (plan §7): counsel, offices and clinics — what is waiting on staff. */}
       {status?.professional && (() => {
