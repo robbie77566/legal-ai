@@ -1094,3 +1094,36 @@ enum BarVerificationStatus {
   VERIFIED
   REJECTED
 }
+
+// ── W: sign-in log and the admin's first-sign-in alert (2026-10-31) ─────────
+// Every credential sign-in attempt, success or failure, written by
+// authorize() in packages/auth (the WEB process) and read by the staff
+// console. A SYSTEM table like FeatureFlag: no RLS, owner connection only;
+// never joined into tenant data. `email` is the address as typed, lower-cased
+// and trimmed, so an attempt against an address that has no account is still
+// visible. `firstSignIn` marks the one SUCCESS that sent the admin the SMS.
+// Retention: rows older than 180 days are pruned by the api's hourly sweep
+// (pruneSignInAttempts); migration 20261031000041_sign_in_attempts.
+enum SignInOutcome {
+  SUCCESS
+  BAD_PASSWORD
+  UNKNOWN_EMAIL
+  RATE_LIMITED
+  NO_PASSWORD
+}
+
+model SignInAttempt {
+  id          String        @id @default(cuid())
+  email       String
+  userId      String?
+  tenantId    String?
+  outcome     SignInOutcome
+  firstSignIn Boolean       @default(false)
+  ip          String? // first x-forwarded-for address, at most 45 characters
+  userAgent   String? // at most 256 characters
+  createdAt   DateTime      @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([email])
+}
