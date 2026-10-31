@@ -22,6 +22,7 @@
 | **AWS Textract** | OCR for scanned volumes | $1.50/1k pages | ~$0.90 avg case |
 | **AWS S3** (2 buckets) | Customer documents + encrypted eval corpus | storage/requests/egress | < $5/mo at launch volumes |
 | **Stripe** | Payments, refunds, installments, Stripe Tax | 2.9% + $0.30 (+0.5% tax calc) | ~$9 on a $299 sale |
+| **Twilio** (added 2026-10-31) | One SMS to the admin's phone on every account's first sign-in (staff_console.md §12); nothing to families, ever | ~$1.15/mo for the number + ~$0.0083 per message segment (US outbound, 2026 list price); the alert is two segments, ≈ $0.02 each. US A2P 10DLC registration is a one-time ~$4 brand fee plus ~$1.50–$2/mo campaign fee | pennies — capped at 20 alerts per hour per web process; credentials on the **web** service (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`, `ADMIN_SMS_TO`), all unset = no SMS, attempts still logged |
 
 ## Free tier at launch (upgrade triggers noted)
 
@@ -37,7 +38,7 @@
 ## Not in production (for completeness)
 
 - **Neo4j** — decommissioned pre-launch (post-MVP graph work re-adds deliberately).
-- **Twilio/SMS** — P2 recommendation from the mobile UX review; unpriced until pursued.
+- **Twilio/SMS** — *adopted 2026-10-31* for the admin's first-sign-in alert (see the usage-based table); the P2 mobile-UX idea of texting families is **not** pursued — the product texts one staff phone and nobody else.
 - **AWS compute (ECS/RDS)** — the designated scale-up destination (readiness §2); $0 today.
 
 ## The bottom line

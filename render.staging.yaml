@@ -152,3 +152,10 @@ services:
         fromDatabase: { name: hg-postgres-staging, property: connectionString }
       - { key: COOKIE_DOMAIN, value: .staging.snotnoselegal.com } # its own jar, never .snotnoselegal.com
       - { key: NEXT_PUBLIC_POSTHOG_KEY, sync: false }
+      # Sign-in log and alerts (staff_console.md §12): same four as production;
+      # staging may leave them unset (attempts logged, SMS printed to the log)
+      # or point ADMIN_SMS_TO at the founder's phone with a "[staging]" body.
+      - { key: TWILIO_ACCOUNT_SID, sync: false }
+      - { key: TWILIO_AUTH_TOKEN, sync: false }
+      - { key: TWILIO_FROM, sync: false }
+      - { key: ADMIN_SMS_TO, sync: false }

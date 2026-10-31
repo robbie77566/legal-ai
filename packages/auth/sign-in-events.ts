@@ -131,7 +131,16 @@ export function buildFirstSignInSms(opts: {
   const name = (opts.name ?? '').trim().slice(0, 40) || 'no name';
   const org = (opts.organisationName ?? '').trim().slice(0, 40) || '—';
   const origin = (opts.origin ?? adminPanelOrigin()).replace(/\/+$/, '');
-  return `New sign-in: ${name} · ${label} (${kind} · ${org}) · created ${civilDate(opts.createdAt)} · ${maskEmail(opts.email)}. ${origin}/ops/accounts/${opts.userId}`;
+  return `${stagingPrefix(origin)}New sign-in: ${name} · ${label} (${kind} · ${org}) · created ${civilDate(opts.createdAt)} · ${maskEmail(opts.email)}. ${origin}/ops/accounts/${opts.userId}`;
+}
+
+/** "[staging] " when the console lives on staging.* — the same mark @hg/email puts on subjects. */
+export function stagingPrefix(origin: string): string {
+  try {
+    return new URL(origin).hostname.startsWith('staging.') ? '[staging] ' : '';
+  } catch {
+    return '';
+  }
 }
 
 // ── Flood guard: a rolling hour of alert timestamps, per process ────────────

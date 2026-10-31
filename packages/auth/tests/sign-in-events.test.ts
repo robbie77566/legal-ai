@@ -182,6 +182,13 @@ describe('helpers', () => {
     expect(maskEmail('robbie@gmail.com')).toBe('r•••@gmail.com');
     expect(maskEmail('nope')).toBe('•••');
   });
+  it('a staging console marks the body "[staging]" like the email subjects; production does not', () => {
+    const staging = buildFirstSignInSms({ userId: 'u1', email: 'r@gmail.com', origin: 'https://staging.snotnoselegal.com' });
+    expect(staging.startsWith('[staging] New sign-in:')).toBe(true);
+    expect(staging).toContain('https://staging.snotnoselegal.com/ops/accounts/u1');
+    const prod = buildFirstSignInSms({ userId: 'u1', email: 'r@gmail.com', origin: 'https://www.snotnoselegal.com' });
+    expect(prod.startsWith('New sign-in:')).toBe(true);
+  });
   it('buildFirstSignInSms stays under 320 characters with long names and organisations', () => {
     const body = buildFirstSignInSms({ userId: 'c'.repeat(25), name: 'N'.repeat(200), email: `${'e'.repeat(60)}@example.com`, accountKind: 'PROFESSIONAL', organisationName: 'O'.repeat(200), createdAt: new Date(), origin: 'https://www.snotnoselegal.com' });
     expect(body.length).toBeLessThan(320);

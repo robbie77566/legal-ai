@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["NEXTAUTH_URL"],
+  "globalEnv": ["NEXTAUTH_URL", "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM", "ADMIN_SMS_TO"],
   "tasks": {
     "build": {
       "dependsOn": [

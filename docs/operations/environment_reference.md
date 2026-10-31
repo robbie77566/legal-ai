@@ -86,6 +86,10 @@ In production (Render) there are no files: every value is a service env var (blu
 | `COOKIE_DOMAIN` | | Session-cookie Domain attribute so www's cookie reaches api.snotnoselegal.com | Prod ONLY: `.snotnoselegal.com` (blueprint sets it). NEVER set in dev — a domain attribute breaks localhost/LAN cookies. Unset = NextAuth default host-only cookie |
 | `NEXT_PUBLIC_API_URL` | | Where the browser calls the API | Prod `https://api.snotnoselegal.com`; dev `http://localhost:3001` or the LAN address for device testing |
 | `NEXT_PUBLIC_POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_HOST` | | Palette A/B + landing events (same `phc_` token as the api's) | as above |
+| `TWILIO_ACCOUNT_SID` | 🔑 | **Sign-in alerts (2026-10-31, staff_console.md §12).** The admin's first-sign-in SMS is sent from the web process because `authorize()` runs there. Unset = no SMS; attempts are still logged and the body is printed to the web log | Twilio Console → Account Info → Account SID (`AC…`) |
+| `TWILIO_AUTH_TOKEN` | 🔑 | Twilio's API secret for the SID above | Twilio Console → Account Info → Auth Token (rotate from the same page) |
+| `TWILIO_FROM` | 🔑 | The number the alert is sent from, E.164 | A number purchased in the Twilio Console (Phone Numbers → Buy; ~$1.15/mo), SMS-capable, A2P-registered for US traffic |
+| `ADMIN_SMS_TO` | 🔑 | The admin's phone, E.164 — the ONLY recipient the product ever texts. Unset = alerts off, sign-ins still logged. At most 20 alerts per rolling hour per process | The founder's mobile, e.g. `+15125550100`. Same four on `web-staging` (parity); staging prefixes the body with `[staging]` |
 
 ## Bootstrap / seed only (never set on services)
 
