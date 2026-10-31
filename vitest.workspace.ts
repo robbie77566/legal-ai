@@ -7,5 +7,7 @@ export default defineWorkspace([
   'packages/ai',
   'packages/reports',
   'packages/email',
+  'packages/sms',
+  'packages/auth',
   'apps/web'
 ]);

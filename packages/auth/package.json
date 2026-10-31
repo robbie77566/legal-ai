@@ -6,6 +6,7 @@
   "types": "./index.ts",
   "dependencies": {
     "@hg/database": "workspace:*",
+    "@hg/sms": "workspace:*",
     "@next-auth/prisma-adapter": "^1.0.7",
     "bcryptjs": "^2.4.3",
     "next-auth": "^4.24.15"

@@ -351,6 +351,9 @@ importers:
       '@hg/database':
         specifier: workspace:*
         version: link:../database
+      '@hg/sms':
+        specifier: workspace:*
+        version: link:../sms
       '@next-auth/prisma-adapter':
         specifier: ^1.0.7
         version: 1.0.7(@prisma/client@5.22.0(prisma@5.22.0))(next-auth@4.24.15(next@14.2.35(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
@@ -500,6 +503,18 @@ importers:
       vitest:
         specifier: ^3.2.0
         version: 3.2.7(@types/debug@4.1.12)(@types/node@20.19.43)(jiti@1.21.7)(jsdom@29.1.1)(tsx@4.21.0)(yaml@2.8.4)
+
+  packages/sms:
+    devDependencies:
+      '@hg/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^20.19.40
+        version: 20.19.43
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
 
   packages/templates:
     devDependencies:
