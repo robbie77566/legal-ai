@@ -204,9 +204,27 @@ describe('summary and refund ledger', () => {
     expect(s.totals.refundedCents).toBeGreaterThanOrEqual(34800);
     expect(s.totals.refundCount).toBeGreaterThanOrEqual(3);
     expect(s.totals.costUsd).toBeGreaterThanOrEqual(4.5);
+    // The tile's figure is spend AS INCURRED: every cost record in the period,
+    // so it can never be below the cohort cost of the reviews sold (the bug
+    // behind "all-time cost of reviews lower than one month's spend", 2026-11-01).
+    expect(s.totals.spendUsd).toBeGreaterThanOrEqual(s.totals.costUsd);
+    expect(s.totals.spendCases).toBeGreaterThanOrEqual(1);
+    expect(s.totals.spendOnSoldUsd + s.totals.spendUnsoldUsd).toBeCloseTo(s.totals.spendUsd, 6);
     expect(s.weeks.length).toBeGreaterThanOrEqual(1);
     expect(s.weeks[0]).toMatchObject({ weekOf: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
     expect(s.recentRefunds[0]).toMatchObject({ issuedByEmail: `${run}_admin@x.com` });
+  });
+
+  it('counts the cost of a case that was never sold in spend, never in the cohort cost', async () => {
+    const unsold = await prisma.case.create({ data: { title: 'Unsold', tenantId, status: 'ANALYZING' } });
+    await prisma.costRecord.create({ data: { caseId: unsold.id, tenantId, source: 'model', provider: 'test', amountUsd: 7.25 } });
+    const before = (await get('/ops/payments/summary?days=30')).json().totals;
+    expect(before.spendUnsoldUsd).toBeGreaterThanOrEqual(7.25);
+    // The cohort cost only ever sums cases behind a sold review payment.
+    const soldCaseCost = await prisma.costRecord.aggregate({ where: { caseId }, _sum: { amountUsd: true } });
+    expect(before.costUsd).toBeGreaterThanOrEqual(soldCaseCost._sum.amountUsd ?? 0);
+    await prisma.costRecord.deleteMany({ where: { caseId: unsold.id } });
+    await prisma.case.delete({ where: { id: unsold.id } });
   });
 
   it('attributes a refund to the week its payment was sold, not the week it was issued', async () => {

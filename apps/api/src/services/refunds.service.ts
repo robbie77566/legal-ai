@@ -492,8 +492,23 @@ export async function paymentsSummary(days: number, includeTest = false) {
   const collectedCents = payments.reduce((a, p) => a + p.amountCents, 0);
   const refundedCents = refunds.reduce((a, r) => a + r.amountCents, 0);
   const netCents = collectedCents - refundedCents;
-  const costUsd = reviews.reduce((a, p) => a + (p.caseId ? costOfCase.get(p.caseId) ?? 0 : 0), 0);
+  // One case, one cost: a case with two review payments (a re-purchase after
+  // a refund) was counted twice when this summed per payment (found 2026-11-01).
+  const costUsd = caseIds.reduce((a, id) => a + (costOfCase.get(id) ?? 0), 0);
   const sold = reviews.length;
+
+  // Spend AS INCURRED in the period: every CostRecord, whatever case it
+  // belongs to — unsold cases, re-runs, QA re-runs, eval runs and test-mode
+  // purchases included. `costUsd` above is the cohort view (the cost of the
+  // reviews SOLD in the period, for the margin) and, with test-mode payments
+  // hidden, was the only cost figure on the tile: before Stripe went live
+  // every purchase was test-mode, so "Cost of reviews · all time" read as
+  // nearly nothing while "Spend by week" counted every record (2026-11-01).
+  const spendRows = await prisma.costRecord.groupBy({ by: ['caseId'], where: { createdAt: { gte: from } }, _sum: { amountUsd: true } });
+  const soldCases = new Set(caseIds);
+  const spendUsd = spendRows.reduce((a, c) => a + (c._sum.amountUsd ?? 0), 0);
+  const spendOnSoldUsd = spendRows.filter((c) => soldCases.has(c.caseId)).reduce((a, c) => a + (c._sum.amountUsd ?? 0), 0);
+  const spendCases = spendRows.length;
 
   type Week = { weekOf: string; sold: number; collectedCents: number; refundedCents: number; netCents: number; costUsd: number };
   const weeks = new Map<string, Week>();
@@ -506,12 +521,16 @@ export async function paymentsSummary(days: number, includeTest = false) {
     }
     return w;
   };
-  for (const p of payments) {
+  const costedCases = new Set<string>();
+  for (const p of [...payments].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) {
     const w = week(p.createdAt);
     w.collectedCents += p.amountCents;
     if (p.kind === 'REVIEW') {
       w.sold++;
-      w.costUsd += p.caseId ? costOfCase.get(p.caseId) ?? 0 : 0;
+      if (p.caseId && !costedCases.has(p.caseId)) {
+        costedCases.add(p.caseId);
+        w.costUsd += costOfCase.get(p.caseId) ?? 0;
+      }
     }
   }
   for (const r of refunds) week(paymentById.get(r.paymentId)!.createdAt).refundedCents += r.amountCents;
@@ -539,6 +558,12 @@ export async function paymentsSummary(days: number, includeTest = false) {
       costUsd,
       costPerCaseUsd: sold ? costUsd / sold : null,
       marginPct: netCents > 0 ? (netCents / 100 - costUsd) / (netCents / 100) : null,
+      // As incurred in the period (see above): the number the tile shows.
+      spendUsd,
+      spendCases,
+      spendPerCaseUsd: spendCases ? spendUsd / spendCases : null,
+      spendOnSoldUsd,
+      spendUnsoldUsd: spendUsd - spendOnSoldUsd,
       needsDecision: disputedRaw.length + requests.length,
     },
     weeks: [...weeks.values()].sort((a, b) => (a.weekOf < b.weekOf ? 1 : -1)),

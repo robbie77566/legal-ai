@@ -14,6 +14,7 @@ const SUMMARY = {
   totals: {
     sold: 29, freeCount: 3, collectedCents: 867100, refundedCents: 89700, netCents: 777400,
     refundRate: 0.104, refundCount: 3, partialCount: 1, costUsd: 312.4, costPerCaseUsd: 10.77, marginPct: 0.96, needsDecision: 1,
+    spendUsd: 1480.5, spendCases: 61, spendPerCaseUsd: 24.27, spendOnSoldUsd: 312.4, spendUnsoldUsd: 1168.1,
   },
   weeks: [{ weekOf: '2026-08-31', sold: 7, collectedCents: 209300, refundedCents: 29900, netCents: 179400, costUsd: 78.1 }],
   disputes: [{ id: 'p_d', caseId: 'c_d', caseTitle: 'Nguyen — Harris County record', customerEmail: 't@x.com', kind: 'REVIEW', status: 'SUCCEEDED', amountCents: 29900, refundedCents: 0, remainingCents: 29900, promoCode: null, free: false, disputeStatus: 'open', disputedAt: '2026-09-05T10:00:00Z', refundedAt: null, createdAt: '2026-09-01T10:00:00Z', stripeId: 'cs_d', paymentIntentId: 'pi_d' }],

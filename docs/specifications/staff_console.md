@@ -45,6 +45,7 @@ Admin is a superset of Support by construction. The web nav is UX gating only (`
 - `apps/api/src/services/refunds.service.ts` — `issueRefund` (Stripe with an idempotency key → one tenant transaction: Refund row, rollup + status, `payment.refunded` v2 event, `REFUND` audit row); over-refund / free-purchase / open-dispute walls; webhook handlers match `charge.refunded` and `charge.dispute.*` by payment intent (the old matcher compared a payment-intent id to a checkout-session id and updated nothing in production).
 - Routes: `GET /ops/payments`, `GET /ops/payments/summary?days=`, `GET /ops/refunds`, `POST /ops/payments/:id/refund`; `POST /ops/cases/:id/refund` kept as a wrapper.
 - Numbers: **collected** = charges on payments created in the period; **refunded** = refunds on those *same* payments whenever issued (cohort); **refund rate** = refunded ÷ collected; **net** is before Stripe fees (not synced).
+- Cost (2026-11-01): the tile shows **spend as incurred** = every `CostRecord` created in the period, whatever case it belongs to (unsold, re-run, QA re-run, eval and test-mode cases included), with the **cohort cost** of the reviews sold in the period beside it (one case counted once, even when it carries two review payments) and the margin computed on that cohort cost. Before this the tile showed only the cohort cost, which with test-mode payments hidden read as nearly nothing for the whole pre-launch period while "Spend by week" counted every record.
 
 ## 4. Case file and Support (OPS-6)
 

@@ -52,6 +52,8 @@ interface Summary {
     sold: number; freeCount: number; collectedCents: number; refundedCents: number; netCents: number
     refundRate: number | null; refundCount: number; partialCount: number
     costUsd: number; costPerCaseUsd: number | null; marginPct: number | null; needsDecision: number
+    // Spend as incurred in the period (every cost record); costUsd is the cohort cost of the reviews sold.
+    spendUsd?: number; spendCases?: number; spendPerCaseUsd?: number | null; spendOnSoldUsd?: number; spendUnsoldUsd?: number
   }
   weeks: Array<{ weekOf: string; sold: number; collectedCents: number; refundedCents: number; netCents: number; costUsd: number }>
   // Professional era (staff_console.md §12): money by counsel rung; family rows carry no SKU.
@@ -375,7 +377,15 @@ export default function MoneyPage() {
           <Tile label="Refunded" value={usd(t.refundedCents)} hint={`${t.refundCount} refund(s) on this period's sales · ${t.partialCount} partial`} tone={t.refundedCents > 0 ? 'warn' : undefined} />
           <Tile label="Net" value={usd(t.netCents)} hint="after refunds, before Stripe fees" tone="ok" />
           <Tile label="Refund rate" value={pct(t.refundRate)} hint="of what was sold in the period · reserve policy 5%" tone={t.refundRate != null && t.refundRate > 0.05 ? 'bad' : undefined} />
-          <Tile label="Cost of reviews" value={usdFloat(t.costUsd)} hint={`${t.costPerCaseUsd != null ? `${usdFloat(t.costPerCaseUsd)} per case` : 'no cases'} · ${t.marginPct != null ? `${(t.marginPct * 100).toFixed(0)}% margin` : 'margin —'}`} />
+          <Tile
+            label="Spend, as incurred"
+            value={usdFloat(t.spendUsd ?? t.costUsd)}
+            hint={
+              t.spendUsd != null
+                ? `${t.spendCases ?? 0} case${t.spendCases === 1 ? '' : 's'} worked${t.spendPerCaseUsd != null ? ` · ${usdFloat(t.spendPerCaseUsd)} per case` : ''} · ${usdFloat(t.costUsd)} on the ${t.sold} sold${t.spendUnsoldUsd ? ` · ${usdFloat(t.spendUnsoldUsd)} unsold, test or re-run` : ''} · ${t.marginPct != null ? `${(t.marginPct * 100).toFixed(0)}% margin` : 'margin —'}`
+                : `${t.costPerCaseUsd != null ? `${usdFloat(t.costPerCaseUsd)} per case` : 'no cases'} · ${t.marginPct != null ? `${(t.marginPct * 100).toFixed(0)}% margin` : 'margin —'}`
+            }
+          />
           <Tile label="Needs a decision" value={String(t.needsDecision)} hint={t.needsDecision ? `${summary!.disputes.length} dispute(s) · ${summary!.requests.length} request(s)` : 'nothing waiting'} tone={t.needsDecision ? 'bad' : undefined} />
         </div>
       )}
@@ -416,7 +426,7 @@ export default function MoneyPage() {
               {summary && summary.weeks.length === 0 && <tr><td colSpan={6} className="py-3 text-sm text-[#8B949E]">No payments in this period.</td></tr>}
             </tbody>
           </table>
-          <p className="mt-1 text-[11px] text-[#8B949E]">Cost here is charged to the week the case was <em>sold</em> (the reserve-policy view).</p>
+          <p className="mt-1 text-[11px] text-[#8B949E]">Cost here is charged to the week the case was <em>sold</em> (the reserve-policy view) and counts only sold reviews; the tile above and the table below count every cost record as it was incurred.</p>
 
           <h2 className="mt-6 text-[11px] uppercase tracking-wider text-[#8B949E]">Spend by week, as incurred{spend ? ` · last ${spend.weeks} weeks: ${usdFloat(spend.totalUsd)} across ${spend.cases} case${spend.cases === 1 ? '' : 's'}` : ''}</h2>
           <table className="mt-2 w-full border-collapse text-sm" data-testid="spend-by-week">
