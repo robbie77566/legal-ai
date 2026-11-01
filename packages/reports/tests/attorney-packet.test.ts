@@ -148,7 +148,7 @@ describe('attorney packet', () => {
     const unnamed = flat(pdfText(await renderReportPdf({ ...familyInput, summary: input.caseSummary })));
     expect(unnamed).not.toContain('Record of');
     expect(flat(pdfText(await renderAttorneyPacketPdf(input)))).not.toContain('Record of');
-  });
+  }, 30_000); // four PDF renders — well over the 5 s default when the suites run side by side
 
   it('a snapshot without the v2 fields renders Part B without labels and without the priority or checklist sections', () => {
     const legacy = attorneyPacketSections({ ...input, findings: [{ ...strong, preserved: undefined, harmStandard: undefined, vehicle: undefined, develop: undefined }], deadlinePosture: null, caseSummary: null, posture: null });
