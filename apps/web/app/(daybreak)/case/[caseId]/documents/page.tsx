@@ -254,11 +254,20 @@ export default function CaseDocuments() {
   }
 
   const verdict = async (docId: string, action: 'confirm' | 'correct', checklistItemId?: string) => {
-    await apiFetch(`/cases/${caseId}/documents/${docId}/${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      ...(checklistItemId ? { body: JSON.stringify({ checklistItemId }) } : {}),
-    })
+    setError('')
+    let ok = false
+    try {
+      const res = await apiFetch(`/cases/${caseId}/documents/${docId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        ...(checklistItemId ? { body: JSON.stringify({ checklistItemId }) } : {}),
+      })
+      ok = res.ok
+    } catch {
+      ok = false
+    }
+    // A failed save used to look like nothing happened (found 2026-11-01).
+    if (!ok) setError('We could not save that just now. Please try again in a moment.')
     setCorrecting(null)
     await refresh()
   }
@@ -895,7 +904,11 @@ export default function CaseDocuments() {
           <ul className="mt-2 border-t border-db-line">
             {files.map((d) => {
               const label = itemLabel(d.suggestedChecklistItemId)
-              const askConfirm = !!d.suggestedChecklistItemId && !d.classificationConfirmed
+              // Ask once, only while the family can still act on it, and only
+              // when the suggested item still exists (a retired one cannot be
+              // confirmed and must not nag) — once "That's right" saves, the
+              // document is confirmed and the question never returns.
+              const askConfirm = editable && !!d.suggestedChecklistItemId && !d.classificationConfirmed && items.some((i) => i.id === d.suggestedChecklistItemId)
               return (
                 <li key={d.id} className="border-b border-db-line px-4 py-3 last:border-b-0">
                   <div className="flex items-center justify-between gap-3">

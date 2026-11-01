@@ -180,9 +180,22 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       });
 
       // Idempotent re-run of the interview replaces un-started checklist state.
+      // A document already recognised as one of those items keeps its link:
+      // re-point it at the re-seeded item of the same kind, otherwise the
+      // quick check pointed at a deleted item and "That's right" could never
+      // save (found 2026-11-01).
+      const retired = await tx.checklistItem.findMany({ where: { caseId: id, state: 'NEEDED' }, select: { id: true, kind: true } });
       await tx.checklistItem.deleteMany({ where: { caseId: id, state: 'NEEDED' } });
       const { seedChecklist } = await import('../services/case-setup.service');
       const count = await seedChecklist(tx, kase, hadAppeal);
+      if (retired.length) {
+        const fresh = await tx.checklistItem.findMany({ where: { caseId: id }, select: { id: true, kind: true } });
+        const freshByKind = new Map(fresh.map((i) => [i.kind, i.id]));
+        for (const old of retired) {
+          const next = freshByKind.get(old.kind) ?? null;
+          await tx.document.updateMany({ where: { caseId: id, suggestedChecklistItemId: old.id }, data: { suggestedChecklistItemId: next } });
+        }
+      }
       await appendCaseEvent(tx, {
         caseId: id,
         tenantId,
@@ -584,8 +597,10 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
       await tx.document.update({ where: { id: docId }, data: { classificationConfirmed: true } });
       if (doc.suggestedChecklistItemId) {
-        await tx.checklistItem.update({
-          where: { id: doc.suggestedChecklistItemId },
+        // updateMany: a suggestion can point at an item the interview re-seed
+        // retired; the family's "That's right" must still save (2026-11-01).
+        await tx.checklistItem.updateMany({
+          where: { id: doc.suggestedChecklistItemId, caseId: id },
           data: { state: 'CONFIRMED' },
         });
       }
@@ -619,7 +634,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
           where: { caseId: id, suggestedChecklistItemId: old, id: { not: docId } },
         });
         if (others === 0) {
-          await tx.checklistItem.update({ where: { id: old }, data: { state: 'NEEDED' } });
+          await tx.checklistItem.updateMany({ where: { id: old, caseId: id }, data: { state: 'NEEDED' } });
         }
       }
       await appendCaseEvent(tx, {

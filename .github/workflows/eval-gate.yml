@@ -38,7 +38,7 @@ concurrency:
 jobs:
   gate:
     name: Production model against every ledger (staging)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 110
     env:
       API: https://api.staging.snotnoselegal.com
