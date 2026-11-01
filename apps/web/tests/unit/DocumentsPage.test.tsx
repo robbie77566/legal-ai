@@ -20,6 +20,7 @@ const CHECKLIST = {
     { id: 'doc_2', filename: 'weird.pdf', suggestedChecklistItemId: null, classificationConfirmed: false, quarantined: true },
   ],
   lastZip: null,
+  subjectName: 'Juan Pérez',
 }
 const METER = { billable: 214, duplicatesIgnored: 12, cap: 5000 }
 
@@ -58,6 +59,11 @@ describe('documents page — echo-back, meter, quarantine (UI spec §5.5)', () =
     await waitFor(() =>
       expect(calls.some((c) => c === 'POST http://localhost:3001/cases/case_1/documents/doc_1/correct')).toBe(true)
     )
+  })
+
+  it('the header names whose record this is once the family has said (2026-11-01)', async () => {
+    render(<CaseDocuments />)
+    expect(await screen.findByTestId('record-of')).toHaveTextContent('Record of Juan Pérez')
   })
 
   it('shows the page meter with the duplicates trust note', async () => {

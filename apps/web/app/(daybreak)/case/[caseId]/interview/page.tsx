@@ -3,12 +3,19 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import { useContent } from '@/lib/i18n'
+import { INTERVIEW_CONTENT } from '@/lib/content/interview'
 import NotASubstitute from '../../../../../components/NotASubstitute'
 
 /** S2 case interview (UI spec §5.4): short, plain, builds the checklist. */
 export default function CaseInterview() {
   const { caseId } = useParams<{ caseId: string }>()
   const router = useRouter()
+  const t = useContent(INTERVIEW_CONTENT)
+  // Whose record this is (2026-11-01): a Case column, not a fact — optional,
+  // shown back on every case page and to staff, never read into legal text.
+  const [subjectName, setSubjectName] = useState('')
+  const [knownSubject, setKnownSubject] = useState<string | null>(null)
   const [county, setCounty] = useState('')
   const [year, setYear] = useState('')
   const [trialDays, setTrialDays] = useState('')
@@ -35,6 +42,7 @@ export default function CaseInterview() {
       setKnown(f)
       setLocked(d.status !== 'AWAITING_DOCS')
       setFactLines(d.factLines ?? [])
+      if (typeof d.subjectName === 'string') { setSubjectName(d.subjectName); setKnownSubject(d.subjectName) }
       if (typeof f.county === 'string') setCounty(f.county)
       if (typeof f.convictionYear === 'number') setYear(String(f.convictionYear))
       if (typeof f.trialDays === 'number') setTrialDays(String(f.trialDays))
@@ -60,6 +68,10 @@ export default function CaseInterview() {
   }
   const appealKnown = !!known?.appeal
   const returning = !!(known && (known.county || known.convictionYear))
+  // Sent only when typed, or when a stored name is being cleared — an
+  // interview that never mentions it leaves the stored name alone.
+  const subjectPatch = (): { subjectName?: string | null } =>
+    subjectName.trim() ? { subjectName: subjectName.trim() } : knownSubject ? { subjectName: null } : {}
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,6 +88,7 @@ export default function CaseInterview() {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            ...subjectPatch(),
             county,
             convictionYear: Number(year),
             trialDays: trialDays ? Number(trialDays) : null,
@@ -93,6 +106,7 @@ export default function CaseInterview() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...subjectPatch(),
           county,
           convictionYear: Number(year),
           ...(trialDays ? { trialDays: Number(trialDays) } : {}),
@@ -186,6 +200,20 @@ export default function CaseInterview() {
         </p>
       )}
       <form onSubmit={submit} className="mt-6 space-y-5">
+        <label className="block" data-testid="subject-name-question">
+          <span className="text-sm font-semibold">{t.subjectName.label}</span>
+          <input
+            value={subjectName}
+            onChange={(e) => setSubjectName(e.target.value)}
+            maxLength={120}
+            autoComplete="off"
+            placeholder={t.subjectName.placeholder}
+            aria-label={t.subjectName.label}
+            data-testid="subject-name"
+            className="mt-1 w-full rounded-lg border border-db-line bg-db-surface p-3"
+          />
+          <span className="mt-1 block text-xs text-db-muted">{t.subjectName.hint}</span>
+        </label>
         <label className="block">
           <span className="text-sm font-semibold">Which county was the conviction in?</span>
           <input

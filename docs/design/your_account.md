@@ -37,6 +37,8 @@ The family never deletes directly. `POST /me/delete-request` opens an `ACCOUNT_D
 
 `GET /me/export` streams one zip of every non-quarantined upload, foldered by review, audited (`account_export`). Refused above 50 files **or 300 MB total** (sizes read from S3 before bundling — the zip is built in memory). Larger records download per review.
 
+Since 2026-11-01 the zip also carries `your-reviews.json`: one entry per review with the reference, the conviction (county · year), the day it started, and `recordOf` — the name of the person whose record it is, exactly as the family gave it at the interview (`Case.subjectName`; `null` until given). It is the family's own data, so it leaves with them; deletion removes the Case row and the name with it.
+
 ## Review notes (2026-09-09, before merge)
 
 - Added the 300 MB byte cap on export (file count alone did not bound memory).

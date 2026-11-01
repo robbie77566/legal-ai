@@ -12,6 +12,7 @@ const CHECKLIST = {
   expectedReadyAt: null, slaStartedAt: null,
   items: [{ id: 'a', state: 'UPLOADED' }, { id: 'b', state: 'NEEDED' }, { id: 'c', state: 'NEEDED' }],
   documents: [],
+  subjectName: 'Juan Pérez',
   factLines: [
     { key: 'conviction', label: 'Conviction', value: 'Travis County · 2019 · felony · Texas state court' },
     { key: 'trialOrPlea', label: 'How it was decided', value: 'A trial', shapesReview: true },
@@ -31,6 +32,7 @@ describe('case home', () => {
   it('names the case from its facts, shows the stage and one primary action, and the facts with a Change link', async () => {
     render(<CaseHome />)
     expect(await screen.findByTestId('case-home-title')).toHaveTextContent('Review · Travis County · 2019')
+    expect(screen.getByTestId('record-of')).toHaveTextContent('Record of Juan Pérez') // whose record this is (2026-11-01)
     expect(screen.getByTestId('stage')).toHaveTextContent(/Waiting on your documents · 1 of 3 found/)
     expect(screen.getByTestId('primary-action')).toHaveAttribute('href', '/case/case_1/documents')
     const about = screen.getByTestId('about-case')
@@ -41,6 +43,17 @@ describe('case home', () => {
     const nav = screen.getByTestId('case-nav')
     for (const l of ['Overview', 'Documents', 'Progress', 'Report', 'Next steps']) expect(nav).toHaveTextContent(l)
     expect(screen.getByRole('link', { name: 'Next steps' })).toHaveAttribute('href', '/case/case_1/next-steps')
+  })
+
+  it('no "Record of" line until the family names the person', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url)
+      const body = u.endsWith('/checklist') ? { ...CHECKLIST, subjectName: null } : u.endsWith('/report/versions') ? [] : {}
+      return { ok: true, status: 200, json: async () => body } as Response
+    }))
+    render(<CaseHome />)
+    await screen.findByTestId('case-home-title')
+    expect(screen.queryByTestId('record-of')).toBeNull()
   })
 
   it('a finished case points at the report and locks the facts', async () => {

@@ -9,6 +9,7 @@ import NotASubstitute from '../../../../../components/NotASubstitute'
 import { formatCivilDate } from '@/lib/tracker'
 import { tpl, useContent } from '@/lib/i18n'
 import { OVERAGE_CONTENT } from '@/lib/content/overage'
+import { INTERVIEW_CONTENT } from '@/lib/content/interview'
 import { checklistReadiness, docPriority, familyOverage, TIERS, TIER_META, type DocTier } from '@hg/case-lifecycle'
 
 /**
@@ -75,6 +76,8 @@ interface ChecklistData {
   lastZip: ZipSummary | null
   factLines?: Array<{ key: string; label: string; value: string | null; derived?: boolean; shapesReview?: boolean }>
   facts?: { source?: { carriedFromCaseId?: string } }
+  /** Whose record this is, as the family named them at the interview (null until given). */
+  subjectName?: string | null
   rerun?: { reportCount: number; lastReportAt: string | null } | null
 }
 interface Meter {
@@ -134,6 +137,7 @@ export default function CaseDocuments() {
     }
   }, [])
   const overageCopy = useContent(OVERAGE_CONTENT)
+  const interviewCopy = useContent(INTERVIEW_CONTENT)
   const overage = useMemo<OverageView | null>(() => {
     // A 402 is the gate's answer at this moment and outranks a meter that
     // has not caught up; once the meter shows the purchase landed (the
@@ -587,6 +591,7 @@ export default function CaseDocuments() {
     <main className="mx-auto max-w-xl px-5 py-8">
       <CaseNav caseId={caseId} current="documents" />
       <h1 className="font-db-serif text-2xl font-semibold">Your documents</h1>
+      {data?.subjectName && <p className="mt-1 text-sm text-db-muted" data-testid="record-of">{tpl(interviewCopy.recordOf, { name: data.subjectName })}</p>}
       <p className="mt-1 text-sm text-db-muted">
         Any order, your own pace — we recognize each document and check it off for you. Uploading is always free; the review runs once, when you say so.
       </p>

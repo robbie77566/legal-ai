@@ -190,10 +190,13 @@ export default async function opsRoutes(fastify: FastifyInstance) {
     // no Organisation row, so both read null for them.
     const [orgs, matters] = await Promise.all([
       prisma.organisation.findMany({ where: { tenantId: { in: [...new Set(cases.map((c) => c.tenantId))] } }, select: { id: true, name: true, kind: true, tenantId: true, isTest: true } }),
-      prisma.matter.findMany({ where: { caseId: { in: cases.map((c) => c.id) } }, select: { caseId: true, vehicle: true, causeNumber: true } }),
+      // clientInitials (2026-11-01): a matter names its client by initials
+      // only, so the cases view's "who" line reads them where a family case
+      // reads the person in custody.
+      prisma.matter.findMany({ where: { caseId: { in: cases.map((c) => c.id) } }, select: { caseId: true, vehicle: true, causeNumber: true, clientInitials: true } }),
     ]);
     const orgOfTenant = new Map(orgs.map((o) => [o.tenantId, { id: o.id, name: o.name, kind: o.kind, isTest: o.isTest }]));
-    const matterOf = new Map(matters.map((m) => [m.caseId, { vehicle: m.vehicle, causeNumber: m.causeNumber }]));
+    const matterOf = new Map(matters.map((m) => [m.caseId, { vehicle: m.vehicle, causeNumber: m.causeNumber, clientInitials: m.clientInitials }]));
     const now = Date.now();
     return cases.map((c) => ({
       ...c,

@@ -383,6 +383,19 @@ describe('E9 — proposed vectors and the writ posture', () => {
     expect(no.lines.find((l) => l.label === 'Whether they were decided on the merits')!.value).toBe('no');
   });
 
+  it('never prints "Record of": a matter identifies its client by initials only, and the input has no field for a name (2026-11-01)', async () => {
+    for (const fixture of [directAppeal(), writ()]) {
+      const text = pdfText(await renderCounselPacketPdf(fixture));
+      expect(text).not.toContain('Record of');
+      expect(text).toContain('GW (initials only)');
+      expect(JSON.stringify(counselPacketSections(fixture))).not.toMatch(/Record of|subjectName/);
+    }
+    // The guard is the type: there is nowhere to put a name on a matter.
+    // @ts-expect-error — CounselPacketInput['matter'] has no subjectName
+    const withName: CounselPacketInput['matter'] = { ...directAppeal().matter, subjectName: 'Juan Perez' };
+    expect(withName.clientInitials).toBe('GW');
+  });
+
   it('has no exhaustion section: the §2254 map is not part of the packet', () => {
     expect(ids(counselPacketSections(directAppeal()))).not.toContain('exhaustion_2254');
     expect(ids(counselPacketSections(writ()))).not.toContain('exhaustion_2254');

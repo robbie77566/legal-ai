@@ -2,6 +2,8 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import CaseInterview from '@/app/(daybreak)/case/[caseId]/interview/page'
+import { LangProvider } from '@/lib/i18n'
+import { INTERVIEW_CONTENT } from '@/lib/content/interview'
 
 /** Never ask twice: the interview prefills from the case facts and hides
  *  the appeal question when the free check already answered it. */
@@ -121,5 +123,69 @@ describe('interview', () => {
     render(<CaseInterview />)
     await screen.findByTestId('locked-note')
     expect(screen.queryByTestId('change-answers')).toBeNull()
+  })
+
+  describe('whose record this is (Case.subjectName, 2026-11-01)', () => {
+    it('is the first question, in English by default and in Spanish with the switch, with en/es parity', async () => {
+      render(<CaseInterview />)
+      await screen.findByTestId('known-facts')
+      const form = screen.getByTestId('subject-name-question')
+      expect(form).toHaveTextContent(INTERVIEW_CONTENT.en.subjectName.label)
+      expect(form).toHaveTextContent(INTERVIEW_CONTENT.en.subjectName.hint)
+      // First: the question precedes the county question in document order.
+      const inputs = Array.from(document.querySelectorAll('form input'))
+      expect(inputs[0]).toBe(screen.getByTestId('subject-name'))
+      expect((inputs[0] as HTMLInputElement).maxLength).toBe(120)
+      expect(inputs[0]).not.toBeRequired()
+
+      window.localStorage.setItem('snl_lang', 'es')
+      render(<LangProvider><CaseInterview /></LangProvider>)
+      await waitFor(() => expect(screen.getAllByTestId('subject-name-question')[1]).toHaveTextContent(INTERVIEW_CONTENT.es.subjectName.label))
+      expect(INTERVIEW_CONTENT.es.subjectName.label).not.toBe(INTERVIEW_CONTENT.en.subjectName.label)
+      expect(Object.keys(INTERVIEW_CONTENT.es.subjectName).sort()).toEqual(Object.keys(INTERVIEW_CONTENT.en.subjectName).sort())
+      window.localStorage.removeItem('snl_lang')
+    })
+
+    it('submits the name with the interview, trimmed', async () => {
+      render(<CaseInterview />)
+      await screen.findByTestId('known-facts')
+      fireEvent.change(screen.getByTestId('subject-name'), { target: { value: '  Juan Pérez ' } })
+      fireEvent.click(screen.getByRole('button', { name: /Save and continue/ }))
+      await waitFor(() => {
+        const post = calls.find((c) => c.url.endsWith('/cases/case_1/interview') && c.init?.method === 'POST')
+        expect(post).toBeTruthy()
+        expect(JSON.parse(String(post!.init!.body))).toMatchObject({ subjectName: 'Juan Pérez', county: 'Travis' })
+      })
+
+    })
+
+    it('left blank on a case that never had one, it is not sent at all — an existing interview still completes', async () => {
+      render(<CaseInterview />)
+      await screen.findByTestId('known-facts')
+      fireEvent.click(screen.getByRole('button', { name: /Save and continue/ }))
+      await waitFor(() => {
+        const post = calls.find((c) => c.url.endsWith('/cases/case_1/interview') && c.init?.method === 'POST')
+        expect(post).toBeTruthy()
+        expect(JSON.parse(String(post!.init!.body))).not.toHaveProperty('subjectName')
+      })
+    })
+
+    it('prefills a stored name, and clearing it sends null — on the locked page through PATCH /facts', async () => {
+      vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = String(url)
+        calls.push({ url: u, init })
+        return { ok: true, status: 200, json: async () => (u.endsWith('/checklist') ? { ...CHECKLIST, status: 'ANALYZING', subjectName: 'Juan Pérez' } : { facts: {} }) } as Response
+      }))
+      render(<CaseInterview />)
+      await screen.findByTestId('locked-note')
+      expect((screen.getByTestId('subject-name') as HTMLInputElement).value).toBe('Juan Pérez')
+      fireEvent.change(screen.getByTestId('subject-name'), { target: { value: '   ' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      await waitFor(() => {
+        const patch = calls.find((c) => c.url.endsWith('/cases/case_1/facts') && c.init?.method === 'PATCH')
+        expect(patch).toBeTruthy()
+        expect(JSON.parse(String(patch!.init!.body))).toMatchObject({ subjectName: null, county: 'Travis' })
+      })
+    })
   })
 })

@@ -11,7 +11,7 @@ const session = vi.hoisted(() => ({ role: 'SUPPORT' }))
 vi.mock('next-auth/react', () => ({ useSession: () => ({ data: { user: { role: session.role } }, status: 'authenticated' }) }))
 
 const FILE = {
-  case: { id: 'c_1', title: 'Case review', label: 'Travis County · 2020', ref: 'ABC001', status: 'READY', lane: 'TRIAL', subsequentWrit: false, ocrHalt: false, delayOurs: true, expectedReadyAt: '2026-09-10T00:00:00Z', createdAt: '2026-08-27T19:52:00Z', customerEmail: 'j@x.com', customerName: 'J. Whitfield' },
+  case: { id: 'c_1', title: 'Case review', label: 'Travis County · 2020', ref: 'ABC001', status: 'READY', lane: 'TRIAL', subsequentWrit: false, ocrHalt: false, delayOurs: true, expectedReadyAt: '2026-09-10T00:00:00Z', createdAt: '2026-08-27T19:52:00Z', customerEmail: 'j@x.com', customerName: 'J. Whitfield', subjectName: 'Juan Pérez', variant: 'family', matterVehicle: null },
   meter: { billable: 412, duplicatesIgnored: 18 },
   documents: [
     { id: 'd_1', filename: 'RR_Vol1_VoirDire.pdf', receivedAt: '2026-08-27T19:52:00Z', pages: 142, billablePages: 142, ocrProvider: 'pdf-text', minOcrConfidence: 1, recognized: true, classificationConfirmed: true, quarantined: false, downloadable: true },
@@ -56,7 +56,8 @@ describe('case file', () => {
     render(<CaseFilePage />)
     expect(await screen.findByTestId('case-title')).toHaveTextContent('Travis County · 2020')
     expect(screen.getByTestId('case-ref')).toHaveTextContent('ABC001')
-    expect(screen.getByTestId('case-meta')).toHaveTextContent('j@x.com (J. Whitfield)')
+    expect(screen.getByTestId('case-subject')).toHaveTextContent('Record of Juan Pérez')
+    expect(screen.getByTestId('case-meta')).toHaveTextContent('Account: J. Whitfield · j@x.com')
     const files = screen.getByTestId('files')
     expect(files).toHaveTextContent(/412 billable pages/)
     expect(files).toHaveTextContent(/RR_Vol1_VoirDire\.pdf/)
@@ -218,5 +219,26 @@ describe('eval gate from the console (2026-09-27)', () => {
     await waitFor(() => expect(screen.getByTestId('eval-notice')).toHaveTextContent(/Run 2 queued/))
     expect(calls.some((c) => c === 'POST http://localhost:3001/ops/cases/c_1/reanalyze')).toBe(true)
     expect(card).toContainElement(screen.getByTestId('eval-notice'))
+  })
+})
+
+describe('case file header — who the record is about (2026-11-01)', () => {
+  it('reads "Record of — (not given yet)" muted when the family has not named the person; the account line stays', async () => {
+    const unnamed = { ...FILE, case: { ...FILE.case, subjectName: null } }
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => ({ ok: true, status: 200, json: async () => (String(url).endsWith('/file') ? unnamed : String(url).endsWith('/pipeline') ? PIPELINE : String(url).endsWith('/timeline') ? [] : { ok: true }) }) as Response))
+    render(<CaseFilePage />)
+    const subject = await screen.findByTestId('case-subject')
+    expect(subject).toHaveTextContent('Record of — (not given yet)')
+    expect(subject.className).toMatch(/8B949E/)
+    expect(screen.getByTestId('case-meta')).toHaveTextContent('Account: J. Whitfield · j@x.com')
+  })
+
+  it('a counsel matter reads its client by initials only — never the placeholder, never a name', async () => {
+    const counsel = { ...FILE, case: { ...FILE.case, subjectName: null, variant: 'counsel', matterVehicle: '11.07' }, matter: { clientInitials: 'gw' } }
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => ({ ok: true, status: 200, json: async () => (String(url).endsWith('/file') ? counsel : String(url).endsWith('/pipeline') ? PIPELINE : String(url).endsWith('/timeline') ? [] : { ok: true }) }) as Response))
+    render(<CaseFilePage />)
+    const subject = await screen.findByTestId('case-subject')
+    expect(subject).toHaveTextContent('Client: GW (initials only)')
+    expect(subject).not.toHaveTextContent(/not given/)
   })
 })

@@ -134,6 +134,22 @@ describe('attorney packet', () => {
     for (const s of attorneyPacketSections(input)) expect(text, s.id).toContain(headings[s.id]);
   });
 
+  it('"Record of: {name}" leads "About this case" on the family PDF and the attorney packet when the family named the person, family-told; absent when they did not (2026-11-01)', async () => {
+    const recordOf = { key: 'recordOf', label: 'Record of', value: 'Juan Perez', source: 'family' as const };
+    const named = [recordOf, ...input.caseSummary];
+    const family = flat(pdfText(await renderReportPdf({ ...familyInput, summary: named })));
+    expect(family).toContain('Record of: Juan Perez');
+    expect(family.indexOf('Record of: Juan Perez')).toBeLessThan(family.indexOf('Person: GARY W. DOE'));
+    expect(family).toMatch(/Record of: Juan Perez — as your family told us|Record of: Juan Perez . as your family told us/);
+    const packet = flat(pdfText(await renderAttorneyPacketPdf({ ...input, caseSummary: named })));
+    expect(packet).toContain('Record of: Juan Perez');
+    expect(packet.indexOf('Record of: Juan Perez')).toBeLessThan(packet.indexOf('GARY W. DOE (RR1 p. 3)'));
+    // Not given: no row at all — never a placeholder, never "not stated in the record".
+    const unnamed = flat(pdfText(await renderReportPdf({ ...familyInput, summary: input.caseSummary })));
+    expect(unnamed).not.toContain('Record of');
+    expect(flat(pdfText(await renderAttorneyPacketPdf(input)))).not.toContain('Record of');
+  });
+
   it('a snapshot without the v2 fields renders Part B without labels and without the priority or checklist sections', () => {
     const legacy = attorneyPacketSections({ ...input, findings: [{ ...strong, preserved: undefined, harmStandard: undefined, vehicle: undefined, develop: undefined }], deadlinePosture: null, caseSummary: null, posture: null });
     expect(legacy.map((s) => s.id)).toEqual(['cover', 'part_b']);

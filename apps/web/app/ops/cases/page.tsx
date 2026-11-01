@@ -4,6 +4,11 @@
  * Cases — the support surface (staff_console_access_model §3): every case,
  * findable by title or stage, one click from its case file. Admins and
  * Support both land here; what differs is what the case file lets them do.
+ *
+ * The Case cell (founder, 2026-11-01: "add the name of person in jail as well
+ * as the account holder") reads three lines: the person in custody as the
+ * family named them (or a muted "not given yet"; a counsel matter reads its
+ * client's initials), the account holder, then county · year · reference.
  */
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -12,10 +17,23 @@ import { useStaffRole } from '@/lib/staff-role'
 
 interface QueueRow {
   id: string; title: string; label: string; ref: string; customerName: string | null; customerEmail: string | null; status: string; lane: string | null
+  /** The person in custody, as the family named them (Case.subjectName); null until given, always null on a matter. */
+  subjectName?: string | null
   daysInStage: number; stalled: boolean; ocrHalt: boolean; delayOurs: boolean; subsequentWrit: boolean; updatedAt: string
   // Professional era (workstream G): null on a family case.
   organisation?: { id: string; name: string; kind: string; isTest: boolean } | null
-  matter?: { vehicle: string; causeNumber: string | null } | null
+  matter?: { vehicle: string; causeNumber: string | null; clientInitials?: string | null } | null
+}
+const SUBJECT_NOT_GIVEN = 'Record of — (not given yet)'
+/** The first line of the Case cell: who the record is about. */
+function whoLine(c: Pick<QueueRow, 'subjectName' | 'matter'>): { text: string; given: boolean } {
+  if (c.matter) return { text: c.matter.clientInitials ? `Client: ${c.matter.clientInitials.toUpperCase()} (initials only)` : 'Client: initials only', given: true }
+  return c.subjectName ? { text: `Record of ${c.subjectName}`, given: true } : { text: SUBJECT_NOT_GIVEN, given: false }
+}
+/** The second line: the account holder — name · email, or whichever exists. */
+function accountLine(c: Pick<QueueRow, 'customerName' | 'customerEmail'>): string {
+  const who = [c.customerName, c.customerEmail].filter(Boolean).join(' · ')
+  return `Account: ${who || 'no customer on file'}`
 }
 const KIND_LABEL: Record<string, string> = { FIRM: 'Firm', PD_OFFICE: 'PD office', CLINIC: 'Clinic' }
 const KIND_FILTERS: Array<[string, string]> = [['', 'All'], ['FAMILY', 'Families'], ['FIRM', 'Firms'], ['PD_OFFICE', 'PD offices'], ['CLINIC', 'Clinics']]
@@ -41,6 +59,8 @@ export default function CasesPage() {
     const term = q.trim().toLowerCase()
     return rows
       .filter((c) => !term
+        || (c.subjectName ?? '').toLowerCase().includes(term)
+        || (c.matter?.clientInitials ?? '').toLowerCase().includes(term)
         || (c.customerName ?? '').toLowerCase().includes(term)
         || (c.customerEmail ?? '').toLowerCase().includes(term)
         || (c.label ?? '').toLowerCase().includes(term)
@@ -64,24 +84,27 @@ export default function CasesPage() {
           <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Organisation kind" className="rounded border border-[#30363D] bg-[#161B22] p-1.5 text-xs" data-testid="kind-filter">
             {KIND_FILTERS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
           </select>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, email, county, organisation, cause, reference, or stage" aria-label="Find a case" className="w-72 rounded border border-[#30363D] bg-[#161B22] p-1.5 text-xs" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Person in custody, account holder, email, county, organisation, cause, reference, or stage" aria-label="Find a case" className="w-72 rounded border border-[#30363D] bg-[#161B22] p-1.5 text-xs" />
         </div>
       </div>
       <table className="mt-4 w-full border-collapse text-sm" data-testid="cases-table">
         <thead>
           <tr className="border-b border-[#30363D] text-left text-xs uppercase tracking-wider text-[#8B949E]">
-            <th className="py-2">Case</th><th>Organisation</th><th>Vehicle</th><th>Stage</th><th className="text-right">Days</th><th>Flags</th><th>Last activity</th>{cogs && <th className="text-right">Cost so far</th>}<th></th>
+            <th className="py-2">Case · who</th><th>Organisation</th><th>Vehicle</th><th>Stage</th><th className="text-right">Days</th><th>Flags</th><th>Last activity</th>{cogs && <th className="text-right">Cost so far</th>}<th></th>
           </tr>
         </thead>
         <tbody>
           {shown.map((c) => (
             <tr key={c.id} className="border-b border-[#21262D]">
               <td className="py-2">
-                <Link href={`/ops/cases/${c.id}`} className="font-semibold hover:text-[#D4AF37]" data-testid={`case-who-${c.id}`}>
-                  {c.customerName || c.customerEmail || c.label || 'Review'}
-                </Link>
+                {(() => { const who = whoLine(c); return (
+                  <Link href={`/ops/cases/${c.id}`} className={who.given ? 'font-semibold hover:text-[#D4AF37]' : 'text-[#8B949E] hover:text-[#D4AF37]'} data-testid={`case-who-${c.id}`} data-given={who.given}>
+                    {who.text}
+                  </Link>
+                ) })()}
+                <div className="text-xs" data-testid={`case-account-${c.id}`}>{accountLine(c)}</div>
                 <div className="font-mono text-[11px] text-[#8B949E]">
-                  {c.customerName && c.customerEmail ? `${c.customerEmail} · ` : ''}{c.label} · {c.ref}
+                  {c.label} · {c.ref}
                 </div>
               </td>
               <td className="text-xs" data-testid={`org-${c.id}`}>

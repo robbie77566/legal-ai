@@ -10,6 +10,8 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { trackerModel, formatCivilDate } from '@/lib/tracker'
+import { tpl, useContent } from '@/lib/i18n'
+import { INTERVIEW_CONTENT } from '@/lib/content/interview'
 import CaseNav from '../../../../components/daybreak/CaseNav'
 import NotASubstitute from '../../../../components/NotASubstitute'
 import type { CustomerView } from '@hg/case-lifecycle'
@@ -23,6 +25,8 @@ interface Checklist {
   documents: Array<{ id: string; quarantined: boolean }>
   facts?: Record<string, unknown>
   factLines?: Array<{ key: string; label: string; value: string | null; derived?: boolean; shapesReview?: boolean }>
+  /** Whose record this is, as the family named them at the interview (null until given). */
+  subjectName?: string | null
   rerun?: { reportCount: number; lastReportAt: string | null } | null
 }
 interface Version { versionNo: number; renderedAt: string }
@@ -39,6 +43,7 @@ export default function CaseHome() {
   const [data, setData] = useState<Checklist | null>(null)
   const [versions, setVersions] = useState<Version[]>([])
   const [missing, setMissing] = useState(false)
+  const t = useContent(INTERVIEW_CONTENT)
 
   useEffect(() => {
     void (async () => {
@@ -64,6 +69,7 @@ export default function CaseHome() {
       <CaseNav caseId={caseId} current="overview" />
       <p className="text-xs text-db-muted"><Link href="/account" className="underline">Your account</Link></p>
       <h1 className="mt-1 font-db-serif text-2xl font-semibold" data-testid="case-home-title">{conviction ? `Review · ${conviction.split(' · ').slice(0, 2).join(' · ')}` : 'Your review'}</h1>
+      {data.subjectName && <p className="mt-1 text-sm text-db-muted" data-testid="record-of">{tpl(t.recordOf, { name: data.subjectName })}</p>}
 
       <section data-testid="stage" className="mt-4 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4">
         <p className="text-sm text-db-muted">

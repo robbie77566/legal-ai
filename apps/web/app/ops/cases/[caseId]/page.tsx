@@ -17,9 +17,13 @@ interface CaseFile {
     id: string; title: string; label: string; ref: string; status: string; lane: string | null; subsequentWrit: boolean
     ocrHalt: boolean; delayOurs: boolean; expectedReadyAt: string | null; createdAt: string
     customerEmail: string | null; customerName: string | null
+    /** The person in custody, as the family named them (Case.subjectName); null until given, always null on a matter. */
+    subjectName?: string | null
     /** Which deliverable the case gets: the family report, or the counsel packet (a matter). */
     variant: 'family' | 'counsel'; matterVehicle: string | null
   }
+  /** The counsel matter, when counsel opened one — its client is initials only. */
+  matter?: { clientInitials: string } | null
   meter: { billable: number; duplicatesIgnored: number }
   documents: Array<{
     id: string; filename: string; receivedAt: string; pages: number; billablePages: number
@@ -244,8 +248,14 @@ export default function CaseFilePage() {
             {c.subsequentWrit && <Chip>§4</Chip>}
             {c.variant === 'counsel' && <Chip tone="blue">COUNSEL PACKET</Chip>}
           </div>
-          <p className="mt-1 text-xs text-[#8B949E]" data-testid="case-meta">
-            {c.customerEmail ?? 'no customer on file'}{c.customerName ? ` (${c.customerName})` : ''} · {c.lane ?? 'lane —'} · created {when(c.createdAt)}
+          {/* Who the record is about, then who holds the account (2026-11-01). */}
+          <p className={`mt-1 text-sm ${c.subjectName || c.variant === 'counsel' ? 'text-[#E6EDF3]' : 'text-[#8B949E]'}`} data-testid="case-subject">
+            {c.variant === 'counsel'
+              ? `Client: ${file.matter?.clientInitials ? `${file.matter.clientInitials.toUpperCase()} (initials only)` : 'initials only'}`
+              : c.subjectName ? `Record of ${c.subjectName}` : 'Record of — (not given yet)'}
+          </p>
+          <p className="mt-0.5 text-xs text-[#8B949E]" data-testid="case-meta">
+            Account: {[c.customerName, c.customerEmail].filter(Boolean).join(' · ') || 'no customer on file'} · {c.lane ?? 'lane —'} · created {when(c.createdAt)}
             {c.expectedReadyAt && <> · promised {new Date(c.expectedReadyAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</>}
           </p>
         </div>
