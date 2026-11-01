@@ -174,7 +174,26 @@ describe('POST /checkout/session kind=overage (K1)', () => {
     expect(call.line_items[0].quantity).toBe(2);
     expect(call.line_items[0].price_data.unit_amount).toBe(4900);
     expect(call.success_url).toBe(`http://localhost:3000/case/${caseId}/documents?overage=1`);
+    expect((call as unknown as { cancel_url: string }).cancel_url).toBe(`http://localhost:3000/case/${caseId}/documents?canceled=1`);
     expect(call.metadata).toMatchObject({ kind: 'overage', caseId, blocks: '2' });
+  });
+
+  it('a re-run session is $99, lands back on the case and cancels back to the case (US-6; found 2026-11-01)', async () => {
+    const caseId = await seedCase(10);
+    await prisma.case.update({ where: { id: caseId }, data: { status: 'DELIVERED' } });
+    const res = await fastify.inject({ method: 'POST', url: '/checkout/session', headers: { cookie }, payload: { kind: 'rerun', caseId } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().url).toBe('https://checkout.stripe.test/cs_double');
+    const call = stripeDouble.checkout.sessions.create.mock.calls.at(-1)![0] as {
+      line_items: Array<{ quantity: number; price_data: { unit_amount: number } }>;
+      success_url: string;
+      cancel_url: string;
+      metadata: Record<string, string>;
+    };
+    expect(call.line_items[0]).toMatchObject({ quantity: 1, price_data: { unit_amount: 9900 } });
+    expect(call.success_url).toBe(`http://localhost:3000/case/${caseId}/documents?rerun=1`);
+    expect(call.cancel_url).toBe(`http://localhost:3000/case/${caseId}/documents?canceled=1`);
+    expect(call.metadata).toMatchObject({ kind: 'rerun', caseId });
   });
 
   it('blocks defaults to one and must be a whole number', async () => {

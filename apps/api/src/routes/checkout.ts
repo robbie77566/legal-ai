@@ -295,7 +295,9 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
           : kind === 'overage' && caseId
             ? `${origin}/case/${caseId}/documents?overage=1`
             : `${origin}/buy/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/buy?canceled=1`,
+      // Cancelling a re-run or an overage returns to ITS case too (the
+      // family was never on the buy page); a first purchase returns to /buy.
+      cancel_url: (kind === 'rerun' || kind === 'overage') && caseId ? `${origin}/case/${caseId}/documents?canceled=1` : `${origin}/buy?canceled=1`,
       // Managed Payments (Stripe as merchant of record) is default-on for new
       // accounts but its eligible-category list excludes this product; we are
       // the merchant of record by design — our disclosures, our dispute

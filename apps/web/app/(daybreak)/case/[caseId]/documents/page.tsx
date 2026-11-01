@@ -10,6 +10,7 @@ import { formatCivilDate } from '@/lib/tracker'
 import { tpl, useContent } from '@/lib/i18n'
 import { OVERAGE_CONTENT } from '@/lib/content/overage'
 import { INTERVIEW_CONTENT } from '@/lib/content/interview'
+import { RERUN_CONTENT } from '@/lib/content/rerun'
 import { checklistReadiness, docPriority, familyOverage, TIERS, TIER_META, type DocTier } from '@hg/case-lifecycle'
 
 /**
@@ -132,12 +133,20 @@ export default function CaseDocuments() {
   useEffect(() => {
     try {
       setOverageReturned(new URLSearchParams(window.location.search).get('overage') === '1')
+      setRerunCanceled(new URLSearchParams(window.location.search).get('canceled') === '1')
     } catch {
       /* fine */
     }
   }, [])
   const overageCopy = useContent(OVERAGE_CONTENT)
   const interviewCopy = useContent(INTERVIEW_CONTENT)
+  const rerunCopy = useContent(RERUN_CONTENT)
+  // Re-run purchase (US-6): on a finished case the only thing to do here is
+  // buy the re-run; the purchase reopens the case for documents. Found
+  // 2026-11-01: this page showed the records-complete button on a DELIVERED
+  // case, which answered 409 — there was no way to pay for a re-run here.
+  const [rerunBusy, setRerunBusy] = useState<'idle' | 'opening' | 'failed'>('idle')
+  const [rerunCanceled, setRerunCanceled] = useState(false)
   const overage = useMemo<OverageView | null>(() => {
     // A 402 is the gate's answer at this moment and outranks a meter that
     // has not caught up; once the meter shows the purchase landed (the
@@ -145,6 +154,20 @@ export default function CaseDocuments() {
     if (overage402 && !(meter && (meter.allowance ?? meter.cap) >= overage402.billable && (meter.purchasedBlocks ?? 0) > 0)) return overage402
     return meter ? overageFromMeter(meter) : null
   }, [meter, overage402])
+  const buyRerun = async () => {
+    setRerunBusy('opening')
+    try {
+      const res = await startCheckout({ kind: 'rerun', caseId })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.url) {
+        window.location.assign(body.url)
+        return
+      }
+      setRerunBusy('failed')
+    } catch {
+      setRerunBusy('failed')
+    }
+  }
   const buyOverage = async () => {
     if (!overage) return
     setOverageBusy('opening')
@@ -1045,12 +1068,34 @@ export default function CaseDocuments() {
         {overageReturned && !overage && meter && (meter.purchasedBlocks ?? 0) > 0 && (
           <p className="mt-3 rounded-lg border border-db-line bg-db-surface p-3 text-sm" role="status" data-testid="overage-paid">{overageCopy.paid}</p>
         )}
-        {readiness && !readiness.enough && (
+        {!editable && data && (data.status === 'READY' || data.status === 'DELIVERED' || data.status === 'REFUNDED') && (
+          <div className="mt-3 rounded-xl border-2 border-db-accent bg-db-accent-soft p-4" data-testid="rerun-card">
+            <p className="font-db-serif text-lg font-semibold">{rerunCopy.title}</p>
+            <p className="mt-1 text-sm">{rerunCopy.body}</p>
+            {rerunCanceled && <p className="mt-2 text-sm" role="status" data-testid="rerun-canceled">{rerunCopy.canceled}</p>}
+            <button
+              type="button"
+              onClick={() => void buyRerun()}
+              disabled={rerunBusy === 'opening'}
+              className="mt-3 w-full rounded-xl bg-db-accent px-5 py-3 font-semibold text-db-surface disabled:opacity-40"
+              data-testid="rerun-buy"
+            >
+              {tpl(rerunCopy.button, { price: money(9900) })}
+            </button>
+            {rerunBusy === 'opening' && <p className="mt-2 text-xs text-db-muted">{rerunCopy.opening}</p>}
+            {rerunBusy === 'failed' && <p className="mt-2 text-xs" role="status" data-testid="rerun-failed">{rerunCopy.failed}</p>}
+            <Link href={`/case/${caseId}/report`} className="mt-3 block text-center text-sm underline" data-testid="rerun-open-report">{rerunCopy.report}</Link>
+          </div>
+        )}
+        {!editable && data && !(data.status === 'READY' || data.status === 'DELIVERED' || data.status === 'REFUNDED') && (
+          <p className="mt-3 rounded-lg border border-db-line bg-db-surface p-3 text-sm" data-testid="rerun-running">{rerunCopy.running}</p>
+        )}
+        {readiness && !readiness.enough && editable && (
           <p className="mt-2 rounded-lg border p-3 text-sm" style={{ borderColor: 'var(--db-urgent)' }} data-testid="run-not-enough">
             <strong>Not enough yet.</strong> The review depends on: {readiness.missing.essential.map((m) => m.label).join(', ')}. You can still run it on what is here, but it will only be able to check the paperwork.
           </p>
         )}
-        {needed.length > 0 ? (
+        {!editable ? null : needed.length > 0 ? (
           <button
             onClick={() => setConfirmRun(true)}
             disabled={!data || data.documents.length === 0}

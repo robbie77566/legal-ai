@@ -11,9 +11,11 @@ const NOTES: string[] = []
 const calls: string[] = []
 beforeEach(() => {
   calls.length = 0
+  window.localStorage.clear()
   vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
     const u = String(url)
     calls.push(u)
+    if (u.endsWith('/checkout/session')) return { ok: false, status: 503, json: async () => ({ error: 'Payments are not configured' }) } as Response
     const body = u.endsWith('/report/versions') ? [{ versionNo: 2, renderedAt: '2026-09-08T10:00:00Z' }, { versionNo: 1, renderedAt: '2026-09-05T10:00:00Z' }]
       : u.endsWith('/report/changes') ? { fromVersion: 1, toVersion: 2, added: [{ category: 'brady', severity: 'dispositive', partAText: 'A lab report the defense never received' }], removed: [], keptCount: 1, notes: NOTES }
       : u.endsWith('/report?version=1') ? REPORT(1)
@@ -21,6 +23,16 @@ beforeEach(() => {
       : {}
     return { ok: true, status: 200, json: async () => body } as Response
   }))
+})
+
+describe('re-run button (found 2026-11-01: a failed checkout call did nothing)', () => {
+  it('says so when checkout cannot be opened, and charges nothing', async () => {
+    render(<CaseReport />)
+    fireEvent.click(await screen.findByRole('button', { name: /Read it now/ }))
+    fireEvent.click(await screen.findByTestId('rerun-button'))
+    expect(await screen.findByTestId('rerun-failed')).toHaveTextContent(/could not open checkout/)
+    expect(calls.some((u) => u.endsWith('/checkout/session'))).toBe(true)
+  })
 })
 
 describe('report versions', () => {

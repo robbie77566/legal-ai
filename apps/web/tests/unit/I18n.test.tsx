@@ -19,6 +19,7 @@ import { TERMS_CONTENT } from '@/lib/content/terms'
 import { REFUND_POLICY_CONTENT } from '@/lib/content/refund-policy'
 import { ATTORNEY_PACKET_CONTENT } from '@/lib/content/attorney-packet'
 import { INTERVIEW_CONTENT } from '@/lib/content/interview'
+import { RERUN_CONTENT } from '@/lib/content/rerun'
 
 beforeEach(() => window.localStorage.clear())
 
@@ -55,6 +56,7 @@ describe('i18n (i18n_localization.md)', () => {
     assertParity(REFUND_POLICY_CONTENT.en, REFUND_POLICY_CONTENT.es, 'refund-policy')
     assertParity(ATTORNEY_PACKET_CONTENT.en, ATTORNEY_PACKET_CONTENT.es, 'attorney-packet')
     assertParity(INTERVIEW_CONTENT.en, INTERVIEW_CONTENT.es, 'interview')
+    assertParity(RERUN_CONTENT.en, RERUN_CONTENT.es, 'rerun')
   })
 
   it('the switcher flips the landing to Spanish and persists', () => {

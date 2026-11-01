@@ -240,6 +240,7 @@ export default function CaseReport() {
   const { caseId } = useParams<{ caseId: string }>()
   const params = useSearchParams()
   const variant = (params.get('survey') === 'share' ? 'share' : 'report') as 'report' | 'share'
+  const [rerunState, setRerunState] = useState<'idle' | 'opening' | 'failed'>('idle')
   const requestedVersion = params.get('version')
   // The interstitial is remembered per case (UI spec §5.7): once a family
   // has chosen to read, later visits show a one-line reminder instead.
@@ -414,18 +415,32 @@ export default function CaseReport() {
           </Link>
           <button
             onClick={() => {
+              // A failed checkout call used to do nothing at all (found
+              // 2026-11-01); it now says so, and nothing is charged.
+              setRerunState('opening')
               void apiFetch('/checkout/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ kind: 'rerun', caseId }),
-              }).then(async (r) => {
-                if (r.ok) window.location.href = (await r.json()).url
               })
+                .then(async (r) => {
+                  const body = await r.json().catch(() => ({}))
+                  if (r.ok && body.url) window.location.assign(body.url)
+                  else setRerunState('failed')
+                })
+                .catch(() => setRerunState('failed'))
             }}
-            className="block w-full rounded-xl border border-db-line px-5 py-3 text-center text-sm text-db-muted"
+            disabled={rerunState === 'opening'}
+            data-testid="rerun-button"
+            className="block w-full rounded-xl border border-db-line px-5 py-3 text-center text-sm text-db-muted disabled:opacity-40"
           >
-            Got new documents since this report? Add them &amp; re-run — $99
+            {rerunState === 'opening' ? 'Opening secure checkout…' : 'Got new documents since this report? Add them & re-run — $99'}
           </button>
+          {rerunState === 'failed' && (
+            <p className="text-sm" role="status" data-testid="rerun-failed">
+              We could not open checkout just now. Nothing was charged — try again in a moment, or reply to any of our emails.
+            </p>
+          )}
         </div>
       </section>
 
