@@ -8,13 +8,17 @@ import { CaseFactsSchema, summaryRows, summaryGaps, type CaseSummary, type Summa
  */
 export async function summaryRowsForReport(
   runId: string,
-  kase: { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown }
+  kase: { subjectName?: string | null; county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown }
 ): Promise<SummaryRow[]> {
   const run = await prisma.analysisRun.findUnique({ where: { id: runId }, select: { summary: true } });
   const parsed = CaseFactsSchema.safeParse(kase.facts ?? {});
   const f = parsed.success ? parsed.data : {};
   const deadline = (kase.deadlineFacts ?? {}) as { judgmentDate?: string };
   return summaryRows((run?.summary ?? null) as CaseSummary | null, {
+    // "Record of: {name}" leads the rows on the family report and the family's
+    // attorney packet. The counsel packet never comes through here: a matter
+    // carries initials only (counsel-packet.service builds from the Matter).
+    subjectName: kase.subjectName ?? null,
     county: kase.county ?? f.county ?? null,
     convictionYear: kase.convictionYear ?? f.convictionYear ?? null,
     trialOrPlea: f.trialOrPlea ?? null,

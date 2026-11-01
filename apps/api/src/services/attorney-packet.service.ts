@@ -20,6 +20,8 @@ export interface AttorneyPacketCase {
   id: string;
   title: string;
   subsequentWrit: boolean;
+  /** The person in custody as the family named them — the packet's first "About this case" row. */
+  subjectName?: string | null;
   county?: string | null;
   convictionYear?: number | null;
   facts?: unknown;

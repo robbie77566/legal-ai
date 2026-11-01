@@ -132,6 +132,9 @@ export async function loadCounselPacket(caseId: string, tenantId: string, organi
     // The screens the run planned for this lane and vehicle — the tool statement names them.
     const screensRun = planScreens(matter.case.lane ?? matter.lane ?? 'TRIAL', vehicle).screens;
 
+    // Case.subjectName is deliberately NOT read here: a matter identifies its
+    // client by initials only (matters.ts, UPL posture), and the counsel
+    // packet prints no "Record of" row. CounselPacketInput has no field for it.
     const build = (inv: CounselPacketInput['inventory']): CounselPacketInput => ({
       matter: {
         vehicle,

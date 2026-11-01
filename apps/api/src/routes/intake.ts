@@ -22,7 +22,16 @@ const CIVIL_RE = /^\d{4}-\d{2}-\d{2}$/;
 const civilDate = z.preprocess((v) => normalizeCivilDate(v) ?? v, z.string().regex(CIVIL_RE, CIVIL_DATE_MESSAGE));
 // Optional flavour: blank / whitespace means "not given", not an error.
 const civilDateOpt = z.preprocess(normalizeCivilDate, z.string().regex(CIVIL_RE, CIVIL_DATE_MESSAGE).optional());
+// The person whose record this is (Case.subjectName, 2026-11-01): free text
+// as the family gives it, trimmed, 120 characters; blank means "not given" and
+// clears it. A Case column, never a fact — it is shown back, never reasoned on.
+export const SUBJECT_NAME_MAX = 120;
+const subjectName = z.preprocess(
+  (v) => (typeof v === 'string' ? v.trim() || null : v),
+  z.string().min(1).max(SUBJECT_NAME_MAX, `The name can be at most ${SUBJECT_NAME_MAX} characters`).nullable().optional()
+);
 const InterviewSchema = z.object({
+  subjectName,
   county: z.string().min(1).max(64),
   convictionYear: z.number().int().min(1950).max(2100),
   trialDays: z.number().int().min(0).max(365).optional(),
@@ -164,6 +173,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         data: {
           county: answers.county,
           convictionYear: answers.convictionYear,
+          ...(answers.subjectName !== undefined ? { subjectName: answers.subjectName } : {}),
           facts: facts as Prisma.InputJsonValue,
           ...(deadlineFacts ? { deadlineFacts: deadlineFacts as Prisma.InputJsonValue } : {}),
         },
@@ -292,6 +302,8 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         status: kase.status,
         facts,
         factLines: describeFacts(facts, kase),
+        // Whose record this is, as the family named them (a Case column, not a fact).
+        subjectName: kase.subjectName,
         rerun: reportCount > 0 && kase.status === 'AWAITING_DOCS' ? { reportCount, lastReportAt: lastReport?.renderedAt ?? null } : null,
         customer: customerView(kase.status as Parameters<typeof customerView>[0], holds),
         lane: kase.lane,
@@ -338,6 +350,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
     const { tenantId, userId } = request.auth;
     const body = z
       .object({
+        subjectName,
         county: z.string().min(1).max(64).optional(),
         convictionYear: z.number().int().min(1950).max(2100).optional(),
         trialDays: z.number().int().min(0).max(365).nullable().optional(),
@@ -387,6 +400,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       await tx.case.update({
         where: { id },
         data: {
+          ...(body.subjectName !== undefined ? { subjectName: body.subjectName } : {}),
           ...(body.county !== undefined ? { county: body.county } : {}),
           ...(body.convictionYear !== undefined ? { convictionYear: body.convictionYear } : {}),
           ...(shaping.length > 0 ? { lane, subsequentWrit } : {}),
@@ -404,7 +418,12 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
       }
       await appendCaseEvent(tx, { caseId: id, tenantId, type: 'facts.updated', payload: { keys }, actor: userId });
       const view = { ...kase, lane, subsequentWrit, county: facts.county ?? kase.county, convictionYear: facts.convictionYear ?? kase.convictionYear };
-      return { facts, factLines: describeFacts(facts, view), ...(checklistItemCount !== undefined ? { checklistItemCount } : {}) };
+      return {
+        facts,
+        factLines: describeFacts(facts, view),
+        subjectName: body.subjectName !== undefined ? body.subjectName : kase.subjectName,
+        ...(checklistItemCount !== undefined ? { checklistItemCount } : {}),
+      };
     });
   });
 
@@ -728,7 +747,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
 
     const { summaryRowsForReport, summaryGapForReport } = await import('../services/case-summary.service');
     const { PRICES_CENTS } = await import('../services/payments.service');
-    const summaryRowsList = await summaryRowsForReport(report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown });
+    const summaryRowsList = await summaryRowsForReport(report.runId, kase as { subjectName?: string | null; county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown });
     return {
       report,
       sealed,

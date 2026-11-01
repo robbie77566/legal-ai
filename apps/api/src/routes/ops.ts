@@ -170,6 +170,9 @@ export default async function opsRoutes(fastify: FastifyInstance) {
         id: true, title: true, status: true, lane: true, tenantId: true,
         subsequentWrit: true, ocrHalt: true, delayOurs: true,
         county: true, convictionYear: true,
+        // The person in custody, as the family named them (2026-11-01): the
+        // cases view shows them first, the account holder second.
+        subjectName: true,
         slaStartedAt: true, updatedAt: true, createdAt: true,
       },
       orderBy: { updatedAt: 'asc' },

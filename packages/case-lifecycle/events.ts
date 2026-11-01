@@ -238,7 +238,8 @@ export const CASE_EVENT_SCHEMAS = {
   // Case facts (customer_journey_ux_review §3): which keys changed — never
   // the values (county is free text).
   'facts.updated': {
-    1: z.object({ keys: z.array(z.enum(['county', 'convictionYear', 'trialDays', 'judgmentDate', 'trialOrPlea', 'appeal', 'priorWrit'])).min(1).max(7) }).strict(),
+    // subjectName (2026-11-01): the person in custody — the key only, never the name.
+    1: z.object({ keys: z.array(z.enum(['county', 'convictionYear', 'trialDays', 'judgmentDate', 'trialOrPlea', 'appeal', 'priorWrit', 'subjectName'])).min(1).max(8) }).strict(),
     // v2 (matter intake, persona plan §5 C): the matter's editable fields.
     2: z.object({ keys: z.array(z.enum(MATTER_EDITABLE_FIELDS)).min(1).max(MATTER_EDITABLE_FIELDS.length) }).strict(),
   },

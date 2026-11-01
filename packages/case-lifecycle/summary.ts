@@ -78,16 +78,25 @@ export interface SummaryGap {
 
 /** Rows not confirmed from the record, and the missing documents that would fill them. */
 export function summaryGaps(rows: SummaryRow[], needed: Array<{ kind: string; label: string }>): SummaryGap | null {
-  const gapRows = rows.filter((r) => r.source !== 'record')
+  // "Record of" is the family's own word for who this is — never a gap the record fills.
+  const gapRows = rows.filter((r) => r.source !== 'record' && r.key !== RECORD_OF_KEY)
   if (gapRows.length === 0) return null
-  const kinds = new Set(gapRows.flatMap((r) => SUMMARY_SOURCES[r.key] ?? []))
+  const kinds = new Set(gapRows.flatMap((r) => SUMMARY_SOURCES[r.key as keyof CaseSummary] ?? []))
   const seen = new Set<string>()
   const documents = needed.filter((n) => kinds.has(n.kind) && !seen.has(n.kind) && seen.add(n.kind)).map(({ kind, label }) => ({ kind, label }))
   return { labels: gapRows.map((r) => r.label), documents }
 }
 
+/**
+ * The first row when the family named the person (Case.subjectName): "Record
+ * of: {name}", family-told provenance, printed as given and never read into
+ * any legal text. Not a CaseSummary key — the record is never asked for it.
+ */
+export const RECORD_OF_KEY = 'recordOf' as const
+export const RECORD_OF_LABEL = 'Record of'
+
 export interface SummaryRow {
-  key: keyof CaseSummary
+  key: keyof CaseSummary | typeof RECORD_OF_KEY
   label: string
   value: string | null
   /** 'record' = cited to the record; 'family' = what the family told us; null = not known */
@@ -97,6 +106,8 @@ export interface SummaryRow {
 
 /** Family-provided fallbacks (intake facts) for the rows the record did not state. */
 export interface FamilyFacts {
+  /** Case.subjectName — family cases only; a counsel matter never carries one (initials stay on the Matter). */
+  subjectName?: string | null
   county?: string | null
   convictionYear?: number | null
   trialOrPlea?: 'trial' | 'plea' | null
@@ -113,10 +124,12 @@ export function summaryRows(summary: CaseSummary | null | undefined, family: Fam
     appeal: family.appeal === 'decided' ? 'A direct appeal was decided' : family.appeal === 'pending' ? 'A direct appeal is pending' : family.appeal === 'none' ? 'No direct appeal' : null,
     priorWrits: family.priorWrit === 'yes' ? 'A prior writ was filed' : family.priorWrit === 'no' ? 'None' : null,
   }
-  return SUMMARY_KEYS.map(([key, label]) => {
+  const rows: SummaryRow[] = SUMMARY_KEYS.map(([key, label]) => {
     const f = summary?.[key]
     if (f) return { key, label, value: f.value, source: 'record', cite: f.cite }
     const fv = fam[key] ?? null
     return { key, label, value: fv, source: fv ? 'family' : null }
   })
+  const subject = family.subjectName?.trim()
+  return subject ? [{ key: RECORD_OF_KEY, label: RECORD_OF_LABEL, value: subject, source: 'family' }, ...rows] : rows
 }

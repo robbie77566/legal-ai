@@ -17,6 +17,8 @@ import { settledQuote } from './quote.service';
 const caseSelect = {
   id: true, title: true, status: true, lane: true, tenantId: true, subsequentWrit: true,
   county: true, convictionYear: true,
+  // The person in custody, as the family named them (2026-11-01) — beside the account holder on the case file header.
+  subjectName: true,
   ocrHalt: true, delayOurs: true, expectedReadyAt: true, slaStartedAt: true, createdAt: true, updatedAt: true,
   // Record inventory (workstream D): the meter projection, read-only here.
   recordBucket: true, meteredPages: true, inventoryAt: true,
@@ -243,7 +245,7 @@ export async function staffReportPdf(caseId: string, versionNo?: number) {
     const { renderReportPdf } = await import('@hg/reports');
     const { summaryRowsForReport, summaryGapForReport } = await import('./case-summary.service');
     const { PRICES_CENTS } = await import('./payments.service');
-    const summaryRowsList = await summaryRowsForReport(report.runId, kase as { county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown });
+    const summaryRowsList = await summaryRowsForReport(report.runId, kase as { subjectName?: string | null; county?: string | null; convictionYear?: number | null; facts?: unknown; deadlineFacts?: unknown });
     const { bottomLineFor } = await import('./bottom-line.service');
     const pdf = await renderReportPdf({
       palette: 'harbor',

@@ -17,6 +17,20 @@ describe('case summary rows', () => {
     expect(by.offense).toEqual({ key: 'offense', label: 'Offense', value: null, source: null })
     expect(rows.map((r) => r.label)[0]).toBe('Person')
   })
+  it('"Record of: {name}" leads the rows when the family named the person, family-told, and is absent when they did not (2026-11-01)', () => {
+    const named = summaryRows({ defendant: { value: 'GARY W. DOE', cite: { quote: 'THE STATE OF TEXAS VS. GARY W. DOE' } } }, { county: 'Brazoria', subjectName: '  Juan Pérez ' })
+    expect(named[0]).toEqual({ key: 'recordOf', label: 'Record of', value: 'Juan Pérez', source: 'family' })
+    expect(named[1].label).toBe('Person') // the record-cited rows follow, untouched
+    expect(named).toHaveLength(SUMMARY_KEYS.length + 1)
+    for (const absent of [null, undefined, '', '   ']) {
+      const rows = summaryRows(null, { county: 'Brazoria', subjectName: absent })
+      expect(rows.map((r) => r.key)).not.toContain('recordOf')
+      expect(rows).toHaveLength(SUMMARY_KEYS.length)
+    }
+    // Never a gap: no document on the checklist "fills" the family's own word for who this is.
+    const gap = summaryGaps(summaryRows(Object.fromEntries(SUMMARY_KEYS.map(([k]) => [k, { value: 'x', cite: { quote: 'xyz' } }])) as never, { subjectName: 'Juan Pérez' }), [{ kind: 'judgment', label: 'Judgment' }])
+    expect(gap).toBeNull()
+  })
   it('the schema is strict: unknown keys and quote-less facts are rejected', () => {
     expect(CaseSummarySchema.safeParse({ defendant: { value: 'X', cite: { quote: 'THE STATE OF TEXAS VS. X' } }, extra: 1 }).success).toBe(false)
     expect(CaseSummarySchema.safeParse({ defendant: { value: 'X' } }).success).toBe(false)

@@ -5,7 +5,7 @@ import { createHash } from 'crypto';
 import AdmZip from 'adm-zip';
 import prisma from '@hg/database';
 import { generateToken, verifyToken } from '@hg/auth';
-import { customerView, describeFacts, CaseFactsSchema, type CaseFacts, type CaseHold, type CaseStatus } from '@hg/case-lifecycle';
+import { customerView, describeFacts, CaseFactsSchema, caseLabel, caseRef, type CaseFacts, type CaseHold, type CaseStatus } from '@hg/case-lifecycle';
 import { getStripe } from '../services/payments.service';
 import { getObjectBytes, getObjectSize } from '../services/storage.service';
 import { AuditService, LogAction } from '../services/audit.service';
@@ -403,6 +403,18 @@ export default async function meRoutes(fastify: FastifyInstance) {
       const folder = d.case.county && d.case.convictionYear ? `${d.case.county} County ${d.case.convictionYear}` : `Review ${d.case.createdAt.toISOString().slice(0, 10)}`;
       zip.addFile(`${folder.replace(/[^\w .-]/g, '_')}/${d.filename.replace(/[^\w .-]/g, '_')}`, await getObjectBytes(d.s3Key!));
     }
+    // What the family told us that names each review (2026-11-01): the
+    // reference, the conviction, and whose record it is — their own data,
+    // so it leaves with them.
+    const reviews = await prisma.case.findMany({
+      where: { id: { in: access.map((a) => a.caseId) }, status: { not: 'DELETED' } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, county: true, convictionYear: true, createdAt: true, subjectName: true },
+    });
+    zip.addFile(
+      'your-reviews.json',
+      Buffer.from(JSON.stringify(reviews.map((c) => ({ reference: caseRef(c.id), review: caseLabel(c), recordOf: c.subjectName, started: c.createdAt.toISOString().slice(0, 10) })), null, 2))
+    );
     await AuditService.log({
       tenantId, caseId: `account:${userId}`, action: LogAction.CASE_ACCESS, userId,
       details: { op: 'account_export', documents: docs.length },
