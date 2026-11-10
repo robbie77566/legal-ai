@@ -76,7 +76,7 @@ export async function autoApproveCase(
   if (advising > 0) reasons.push(`advice wording in ${advising} finding(s)`);
 
   if (reasons.length > 0) {
-    console.warn(`[auto-qa] case ${caseId} HELD for human review: ${reasons.join('; ')}`);
+    console.warn(`[auto-qa] case ${caseId} HELD by the quality gate: ${reasons.join('; ')}`);
 
     // Once-per-episode customer notice (auto_qa_hold_workflow.md R2/§4.1):
     // a re-run failing again must not re-email the family.

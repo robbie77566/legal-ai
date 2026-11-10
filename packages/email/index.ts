@@ -169,7 +169,7 @@ export function sendRecordsComplete(to: string, opts: { expectedReadyBy?: string
     to,
     subject: 'Your documents are complete — your review has started',
     text: `Your documents are in and your review has started.${
-      opts.expectedReadyBy ? ` Expect your report by ${opts.expectedReadyBy}.` : ''
+      opts.expectedReadyBy ? ` Expect your report by ${opts.expectedReadyBy}.` : ' Most reports are ready within 2 hours.'
     }
 
 We'll email you as your review moves through each step, and you can watch progress any time${
@@ -233,13 +233,13 @@ Whatever it says, there is a next step, and the report walks you through it.`,
 /**
  * UPL review 2026-10-23 (E4): the automatic approval path sends its own
  * email. It says what happened — the report passed the automated quality
- * gates and was not held for staff review — and nothing more.
+ * gates — and nothing more.
  */
 export function sendReportReadyAutoChecked(to: string, opts: { caseUrl: string }) {
   return send({
     to,
     subject: 'Your report is ready',
-    text: `Your case review is complete and ready for you to read. It passed our automated quality gates — every quoted line re-checked word-for-word against your documents — and was not held for staff review.
+    text: `Your case review is complete and ready for you to read. It passed our automated quality gates — every quoted line re-checked word-for-word against your documents.
 
 Read it when you're ready — it will be right there when you are, and some families choose to read it together: ${opts.caseUrl}
 
@@ -268,8 +268,8 @@ export function sendQualityHold(to: string, opts: { caseUrl: string }) {
     to,
     subject: 'A closer look at your review before it reaches you',
     text:
-      "Good news and a small pause: our automated quality check flagged something in your review that we want a person to verify before you see it. Nothing is wrong with your case — this is the system being careful.\n\n" +
-      `${QUALITY_CHECKED.en} Expect your report within 24 hours.\n\n` +
+      "Good news and a small pause: our automated quality check flagged something in your review, so the report is held until it clears the gates. Nothing is wrong with your case — this is the system being careful.\n\n" +
+      `${QUALITY_CHECKED.en} We email you the moment it is released.\n\n` +
       `You can watch progress any time: ${opts.caseUrl}`,
   });
 }
@@ -506,13 +506,13 @@ The quote comes before the analysis, from the page count, and nothing starts unt
  * (the staff note is internal), no number repeated, the account and its
  * data untouched, and a plain way to sort it out. True to the product: the
  * decision closes counsel review on the account (guards.ts requireLawyerSeat)
- * until a person verifies the number.
+ * until the number is verified.
  */
 export function sendBarNotVerified(to: string, opts: { counselUrl: string }) {
   return send({
     to,
     subject: 'We could not verify your bar number',
-    text: `We could not verify the bar number on your account, so counsel review is not open on it: matters, quotes and the counsel packet stay closed until a person verifies the number. Your account and anything you have entered are unchanged.
+    text: `We could not verify the bar number on your account, so counsel review is not open on it: matters, quotes and the counsel packet stay closed until the number is verified. Your account and anything you have entered are unchanged.
 
 If the number was mistyped, or you are admitted under a different name, reply to this email and we will look again. You can check what is on the account here: ${opts.counselUrl}`,
   });

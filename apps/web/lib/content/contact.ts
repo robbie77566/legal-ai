@@ -2,7 +2,7 @@
 export const CONTACT_CONTENT = {
   en: {
     title: 'Contact us',
-    body: 'Email is the fastest way to reach us — a real person reads every message.',
+    body: 'Email is the fastest way to reach us — we read every message.',
     email: 'admin@snotnoselegal.com',
     response: 'We answer within two business days, usually much sooner.',
     canTitle: 'What we can help with',
@@ -19,7 +19,7 @@ export const CONTACT_CONTENT = {
   },
   es: {
     title: 'Contáctenos',
-    body: 'El correo electrónico es la forma más rápida de comunicarse — una persona real lee cada mensaje.',
+    body: 'El correo electrónico es la forma más rápida de comunicarse — leemos cada mensaje.',
     email: 'admin@snotnoselegal.com',
     response: 'Respondemos dentro de dos días hábiles, normalmente mucho antes.',
     canTitle: 'En qué podemos ayudar',

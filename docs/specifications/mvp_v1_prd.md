@@ -16,7 +16,7 @@ When a Texas conviction becomes final, the family faces a brutal decision with n
 ### Goals (v1.0)
 1. A family member can purchase, upload a record, and receive a viability report with zero legal training and zero human hand-holding.
 2. Every finding in every report is grounded to a verifiable record citation (volume/page/line).
-3. Every report passes a human QA gate before release (see §7.4) — no report reaches a customer unreviewed.
+3. ~~Every report passes a human QA gate before release~~ — superseded 2026-11-10 (founder): every report passes the automated quality gates (FR-7 word-for-word verification, screen completeness, grounding ratio, advice-language lint) and is released by the system; a run that fails a gate is held for staff to clear. No surface describes human review.
 4. The product never practices law: information, not advice; routing to counsel, never toward pro se filing (see §8).
 5. Unit economics hold: ≤ ~$54 COGS/case at the $299 price (market study §7.3).
 
@@ -161,7 +161,7 @@ Cross-cutting: FR-6 — every finding must resolve to at least one verifiable ci
 
 ## 10. Open questions
 
-1. ~~Report SLA~~ — **resolved (PO, Aug 2026): N = 10 business days** from records-complete (matches the medical second-opinion norm; covers batch worst-case + the QA queue). Implemented via the shared ENG-9 calendar (`@hg/case-lifecycle/calendar`).
+1. ~~Report SLA~~ — resolved (PO, Aug 2026) at 10 business days; **superseded 2026-11-10 (founder): the report is expected within 2 hours of records-complete, clock time** (`LAUNCH_SLA_HOURS` in `@hg/case-lifecycle/calendar`), with delivery automatic (`AUTO_APPROVE=1`). The business-day calendar remains for the deadline engine and the Record Desk staff SLA.
 2. ~~Phone captures vs. clerk PDFs~~ — **resolved: accept phone photos** with capture coaching, echo-back verification, and OCR-confidence gating (category leaders coach rather than reject; see workflow doc §6.5).
 3. Referral recipients at launch: which clinics have agreed to receive packets? (GTM Phase-2 dependency; US-5 can ship with the attorney list only. TIFA partnership candidate per workflow doc §6.7.)
 4. ~~Brand decision (R-5)~~ — **resolved (PO, Aug 2026): neutral sub-brand.** Product surfaces present **"Family Case Review"**; snotnoselegal.com remains the marketing brand and the footer legal identity ("Family Case Review is a service of Snot Nose Legal").

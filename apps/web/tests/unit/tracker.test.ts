@@ -27,8 +27,8 @@ describe('tracker view-model (UI spec §5.6)', () => {
 
   it('says truthfully how the report is checked — never a "legal reviewer" (UPL review 2026-10-23)', () => {
     const copy = trackerModel(customerView('QA_REVIEW', [])).qualityReviewCopy
-    expect(copy).toContain('Checked by automated quality gates and by our review staff when anything looks off.')
-    expect(copy).toMatch(/24 hours/)
+    expect(copy).toContain('Checked by automated quality gates: every quoted line is re-verified word-for-word against your documents.')
+    expect(copy).toMatch(/moment it is released/)
     expect(copy).not.toMatch(/legal reviewer/i)
   })
 })

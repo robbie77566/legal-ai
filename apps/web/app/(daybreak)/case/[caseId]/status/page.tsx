@@ -8,7 +8,8 @@ import { useSession } from 'next-auth/react'
 import { apiFetch, apiEventSource } from '@/lib/api'
 import CaseNav from '../../../../../components/daybreak/CaseNav'
 import NotASubstitute from '../../../../../components/NotASubstitute'
-import { trackerModel, describeActivity, describeActivityItem, ago, agoFine, formatCivilDate, type TrackerModel } from '@/lib/tracker'
+import { formatReadyBy } from '@hg/case-lifecycle'
+import { trackerModel, describeActivity, describeActivityItem, ago, agoFine, type TrackerModel } from '@/lib/tracker'
 import {
   emptyFeed,
   feedFromFacts,
@@ -181,7 +182,7 @@ export default function CaseStatus() {
           {dates.started && <>Started {new Date(dates.started).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</>}
           {dates.started && dates.readyBy && ' · '}
           {dates.readyBy && (
-            <>Expect your report by <strong className="text-db-ink">{formatCivilDate(dates.readyBy)}</strong></>
+            <>Expect your report by <strong className="text-db-ink">{formatReadyBy(dates.readyBy)}</strong></>
           )}
         </p>
       )}

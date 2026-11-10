@@ -417,5 +417,5 @@ export function renderFamilyReportBody(doc: Pdf, input: ReportPdfInput): void {
     .font('Helvetica')
     .fontSize(9)
     .fillColor('#555555')
-    .text(`Your case page, this report, and the guide to getting court documents are at ${SITE}. Questions? Reply to any email from us — a person reads it.`);
+    .text(`Your case page, this report, and the guide to getting court documents are at ${SITE}. Questions? Reply to any email from us — we read every one.`);
 }

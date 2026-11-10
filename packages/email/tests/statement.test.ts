@@ -2,8 +2,8 @@
  * UPL review 2026-10-23, recommendations 1 and 2: every email ends with the
  * full statement (both languages, the statutory words), no email holds a
  * "trained legal reviewer" out, and the automatic-approval path sends its
- * own email that says the report passed the automated gates and was not
- * held for staff review.
+ * own email that says the report passed the automated gates. Founder
+ * decision 2026-11-10: no email mentions staff or human review at all.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { NOT_A_LAW_FIRM, QUALITY_CHECKED } from '@hg/case-lifecycle';
@@ -76,14 +76,13 @@ describe('how the report is checked, said once', () => {
     for (const m of sent) expect(m.text, m.subject).toContain(QUALITY_CHECKED.en);
   });
 
-  it('the auto-approved report gets a distinct email: passed the automated gates, not held for staff review', async () => {
+  it('the auto-approved report gets a distinct email: passed the automated gates, no staff or human review named', async () => {
     await sendReportReadyAutoChecked(to, { caseUrl: 'https://x/case/1/report' });
     await sendReportReady(to, { caseUrl: 'https://x/case/1/report' });
     const [auto, manual] = sent;
     expect(auto.text).toMatch(/passed our automated quality gates/);
-    expect(auto.text).toMatch(/was not held for staff review/);
     expect(auto.text).toContain('https://x/case/1/report');
-    expect(manual.text).not.toMatch(/was not held for staff review/);
+    for (const m of sent) expect(m.text, m.subject).not.toMatch(/staff review|human review|a person/i);
     expect(auto.text).not.toBe(manual.text);
   });
 });

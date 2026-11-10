@@ -120,6 +120,11 @@ services:
       - { key: NODE_OPTIONS, value: --max-old-space-size=1536 }
       - { key: INGESTION_CONCURRENCY, value: "2" }
       - { key: ANALYSIS_CONCURRENCY, value: "2" }
+      # Automatic delivery (founder decision 2026-11-10): the family promise
+      # is a report within two hours and no human review, so every completed
+      # run that clears the quality gates is released by the system. Held
+      # runs wait in /ops/holds.
+      - { key: AUTO_APPROVE, value: "1" }
       - { key: ZIP_CONCURRENCY, value: "1" }
       - { key: AWS_ACCESS_KEY_ID, sync: false }
       - { key: AWS_SECRET_ACCESS_KEY, sync: false }

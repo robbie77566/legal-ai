@@ -44,9 +44,9 @@ export function trackerModel(view: CustomerView): TrackerModel {
     activeIndex: idx,
     delivered: view.stage === 'delivered',
     overlayCopy: view.overlay ? OVERLAY_COPY[view.overlay] : null,
-    // The one truthful sentence (UPL review 2026-10-23, rec 2): no one here
-    // is held out as a legal reviewer.
-    qualityReviewCopy: `${QUALITY_CHECKED.en} Expect your report within 24 hours.`,
+    // The one truthful sentence (UPL review 2026-10-23, rec 2; founder
+    // decision 2026-11-10): automated gates, no one held out as a reviewer.
+    qualityReviewCopy: `${QUALITY_CHECKED.en} We email you the moment it is released.`,
   }
 }
 

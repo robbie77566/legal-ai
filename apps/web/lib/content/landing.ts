@@ -38,7 +38,7 @@ export const LANDING_CONTENT = {
       'Get your report: plain-English findings plus a packet any lawyer can use.',
     ],
     guideLink: 'Read the free guide: how to get each document, what it looks like, and what it costs',
-    howNote: 'Most reviews are ready within 10 business days of your documents being complete.',
+    howNote: 'Most reports are ready within 2 hours of your documents being complete.',
     checksTitle: 'What we look for',
     checks: [
       'Mistakes the trial lawyer may have made',
@@ -49,7 +49,7 @@ export const LANDING_CONTENT = {
       'Jury selection problems',
     ],
     checksCite: 'Backed by page-and-line citations you can verify.',
-    checksNote: 'AI built for this job. Quality gates check every report, and anything that looks off goes to a person before it reaches you.',
+    checksNote: 'AI built for this job. Quality gates check every report, and anything that looks off is held until it clears them.',
     reportTitle: 'Your report, two parts',
     reportBody1a: 'Part A is for you:',
     reportBody1b:
@@ -63,7 +63,7 @@ export const LANDING_CONTENT = {
     priceItems: [
       'Up to 5,000 pages',
       'All six checks',
-      'Quality gates on every report — human review when anything looks off',
+      'Quality gates on every report — every quote re-verified against your documents',
       'Both report parts, yours to keep',
       'Secure handling, deleted on request',
     ],
@@ -98,11 +98,11 @@ export const LANDING_CONTENT = {
       ],
       [
         'Who sees our records?',
-        'Your records are encrypted, seen only by our review team, kept 12 months, and deleted sooner on request.',
+        'Your records are encrypted, never shared outside Snot Nose Legal, kept 12 months, and deleted sooner on request.',
       ],
       [
         'How long does it take?',
-        'Your review clock starts when your documents are complete — we tell you the moment that happens, and we email you at every step.',
+        'Your review clock starts when your documents are complete — we tell you the moment that happens, and most reports are ready within 2 hours. We email you at every step.',
       ],
       [
         '¿Está disponible en español?',
@@ -147,7 +147,7 @@ export const LANDING_CONTENT = {
     ],
     guideLink: 'Lea la guía gratis: cómo conseguir cada documento, cómo se ve y cuánto cuesta',
     howNote:
-      'La mayoría de los reportes están listos dentro de 10 días hábiles después de completar sus documentos.',
+      'La mayoría de los reportes están listos dentro de 2 horas después de completar sus documentos.',
     checksTitle: 'Qué buscamos',
     checks: [
       'Errores que pudo haber cometido el abogado del juicio',
@@ -159,7 +159,7 @@ export const LANDING_CONTENT = {
     ],
     checksCite: 'Respaldado con citas de página y línea que usted puede verificar.',
     checksNote:
-      'Inteligencia artificial creada para esta tarea. Controles de calidad revisan cada reporte, y cualquier cosa dudosa pasa por una persona antes de llegarle.',
+      'Inteligencia artificial creada para esta tarea. Controles de calidad revisan cada reporte, y cualquier cosa dudosa se detiene hasta que pasa las verificaciones.',
     reportTitle: 'Su reporte, en dos partes',
     reportBody1a: 'La Parte A es para usted:',
     reportBody1b:
@@ -173,7 +173,7 @@ export const LANDING_CONTENT = {
     priceItems: [
       'Hasta 5,000 páginas',
       'Las seis revisiones completas',
-      'Controles de calidad en cada reporte — revisión humana cuando algo parece dudoso',
+      'Controles de calidad en cada reporte — cada cita verificada de nuevo contra sus documentos',
       'Las dos partes del reporte, suyas para siempre',
       'Manejo seguro; se borra si usted lo pide',
     ],
@@ -208,11 +208,11 @@ export const LANDING_CONTENT = {
       ],
       [
         '¿Quién ve nuestros documentos?',
-        'Sus documentos están cifrados, solo los ve nuestro equipo de revisión, se guardan 12 meses y se borran antes si usted lo pide.',
+        'Sus documentos están cifrados, nunca se comparten fuera de Snot Nose Legal, se guardan 12 meses y se borran antes si usted lo pide.',
       ],
       [
         '¿Cuánto tiempo tarda?',
-        'El reloj de su revisión empieza cuando sus documentos están completos — le avisamos en ese momento y le escribimos por correo en cada paso.',
+        'El reloj de su revisión empieza cuando sus documentos están completos — le avisamos en ese momento, y la mayoría de los reportes están listos dentro de 2 horas. Le escribimos por correo en cada paso.',
       ],
       [
         'Is this available in English?',

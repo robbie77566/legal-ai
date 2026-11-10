@@ -39,7 +39,7 @@ export const REFUND_POLICY_CONTENT = {
       ],
       [
         'How to ask',
-        'Reply to any email from us, or write to admin@snotnoselegal.com. A person reads it and answers within two business days, usually sooner.',
+        'Reply to any email from us, or write to admin@snotnoselegal.com. We read it and answer within two business days, usually sooner.',
       ],
     ] as [string, string][],
     related: 'Related pages: the Terms of service, our Disclosures, and the Privacy page.',
@@ -77,7 +77,7 @@ export const REFUND_POLICY_CONTENT = {
       ],
       [
         'Cómo pedirlo',
-        'Responda a cualquier correo nuestro, o escriba a admin@snotnoselegal.com. Una persona lo lee y responde dentro de dos días hábiles, normalmente antes.',
+        'Responda a cualquier correo nuestro, o escriba a admin@snotnoselegal.com. Lo leemos y respondemos dentro de dos días hábiles, normalmente antes.',
       ],
     ] as [string, string][],
     related: 'Páginas relacionadas: los Términos del servicio, nuestras Divulgaciones y la página de Privacidad.',

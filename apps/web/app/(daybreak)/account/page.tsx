@@ -12,6 +12,7 @@ import { apiFetch, API_URL } from '@/lib/api'
 import FamilyNav, { firstName } from '../../../components/daybreak/FamilyNav'
 import PasswordField from '../../../components/daybreak/PasswordField'
 import NotASubstitute from '../../../components/NotASubstitute'
+import { formatReadyBy } from '@hg/case-lifecycle'
 import { trackerModel } from '@/lib/tracker'
 import { tpl, useContent, useLang } from '@/lib/i18n'
 import { BACKUP_EMAIL_CONTENT } from '@/lib/content/backup-email'
@@ -47,10 +48,10 @@ function primaryAction(r: Review): { href: string; label: string } {
 }
 function statusLine(r: Review): string {
   const m = trackerModel(r.stage)
-  if (m.overlayCopy) return m.overlayCopy.split(' — ')[0].replace(/\.$/, '') + (r.expectedReadyAt ? ` — expect your report by ${day(r.expectedReadyAt)}.` : '.')
+  if (m.overlayCopy) return m.overlayCopy.split(' — ')[0].replace(/\.$/, '') + (r.expectedReadyAt ? ` — expect your report by ${formatReadyBy(r.expectedReadyAt)}.` : '.')
   if (m.delivered || r.reportVersions.length) return 'Your report is ready.'
   if (m.activeIndex === -1) return `Waiting on your documents · ${r.documents} received.`
-  return `${m.stages[m.activeIndex]?.label ?? 'In progress'}${r.expectedReadyAt ? ` — expect your report by ${day(r.expectedReadyAt)}.` : '.'}`
+  return `${m.stages[m.activeIndex]?.label ?? 'In progress'}${r.expectedReadyAt ? ` — expect your report by ${formatReadyBy(r.expectedReadyAt)}.` : '.'}`
 }
 
 function Row({ label, value, action, testid }: { label: string; value: React.ReactNode; action?: React.ReactNode; testid?: string }) {
@@ -204,7 +205,7 @@ export default function AccountPage() {
             ))}
             {me.payments.length === 0 && <p className="p-4 text-db-muted">Nothing paid yet.</p>}
           </div>
-          <p className="mt-2 text-sm text-db-muted">Need a refund? Reply to any of our emails or use <Link href="/contact">Contact</Link> — a person reads it.</p>
+          <p className="mt-2 text-sm text-db-muted">Need a refund? Reply to any of our emails or use <Link href="/contact">Contact</Link> — we read every message.</p>
         </section>
 
         <section className="mt-8" data-testid="sharing">
@@ -234,7 +235,7 @@ export default function AccountPage() {
             <Row label="Your court documents, as you sent them" value="Download everything you uploaded" action={<a href={`${API_URL}/me/export`} data-testid="export-link">Download</a>} />
             <Row label="We delete your documents and reports. Payment records are kept as the law requires." value={me.deletionRequest ? <span data-testid="deletion-pending">Deletion requested {day(me.deletionRequest.createdAt)} — we&rsquo;ll confirm by email.</span> : 'Delete my account'}
               action={!me.deletionRequest && (editing === 'delete' ? (
-                <span className="flex gap-2"><button onClick={() => setEditing(null)} className="text-db-muted">Keep it</button><button data-testid="delete-confirm" disabled={busy} onClick={async () => { const d = await post('/me/delete-request', 'POST'); if (d) { setEditing(null); setNotice('Deletion requested. A person will confirm by email, usually within a day.'); await load() } }} style={{ color: 'var(--db-urgent)' }} className="font-semibold">Yes, request deletion</button></span>
+                <span className="flex gap-2"><button onClick={() => setEditing(null)} className="text-db-muted">Keep it</button><button data-testid="delete-confirm" disabled={busy} onClick={async () => { const d = await post('/me/delete-request', 'POST'); if (d) { setEditing(null); setNotice('Deletion requested. We will confirm by email, usually within a day.'); await load() } }} style={{ color: 'var(--db-urgent)' }} className="font-semibold">Yes, request deletion</button></span>
               ) : <button data-testid="delete-request" onClick={() => setEditing('delete')} style={{ color: 'var(--db-urgent)' }}>Request</button>)} />
           </div>
         </section>

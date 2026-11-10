@@ -18,7 +18,7 @@ export const HOME_CONTENT = {
     trustTitle: 'Why families trust the report',
     trust: [
       'Every finding quotes the record word-for-word — and every quote is re-checked against your documents before you ever see it.',
-      'Automated quality gates review every report; anything suspicious is held for human review before delivery.',
+      'Automated quality gates review every report; anything suspicious is held until it clears them.',
       'The method was evaluated against real Texas cases.',
       'If we find nothing, the report says so plainly. We don’t sell hope.',
     ],
@@ -50,7 +50,7 @@ export const HOME_CONTENT = {
     trustTitle: 'Por qué las familias confían en el informe',
     trust: [
       'Cada hallazgo cita el expediente palabra por palabra — y cada cita se verifica de nuevo contra sus documentos antes de que usted la vea.',
-      'Controles de calidad automáticos revisan cada informe; cualquier cosa sospechosa se detiene para revisión humana antes de entregarse.',
+      'Controles de calidad automáticos revisan cada informe; cualquier cosa sospechosa se detiene hasta que pasa los controles.',
       'El método fue evaluado con casos reales de Texas.',
       'Si no encontramos nada, el informe lo dice claramente. No vendemos esperanza.',
     ],

@@ -9,7 +9,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
-import { trackerModel, formatCivilDate } from '@/lib/tracker'
+import { formatReadyBy } from '@hg/case-lifecycle'
+import { trackerModel } from '@/lib/tracker'
 import { tpl, useContent } from '@/lib/i18n'
 import { INTERVIEW_CONTENT } from '@/lib/content/interview'
 import CaseNav from '../../../../components/daybreak/CaseNav'
@@ -77,7 +78,7 @@ export default function CaseHome() {
             ? `Waiting on your documents · ${found} of ${data.items.length} found`
             : model.delivered
               ? 'Your report is ready'
-              : `${model.stages[model.activeIndex]?.label ?? 'In progress'}${data.expectedReadyAt ? ` · expect your report by ${formatCivilDate(data.expectedReadyAt)}` : ''}`}
+              : `${model.stages[model.activeIndex]?.label ?? 'In progress'}${data.expectedReadyAt ? ` · expect your report by ${formatReadyBy(data.expectedReadyAt)}` : ''}`}
         </p>
         {data.rerun && <p className="mt-1 text-sm">This is a re-run — your earlier report still stands.</p>}
         {model.overlayCopy && <p className="mt-2 text-sm" style={{ color: 'var(--db-review)' }}>{model.overlayCopy}</p>}

@@ -124,10 +124,24 @@ describe('business-day calendar (ENG-9)', () => {
     expect(addBusinessDays('2026-09-04', 1)).toBe('2026-09-08')
   })
 
-  it('computes the 10-business-day SLA date across a holiday span', async () => {
-    const { addBusinessDays, LAUNCH_SLA_BUSINESS_DAYS } = await import('../calendar')
-    expect(LAUNCH_SLA_BUSINESS_DAYS).toBe(10)
+  it('computes the 10-business-day Record Desk SLA date across a holiday span', async () => {
+    const { addBusinessDays, RECORD_DESK_SLA_BUSINESS_DAYS } = await import('../calendar')
+    expect(RECORD_DESK_SLA_BUSINESS_DAYS).toBe(10)
     expect(addBusinessDays('2026-11-20', 10)).toBe('2026-12-07') // Thanksgiving inside
+  })
+
+  it('promises the family report two hours after the records are complete, clock time, any day', async () => {
+    const { LAUNCH_SLA_HOURS, expectedReadyAt, formatReadyBy } = await import('../calendar')
+    expect(LAUNCH_SLA_HOURS).toBe(2)
+    // A Saturday night before Labor Day: no business-day arithmetic, two hours flat.
+    const start = new Date('2026-09-05T23:30:00Z')
+    expect(expectedReadyAt(start).toISOString()).toBe('2026-09-06T01:30:00.000Z')
+    // Said in Central time; "today" judged in Central time too.
+    expect(formatReadyBy(expectedReadyAt(start), start)).toBe('8:30 PM Central today')
+    expect(formatReadyBy(new Date('2026-09-06T14:00:00Z'), start)).toBe('9:00 AM Central on September 6')
+    // A staff-set civil delay date (00:00Z) reads as a date, not as a time.
+    expect(formatReadyBy('2026-09-15T00:00:00.000Z', start)).toBe('September 15')
+    expect(formatReadyBy('not a date')).toBe('')
   })
 
   it('counts business days elapsed on the same calendar (the Record Desk SLA, workstream G)', async () => {
@@ -142,11 +156,11 @@ describe('business-day calendar (ENG-9)', () => {
     expect(businessDaysBetween('2026-08-31', addBusinessDays('2026-08-31', 7))).toBe(7)
   })
 
-  it('derives the civil start date in America/Chicago, not UTC', async () => {
-    const { expectedReadyDate } = await import('../calendar')
-    // 03:00 UTC on the 30th is still the 29th (a Saturday) in Chicago;
-    // 10 business days from Sat 8/29 must equal 10 from Mon 8/31's Friday-start? —
-    // assert the concrete date to pin the tz behavior:
-    expect(expectedReadyDate(new Date('2026-08-30T03:00:00Z'))).toBe('2026-09-14')
+  it('adds business days from an America/Chicago civil date, not UTC', async () => {
+    const { addBusinessDays } = await import('../calendar')
+    // 03:00 UTC on the 30th is still the 29th (a Saturday) in Chicago.
+    const civil = new Date('2026-08-30T03:00:00Z').toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
+    expect(civil).toBe('2026-08-29')
+    expect(addBusinessDays(civil, 10)).toBe('2026-09-14')
   })
 })

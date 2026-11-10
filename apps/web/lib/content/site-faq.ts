@@ -6,7 +6,7 @@ const EXTRA = {
   en: [
     [
       'How long does the review take?',
-      'Ten business days from the moment you tell us your records are complete — most arrive sooner. You can watch live progress the whole way, including which checks have finished.',
+      'Usually within 2 hours from the moment you tell us your records are complete. You can watch live progress the whole way, including which checks have finished.',
     ],
     [
       'What file formats can I send?',
@@ -32,7 +32,7 @@ const EXTRA = {
   es: [
     [
       '¿Cuánto tarda la revisión?',
-      'Diez días hábiles desde el momento en que nos dice que sus documentos están completos — la mayoría llega antes. Puede ver el progreso en vivo todo el tiempo, incluyendo qué verificaciones han terminado.',
+      'Normalmente dentro de 2 horas desde el momento en que nos dice que sus documentos están completos. Puede ver el progreso en vivo todo el tiempo, incluyendo qué verificaciones han terminado.',
     ],
     [
       '¿Qué formatos de archivo puedo enviar?',

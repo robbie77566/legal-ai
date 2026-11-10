@@ -16,7 +16,7 @@ export const HOW_CONTENT = {
       ],
       [
         '3 · We read every page',
-        'When you say your records are complete, the clock starts: our report is due within 10 business days. The system turns every page into searchable text — decades-old scans included — and counts pages honestly: duplicates never count against you.',
+        'When you say your records are complete, the clock starts: your report is usually ready within 2 hours. The system turns every page into searchable text — decades-old scans included — and counts pages honestly: duplicates never count against you.',
       ],
       [
         '4 · The analysis runs its checks',
@@ -24,7 +24,7 @@ export const HOW_CONTENT = {
       ],
       [
         '5 · Quality gates, then your report',
-        'Before anything reaches you, every quoted line is re-verified word-for-word against your actual documents — anything that doesn’t match exactly is thrown out. Automated quality gates review the whole report; anything suspicious is held for human review first, and we tell you if that happens. Then you get Part A in plain English and Part B built for an attorney, on the web and as a PDF.',
+        'Before anything reaches you, every quoted line is re-verified word-for-word against your actual documents — anything that doesn’t match exactly is thrown out. Automated quality gates review the whole report; anything suspicious is held until it clears them, and we tell you if that happens. Then you get Part A in plain English and Part B built for an attorney, on the web and as a PDF.',
       ],
     ],
     partsTitle: 'What arrives, exactly',
@@ -59,7 +59,7 @@ export const HOW_CONTENT = {
       ],
       [
         '3 · Leemos cada página',
-        'Cuando usted dice que sus documentos están completos, empieza el reloj: su informe se entrega dentro de 10 días hábiles. El sistema convierte cada página en texto que se puede buscar — incluso escaneos de hace décadas — y cuenta las páginas honestamente: los duplicados nunca cuentan en su contra.',
+        'Cuando usted dice que sus documentos están completos, empieza el reloj: su informe normalmente está listo dentro de 2 horas. El sistema convierte cada página en texto que se puede buscar — incluso escaneos de hace décadas — y cuenta las páginas honestamente: los duplicados nunca cuentan en su contra.',
       ],
       [
         '4 · El análisis hace sus verificaciones',
@@ -67,7 +67,7 @@ export const HOW_CONTENT = {
       ],
       [
         '5 · Controles de calidad, y luego su informe',
-        'Antes de que algo le llegue, cada línea citada se verifica de nuevo palabra por palabra contra sus documentos reales — cualquier cosa que no coincida exactamente se descarta. Controles de calidad automáticos revisan el informe completo; cualquier cosa sospechosa se detiene primero para revisión humana, y le avisamos si eso pasa. Después recibe la Parte A en lenguaje claro y la Parte B hecha para un abogado, en la web y en PDF.',
+        'Antes de que algo le llegue, cada línea citada se verifica de nuevo palabra por palabra contra sus documentos reales — cualquier cosa que no coincida exactamente se descarta. Controles de calidad automáticos revisan el informe completo; cualquier cosa sospechosa se detiene hasta que pasa las verificaciones, y le avisamos si eso pasa. Después recibe la Parte A en lenguaje claro y la Parte B hecha para un abogado, en la web y en PDF.',
       ],
     ],
     partsTitle: 'Qué recibe, exactamente',

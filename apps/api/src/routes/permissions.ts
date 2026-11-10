@@ -7,14 +7,14 @@ import { generateToken } from '@hg/auth';
 const INVITE_HOURS = 24;
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'an Ops administrator',
-  ATTORNEY: 'a quality reviewer',
+  ATTORNEY: 'a quality-gate operator',
   SUPPORT: 'a support team member',
   INVESTIGATOR: 'an investigator',
   VIEWER: 'a viewer',
 };
 const WHAT_YOU_SEE: Record<string, string> = {
   ADMIN: 'the whole operations console — cases, customers, money, holds, and system health.',
-  ATTORNEY: 'the quality-review queue, where reports are checked against the record and released to families.',
+  ATTORNEY: 'the quality-gate queue, where held reports are cleared or sent back and released to families.',
   SUPPORT: 'every case file (uploads, analysis, what the family received), customer accounts, and feedback. Refunds and deletions go to an admin as requests.',
   INVESTIGATOR: 'the case workspaces you are given access to.',
   VIEWER: 'the case workspaces you are given access to, read-only.',

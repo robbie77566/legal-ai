@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, appendCaseEvent, Prisma } from '@hg/database';
-import { familyOverage, newEvidenceFromFacts, checklistTemplate, checklistReadiness, customerView, expectedReadyDate, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, analysisTimeline, activityItem, runEventItem, CUSTOMER_ACTIVITY_TYPES, type CaseFacts, type CaseHold, type CaseStatus } from '@hg/case-lifecycle';
+import { familyOverage, newEvidenceFromFacts, checklistTemplate, checklistReadiness, customerView, expectedReadyAt, formatReadyBy, describeFacts, CaseFactsSchema, normalizeCivilDate, CIVIL_DATE_MESSAGE, caseLabel, caseRef, analysisTimeline, activityItem, runEventItem, CUSTOMER_ACTIVITY_TYPES, type CaseFacts, type CaseHold, type CaseStatus } from '@hg/case-lifecycle';
 import { verifyFindings, screensForLane } from '../services/analysis.service';
 import { pageMeter } from '../services/digitize.service';
 import { lastPulse } from '../services/progress-pulse.service';
@@ -509,12 +509,11 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         transition: 'DOCS_COMPLETE',
       });
 
-      // The 10-business-day promise (PO decision; ENG-9 shared calendar).
+      // The two-hour promise (founder decision 2026-11-10; LAUNCH_SLA_HOURS).
       const afterStamp = await tx.case.findUniqueOrThrow({ where: { id } });
-      const readyBy = expectedReadyDate(afterStamp.slaStartedAt ?? new Date());
       await tx.case.update({
         where: { id },
-        data: { expectedReadyAt: new Date(`${readyBy}T00:00:00Z`) },
+        data: { expectedReadyAt: expectedReadyAt(afterStamp.slaStartedAt ?? new Date()) },
       });
 
       const updated = await tx.case.findUniqueOrThrow({ where: { id } });
@@ -544,7 +543,7 @@ export default async function intakeRoutes(fastify: FastifyInstance) {
         const { sendRecordsComplete } = await import('@hg/email');
         const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
         void sendRecordsComplete(owner.email, {
-          expectedReadyBy: updated.expectedReadyAt?.toISOString().slice(0, 10),
+          expectedReadyBy: updated.expectedReadyAt ? formatReadyBy(updated.expectedReadyAt) : undefined,
           statusUrl: `${origin}/case/${id}/status`,
         });
       }

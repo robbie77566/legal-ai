@@ -14,7 +14,7 @@
  * UPL review 2026-10-23 (P1): the account is created PENDING. After the
  * sign-in the page says so — "your bar number is being checked by our
  * staff; matters open once it is verified" — and then lands on /counsel,
- * where the same banner shows until a person verifies the number.
+ * where the same banner shows until the number is verified.
  */
 import { useState } from 'react'
 import Link from 'next/link'
@@ -131,7 +131,7 @@ export default function CounselSignup() {
           <label className="block">
             <span className="text-sm font-semibold">Texas bar number</span>
             <input id="signup-bar" required maxLength={32} inputMode="numeric" value={form.barNumber} onChange={set('barNumber')} className={field} />
-            <span className="mt-1 block text-xs text-db-muted">Stored unverified; a person on our staff checks it against the State Bar roll. Matters, quotes and the counsel packet open once it is verified, and the first review is then free.</span>
+            <span className="mt-1 block text-xs text-db-muted">Stored unverified; it is checked against the State Bar roll. Matters, quotes and the counsel packet open once it is verified, and the first review is then free.</span>
           </label>
           <label className="block">
             <span className="text-sm font-semibold">Practice type</span>

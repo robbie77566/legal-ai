@@ -1,13 +1,22 @@
 /**
- * Business-day calendar (ENG-9): ONE calendar backs both the SLA promise and
- * the FR-5 deadline engine — two calendars would eventually disagree in
- * public. America/Chicago civil dates; US federal + Texas state holidays.
+ * Business-day calendar (ENG-9): ONE calendar backs the FR-5 deadline engine
+ * and the staff Record Desk SLA — two calendars would eventually disagree in
+ * public. The family turnaround promise is clock time (LAUNCH_SLA_HOURS). America/Chicago civil dates; US federal + Texas state holidays.
  *
  * Legal dates are civil DATE values (YYYY-MM-DD) — never derived by
  * timezone-converting a timestamp at render (§11a.4).
  */
 
-export const LAUNCH_SLA_BUSINESS_DAYS = 10 // PO decision, Aug 2026 (PRD §10.1 resolved)
+/**
+ * The family turnaround promise (founder decision 2026-11-10, replacing the
+ * 10-business-day launch SLA): the report is expected two hours after the
+ * family marks their records complete, clock time, every day. The promise
+ * holds only while delivery is automatic (AUTO_APPROVE=1, runbook).
+ */
+export const LAUNCH_SLA_HOURS = 2
+
+/** The staff SLA for Record Desk requests (persona_rollout_plan.md §5 G), in business days. */
+export const RECORD_DESK_SLA_BUSINESS_DAYS = 10
 
 // Fixed-date holidays observed (shifted to Monday/Friday when on a weekend)
 // plus floating federal holidays, 2026–2028. Extend annually; the FR-5
@@ -49,18 +58,37 @@ export function addBusinessDays(civilStart: string, days: number): string {
   return toCivil(d)
 }
 
-/** The customer's expected-ready civil date from an SLA-start timestamp. */
-export function expectedReadyDate(slaStartedAt: Date, n = LAUNCH_SLA_BUSINESS_DAYS): string {
-  // America/Chicago civil date of the start moment
-  const civil = slaStartedAt.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
-  return addBusinessDays(civil, n)
+/** The customer's expected-ready moment from an SLA-start timestamp: start plus the promised hours. */
+export function expectedReadyAt(slaStartedAt: Date, hours = LAUNCH_SLA_HOURS): Date {
+  return new Date(slaStartedAt.getTime() + hours * 3_600_000)
+}
+
+/**
+ * The expected-ready moment in the family's words, Central time (the only
+ * zone the product speaks): "3:45 PM Central today", or with the date when
+ * it is not today. Shared by the API (emails) and the web (status, case
+ * home, account) so the two never disagree.
+ */
+export function formatReadyBy(value: Date | string, now: Date = new Date()): string {
+  const d = typeof value === 'string' ? new Date(value) : value
+  if (Number.isNaN(d.getTime())) return ''
+  // A civil DATE stored at 00:00Z (a staff-set delay date) has no time of day.
+  if (d.toISOString().endsWith('T00:00:00.000Z')) {
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' })
+  }
+  const tz = 'America/Chicago'
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz })
+  const sameDay = d.toLocaleDateString('en-CA', { timeZone: tz }) === now.toLocaleDateString('en-CA', { timeZone: tz })
+  if (sameDay) return `${time} Central today`
+  const day = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: tz })
+  return `${time} Central on ${day}`
 }
 
 /**
  * Business days elapsed from one civil date to another (exclusive of the
  * start, inclusive of the end); 0 when `civilEnd` is not after `civilStart`.
  * The staff SLA for Record Desk requests (persona_rollout_plan.md §5 G) is
- * counted on the same calendar as the family promise.
+ * counted on this calendar.
  */
 export function businessDaysBetween(civilStart: string, civilEnd: string): number {
   let d = new Date(`${civilStart}T00:00:00Z`)

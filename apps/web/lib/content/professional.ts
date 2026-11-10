@@ -97,7 +97,7 @@ export const FOR_COUNSEL = {
   pricing: {
     heading: 'Pricing',
     lead: 'Priced by the length of the reporter\'s record, set by the page meter after upload and before anything runs. You see the price, then you decide.',
-    note: `Short and Standard sit below the family price of $${FAMILY_PRICE} because you are the reviewer: the packet is Part B first and quality review is sampled rather than full, with every citation still re-verified. Extended is $50 above it for the pages.`,
+    note: `Short and Standard sit below the family price of $${FAMILY_PRICE} because you are the lawyer reading it: the packet is Part B first, with every citation re-verified word-for-word against the record. Extended is $50 above it for the pages.`,
     long: `Records over 1,500 reporter's-record pages are quoted by hand, from $${LONG_FROM}, until the volume split ships.`,
     pack: `Five-record pack, any rung: ${PACK_DISCOUNT_PERCENT}% off, good for 12 months.`,
     firstFree: `First review free up to ${FIRST_FREE_MAX_PAGES} pages with a verified Texas bar number.`,
@@ -130,7 +130,7 @@ export const FOR_COUNSEL = {
   faq: {
     heading: 'Questions counsel ask',
     items: [
-      { q: 'Confidentiality and privilege', a: 'The record is held in your organisation\'s tenant, encrypted in transit and at rest, and read only by the pipeline and, on a sampled basis, our quality reviewer under a confidentiality obligation. The packet is prepared at your direction for your use; nothing is shared with a family unless you share it.' },
+      { q: 'Confidentiality and privilege', a: 'The record is held in your organisation\'s tenant, encrypted in transit and at rest, and read only by the pipeline and, when you ask for support, by our staff under a confidentiality obligation. The packet is prepared at your direction for your use; nothing is shared with a family unless you share it.' },
       { q: 'Conflicts', a: 'We hold no client relationship and represent no one, so no conflict arises from reading a record. A family who buys the family review is told to take it to counsel; we never route a family away from the lawyer they have.' },
       { q: 'Aged scans', a: 'Every page goes through OCR with a confidence score per volume. A volume that reads badly stops the run before anything is charged, and you choose: a better scan, or proceed with the pages that read.' },
       { q: 'Page caps', a: `The ladder covers up to 1,500 reporter's-record pages. Longer records are quoted by hand from $${LONG_FROM} until the volume split ships in the spring. Clerk's record and exhibits are metered separately and do not move the rung.` },
@@ -168,7 +168,7 @@ export const FOR_OFFICES = {
 export const FOR_INVESTIGATORS = {
   hero: {
     heading: 'The chronology, from the record, as a service.',
-    sub: 'Membership is free inside a firm or an office. The timeline itself is delivered by the Record Desk — a person reads the volumes and builds it — until the engine reads institutional records.',
+    sub: 'Membership is free inside a firm or an office. The timeline itself is delivered by the Record Desk, which reads the volumes and builds it on request, until the engine reads institutional records.',
   },
   membership: {
     heading: 'Free membership',

@@ -55,7 +55,7 @@ describe('brand site (P2)', () => {
     render(<HowItWorks />)
     expect(screen.getByText(/1 · The free check/)).toBeInTheDocument()
     expect(screen.getByText(/5 · Quality gates/)).toBeInTheDocument()
-    expect(screen.getByText(/10 business days/)).toBeInTheDocument()
+    expect(screen.getByText(/within 2 hours/)).toBeInTheDocument()
     expect(screen.getByText(/Part A — for your family/)).toBeInTheDocument()
     expect(screen.getByText(/Part B — for the lawyer/)).toBeInTheDocument()
   })

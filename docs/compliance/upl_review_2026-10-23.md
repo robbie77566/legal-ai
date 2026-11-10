@@ -70,4 +70,8 @@ All twelve recommendations are implemented on `main` (branches `ws/u1-statement-
 | 9 — 47.2(e) block and W.D. Tex. certificate | Withheld; a third-person tool statement prints instead | Same |
 | 11 — 11.07 posture and §2254 exhaustion as conclusions | Inputs and rule only; exhaustion section removed; labels "shown / not shown / unclear" | `packages/case-lifecycle/trap/*` after counsel's answer |
 
+## Turnaround and review copy — 2026-11-10
+
+Founder decision: the family promise is a report within 2 hours of records-complete (`LAUNCH_SLA_HOURS`, `expectedReadyAt` is a timestamp), delivery is automatic (`AUTO_APPROVE=1` in both blueprints), and no customer-facing text describes human review: `QUALITY_CHECKED` names only the automated gates, the hold email and tracker say "held until it clears the gates", the privacy sentences say records are "never shared outside Snot Nose Legal" rather than "seen by our review team", and the support lines say "we read every message". `apps/web/tests/unit/TurnaroundPromise.test.ts` fails when a ten-day, 24-hour, human-review or reviewer phrase returns in content, family pages, components, emails, PDFs or the brand constants. This narrows E4/F3 further (no reviewer is described at all); it does not change the statutory statement, the describe-never-advise posture or the lawyer gates, and counsel's sign-off remains the only thing that can make the product's UPL position final.
+
 Still human-only: counsel's review of the statement, the Terms and Refund Policy drafts, the disclosures and privacy pages, the tool statement and the TRAP vectors; the GTM document outside the repository.

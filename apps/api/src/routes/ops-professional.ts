@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '@hg/database';
-import { businessDaysBetween, LAUNCH_SLA_BUSINESS_DAYS } from '@hg/case-lifecycle';
+import { businessDaysBetween, RECORD_DESK_SLA_BUSINESS_DAYS } from '@hg/case-lifecycle';
 import { AuditService, LogAction } from '../services/audit.service';
 
 /**
@@ -36,7 +36,7 @@ const civilOf = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/
 /** Record Desk SLA: 10 business days from the request (plan §7 "Observability"). */
 export function investigationSla(createdAt: Date, now = new Date()) {
   const businessDaysOpen = businessDaysBetween(civilOf(createdAt), todayCivil(now));
-  return { businessDaysOpen, pastSla: businessDaysOpen > LAUNCH_SLA_BUSINESS_DAYS };
+  return { businessDaysOpen, pastSla: businessDaysOpen > RECORD_DESK_SLA_BUSINESS_DAYS };
 }
 
 /** "Near zero" for an organisation allowance: this many records or fewer left of a grant. */

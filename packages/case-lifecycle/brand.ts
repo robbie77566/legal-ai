@@ -50,14 +50,15 @@ export const STATUTORY_WORDS = {
 } as const
 
 /**
- * How a report is checked, said truthfully (UPL review 2026-10-23, rec 2):
- * no "trained legal reviewer", no approval by anyone held out as a lawyer.
+ * How a report is checked, said truthfully (UPL review 2026-10-23, rec 2;
+ * founder decision 2026-11-10): automated gates only — no reviewer of any
+ * kind is described, and no approval by anyone held out as a lawyer.
  * The tracker, the emails, the report footer and the share-link notice all
  * use this one sentence.
  */
 export const QUALITY_CHECKED = {
-  en: 'Checked by automated quality gates and by our review staff when anything looks off.',
-  es: 'Revisado por controles de calidad automáticos y por nuestro personal de revisión cuando algo parece dudoso.',
+  en: 'Checked by automated quality gates: every quoted line is re-verified word-for-word against your documents.',
+  es: 'Revisado por controles de calidad automáticos: cada línea citada se verifica de nuevo palabra por palabra contra sus documentos.',
 } as const
 
 /** The AI label for the report and the PDF covers (landing_page_spec.md §5 "AI disclosure"). */

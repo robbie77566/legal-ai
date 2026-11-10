@@ -35,7 +35,7 @@ export const TERMS_CONTENT = {
       ],
       [
         'Your documents and your data',
-        'You confirm you are entitled to possess the records you upload. Your records are encrypted, seen only by our review staff, kept 12 months, and deleted sooner on request. You can download everything you uploaded at any time. The details are in our Privacy page.',
+        'You confirm you are entitled to possess the records you upload. Your records are encrypted, never shared outside Snot Nose Legal, kept 12 months, and deleted sooner on request. You can download everything you uploaded at any time. The details are in our Privacy page.',
       ],
       [
         'Sharing the report',
@@ -47,7 +47,7 @@ export const TERMS_CONTENT = {
       ],
       [
         'Questions and disputes',
-        'Write to admin@snotnoselegal.com first — a person reads every message, and most things are sorted out there. Where these terms fall silent, the law of Texas applies. The English version of these terms governs.',
+        'Write to admin@snotnoselegal.com first — we read every message, and most things are sorted out there. Where these terms fall silent, the law of Texas applies. The English version of these terms governs.',
       ],
     ] as [string, string][],
     related: 'Related pages: the Refund policy, our Disclosures, and the Privacy page.',
@@ -81,7 +81,7 @@ export const TERMS_CONTENT = {
       ],
       [
         'Sus documentos y sus datos',
-        'Usted confirma que tiene derecho a poseer los documentos que sube. Sus documentos están cifrados, solo los ve nuestro personal de revisión, se guardan 12 meses y se borran antes si usted lo pide. Puede descargar todo lo que subió en cualquier momento. Los detalles están en nuestra página de Privacidad.',
+        'Usted confirma que tiene derecho a poseer los documentos que sube. Sus documentos están cifrados, nunca se comparten fuera de Snot Nose Legal, se guardan 12 meses y se borran antes si usted lo pide. Puede descargar todo lo que subió en cualquier momento. Los detalles están en nuestra página de Privacidad.',
       ],
       [
         'Compartir el informe',
@@ -93,7 +93,7 @@ export const TERMS_CONTENT = {
       ],
       [
         'Preguntas y disputas',
-        'Escriba primero a admin@snotnoselegal.com — una persona lee cada mensaje, y la mayoría de las cosas se resuelven ahí. Donde estos términos no digan nada, se aplica la ley de Texas. La versión en inglés de estos términos es la que rige.',
+        'Escriba primero a admin@snotnoselegal.com — leemos cada mensaje, y la mayoría de las cosas se resuelven ahí. Donde estos términos no digan nada, se aplica la ley de Texas. La versión en inglés de estos términos es la que rige.',
       ],
     ] as [string, string][],
     related: 'Páginas relacionadas: la Política de reembolso, nuestras Divulgaciones y la página de Privacidad.',

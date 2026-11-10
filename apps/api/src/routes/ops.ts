@@ -9,7 +9,7 @@ import {
 import {
   NOTE_CHANNELS, REQUEST_TYPES, addSupportNote, openRequest, listRequests, decideRequest,
 } from '../services/staff-requests.service';
-import { caseLabel, caseRef, expectedReadyDate } from '@hg/case-lifecycle';
+import { caseLabel, caseRef, expectedReadyAt } from '@hg/case-lifecycle';
 import { listLedgers, scoreCaseRun } from '../services/eval-gate.service';
 import { startEvalRuns, listEvalRuns, getEvalRun, evalGateStatus, EvalRunConflictError } from '../services/eval-runs.service';
 import { requireEvalGateAccess } from '../plugins/eval-gate-token';
@@ -854,8 +854,8 @@ export default async function opsRoutes(fastify: FastifyInstance) {
         caseId: id, tenantId: kase.tenantId, type: 'stage.entered', payload: { status: 'DOCS_COMPLETE' },
         actor: request.auth.userId, transition: 'DOCS_COMPLETE',
       });
-      // An honest date for the tracker: this run starts now.
-      await tx.case.update({ where: { id }, data: { expectedReadyAt: new Date(`${expectedReadyDate(new Date())}T00:00:00Z`) } });
+      // An honest time for the tracker: this run starts now.
+      await tx.case.update({ where: { id }, data: { expectedReadyAt: expectedReadyAt(new Date()) } });
     });
     await q.enqueueAnalysis(id, kase.tenantId);
     await AuditService.log({

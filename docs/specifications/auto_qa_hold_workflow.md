@@ -42,7 +42,7 @@ Human-in-the-loop review ops (support-queue and content-moderation practice) con
 1. **Email storm on repeated holds**: a re-run that fails again must not re-email — the hold email sends only if no prior `auto_hold` audit row exists for the case (episode = case-level, reset implicitly on delivery).
 2. **Client hold-detection**: rejected extra API surface; the copy trick in §3 (auto-delivery makes `quality_review` synonymous with held) keeps the tracker contract unchanged.
 3. **Re-run endpoint semantics**: reuses the exact QA-reject(quality)→re-enqueue loop scripts use — one code path for re-runs everywhere; idempotent job id; 409 on non-QA_REVIEW cases.
-4. **24h promise vs. the 10-business-day SLA**: the 24h is incremental customer copy, not a new stored SLA; `expectedReadyAt` is untouched. If holds ever routinely bust 24h, that's an ops fact the queue makes visible — fix the ops, not the copy.
+4. **The two-hour promise (2026-11-10)**: `expectedReadyAt` is records-complete plus `LAUNCH_SLA_HOURS` (2), clock time. A hold makes no new time promise: the hold email and the tracker say the report is held until it clears the gates and that we email the moment it is released; they name no person. If holds routinely bust the two hours, that's an ops fact the queue makes visible — fix the ops, not the copy.
 5. **Who watches the watcher**: `[auto-qa] … HELD` is the stable log signature; runbook alert list gains it (log-based alert → founder's phone).
 6. **Tracker copy test drift**: the existing unit test pins the reviewer-role copy; updated in the same change.
 
