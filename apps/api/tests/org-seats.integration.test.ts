@@ -140,6 +140,14 @@ describe('I3 — seats', () => {
     expect((await accept(investigatorToken, { name: 'Sam Ortiz', password: PASSWORD })).statusCode).toBe(400);
     expect((await accept('0'.repeat(64), { name: 'X', password: PASSWORD })).statusCode).toBe(400);
 
+    // The admin address hears about the new seat (2026-11-17); the token re-use above sent nothing.
+    await new Promise((r) => setTimeout(r, 50));
+    const notice = sent.find((m) => m.subject.includes('New account'));
+    expect(notice?.to).toBe('admin@snotnoselegal.com');
+    expect(notice?.subject).toBe('New account: Sam Ortiz (invited)');
+    expect(notice?.text).toMatch(/Professional seat — accepted an invitation as investigator/);
+    expect(notice?.text).toContain(`/ops/accounts/${investigatorId}`);
+
     investigatorCookie = await cookieFor(investigatorId, tenantId);
     const me = await fastify.inject({ method: 'GET', url: '/counsel/me', headers: { cookie: investigatorCookie } });
     expect(me.statusCode).toBe(200);

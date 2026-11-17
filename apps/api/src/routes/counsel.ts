@@ -134,6 +134,12 @@ export default async function counselRoutes(fastify: FastifyInstance) {
       details: { op: 'counsel_signup', organisationId: organisation.id, organisationKind, practiceType, barState },
     });
 
+    const { notifyAdminNewAccount } = await import('../services/account-notice.service');
+    notifyAdminNewAccount({
+      userId: user.id, kind: 'professional', name: user.name, email: user.email,
+      organisationName: organisation.name, organisationKind, createdAt: user.createdAt,
+    });
+
     return { ok: true, userId: user.id, organisationId: organisation.id, barVerificationStatus: user.barVerificationStatus };
   });
 

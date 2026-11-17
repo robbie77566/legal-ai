@@ -243,6 +243,14 @@ export async function invitationAcceptRoutes(fastify: FastifyInstance) {
       tenantId: org.tenantId, caseId: `account:${userId}`, action: LogAction.ACCOUNT_SIGNUP, userId,
       details: { op: 'invitation_accepted', organisationId: org.id, invitationId: invitation.id, role: invitation.role, created },
     });
+
+    if (created) {
+      const { notifyAdminNewAccount } = await import('../services/account-notice.service');
+      notifyAdminNewAccount({
+        userId, kind: 'invited', name: body.name, email: invitation.email,
+        organisationName: org.name, organisationKind: org.kind, role: invitation.role,
+      });
+    }
     return { ok: true, userId, organisationId: org.id, organisationName: org.name, role: invitation.role, created, email: invitation.email };
   });
 }

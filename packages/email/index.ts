@@ -540,6 +540,50 @@ When the office is ready, create its organisation and start the pilot from the c
   });
 }
 
+export type NewAccountKind = 'family' | 'professional' | 'invited';
+
+/**
+ * Admin notice: someone created an account on the website (2026-11-17).
+ * Sent to the operator address (BRAND.email) for every self-service path —
+ * a family buying a review, a professional signing up, a seat accepting an
+ * invitation. The summary is what the account page in the console shows;
+ * staff invites are not announced because an admin made them.
+ */
+export function sendNewAccountNotice(
+  to: string,
+  opts: {
+    kind: NewAccountKind;
+    name?: string | null;
+    email: string;
+    organisationName?: string | null;
+    organisationKind?: string | null;
+    role?: string | null;
+    createdAt: Date;
+    accountUrl: string;
+  }
+) {
+  const name = (opts.name ?? '').trim() || 'No name given';
+  const kindLine: Record<NewAccountKind, string> = {
+    family: 'Family account — created on the buy page before paying for a review.',
+    professional: `Professional account — signed up on the counsel page${opts.organisationKind ? ` as a ${opts.organisationKind.toLowerCase().replace('_', ' ')}` : ''}.`,
+    invited: `Professional seat — accepted an invitation${opts.role ? ` as ${opts.role.toLowerCase()}` : ''}.`,
+  };
+  const when = opts.createdAt.toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' });
+  return send({
+    to,
+    subject: `New account: ${name} (${opts.kind})`,
+    text: `A new account was just created on ${BRAND.site}.
+
+Name: ${name}
+Email: ${opts.email}
+Kind: ${kindLine[opts.kind]}${opts.organisationName ? `
+Organisation: ${opts.organisationName}` : ''}
+Created: ${when} Central
+
+Open the account in the console: ${opts.accountUrl}`,
+  });
+}
+
 /**
  * The password changed (2026-10-24): sent to the primary address and, once
  * verified, the backup — the backup exists so a lost primary still hears.

@@ -59,14 +59,17 @@ export default async function checkoutRoutes(fastify: FastifyInstance) {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    await prisma.$transaction(async (tx) => {
+    const user = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: { name: name ? `${name} (family)` : email },
       });
-      await tx.user.create({
+      return tx.user.create({
         data: { email, name: name ?? '', passwordHash, role: 'CLIENT', tenantId: tenant.id },
       });
     });
+
+    const { notifyAdminNewAccount } = await import('../services/account-notice.service');
+    notifyAdminNewAccount({ userId: user.id, kind: 'family', name: user.name, email: user.email, createdAt: user.createdAt });
 
     return { ok: true };
   });

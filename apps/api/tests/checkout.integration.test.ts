@@ -38,7 +38,10 @@ afterAll(async () => {
 });
 
 describe('POST /buy/account', () => {
-  it('creates a CLIENT user in a single-member tenant', async () => {
+  it('creates a CLIENT user in a single-member tenant and tells the admin address', async () => {
+    const { __setEmailProviderForTests } = await import('@hg/email');
+    const sent: { to: string; subject: string; text: string }[] = [];
+    __setEmailProviderForTests({ send: async (m) => { sent.push(m); return { delivered: true }; } });
     const email = `${run}_new@example.com`;
     const res = await fastify.inject({
       method: 'POST',
@@ -52,6 +55,16 @@ describe('POST /buy/account', () => {
     expect(user.passwordHash).toBeTruthy();
     const members = await prisma.user.count({ where: { tenantId: user.tenantId } });
     expect(members).toBe(1);
+
+    // The notice is fire-and-forget; give the event loop a turn.
+    await new Promise((r) => setTimeout(r, 50));
+    __setEmailProviderForTests(undefined);
+    const notice = sent.find((m) => m.subject.includes('New account'));
+    expect(notice?.to).toBe('admin@snotnoselegal.com');
+    expect(notice?.subject).toBe('New account: Maria (family)');
+    expect(notice?.text).toContain(`Email: ${email}`);
+    expect(notice?.text).toContain('Family account');
+    expect(notice?.text).toContain(`/ops/accounts/${user.id}`);
 
     // cleanup
     await prisma.user.delete({ where: { id: user.id } });
